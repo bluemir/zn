@@ -1,0 +1,31 @@
+# Tasks
+
+- [ ] vim 대비 무엇을 개선하는지 정의한다. 키 동작 차원에서 vim 과 무엇이 다른지가 없으면 키맵을 짤 수 없다. ADR 로 남긴다
+- [ ] mode 전환 규칙을 정한다. normal/insert/visual 전환 키, visual 의 종류(char/line/block), 그리고 vim 의 command-line mode(`:`) 를 두지 않는 것이 의도인지(fzf·command palette 가 그 자리를 대신하는지)
+- [ ] `config 는 compile 됨` 의 실제 형태를 정하고 ADR 로 남긴다. 키맵을 Go 코드 어디에 어떤 타입으로 쓸지가 곧 코드 구조다. 근거는 "철저히 개인용이라 런타임 설정이 불필요" 와 "배포가 단일 바이너리 하나"
+- [ ] 줄바꿈(LF/CRLF) 과 tab 폭 처리 방식을 정한다
+- [ ] backing buffer 하나를 읽고 각 줄을 subslice(`[][]byte`) 로 두는 buffer 를 구현한다 (ADR-0001)
+- [ ] 한글 폭 계산과 grapheme cluster 처리를 구현한다. rune 개수, 표시 폭, 커서 칸이 모두 다르다. 이 프로젝트의 실질적인 난관이다
+- [ ] 화면에 보이는 줄만 rune/폭 계산해서 렌더한다. `hello world` 를 그리는 현재 `viewEditor` 를 대체한다
+- [ ] 커서 이동(`hjkl`) 과 화면 스크롤을 구현한다
+- [ ] 줄 갈아끼우기 방식으로 편집을 구현한다. backing buffer 에는 쓰지 않는다 (ADR-0001)
+- [ ] undo 스택을 구현한다. 줄 범위 slice 참조를 저장하고, 같은 줄 연속 편집은 커서가 줄을 벗어날 때 하나의 항목으로 닫는다 (ADR-0001)
+- [ ] CLI 인자로 받은 파일을 실제로 연다. 현재는 인자를 파싱만 하고 열지 않는다
+- [ ] 파일 저장과 미저장 상태 관리를 구현한다. 미저장 상태에서 종료할 때의 동작을 `QuitConfirm` 과 연결한다
+- [ ] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다
+- [ ] 상대 줄번호와 절대 줄번호 동시 표시의 렌더 형태를 정하고 구현한다
+- [ ] statusBar 를 구현한다. 2줄에 각각 무엇이 들어가는지 정한다
+- [ ] sidebar(filetree) 를 구현한다. 너비와 토글 여부를 정한다
+- [ ] tab 기능을 구현한다. 여러 파일을 열었을 때의 전환 키를 정한다
+- [ ] fzf 와 command palette 를 구현한다. file matching 에서 `>` 로 command 로 넘어가는 동작과 `!` 의 shell command 매핑 포함
+- [ ] 언어별 지원(golang, markdown, html, css, js) 을 넣는다
+- [ ] mouse 지원을 넣는다
+- [ ] 키 하나로 현재 화면을 cat 과 동일한 형태로 표시하는 기능을 넣는다 (복사·붙여넣기용)
+- [ ] home, end, page up, page down 의 일관적인 동작을 정의하고 구현한다
+- [ ] README 에 기술 스택, 빌드·실행 방법, 현재 구현 상태를 넣는다. feature 목록이 구현된 것인지 목표인지 구분되지 않아 초기 단계임이 전달되지 않는다
+- [ ] `docs/spec.md` 를 보강한다. sidebar/statusBar 수치, mode 상세, 그리고 저장소 구조(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
+- [ ] `scripts/makefile.d/dev-run.mk` 의 `run`·`dev-run` 을 에디터에 맞게 고친다. web server scaffolding 이 남아 `$< -vvv server --config runtime/config.hjson` 을 실행하며, `server` 서브커맨드가 없어 `unknown long flag '--config'` 로 실패한다
+- [ ] `scripts/makefile.d/build.mk` 의 `gen` 타겟이 없는 `assets/src/js/index.js` 에 의존해 실패하는 것을 고친다. `prod` 와 `install` 이 이것 때문에 막혀 있다
+- [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다
+- [ ] (나중에) `pubsub`·`workers`·`datastruct`·`util` 을 별도 저장소로 뺄지 정한다. 에디터와 무관한 개인 공통 라이브러리라 분리하면 `go.mod` 정리와 `httpproxy` 의 gin 의존성이 같이 해결된다
+- [ ] `go.mod` 에서 쓰이지 않는 의존성을 정리한다. grpc, swaggo, prometheus, sqlite, sessions, hjson, expr-lang, validator, mongo-driver, gin-contrib, protobuf, gorm 은 import 되는 곳이 없다(gorm 은 struct tag 문자열로만 등장). `tool` 지시자의 esbuild·protoc-gen-\*·swag 도 같이 본다
