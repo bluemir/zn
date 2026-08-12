@@ -10,14 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// barOf 는 화면 아래 statusBar 두 줄을 색을 뺀 글자로 돌려준다.
+// barOf 는 statusBar 두 줄을 색을 뺀 글자로 돌려준다.
 // 색 자체를 보는 것은 rawBarOf 로 한다.
+//
+// statusBar 는 편집 영역 아래에만 있으므로 sidebar 가 열려 있으면 왼쪽 칸을 떼어낸다.
 func barOf(t *testing.T, m tea.Model) []string {
 	t.Helper()
 
+	left := 0
+	if e, ok := m.(interface{ sidebarLeft() int }); ok {
+		left = e.sidebarLeft()
+	}
+
 	plain := make([]string, 0, statusBarHeight)
 	for _, row := range rawBarOf(t, m) {
-		plain = append(plain, ansi.Strip(row))
+		line := []byte(ansi.Strip(row))
+		plain = append(plain, string(line[offsetAtScreenCol(line, left):]))
 	}
 
 	return plain

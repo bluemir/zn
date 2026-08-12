@@ -2,17 +2,22 @@
 
 ## UI 구성
 
-- 상단 tabline
+- 편집 영역 위 tabline
 	- 열린 파일 목록
 	- 1줄로 표시. 파일이 하나여도 그린다
+	- 편집 영역 위에만 그린다. sidebar 가 열려 있으면 그만큼 짧다
 - 좌측 sidebar
-	- filetree
-	- 32칸 고정. tabline 아래, statusBar 위를 차지한다
+	- filetree. 기본으로 열려 있다
+	- 32칸 고정. 화면 맨 윗줄부터 statusBar 앞줄까지를 차지한다
 	- 편집 영역이 20칸 아래로 떨어지면 켜져 있어도 그리지 않는다
 - 하단 statusBar
 	- mode 표시
 	- 2줄로 표시
 	- 첫 줄만 반전. 둘째 줄은 명령줄이라 배경을 그대로 둔다(ADR-0004)
+	- 줄은 sidebar 아래까지 화면 끝에서 끝까지 이어지고, 글자만 편집 영역 아래에서 시작한다
+
+sidebar 가 화면 위쪽을 세로로 가르고 tabline 과 편집 내용이 그 오른쪽에 쌓인다.
+맨 아래 statusBar 두 줄만 그 가름을 지나 화면을 가로지른다.
 
 ### tabline
 
@@ -30,19 +35,29 @@ tab 하나는 `번호 파일이름` 이고, 이름은 경로가 아니라 파일
 └─ 활성 ────┘└─ 여기부터 줄 끝까지 반전 ───┘
 ```
 
+tabline 은 편집 영역 위에만 있다. sidebar 위에는 걸치지 않고, sidebar 가 열려 있으면
+편집 영역 너비만큼만 그려진다(ADR-0005). tab 목록은 sidebar 가 아니라 지금 보고 있는 파일에
+딸린 것이기 때문이다. statusBar 는 글자 시작 위치만 그것에 맞추고 줄은 끊지 않는다.
+
 파일별 커서 위치와 스크롤은 tab 을 오가도 그대로 남는다.
 
 ### sidebar (filetree)
 
-`:tree` 로 여닫는다. cwd 가 뿌리이고, 디렉터리를 펼치면 그 자리에서 들여쓰기로 벌어진다.
+**기본으로 열려 있다.** `:tree` 로 여닫는다. cwd 가 뿌리이고, 디렉터리를 펼치면 그 자리에서
+들여쓰기로 벌어진다. cwd 를 읽지 못하면 트리 없이 연다.
 `.git` 은 어느 깊이에서든 감추고 나머지 숨김 파일은 보인다.
 
+sidebar 는 화면 맨 윗줄부터 statusBar 앞줄까지다. tabline 은 그 오른쪽, 편집 영역 위에만 있다.
+statusBar 는 sidebar 아래를 지나 화면을 가로지르고 글자만 편집 영역 아래에서 시작한다.
+
 ```
-▾ be/                         │ package core
-  ▸ docs/                     │
-  ▾ internal/                 │ func main() {
-      main.go                 │ }
-    README.md                 │
+▾ be/                         │ 1 main.go
+  ▸ docs/                     │package main
+  ▾ internal/                 │
+      main.go                 │func main() {
+    README.md                 │}
+                                NORMAL  main.go
+                                1:1  (5 줄)
 └──────────── 32칸 ────────────┘└─ 나머지가 편집 영역 ─┘
 ```
 

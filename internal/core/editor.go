@@ -163,7 +163,7 @@ func (e *editor) toggleTree() error {
 		}
 
 		e.sidebar = openSidebar(root)
-		e.sidebar.scrollTo(e.textHeight())
+		e.sidebar.scrollTo(e.sidebarHeight())
 	}
 
 	e.buffer().scrollTo(e.textWidth(), e.textHeight())
@@ -171,16 +171,27 @@ func (e *editor) toggleTree() error {
 	return nil
 }
 
-// tablineHeight 는 화면 위 tabline 이 차지하는 줄 수다(docs/spec.md).
+// tablineHeight 는 편집 영역 위 tabline 이 차지하는 줄 수다(docs/spec.md).
 const tablineHeight = 1
 
 // statusBarHeight 는 화면 아래 statusBar 가 차지하는 줄 수다(docs/spec.md).
 const statusBarHeight = 2
 
 // textHeight 는 편집 내용을 그릴 수 있는 높이다.
-// tabline 이 화면 위를, statusBar 가 화면 아래를 차지한다.
+// tabline 이 편집 영역 위를, statusBar 가 그 아래를 차지한다.
 func (e editor) textHeight() int {
 	return max(0, e.height-tablineHeight-statusBarHeight)
+}
+
+// sidebarHeight 는 sidebar 가 차지하는 높이다.
+//
+// tabline 은 편집 영역 위에만 있으므로 sidebar 가 그 옆줄까지 올라간다.
+// 아래로는 statusBar 앞에서 멈춘다 — statusBar 는 화면 끝까지 이어지는 한 줄이고
+// 글자만 편집 영역 아래에서 시작한다(ADR-0005).
+//
+// 트리 이동과 스크롤은 편집 영역이 아니라 이 높이를 기준으로 세야 맨 윗줄이 잘리지 않는다.
+func (e editor) sidebarHeight() int {
+	return tablineHeight + e.textHeight()
 }
 
 // sidebarVisible 은 sidebar 가 실제로 그려지는지다.
@@ -205,8 +216,8 @@ func (e editor) sidebarLeft() int {
 
 // textWidth 는 편집 내용을 그릴 수 있는 너비다. 줄을 어디서 접을지가 이 값으로 정해진다.
 //
-// e.width 는 터미널 너비이고 tabline·statusBar 처럼 화면 끝까지 칠하는 것만 그것을 쓴다.
-// sidebar 가 없으면 둘이 같은 값이라 지금까지 구분할 필요가 없었다.
+// tabline 과 statusBar 의 글자도 이 너비 안에 든다. e.width 는 statusBar 처럼
+// 화면 끝까지 칠하는 것과 sidebar 를 그릴지 말지를 정할 때만 쓴다.
 func (e editor) textWidth() int {
 	return max(0, e.width-e.sidebarLeft())
 }
@@ -229,9 +240,7 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 		textRows = append(textRows, expandTabs(buf.lines[row.line][row.start:row.end]))
 	}
 
-	rows := []string{e.tabline()}
-	rows = append(rows, e.textArea(textRows, height)...)
-	rows = append(rows, e.statusBar(mode, bottom)...)
+	rows := e.screenRows(textRows, mode, bottom)
 
 	view := tea.NewView(strings.Join(rows, "\n"))
 
@@ -246,55 +255,63 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 	return view
 }
 
-// textArea 는 tabline 과 statusBar 사이를 채우는 행들이다. 언제나 height 개다.
+// screenRows 는 화면 전체 행이다.
 //
-// sidebar 가 있으면 행마다 sidebar 와 편집 내용을 맞물려야 한다. 앞에 붙이기만 하면
+// tabline 은 편집 영역 위에만 그린다. sidebar 위에 걸치면 tab 목록이 지금 보고 있는 파일이
+// 아니라 트리에 딸린 것처럼 읽힌다. 그래서 sidebar 가 화면 맨 윗줄부터 시작하고
+// tabline 은 그 오른쪽에서 편집 영역 너비만큼만 그려진다.
+//
+// statusBar 는 다르다. 줄 자체는 화면 끝까지 이어지고 글자만 편집 영역 아래에서 시작한다.
+// sidebar 는 그 앞에서 멈춘다(ADR-0005).
+//
+// sidebar 가 있으면 행마다 sidebar 와 오른쪽을 맞물려야 한다. 앞에 붙이기만 하면
 // 파일이 짧을 때 채움 행에 sidebar 가 안 실려서 트리가 파일 길이만큼만 그려진다.
 //
 // sidebar 가 없으면 지금까지와 똑같이 그린다. 채움 행은 빈 문자열이고 본문 뒤에
 // 빈 칸을 붙이지 않는다. 그래야 화면 문자열이 예전과 한 글자도 다르지 않다.
-func (e editor) textArea(textRows []string, height int) []string {
-	if !e.sidebarVisible() {
-		rows := make([]string, 0, height)
-		rows = append(rows, textRows...)
-		for len(rows) < height {
-			rows = append(rows, "")
-		}
+func (e editor) screenRows(textRows []string, mode, bottom string) []string {
+	height := e.sidebarHeight()
 
-		return rows
+	// sidebar 오른쪽에 쌓이는 것들이다. 맨 위가 tabline 이고 그 아래가 편집 내용이다.
+	right := make([]string, 0, height)
+	right = append(right, e.tabline(e.textWidth()))
+	right = append(right, textRows...)
+	for len(right) < height {
+		right = append(right, "")
 	}
 
-	cells := e.sidebar.cells(height)
+	rows := right
+	if e.sidebarVisible() {
+		cells := e.sidebar.cells(height)
 
-	rows := make([]string, 0, height)
-	for i := range height {
-		text := ""
-		if i < len(textRows) {
-			text = textRows[i]
+		rows = make([]string, 0, height)
+		for i := range height {
+			rows = append(rows, cells[i]+right[i])
 		}
-		rows = append(rows, cells[i]+text)
 	}
 
-	return rows
+	return append(rows, e.statusBar(mode, bottom)...)
 }
 
 // reverse 는 편집 내용과 구분되는 색이다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다.
 // 밝은 테마든 어두운 테마든 알아서 맞고 팔레트를 정할 필요가 없다(ADR-0004).
 var reverse = lipgloss.NewStyle().Reverse(true)
 
-// tabline 은 화면 맨 위 한 줄이다. 열린 파일과 지금 보고 있는 것을 보여준다.
+// tabline 은 편집 영역 맨 위 한 줄이다. 열린 파일과 지금 보고 있는 것을 보여준다.
 //
 // 보고 있는 tab 만 편집 내용과 같은 색이고 나머지는 반전이다. vim 의 TabLine/TabLineSel 과 같다.
 // 활성 tab 이 아래 내용과 이어져 보이는 것이 tab 이라는 비유 자체다.
-func (e editor) tabline() string {
+//
+// width 는 화면 너비가 아니라 편집 영역 너비다. sidebar 가 열려 있으면 그만큼 좁다.
+func (e editor) tabline(width int) string {
 	line := strings.Builder{}
 	col := 0
 
-	// put 은 남은 화면 칸만큼만 쓴다. 넘치는 부분은 버린다.
+	// put 은 남은 칸만큼만 쓴다. 넘치는 부분은 버린다.
 	// 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없으므로 자르는 것이 먼저다.
 	put := func(text string, active bool) {
-		if e.width > 0 {
-			text = text[:offsetAtScreenCol([]byte(text), e.width-col)]
+		if width > 0 {
+			text = text[:offsetAtScreenCol([]byte(text), width-col)]
 		}
 		if text == "" {
 			return
@@ -325,8 +342,8 @@ func (e editor) tabline() string {
 	}
 
 	// 남은 칸도 채워야 줄 전체가 한 덩어리로 보인다.
-	if e.width > col {
-		put(strings.Repeat(" ", e.width-col), false)
+	if width > col {
+		put(strings.Repeat(" ", width-col), false)
 	}
 
 	return line.String()
@@ -336,6 +353,10 @@ func (e editor) tabline() string {
 //
 // 위 줄만 반전이다. 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.
 // `:` 를 칠 때 배경이 뜨지 않고 명령 결과와 오류도 평범한 글자로 읽힌다.
+//
+// 줄은 sidebar 아래까지 화면 끝에서 끝까지 이어지지만 글자는 편집 영역 아래에서 시작한다.
+// 편집 영역에 딸린 내용이라 그 왼쪽 끝에 맞추고, 줄 자체는 tabline 과 달리 끊지 않는다 —
+// 화면 맨 아래를 가로지르는 한 줄이라야 편집기 전체의 상태 표시로 읽힌다.
 func (e editor) statusBar(mode, bottom string) []string {
 	buf := e.buffers[e.active]
 
@@ -347,10 +368,14 @@ func (e editor) statusBar(mode, bottom string) []string {
 		path += " [+]"
 	}
 
+	// sidebar 아래를 빈 칸으로 지난다. 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.
+	indent := strings.Repeat(" ", e.sidebarLeft())
+	width := e.textWidth()
+
 	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
 	return []string{
-		reverse.Width(e.width).Render(truncateToWidth(mode+"  "+path, e.width)),
-		truncateToWidth(bottom, e.width),
+		reverse.Width(e.width).Render(indent + truncateToWidth(mode+"  "+path, width)),
+		indent + truncateToWidth(bottom, width),
 	}
 }
 

@@ -236,20 +236,21 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 		},
 	}
 	m.sidebar = openSidebar(newTreeFixture(t))
-	m.sidebar.scrollTo(m.textHeight())
+	m.sidebar.scrollTo(m.sidebarHeight())
 
 	return m
 }
 
 // sidebarCellsOf 는 화면에서 sidebar 가 차지하는 왼쪽 칸만 떼어낸다.
+// sidebar 는 tabline 옆줄부터 statusBar 앞줄까지라 아래 두 줄만 뗀다.
 func sidebarCellsOf(t *testing.T, view tea.View) []string {
 	t.Helper()
 
 	rows := strings.Split(view.Content, "\n")
-	require.Greater(t, len(rows), tablineHeight+statusBarHeight)
+	require.Greater(t, len(rows), statusBarHeight)
 
 	out := []string{}
-	for _, row := range rows[tablineHeight : len(rows)-statusBarHeight] {
+	for _, row := range rows[:len(rows)-statusBarHeight] {
 		plain := []byte(ansi.Strip(row))
 		out = append(out, string(plain[:offsetAtScreenCol(plain, sidebarWidth)]))
 	}
@@ -367,18 +368,55 @@ func TestSidebarShiftsTextAndCursor(t *testing.T) {
 	assert.Equal(t, tea.Position{X: sidebarWidth, Y: tablineHeight}, m.View().Cursor.Position)
 }
 
-// 편집 내용이 짧아도 sidebar 는 화면 아래까지 이어져야 한다.
+// 편집 내용이 짧아도 sidebar 는 tabline 옆줄부터 statusBar 앞줄까지 이어져야 한다.
 func TestSidebarRendersFullHeightBesideShortFile(t *testing.T) {
 	m := newTreeEditor(t, 80, 6)
 
 	cells := sidebarCellsOf(t, m.View())
 
-	require.Len(t, cells, 6)
+	require.Len(t, cells, m.sidebarHeight())
 	for i, cell := range cells {
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(cell), len(cell)), "행 %d", i)
 	}
-	assert.Contains(t, cells[0], "▾ ")
-	assert.Contains(t, cells[5], "│", "파일은 2 줄뿐이지만 구분선은 아래까지 간다")
+	assert.Contains(t, cells[0], "▾ ", "뿌리가 tabline 옆줄에 온다")
+	assert.Contains(t, cells[len(cells)-1], "│", "파일은 2 줄뿐이지만 구분선은 statusBar 앞까지 간다")
+}
+
+// tabline 은 sidebar 옆에서 끊기고, statusBar 는 sidebar 아래까지 이어지되
+// 글자는 편집 영역 아래에서 시작해야 한다.
+func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
+	m := newTreeEditor(t, 80, 6)
+
+	rows := strings.Split(m.View().Content, "\n")
+
+	// split 은 한 행을 sidebar 왼쪽 칸과 그 오른쪽으로 가른다.
+	split := func(row string) (string, string) {
+		plain := []byte(ansi.Strip(row))
+		cut := offsetAtScreenCol(plain, sidebarWidth)
+
+		return string(plain[:cut]), string(plain[cut:])
+	}
+
+	cell, tabline := split(rows[0])
+	assert.Contains(t, cell, "▾ ", "맨 윗줄 왼쪽은 트리다")
+	assert.Contains(t, tabline, "1 main.go", "tab 목록은 그 오른쪽에 있다")
+
+	left, mode := split(rows[len(rows)-statusBarHeight])
+	assert.Equal(t, strings.Repeat(" ", sidebarWidth), left, "statusBar 아래에는 트리가 없다")
+	assert.True(t, strings.HasPrefix(mode, "NORMAL"), "글자는 편집 영역 왼쪽 끝에서 시작한다: %q", mode)
+
+	left, command := split(rows[len(rows)-1])
+	assert.Equal(t, strings.Repeat(" ", sidebarWidth), left, "명령줄도 마찬가지다")
+	assert.True(t, strings.HasPrefix(command, "1:1"), "커서 위치가 같은 자리에서 시작한다: %q", command)
+
+	// 반전으로 칠하는 두 줄은 화면 끝까지 이어져야 한다.
+	// statusBar 는 sidebar 아래까지 한 덩어리라 왼쪽 끝부터 칠해진다.
+	for _, i := range []int{0, len(rows) - statusBarHeight} {
+		plain := []byte(ansi.Strip(rows[i]))
+		assert.Equal(t, 80, screenColAt(plain, len(plain)), "행 %d", i)
+	}
+	assert.True(t, strings.HasPrefix(rows[len(rows)-statusBarHeight], "\x1b["),
+		"sidebar 아래 빈 칸도 반전 안에 있어야 색이 끊기지 않는다")
 }
 
 // 화면이 좁으면 sidebar 를 켜뒀어도 그리지 않는다. 안 그러면 편집할 자리가 없다.
@@ -479,16 +517,28 @@ func TestSidebarEnterTogglesDirectory(t *testing.T) {
 	assert.NotContains(t, names(m.(viewSidebar).sidebar.rows()), "2:spec.md")
 }
 
+// 명령줄도 편집 영역 아래에 있으므로 커서가 sidebar 만큼 오른쪽에서 시작해야 한다.
+func TestSidebarShiftsCommandLineCursor(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+
+	m = send(m, ":", "w")
+
+	require.IsType(t, viewEditorCommand{}, m)
+	assert.Equal(t, sidebarWidth+len(":w"), m.View().Cursor.Position.X)
+	assert.Equal(t, ":w", barOf(t, m)[1])
+}
+
 // 커서가 고른 항목 위에 있어야 한다. 이 커서가 곧 포커스 표시다.
 func TestSidebarCursorFollowsSelection(t *testing.T) {
 	var m tea.Model = newTreeEditor(t, 80, 6)
 	m = send(m, "ctrl+w", "ctrl+w")
 
-	assert.Equal(t, tea.Position{X: 0, Y: tablineHeight}, m.(viewSidebar).View().Cursor.Position)
+	// sidebar 가 화면 맨 윗줄부터라 뿌리를 고르면 커서도 맨 윗줄이다.
+	assert.Equal(t, tea.Position{X: 0, Y: 0}, m.(viewSidebar).View().Cursor.Position)
 
 	m = send(m, "down", "down")
 
-	assert.Equal(t, tea.Position{X: 0, Y: tablineHeight + 2}, m.(viewSidebar).View().Cursor.Position)
+	assert.Equal(t, tea.Position{X: 0, Y: 2}, m.(viewSidebar).View().Cursor.Position)
 }
 
 func TestSidebarShowsModeAndPath(t *testing.T) {
@@ -539,8 +589,9 @@ func TestSidebarCtrlCConfirmsAndReturns(t *testing.T) {
 }
 
 // 트리가 화면보다 길면 아래로 내려갈 때 스크롤한다.
+// sidebar 가 화면 전체 높이를 쓰므로 편집 내용 높이를 1 로 두어야 트리가 화면보다 길어진다.
 func TestSidebarScrollsWhenSelectionLeavesView(t *testing.T) {
-	m := newTreeEditor(t, 80, 3)
+	m := newTreeEditor(t, 80, 1)
 
 	var model tea.Model = m
 	model = send(model, "ctrl+w", "ctrl+w")
@@ -550,9 +601,9 @@ func TestSidebarScrollsWhenSelectionLeavesView(t *testing.T) {
 
 	v := model.(viewSidebar)
 	assert.Greater(t, v.sidebar.top, 0, "화면 밖으로 나가면 민다")
-	row, ok := v.sidebar.selectedRow(v.textHeight())
+	row, ok := v.sidebar.selectedRow(v.sidebarHeight())
 	require.True(t, ok, "고른 것은 언제나 화면 안에 있다")
-	assert.Less(t, row, v.textHeight())
+	assert.Less(t, row, v.sidebarHeight())
 }
 
 // selectTree 는 sidebar 에 포커스를 두고 이름이 name 인 항목까지 내려간다.

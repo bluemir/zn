@@ -29,7 +29,7 @@
 - [x] statusBar 를 구현한다. 첫 줄은 mode 와 파일 경로, 둘째 줄은 커서 위치(`줄:칸`, 1 부터, 칸은 화면 칸) 와 전체 줄 수다. mode 이름은 각 mode 의 `View` 가 직접 넘긴다(ADR-0002)
 - [x] statusBar 와 tabline 을 편집 내용과 눈으로 구분되게 한다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다. statusBar 는 첫 줄만, tabline 은 활성 tab 만 빼고 반전이다 (ADR-0004)
 - [ ] 팔레트를 정한다. sidebar 만 256색 고정값을 쓰고(ADR-0005) 나머지는 반전뿐이라 mode 를 색으로 구분할 수 없다. 고정값이라 밝은 테마에서 회색(244)이 잘 안 보이는 것도 같이 본다. `config 는 compile 됨` 의 형태를 정하는 것과 같이 본다
-- [ ] statusBar 의 파일 경로 표시 방식을 정한다. 지금은 인자로 받은 경로를 그대로 찍어서 절대 경로면 너비를 다 먹는다
+- [ ] statusBar 의 파일 경로 표시 방식을 정한다. 지금은 인자로 받은 경로를 그대로 찍어서 절대 경로면 너비를 다 먹는다. sidebar 를 열면 32 칸이 더 줄어서 더 빨리 잘린다
 - [x] sidebar(filetree) 를 구현한다. 32칸 고정, `:tree` 로 여닫고 `ctrl+w ctrl+w` 로 포커스를 오간다. 데이터·렌더는 struct 로 두고 포커스만 mode(`viewSidebar`) 로 나타낸다 (ADR-0005)
 - [x] `scrollTo` 가 폭이 넓어졌을 때 `topRow` 를 다시 맞추지 않아 화면이 조용히 밀리던 것을 고친다. wrap 된 줄 안에 스크롤해 둔 상태에서 터미널을 넓히면 그 줄이 통째로 사라졌다
 - [ ] 아주 큰 디렉터리를 펼치면 한 키가 멈춘다. `os.ReadDir` 이 전부 읽고 `Update` 안에서 동기로 돈다. `File.ReadDir(n)` 으로 끊고 `… N개 더` 행을 두는 것을 본다
@@ -39,7 +39,7 @@
 - [ ] sidebar 너비를 사용자가 바꾸는 방법을 정한다
 - [ ] insert mode 의 `ctrl+w`(앞 단어 지우기) 를 넣는다. normal mode 에서 `ctrl+w` 를 쓰기 시작하면 insert 에서 눌렀을 때 아무 일도 안 나는 것이 헷갈린다
 - [x] tab 기능을 구현한다. 전환 키는 vim 과 같은 `gt`/`gT` 로 하고, 화면 맨 위에 tabline 한 줄을 그린다. `:q` 는 보고 있는 tab 만 닫고 `Ctrl+C` 는 `:qa` 로 전체를 끝낸다 (ADR-0003)
-- [ ] tabline 이 화면 너비를 넘칠 때 활성 tab 이 잘려서 안 보인다. 활성 tab 이 보이도록 가로로 밀거나 이름을 줄여야 한다
+- [ ] tabline 이 편집 영역 너비를 넘칠 때 활성 tab 이 잘려서 안 보인다. 활성 tab 이 보이도록 가로로 밀거나 이름을 줄여야 한다. sidebar 를 열면 32 칸이 더 줄어서 더 빨리 잘린다
 - [ ] `g` 를 누르고 다음 키를 기다리는 동안 화면에 아무 표시가 없다. vim 의 `showcmd` 처럼 statusBar 에 보여준다
 - [ ] `:wa`(전부 저장) 와 `:wqa`(전부 저장하고 종료) 를 넣는다
 - [x] `:tabnew` 로 이름 없는 빈 tab 을 연다. 보고 있던 tab 바로 뒤에 생기고 그리로 옮겨간다
@@ -66,3 +66,7 @@
 - [x] command parser
 	- state pattern 을 기반으로 만든다.
 - [x] filetree 에서 파일 종류 마다 글자색을 달리, gitignore 의 파일은 회색등 연한 색으로. 무시 여부는 펼칠 때 `git check-ignore` 에 묻는다 (ADR-0005)
+- [ ] 바이너리인 경우 hex 표현으로 열기
+- [x] tabline 을 sidebar 위에 걸치지 않고 편집 영역 위에만 그린다. statusBar 는 sidebar 아래까지 이어지되 글자만 편집 영역 아래에서 시작한다 (ADR-0005)
+- [x] 편집기를 열면 filetree 가 기본으로 열려 있게 한다. cwd 를 못 읽으면 트리 없이 연다
+- [ ] statusBar 와 sidebar 의 경계를 다시 본다. 지금은 줄이 sidebar 아래까지 이어지고 글자만 편집 영역 아래에서 시작한다(ADR-0005 결정 6). statusBar 에 넣을 것이 늘어나면(줄 끝 표시, 파일 종류, 인코딩, git branch 등) 32 칸을 비워두는 것이 아까워지므로 그때 다시 정한다

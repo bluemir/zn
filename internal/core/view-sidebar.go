@@ -13,7 +13,7 @@ import (
 // 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 型 을 따로 뒀다(ADR-0002).
 // 트리 자체(펼친 상태, 고른 항목)는 mode 를 넘어 살아야 하므로 editor.sidebar 에 있다.
 func sidebarMode(e editor) (tea.Model, tea.Cmd) {
-	e.sidebar.scrollTo(e.textHeight())
+	e.sidebar.scrollTo(e.sidebarHeight())
 
 	return viewSidebar{editor: e}, nil
 }
@@ -37,7 +37,7 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.sidebarVisible() {
 			return normalMode(m.editor)
 		}
-		m.sidebar.scrollTo(m.textHeight())
+		m.sidebar.scrollTo(m.sidebarHeight())
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -74,7 +74,7 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.sidebar.scrollTo(m.textHeight())
+		m.sidebar.scrollTo(m.sidebarHeight())
 
 		return m, nil
 	default:
@@ -91,7 +91,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 
 	if node.isDir && !node.symlink {
 		node.toggle()
-		m.sidebar.scrollTo(m.textHeight())
+		m.sidebar.scrollTo(m.sidebarHeight())
 
 		return m, nil
 	}
@@ -124,8 +124,10 @@ func (m viewSidebar) View() tea.View {
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 명령줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.
-	if row, ok := m.sidebar.selectedRow(m.textHeight()); ok {
-		view.Cursor = tea.NewCursor(0, tablineHeight+row)
+	//
+	// sidebar 는 화면 맨 윗줄부터 시작하므로 트리 행 번호가 곧 화면 행이다.
+	if row, ok := m.sidebar.selectedRow(m.sidebarHeight()); ok {
+		view.Cursor = tea.NewCursor(0, row)
 		view.Cursor.Shape = tea.CursorBlock
 	} else {
 		view.Cursor = nil
