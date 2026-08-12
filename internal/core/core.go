@@ -4,27 +4,29 @@ import (
 	"context"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cockroachdb/errors"
 )
 
-func Run(ctx context.Context, workingDirectory string, files []string) error {
+func Run(ctx context.Context, files []string) error {
+	buffers := make([]Buffer, 0, len(files))
+	for _, file := range files {
+		buf, err := OpenBuffer(file)
+		if err != nil {
+			return err
+		}
+		buffers = append(buffers, buf)
+	}
+	if len(buffers) == 0 {
+		buffers = append(buffers, newEmptyBuffer(""))
+	}
 
-	// TODO 파일을 읽어서 Buffer 로 변환 한다.
+	first, _ := normalMode(editor{buffers: buffers})
 
 	if _, err := tea.NewProgram(
-		&viewEditor{},
+		first,
 		tea.WithContext(ctx),
 	).Run(); err != nil {
 		return err
 	}
 
-	return errors.Errorf("Not Implemented")
-}
-
-// Buffer 는 파일 하나에 대응 한다.
-type Buffer struct {
-	path string
-
-	data  []byte
-	lines [][]rune
+	return nil
 }

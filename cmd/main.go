@@ -27,8 +27,7 @@ func Run() error {
 		logFormat string
 		logFile   string // TODO 지정 하지 않으면 log 가 남지 않는다.
 
-		workingDirectory string   // 작업 directory. 없으면 현재 dir
-		files            []string // 편집할 file 들. tab 으로 열린다.
+		files []string // 편집할 file 들. tab 으로 열린다.
 	}{}
 
 	app := kingpin.New(buildinfo.AppName, describe)
@@ -41,8 +40,8 @@ func Run() error {
 		StringVar(&conf.logFormat)
 	app.Flag("log-file", "Log file").
 		StringVar(&conf.logFile)
-	app.Flag("working-dir", "Working Directory").Short('w').Default(".").StringVar(&conf.workingDirectory)
-	app.Arg("files", "files").StringsVar(&conf.files)
+	app.Arg("files", "files").
+		StringsVar(&conf.files)
 
 	app.PreAction(func(*kingpin.ParseContext) error {
 		level := logrus.Level(conf.logLevel) + defaultLogLevel
@@ -81,5 +80,5 @@ func Run() error {
 	)
 	defer stop()
 
-	return core.Run(ctx, conf.workingDirectory, conf.files)
+	return core.Run(ctx, conf.files)
 }

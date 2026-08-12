@@ -1,20 +1,34 @@
 # Tasks
 
 - [ ] vim 대비 무엇을 개선하는지 정의한다. 키 동작 차원에서 vim 과 무엇이 다른지가 없으면 키맵을 짤 수 없다. ADR 로 남긴다
-- [ ] mode 전환 규칙을 정한다. normal/insert/visual 전환 키, visual 의 종류(char/line/block), 그리고 vim 의 command-line mode(`:`) 를 두지 않는 것이 의도인지(fzf·command palette 가 그 자리를 대신하는지)
+- [x] normal/insert 전환을 구현한다. `i` 는 커서 앞, `a` 는 커서 뒤에서 insert 로 들어가고 `Esc` 로 normal 로 돌아온다. normal 의 커서는 글자 위에 있어 줄 끝 다음 칸에 설 수 없고, `Esc` 는 vim 처럼 왼쪽으로 한 글자 옮긴다
+- [x] insert mode 에서 글자 입력을 구현한다. undo 기록과 같이 넣어야 한다(ADR-0001). `Enter`·`Backspace`·`Tab`·붙여넣기가 모두 `insert` 한 경로를 지나고, normal mode 의 `u`/`ctrl+r` 로 되돌리고 다시 적용한다
+- [x] 저장 키를 연결한다. command-line mode 를 만들고 `:w`·`:q`·`:wq`·`:q!` 를 붙였다
+- [x] 미저장 상태를 다룬다. statusBar 에 `[+]` 로 표시하고 `:q` 를 거부한다
+- [x] `Ctrl+C` 의 종료 확인창이 미저장 상태를 모른다. `Ctrl+C` 와 `:q` 가 같은 `quit` 경로를 쓰게 하고, 저장하지 않은 변경이 있을 때만 확인창을 띄운다
+- [ ] 종료 확인창이 터미널 너비를 몰라서 좁은 화면에서 문구가 잘린다. 지금은 두 줄로 나눠 피했다
+- [ ] undo 로 저장 시점 내용까지 되돌려도 `[+]` 가 남는다. vim 은 이때 꺼준다
+- [ ] `Delete`(커서 자리 글자 지우기) 를 넣는다. 지금은 `Backspace` 만 있다
+- [x] `docs/spec.md` 에 편집 키 규칙을 반영한다
+- [ ] visual mode 를 정하고 구현한다. 종류(char/line/block) 와 진입 키
+- [x] vim 의 command-line mode(`:`) 를 둘지 정한다. 두기로 했다. fzf·command palette 는 별개다
+- [ ] `Esc` 의 커서 왼쪽 이동을 유지할지 정한다. vim 과 같게 맞췄지만 `i<Esc>` 로 커서가 밀리는 것은 vim 에서 가장 흔한 불만 중 하나라, "vim 대비 개선점" 결정에서 다시 볼 만하다
 - [ ] `config 는 compile 됨` 의 실제 형태를 정하고 ADR 로 남긴다. 키맵을 Go 코드 어디에 어떤 타입으로 쓸지가 곧 코드 구조다. 근거는 "철저히 개인용이라 런타임 설정이 불필요" 와 "배포가 단일 바이너리 하나"
-- [ ] 줄바꿈(LF/CRLF) 과 tab 폭 처리 방식을 정한다
-- [ ] backing buffer 하나를 읽고 각 줄을 subslice(`[][]byte`) 로 두는 buffer 를 구현한다 (ADR-0001)
-- [ ] 한글 폭 계산과 grapheme cluster 처리를 구현한다. rune 개수, 표시 폭, 커서 칸이 모두 다르다. 이 프로젝트의 실질적인 난관이다
-- [ ] 화면에 보이는 줄만 rune/폭 계산해서 렌더한다. `hello world` 를 그리는 현재 `viewEditor` 를 대체한다
-- [ ] 커서 이동(`hjkl`) 과 화면 스크롤을 구현한다
-- [ ] 줄 갈아끼우기 방식으로 편집을 구현한다. backing buffer 에는 쓰지 않는다 (ADR-0001)
-- [ ] undo 스택을 구현한다. 줄 범위 slice 참조를 저장하고, 같은 줄 연속 편집은 커서가 줄을 벗어날 때 하나의 항목으로 닫는다 (ADR-0001)
-- [ ] CLI 인자로 받은 파일을 실제로 연다. 현재는 인자를 파싱만 하고 열지 않는다
-- [ ] 파일 저장과 미저장 상태 관리를 구현한다. 미저장 상태에서 종료할 때의 동작을 `QuitConfirm` 과 연결한다
-- [ ] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다
+- [x] 줄바꿈(LF/CRLF) 과 tab 폭 처리 방식을 정한다. CRLF 는 파일 단위로 기억해 저장할 때 되돌리고, tab 폭은 8 칸(vim tabstop 기본값) 으로 한다
+- [x] tab 이 화면에서 사라지는 것을 고친다. `ansi` 가 tab 을 폭 0 으로 보고 bubbletea 의 셀 렌더러가 폭 0 인 제어문자를 버려서, Go 소스를 열면 들여쓰기가 통째로 없어졌다. 렌더할 때 tab stop 까지 공백으로 펼치고 커서 열 계산도 같은 규칙을 쓴다
+- [x] 종료 확인 화면이 대체 화면을 빠져나가는 것을 고친다. `viewQuitConfirm` 이 `AltScreen` 을 설정하지 않아 `Ctrl+C` 마다 셸 화면이 번쩍이고 편집 내용이 사라졌다. 부모 화면의 상태를 따라가게 한다
+- [x] backing buffer 하나를 읽고 각 줄을 subslice(`[][]byte`) 로 두는 buffer 를 구현한다 (ADR-0001)
+- [x] 한글 폭 계산과 grapheme cluster 처리를 구현한다. `ansi.FirstGraphemeCluster` 로 글자 경계와 폭을 같은 곳에서 얻는다. NFD 한글·결합 악센트·ZWJ 이모지·국기가 한 글자로 다뤄진다
+- [x] 화면에 보이는 줄만 rune/폭 계산해서 렌더한다
+- [x] 화면 스크롤을 구현한다. 커서가 화면 안이면 움직이지 않고, wrap 된 줄 안에서도 행 단위로 스크롤한다
+- [ ] `hjkl` 이동을 넣는다. vim 키맵 정의를 기다린다
+- [x] 줄 갈아끼우기 방식으로 편집을 구현한다. backing buffer 에는 쓰지 않는다 (ADR-0001)
+- [x] CLI 인자로 받은 파일을 실제로 연다
+- [x] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다
 - [ ] 상대 줄번호와 절대 줄번호 동시 표시의 렌더 형태를 정하고 구현한다
-- [ ] statusBar 를 구현한다. 2줄에 각각 무엇이 들어가는지 정한다
+- [x] statusBar 를 구현한다. 첫 줄은 mode 와 파일 경로, 둘째 줄은 커서 위치(`줄:칸`, 1 부터, 칸은 화면 칸) 와 전체 줄 수다. mode 이름은 각 mode 의 `View` 가 직접 넘긴다(ADR-0002)
+- [ ] statusBar 를 편집 내용과 눈으로 구분되게 한다. 지금은 색·배경이 없어서 파일 내용처럼 보인다. 색 결정이 없어서 미뤘다
+- [ ] statusBar 의 파일 경로 표시 방식을 정한다. 지금은 인자로 받은 경로를 그대로 찍어서 절대 경로면 너비를 다 먹는다
 - [ ] sidebar(filetree) 를 구현한다. 너비와 토글 여부를 정한다
 - [ ] tab 기능을 구현한다. 여러 파일을 열었을 때의 전환 키를 정한다
 - [ ] fzf 와 command palette 를 구현한다. file matching 에서 `>` 로 command 로 넘어가는 동작과 `!` 의 shell command 매핑 포함
@@ -23,7 +37,7 @@
 - [ ] 키 하나로 현재 화면을 cat 과 동일한 형태로 표시하는 기능을 넣는다 (복사·붙여넣기용)
 - [ ] home, end, page up, page down 의 일관적인 동작을 정의하고 구현한다
 - [ ] README 에 기술 스택, 빌드·실행 방법, 현재 구현 상태를 넣는다. feature 목록이 구현된 것인지 목표인지 구분되지 않아 초기 단계임이 전달되지 않는다
-- [ ] `docs/spec.md` 를 보강한다. sidebar/statusBar 수치, mode 상세, 그리고 저장소 구조(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
+- [ ] `docs/spec.md` 에 sidebar/statusBar 수치와 저장소 구조를 넣는다. 저장소 구조는(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
 - [ ] `scripts/makefile.d/dev-run.mk` 의 `run`·`dev-run` 을 에디터에 맞게 고친다. web server scaffolding 이 남아 `$< -vvv server --config runtime/config.hjson` 을 실행하며, `server` 서브커맨드가 없어 `unknown long flag '--config'` 로 실패한다
 - [ ] `scripts/makefile.d/build.mk` 의 `gen` 타겟이 없는 `assets/src/js/index.js` 에 의존해 실패하는 것을 고친다. `prod` 와 `install` 이 이것 때문에 막혀 있다
 - [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다

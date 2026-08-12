@@ -1,0 +1,232 @@
+package core
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// newFileEditor 는 진짜 파일을 연 편집 화면을 만든다. 저장을 확인하려면 파일이 있어야 한다.
+func newFileEditor(t *testing.T, data string) (viewEditorNormal, string) {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte(data), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	return viewEditorNormal{
+		editor: editor{
+			buffers: []Buffer{buf},
+			width:   40,
+			height:  5 + statusBarHeight,
+		},
+	}, path
+}
+
+func TestEnterCommandMode(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":")
+
+	assert.IsType(t, viewEditorCommand{}, m)
+	assert.Contains(t, barOf(t, m)[1], ":", "명령줄이 아래 줄에 뜬다")
+}
+
+func TestCommandModeTyping(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "w", "q")
+
+	assert.Equal(t, ":wq", barOf(t, m)[1])
+}
+
+func TestCommandModeBackspace(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "w", "q", "backspace")
+
+	assert.Equal(t, ":w", barOf(t, m)[1])
+}
+
+// `:` 까지 지우면 명령줄에서 나간다. vim 과 같다.
+func TestCommandModeBackspaceLeavesMode(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "backspace")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+func TestCommandModeEscapeCancels(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "w", "esc")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], ":", "커서 위치로 돌아간다")
+}
+
+// 명령줄이 편집 내용을 밀어내면 안 된다. 아래 줄을 바꿔 쓰는 것이다.
+func TestCommandModeKeepsTextHeight(t *testing.T) {
+	var m tea.Model = newTestEditor("a\nb\nc\nd\ne\n", 40, 5)
+	before := strings.Count(m.(viewEditorNormal).View().Content, "\n")
+
+	m = send(m, ":")
+
+	assert.Equal(t, before, strings.Count(m.(viewEditorCommand).View().Content, "\n"))
+	assert.Equal(t, "a", strings.Split(m.(viewEditorCommand).View().Content, "\n")[0])
+}
+
+func TestCommandWriteSavesFile(t *testing.T) {
+	m, path := newFileEditor(t, "abc\n")
+
+	var model tea.Model = m
+	model = send(model, "i", "X", "esc")
+	model = send(model, ":", "w", "enter")
+
+	saved, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "Xabc\n", string(saved))
+
+	assert.IsType(t, viewEditorNormal{}, model)
+	assert.Contains(t, barOf(t, model)[1], "저장함")
+	assert.False(t, bufferOf(t, model).dirty, "저장하면 변경 표시가 사라진다")
+}
+
+func TestCommandQuitWhenClean(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "q", "enter")
+
+	assert.IsType(t, finalExit{}, m, "바뀐 것이 없으면 그냥 종료한다")
+}
+
+// 저장하지 않은 변경이 있으면 :q 가 확인창을 띄운다. Ctrl+C 와 같은 경로다.
+func TestCommandQuitConfirmsWhenDirty(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, "i", "X", "esc")
+	m = send(m, ":", "q", "enter")
+
+	assert.IsType(t, viewQuitConfirm{}, m, "묻고 나서 나간다")
+	assert.Contains(t, m.View().Content, "저장하지 않은 변경")
+}
+
+// 확인창에서 취소하면 명령줄이 아니라 normal 로 돌아간다.
+func TestCommandQuitCancelReturnsToNormal(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, "i", "X", "esc")
+	m = send(m, ":", "q", "enter")
+	require.IsType(t, viewQuitConfirm{}, m)
+
+	m, _ = m.Update(key("esc"))
+
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+// 확인창에서 Yes 를 고르면 나간다.
+func TestQuitConfirmYesExits(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, "i", "X", "esc")
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	require.IsType(t, viewQuitConfirm{}, m)
+
+	m, _ = m.Update(key("enter"))
+
+	assert.IsType(t, finalExit{}, m)
+}
+
+func TestCommandForceQuit(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, "i", "X", "esc")
+	m = send(m, ":", "q", "!", "enter")
+
+	assert.IsType(t, finalExit{}, m)
+}
+
+func TestCommandWriteQuit(t *testing.T) {
+	m, path := newFileEditor(t, "abc\n")
+
+	var model tea.Model = m
+	model = send(model, "i", "X", "esc")
+	model = send(model, ":", "w", "q", "enter")
+
+	assert.IsType(t, finalExit{}, model)
+
+	saved, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "Xabc\n", string(saved))
+}
+
+func TestCommandUnknown(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "z", "z", "enter")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "알 수 없는 명령")
+}
+
+func TestCommandEmptyReturnsToNormal(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "enter")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+// 저장할 수 없으면 종료하지 않고 알린다.
+func TestCommandWriteFailure(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "sub"), 0555))
+
+	buf, err := OpenBuffer(filepath.Join(dir, "sub", "new.txt"))
+	require.NoError(t, err)
+
+	var m tea.Model = viewEditorNormal{
+		editor: editor{buffers: []Buffer{buf}, width: 40, height: 5 + statusBarHeight},
+	}
+	m = send(m, ":", "w", "enter")
+
+	assert.IsType(t, viewEditorNormal{}, m, "실패하면 종료하지 않는다")
+	assert.NotContains(t, barOf(t, m)[1], "저장함")
+}
+
+// 알림은 다음 키를 누르면 사라진다.
+func TestMessageClearsOnNextKey(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "z", "enter")
+	require.Contains(t, barOf(t, m)[1], "알 수 없는 명령")
+
+	m = send(m, "right")
+	assert.NotContains(t, barOf(t, m)[1], "알 수 없는 명령")
+}
+
+// statusBar 에 변경 표시가 뜬다.
+func TestStatusBarShowsDirtyMark(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+	require.NotContains(t, barOf(t, m)[0], "[+]")
+
+	m = send(m, "i", "X")
+
+	assert.Contains(t, barOf(t, m)[0], "[+]")
+}
+
+func TestCommandModeShowsModeName(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":")
+
+	assert.Contains(t, barOf(t, m)[0], "COMMAND")
+}

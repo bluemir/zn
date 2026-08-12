@@ -1,0 +1,87 @@
+package core
+
+import (
+	tea "charm.land/bubbletea/v2"
+)
+
+// viewEditorInsert 는 insert mode 다. 커서가 글자 사이에 있어서 줄 끝 다음 칸까지 갈 수 있다.
+func insertMode(e editor) (tea.Model, tea.Cmd) {
+	return viewEditorInsert{editor: e}, nil
+}
+
+type viewEditorInsert struct {
+	editor
+}
+
+func (m viewEditorInsert) Init() tea.Cmd { return nil }
+
+func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.resize(msg)
+
+		return m, nil
+	case tea.PasteMsg:
+		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
+		buf := m.buffer()
+		buf.insert([]byte(msg.Content), m.width)
+		buf.scrollTo(m.width, m.textHeight())
+
+		return m, nil
+	case tea.KeyPressMsg:
+		buf := m.buffer()
+
+		switch msg.String() {
+		case "ctrl+c":
+			// :q 와 같은 경로다. 저장하지 않은 변경이 있을 때만 확인창이 뜬다.
+			return quit(m, buf)
+		case "esc":
+			// insert mode 의 커서는 글자 사이에 있다. normal 로 돌아오면 왼쪽 글자 위에 선다.
+			// vim 과 같은 동작이라 a<Esc> 는 제자리로 돌아오고 i<Esc> 는 한 글자 왼쪽이 된다.
+			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
+			buf.endEdit()
+			buf.moveLeft(m.width)
+			buf.scrollTo(m.width, m.textHeight())
+
+			return normalMode(m.editor)
+		case "enter":
+			buf.insert([]byte("\n"), m.width)
+		case "backspace":
+			buf.deleteBackward(m.width)
+		case "tab":
+			buf.insert([]byte("\t"), m.width)
+		case "up", "down", "left", "right":
+			// 커서를 옮기면 undo 구간이 끊긴다. vim 과 같다.
+			buf.endEdit()
+
+			switch msg.String() {
+			case "up":
+				buf.moveUp(1, m.width)
+			case "down":
+				buf.moveDown(1, m.width)
+			case "left":
+				buf.moveLeft(m.width)
+			case "right":
+				buf.moveRight(m.width)
+			}
+		default:
+			// Text 는 출력 가능한 문자에만 채워진다. Enter·Tab 같은 특수 키와
+			// modifier 조합에서는 비어 있어서 따로 걸러낼 필요가 없다.
+			if msg.Text == "" {
+				return m, nil
+			}
+			buf.insert([]byte(msg.Text), m.width)
+		}
+
+		buf.scrollTo(m.width, m.textHeight())
+
+		return m, nil
+	default:
+		return m, nil
+	}
+}
+
+func (m viewEditorInsert) View() tea.View {
+	// 커서가 글자 사이에 있으므로 막대다.
+	return m.render(tea.CursorBar, "INSERT", m.position())
+}
