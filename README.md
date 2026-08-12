@@ -27,6 +27,7 @@ Bluemir's Editor
 		- 정의/구현으로 이동
 		- 사용처로 이동
 		- syntax highlight
+		- 다음줄로 갈시 자동 들여쓰기
 - 키 하나로 현재 화면의 cat 과 동일한 형태로 text 표시
 	- text 복사 붙여 넣기시 유용
 - mouse 지원
