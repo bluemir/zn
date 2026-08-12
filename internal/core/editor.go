@@ -35,7 +35,7 @@ func (e *editor) buffer() *Buffer {
 func (e *editor) resize(msg tea.WindowSizeMsg) {
 	e.width = msg.Width
 	e.height = msg.Height
-	e.buffer().scrollTo(e.textWidth(), e.textHeight())
+	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
 }
 
 // nextTab, prevTab 은 활성 tab 을 옮긴다. 양끝에서 둘러 간다. vim 의 gt/gT 와 같다.
@@ -166,7 +166,7 @@ func (e *editor) toggleTree() error {
 		e.sidebar.scrollTo(e.sidebarHeight())
 	}
 
-	e.buffer().scrollTo(e.textWidth(), e.textHeight())
+	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
 
 	return nil
 }
@@ -214,12 +214,92 @@ func (e editor) sidebarLeft() int {
 	return 0
 }
 
-// textWidth 는 편집 내용을 그릴 수 있는 너비다. 줄을 어디서 접을지가 이 값으로 정해진다.
-//
-// tabline 과 statusBar 의 글자도 이 너비 안에 든다. e.width 는 statusBar 처럼
-// 화면 끝까지 칠하는 것과 sidebar 를 그릴지 말지를 정할 때만 쓴다.
+// textWidth 는 편집 영역 너비다. tabline 과 statusBar 의 글자가 이 너비 안에 든다.
+// e.width 는 statusBar 처럼 화면 끝까지 칠하는 것과 sidebar 를 그릴지 말지를 정할 때만 쓴다.
 func (e editor) textWidth() int {
 	return max(0, e.width-e.sidebarLeft())
+}
+
+// contentWidth 는 파일 내용을 그릴 너비다. 줄을 어디서 접을지가 이 값으로 정해진다.
+// 편집 영역에서 줄번호 칸을 뗀 나머지다.
+//
+// 줄바꿈·스크롤·커서 계산은 모두 이 값을 써야 한다. textWidth 를 쓰면 줄번호 칸만큼
+// 넓게 잡아서 줄이 화면 오른쪽으로 삐져나간다.
+func (e editor) contentWidth() int {
+	return max(0, e.textWidth()-e.lineNumberWidth())
+}
+
+// contentLeft 는 파일 내용이 시작하는 화면 칸이다. 커서 좌표를 옮길 때 쓴다.
+func (e editor) contentLeft() int {
+	return e.sidebarLeft() + e.lineNumberWidth()
+}
+
+// 줄번호 칸의 최소 자릿수다. 파일이 짧아도 이만큼은 잡아서 줄을 오갈 때 본문이 흔들리지 않는다.
+const (
+	minAbsoluteDigits = 3
+	minRelativeDigits = 2
+)
+
+// lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.
+//
+// 절대번호는 전체 줄 수까지, 상대번호는 화면 높이까지만 커진다.
+// 상대번호는 화면 밖으로 나가면 볼 수 없으므로 줄 수와 무관하다.
+func (e editor) lineNumberDigits() (absolute, relative int) {
+	return max(digits(len(e.buffers[e.active].lines)), minAbsoluteDigits),
+		max(digits(e.textHeight()), minRelativeDigits)
+}
+
+// lineNumberWidth 는 줄번호 칸이 차지하는 폭이다. 안 그릴 때는 0 이다.
+func (e editor) lineNumberWidth() int {
+	absolute, relative := e.lineNumberDigits()
+
+	// 번호 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
+	width := absolute + 1 + relative + 1
+	if e.textWidth()-width < minTextWidth {
+		return 0
+	}
+
+	return width
+}
+
+// digits 는 십진수 자릿수다.
+func digits(n int) int {
+	count := 1
+	for n >= 10 {
+		n /= 10
+		count++
+	}
+
+	return count
+}
+
+// styleLineNumberRelative 는 상대 줄번호 색이다. sidebar 의 흐린 색과 같은 값이다(ADR-0005).
+// 절대번호는 본문과 같은 색이라, 둘이 나란히 있어도 어느 쪽이 무엇인지 색으로 갈린다.
+var styleLineNumberRelative = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+// lineNumber 는 화면 행 앞에 붙는 줄번호 칸이다. `절대 상대 ` 순서다.
+//
+// wrap 되어 이어지는 행은 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
+// 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다.
+func (e editor) lineNumber(cursorLine int, row screenRow) string {
+	width := e.lineNumberWidth()
+	if width == 0 {
+		return ""
+	}
+	if row.start != 0 {
+		return strings.Repeat(" ", width)
+	}
+
+	absolute, relative := e.lineNumberDigits()
+
+	// 커서 줄은 0 이다. 절대번호가 바로 옆에 있어서 거기에 또 찍을 이유가 없다.
+	distance := row.line - cursorLine
+	if distance < 0 {
+		distance = -distance
+	}
+
+	return fmt.Sprintf("%*d ", absolute, row.line+1) +
+		styleLineNumberRelative.Render(fmt.Sprintf("%*d", relative, distance)) + " "
 }
 
 // render 는 mode 가 공유하는 화면이다.
@@ -236,8 +316,8 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 
 	// 화면보다 긴 줄은 visibleRows 가 이미 화면 행 여러 개로 나눠서 준다.
 	textRows := make([]string, 0, height)
-	for _, row := range buf.visibleRows(e.textWidth(), height) {
-		textRows = append(textRows, expandTabs(buf.lines[row.line][row.start:row.end]))
+	for _, row := range buf.visibleRows(e.contentWidth(), height) {
+		textRows = append(textRows, e.lineNumber(buf.cursorLine, row)+expandTabs(buf.lines[row.line][row.start:row.end]))
 	}
 
 	rows := e.screenRows(textRows, mode, bottom)
@@ -246,9 +326,9 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 
 	view.MouseMode = tea.MouseModeCellMotion
 	view.AltScreen = true
-	if x, y, ok := buf.cursorScreenPos(e.textWidth(), height); ok {
-		// cursorScreenPos 는 편집 영역 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
-		view.Cursor = tea.NewCursor(x+e.sidebarLeft(), y+tablineHeight)
+	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
+		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
+		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)
 		view.Cursor.Shape = shape
 	}
 
@@ -386,6 +466,23 @@ func (e editor) position() string {
 	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol)
 
 	return fmt.Sprintf("%d:%d  (%d 줄)", buf.cursorLine+1, col+1, len(buf.lines))
+}
+
+// withShowcmd 는 statusBar 아래 줄 오른쪽 끝에 치고 있는 키를 붙인다. vim 의 showcmd 와 같은 자리다.
+//
+// 숫자나 접두 키를 치는 동안 화면에 아무 표시가 없으면 편집기가 그 키를 먹었는지 알 수 없다.
+// 붙일 칸이 없으면 아래 줄을 그대로 둔다 — 커서 위치나 명령 결과가 밀려나는 것이 더 나쁘다.
+func (e editor) withShowcmd(bottom, showcmd string) string {
+	if showcmd == "" {
+		return bottom
+	}
+
+	pad := e.textWidth() - screenColAt([]byte(bottom), len(bottom)) - screenColAt([]byte(showcmd), len(showcmd))
+	if pad < 1 {
+		return bottom
+	}
+
+	return bottom + strings.Repeat(" ", pad) + showcmd
 }
 
 // truncateToWidth 는 화면 너비를 넘는 부분을 자른다.

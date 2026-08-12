@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -219,6 +220,194 @@ func TestNormalModeKeepsDesiredColThroughShortLine(t *testing.T) {
 	m = send(m, "down", "down")
 
 	assert.Equal(t, 3, cursorColOf(t, m), "긴 줄로 돌아오면 원래 칸")
+}
+
+// cursorLineOf 는 활성 buffer 의 커서 줄이다.
+func cursorLineOf(t *testing.T, m tea.Model) int {
+	t.Helper()
+	return bufferOf(t, m).cursorLine
+}
+
+// hjkl 은 화살표와 같은 이동이다. 위아래만 단위가 다르다(ADR-0006).
+func TestNormalModeMovesWithHJKL(t *testing.T) {
+	var m tea.Model = newTestEditor("abcde\nfghij\n", 40, 5)
+
+	m = send(m, "l", "l")
+	assert.Equal(t, 2, cursorColOf(t, m), "l 은 오른쪽")
+
+	m = send(m, "j")
+	assert.Equal(t, 1, cursorLineOf(t, m), "j 는 아래")
+	assert.Equal(t, 2, cursorColOf(t, m), "칸은 그대로")
+
+	m = send(m, "h")
+	assert.Equal(t, 1, cursorColOf(t, m), "h 는 왼쪽")
+
+	m = send(m, "k")
+	assert.Equal(t, 0, cursorLineOf(t, m), "k 는 위")
+}
+
+func TestNormalModeHJKLStopAtEdges(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\ncd\n", 40, 5)
+
+	m = send(m, "h", "k")
+	assert.Equal(t, 0, cursorLineOf(t, m), "첫 줄 위로는 못 간다")
+	assert.Equal(t, 0, cursorColOf(t, m), "줄 시작 왼쪽으로는 못 간다")
+
+	m = send(m, "l", "l", "l", "j", "j")
+	assert.Equal(t, 1, cursorLineOf(t, m), "마지막 줄 아래로는 못 간다")
+	assert.Equal(t, 1, cursorColOf(t, m), "normal 은 마지막 글자 위에서 멈춘다")
+}
+
+// 숫자를 앞에 붙이면 그만큼 움직인다.
+func TestNormalModeCountedMove(t *testing.T) {
+	var m tea.Model = newTestEditor(strings.Repeat("abcdefghij\n", 30), 40, 20)
+
+	m = send(m, "1", "0", "j")
+	assert.Equal(t, 10, cursorLineOf(t, m), "10j")
+
+	m = send(m, "5", "l")
+	assert.Equal(t, 5, cursorColOf(t, m), "5l")
+
+	m = send(m, "3", "h")
+	assert.Equal(t, 2, cursorColOf(t, m), "3h")
+
+	m = send(m, "4", "k")
+	assert.Equal(t, 6, cursorLineOf(t, m), "4k")
+}
+
+// 줄 수보다 큰 숫자를 쳐도 양끝에서 멈춘다.
+func TestNormalModeCountedMoveStopsAtEdges(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\ndef\nghi\n", 40, 5)
+
+	m = send(m, "9", "9", "j")
+	assert.Equal(t, 2, cursorLineOf(t, m), "마지막 줄")
+
+	m = send(m, "2", "0", "k")
+	assert.Equal(t, 0, cursorLineOf(t, m), "첫 줄")
+
+	m = send(m, "9", "9", "l")
+	assert.Equal(t, 2, cursorColOf(t, m), "마지막 글자 위")
+}
+
+// count 는 명령 하나에만 붙는다. 다음 키에 남으면 안 된다.
+func TestNormalModeCountResets(t *testing.T) {
+	var m tea.Model = newTestEditor(strings.Repeat("abc\n", 10), 40, 10)
+
+	m = send(m, "3", "j", "j")
+
+	assert.Equal(t, 4, cursorLineOf(t, m), "3j 로 3 줄, j 로 한 줄")
+}
+
+// count 를 받지 않는 키가 오면 숫자를 버린다. 그 키는 한 번만 동작한다.
+func TestNormalModeCountDiscardedByOtherKey(t *testing.T) {
+	var m tea.Model = newTestEditor(strings.Repeat("abc\n", 10), 40, 10)
+
+	m = send(m, "3", "esc", "j")
+
+	assert.Equal(t, 1, cursorLineOf(t, m), "esc 가 숫자를 버려서 j 는 한 줄만 간다")
+}
+
+// `0` 은 count 의 첫 자리가 될 수 없다. vim 에서 줄 시작으로 가는 키라 자리를 비워둔다.
+func TestNormalModeZeroIsNotACount(t *testing.T) {
+	var m tea.Model = newTestEditor(strings.Repeat("abc\n", 10), 40, 10)
+
+	m = send(m, "0", "j")
+
+	assert.Equal(t, 1, cursorLineOf(t, m), "0 은 없는 키라 j 만 동작한다")
+}
+
+// j/k 는 논리 줄, ↓/↑ 는 화면 행이다. wrap 된 줄에서 갈린다(ADR-0006).
+func TestNormalModeVerticalUnitDiffersFromArrows(t *testing.T) {
+	// 폭 10 이라 첫 줄이 화면 행 세 개가 된다.
+	data := strings.Repeat("a", 25) + "\nsecond\n"
+
+	m := send(newTestEditor(data, 10, 10), "down")
+	assert.Equal(t, 0, cursorLineOf(t, m), "↓ 는 같은 줄의 다음 화면 행")
+
+	m = send(newTestEditor(data, 10, 10), "j")
+	assert.Equal(t, 1, cursorLineOf(t, m), "j 는 wrap 된 줄을 한 번에 건넌다")
+}
+
+// 단어 이동은 normal mode 의 clamp 를 지나 마지막 글자 위에 선다.
+func TestNormalModeWordMotions(t *testing.T) {
+	var m tea.Model = newTestEditor("foo bar.baz\nsecond line\n", 40, 5)
+
+	m = send(m, "w")
+	assert.Equal(t, 4, cursorColOf(t, m), "w 는 다음 단어")
+
+	m = send(m, "w")
+	assert.Equal(t, 7, cursorColOf(t, m), "문장부호도 단어 하나")
+
+	m = send(m, "e")
+	assert.Equal(t, 10, cursorColOf(t, m), "e 는 단어 끝")
+
+	m = send(m, "b")
+	assert.Equal(t, 8, cursorColOf(t, m), "b 는 단어 처음")
+
+	m = send(m, "2", "w")
+	assert.Equal(t, 1, cursorLineOf(t, m), "2w 는 줄을 넘어간다")
+	assert.Equal(t, 7, cursorColOf(t, m), "다음 줄의 둘째 단어")
+}
+
+// 큰 단어는 공백으로만 끊는다.
+func TestNormalModeBigWordMotions(t *testing.T) {
+	var m tea.Model = newTestEditor("a.b(c) xy\n", 40, 5)
+
+	m = send(m, "W")
+	assert.Equal(t, 7, cursorColOf(t, m), "W 는 공백까지 통째로 건넌다")
+
+	m = send(m, "B")
+	assert.Equal(t, 0, cursorColOf(t, m))
+
+	m = send(m, "E")
+	assert.Equal(t, 5, cursorColOf(t, m), "E 는 큰 단어의 끝")
+}
+
+// 마지막 단어에서 w 를 누르면 줄 끝 다음이 아니라 마지막 글자 위에 선다.
+func TestNormalModeWordForwardClampsAtEnd(t *testing.T) {
+	var m tea.Model = newTestEditor("only\n", 40, 5)
+
+	m = send(m, "w")
+
+	assert.Equal(t, 3, cursorColOf(t, m))
+}
+
+func TestNormalModeLineMotions(t *testing.T) {
+	var m tea.Model = newTestEditor("\tindented text\nsecond\n", 40, 5)
+
+	m = send(m, "$")
+	assert.Equal(t, 13, cursorColOf(t, m), "$ 는 마지막 글자 위")
+
+	m = send(m, "0")
+	assert.Equal(t, 0, cursorColOf(t, m), "0 은 줄 맨 앞. 들여쓰기도 지난다")
+
+	m = send(m, "^")
+	assert.Equal(t, 1, cursorColOf(t, m), "^ 는 들여쓰기를 건너뛴 첫 글자")
+
+	m = send(m, "2", "$")
+	assert.Equal(t, 1, cursorLineOf(t, m), "2$ 는 한 줄 아래의 줄 끝")
+	assert.Equal(t, 5, cursorColOf(t, m))
+}
+
+// gg 와 G 는 그 줄의 첫 글자로 간다. 숫자는 되풀이가 아니라 줄 번호다.
+func TestNormalModeGotoLine(t *testing.T) {
+	var m tea.Model = newTestEditor("one\ntwo\n  three\nfour\nfive\n", 40, 10)
+
+	m = send(m, "G")
+	assert.Equal(t, 4, cursorLineOf(t, m), "G 는 마지막 줄")
+
+	m = send(m, "g", "g")
+	assert.Equal(t, 0, cursorLineOf(t, m), "gg 는 첫 줄")
+
+	m = send(m, "3", "G")
+	assert.Equal(t, 2, cursorLineOf(t, m), "3G 는 3 번째 줄")
+	assert.Equal(t, 2, cursorColOf(t, m), "들여쓰기를 건너뛴 첫 글자")
+
+	m = send(m, "2", "g", "g")
+	assert.Equal(t, 1, cursorLineOf(t, m), "2gg 도 줄 번호다")
+
+	m = send(m, "9", "9", "G")
+	assert.Equal(t, 4, cursorLineOf(t, m), "줄 수를 넘으면 마지막 줄")
 }
 
 // insert mode 에서 i 나 a 는 mode 를 바꾸지 않고 글자로 들어간다.

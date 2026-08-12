@@ -365,7 +365,8 @@ func TestSidebarShiftsTextAndCursor(t *testing.T) {
 
 	assert.Equal(t, 80-sidebarWidth, m.textWidth())
 	assert.Equal(t, sidebarWidth, m.sidebarLeft())
-	assert.Equal(t, tea.Position{X: sidebarWidth, Y: tablineHeight}, m.View().Cursor.Position)
+	assert.Equal(t, tea.Position{X: sidebarWidth + m.lineNumberWidth(), Y: tablineHeight}, m.View().Cursor.Position,
+		"sidebar 와 줄번호 칸을 지난 자리다")
 }
 
 // 편집 내용이 짧아도 sidebar 는 tabline 옆줄부터 statusBar 앞줄까지 이어져야 한다.
@@ -502,6 +503,21 @@ func TestSidebarMovesSelection(t *testing.T) {
 
 	// 맨 위에서 더 올라가지 않는다.
 	m = send(m, "up", "up", "up")
+	assert.Equal(t, 0, m.(viewSidebar).sidebar.selected)
+}
+
+// j k 는 ↓ ↑ 와 같은 트리 이동이다. sidebar 에는 삽입이 없으므로 글자 키를 이동에 쓸 수 있다.
+func TestSidebarMovesSelectionWithJK(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	m = send(m, "j", "j")
+	assert.Equal(t, "docs", m.(viewSidebar).sidebar.selectedNode().name)
+
+	m = send(m, "k")
+	assert.Equal(t, "build", m.(viewSidebar).sidebar.selectedNode().name)
+
+	m = send(m, "k", "k", "k")
 	assert.Equal(t, 0, m.(viewSidebar).sidebar.selected)
 }
 

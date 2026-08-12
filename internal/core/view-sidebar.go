@@ -64,9 +64,9 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "esc":
 			return normalMode(m.editor)
-		case "up":
+		case "up", "k":
 			m.sidebar.selected--
-		case "down":
+		case "down", "j":
 			m.sidebar.selected++
 		case "enter":
 			return m.enter()
@@ -112,7 +112,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	if err := m.openTab(node.path); err != nil {
 		return normalModeMessage(m.editor, errors.Cause(err).Error())
 	}
-	m.buffer().scrollTo(m.textWidth(), m.textHeight())
+	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
 
 	// 연 파일을 보러 왔으므로 포커스도 편집 영역으로 간다. 돌아올 때는 ctrl+w ctrl+w 다.
 	return normalMode(m.editor)
@@ -120,7 +120,8 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 
 func (m viewSidebar) View() tea.View {
 	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
-	view := m.render(tea.CursorBlock, "TREE", m.sidebar.selectedLabel())
+	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
+	view := m.render(tea.CursorBlock, "TREE", m.withShowcmd(m.sidebar.selectedLabel(), m.pending))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 명령줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.

@@ -81,7 +81,7 @@ func TestCommandModeKeepsTextHeight(t *testing.T) {
 	m = send(m, ":")
 
 	assert.Equal(t, before, strings.Count(m.(viewEditorCommand).View().Content, "\n"))
-	assert.Equal(t, "a", strings.Split(m.(viewEditorCommand).View().Content, "\n")[tablineHeight])
+	assert.Equal(t, "a", strings.Split(textOf(t, m), "\n")[0])
 }
 
 func TestCommandWriteSavesFile(t *testing.T) {

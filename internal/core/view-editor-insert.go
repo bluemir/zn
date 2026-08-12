@@ -24,8 +24,8 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
 		buf := m.buffer()
-		buf.insert([]byte(msg.Content), m.textWidth())
-		buf.scrollTo(m.textWidth(), m.textHeight())
+		buf.insert([]byte(msg.Content), m.contentWidth())
+		buf.scrollTo(m.contentWidth(), m.textHeight())
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -40,29 +40,29 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// vim 과 같은 동작이라 a<Esc> 는 제자리로 돌아오고 i<Esc> 는 한 글자 왼쪽이 된다.
 			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
 			buf.endEdit()
-			buf.moveLeft(m.textWidth())
-			buf.scrollTo(m.textWidth(), m.textHeight())
+			buf.moveLeft(1, m.contentWidth())
+			buf.scrollTo(m.contentWidth(), m.textHeight())
 
 			return normalMode(m.editor)
 		case "enter":
-			buf.insert([]byte("\n"), m.textWidth())
+			buf.insert([]byte("\n"), m.contentWidth())
 		case "backspace":
-			buf.deleteBackward(m.textWidth())
+			buf.deleteBackward(m.contentWidth())
 		case "tab":
-			buf.insert([]byte("\t"), m.textWidth())
+			buf.insert([]byte("\t"), m.contentWidth())
 		case "up", "down", "left", "right":
 			// 커서를 옮기면 undo 구간이 끊긴다. vim 과 같다.
 			buf.endEdit()
 
 			switch msg.String() {
 			case "up":
-				buf.moveUp(1, m.textWidth())
+				buf.moveUp(1, m.contentWidth())
 			case "down":
-				buf.moveDown(1, m.textWidth())
+				buf.moveDown(1, m.contentWidth())
 			case "left":
-				buf.moveLeft(m.textWidth())
+				buf.moveLeft(1, m.contentWidth())
 			case "right":
-				buf.moveRight(m.textWidth())
+				buf.moveRight(1, m.contentWidth())
 			}
 		default:
 			// Text 는 출력 가능한 문자에만 채워진다. Enter·Tab 같은 특수 키와
@@ -70,10 +70,10 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			buf.insert([]byte(msg.Text), m.textWidth())
+			buf.insert([]byte(msg.Text), m.contentWidth())
 		}
 
-		buf.scrollTo(m.textWidth(), m.textHeight())
+		buf.scrollTo(m.contentWidth(), m.textHeight())
 
 		return m, nil
 	default:

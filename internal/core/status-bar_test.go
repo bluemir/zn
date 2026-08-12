@@ -91,6 +91,34 @@ func TestStatusBarShowsLineCount(t *testing.T) {
 	assert.Contains(t, barOf(t, m)[1], "3 줄")
 }
 
+// 숫자나 접두 키를 치는 동안 그것을 보여준다. vim 의 showcmd 와 같은 자리다.
+func TestStatusBarShowsPendingKeys(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\nsecond\n", 40, 3)
+
+	m = send(m, "3")
+	assert.True(t, strings.HasSuffix(barOf(t, m)[1], "3"), "모으는 중인 숫자가 오른쪽 끝에")
+	assert.Contains(t, barOf(t, m)[1], "1:1", "커서 위치는 그대로 있다")
+
+	m = send(m, "1")
+	assert.True(t, strings.HasSuffix(barOf(t, m)[1], "31"), "자릿수가 붙는다")
+
+	m = send(m, "j")
+	assert.False(t, strings.HasSuffix(barOf(t, m)[1], "31"), "명령이 끝나면 사라진다")
+
+	m = send(m, "g")
+	assert.True(t, strings.HasSuffix(barOf(t, m)[1], "g"), "접두 키도 보인다")
+}
+
+// 붙일 칸이 없으면 아래 줄을 그대로 둔다. 커서 위치가 밀려나는 것이 더 나쁘다.
+func TestStatusBarSkipsShowcmdWhenNarrow(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 12, 3)
+
+	before := barOf(t, m)[1]
+	m = send(m, "3")
+
+	assert.Equal(t, before, barOf(t, m)[1])
+}
+
 // statusBar 가 화면 너비를 넘으면 터미널이 줄바꿈해서 화면이 밀린다.
 func TestStatusBarTruncatesToWidth(t *testing.T) {
 	m := viewEditorNormal{
@@ -113,7 +141,7 @@ func TestStatusBarStaysAtBottom(t *testing.T) {
 	rows := strings.Split(m.View().Content, "\n")
 
 	require.Len(t, rows, tablineHeight+5+statusBarHeight)
-	assert.Equal(t, "only", rows[tablineHeight])
+	assert.Equal(t, "only", strings.Split(textOf(t, m), "\n")[0])
 	assert.Contains(t, rows[tablineHeight+5], "NORMAL", "빈 줄로 채우고 맨 아래에 붙인다")
 }
 
@@ -153,7 +181,7 @@ func TestStatusBarBottomLineIsPlain(t *testing.T) {
 func TestTextAreaHasNoColor(t *testing.T) {
 	m := newTestEditor("abc\ndef\n", 40, 3)
 
-	assert.NotContains(t, textOf(t, m.View()), "\x1b[")
+	assert.NotContains(t, textOf(t, m), "\x1b[")
 }
 
 // 화면이 statusBar 보다 작아도 죽지 않아야 한다.

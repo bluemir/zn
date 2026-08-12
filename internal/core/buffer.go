@@ -304,24 +304,40 @@ func (buf *Buffer) clampToNormal(width int) {
 	buf.cursorCol = buf.prevOffset(len(line), width)
 }
 
-// moveLeft, moveRight 는 grapheme cluster 단위로 움직인다.
+// moveLeft, moveRight 는 grapheme cluster 단위로 n 글자 움직인다.
 // rune 단위로 움직이면 결합 문자의 중간에 커서가 선다.
-func (buf *Buffer) moveLeft(width int) {
+//
+// 줄 양끝에 닿으면 남은 횟수를 버리고 거기서 멈춘다. vim 처럼 앞뒤 줄로 넘어가지 않는다.
+func (buf *Buffer) moveLeft(n, width int) {
 	if buf.cursorCol == 0 {
 		return
 	}
 
-	buf.cursorCol = buf.prevOffset(buf.cursorCol, width)
+	for range n {
+		if buf.cursorCol == 0 {
+			break
+		}
+
+		buf.cursorCol = buf.prevOffset(buf.cursorCol, width)
+	}
+
 	buf.updateDesiredCol(width)
 }
 
-func (buf *Buffer) moveRight(width int) {
+func (buf *Buffer) moveRight(n, width int) {
 	line := buf.lines[buf.cursorLine]
 	if buf.cursorCol >= len(line) {
 		return
 	}
 
-	buf.cursorCol += clusterSize(line, buf.cursorCol)
+	for range n {
+		if buf.cursorCol >= len(line) {
+			break
+		}
+
+		buf.cursorCol += clusterSize(line, buf.cursorCol)
+	}
+
 	buf.updateDesiredCol(width)
 }
 
@@ -378,6 +394,62 @@ func (buf *Buffer) moveDownRow(width int) {
 
 	next := buf.cursorLine + 1
 	buf.placeCursorInRow(next, wrapOffsets(buf.lines[next], width), 0, width)
+}
+
+// moveLineStart, moveLineFirstNonBlank 는 줄 안에서 왼쪽으로 간다. vim 의 0, ^ 다.
+func (buf *Buffer) moveLineStart(width int) {
+	buf.cursorCol = 0
+	buf.updateDesiredCol(width)
+}
+
+// moveLineFirstNonBlank 는 들여쓰기를 건너뛴 첫 글자로 간다.
+// 공백뿐인 줄은 줄 끝이 되고, clampToNormal 이 마지막 글자 위로 끌어온다. vim 과 같다.
+func (buf *Buffer) moveLineFirstNonBlank(width int) {
+	line := buf.lines[buf.cursorLine]
+
+	col := 0
+	for col < len(line) && (line[col] == ' ' || line[col] == '\t') {
+		col++
+	}
+
+	buf.cursorCol = col
+	buf.updateDesiredCol(width)
+}
+
+// moveLineEnd 는 줄 끝으로 간다. vim 의 $ 다.
+// count 는 되풀이가 아니라 줄 수다 — `3$` 는 두 줄 아래의 줄 끝이다.
+func (buf *Buffer) moveLineEnd(n, width int) {
+	buf.cursorLine = min(buf.cursorLine+n-1, len(buf.lines)-1)
+	buf.cursorCol = len(buf.lines[buf.cursorLine])
+	buf.updateDesiredCol(width)
+}
+
+// moveToLine 은 그 줄의 첫 글자로 간다. vim 의 gg, G 다. 범위를 넘으면 양끝으로 맞춘다.
+func (buf *Buffer) moveToLine(line, width int) {
+	buf.cursorLine = min(max(line, 0), len(buf.lines)-1)
+	buf.moveLineFirstNonBlank(width)
+}
+
+// moveUpLine, moveDownLine 은 논리 줄 단위로 움직인다.
+// wrap 되어 화면 행이 여럿인 줄도 한 번에 건넌다. vim 의 j/k 다.
+//
+// 화면 행 단위인 moveUp/moveDown 과 나뉜다. vim 에서 j/k 와 gj/gk 가 나뉜 것과 같다(ADR-0006).
+// 줄 index 를 직접 옮기므로 반복하지 않고 한 번에 끝난다.
+func (buf *Buffer) moveUpLine(n int) {
+	buf.placeCursorInLine(max(buf.cursorLine-n, 0))
+}
+
+func (buf *Buffer) moveDownLine(n int) {
+	buf.placeCursorInLine(min(buf.cursorLine+n, len(buf.lines)-1))
+}
+
+// placeCursorInLine 은 커서를 그 줄의 desiredCol 칸에 놓는다.
+//
+// desiredCol 은 화면 행 안에서 센 칸이라, wrap 된 줄의 둘째 행 이후에서 넘어오면
+// vim 과 칸이 다르다. wrap 되지 않은 줄에서는 줄 시작에서 센 칸과 같아서 vim 과 같다.
+func (buf *Buffer) placeCursorInLine(line int) {
+	buf.cursorLine = line
+	buf.cursorCol = offsetAtScreenCol(buf.lines[line], buf.desiredCol)
 }
 
 // placeCursorInRow 는 커서를 지정한 화면 행의 desiredCol 칸으로 옮긴다.
