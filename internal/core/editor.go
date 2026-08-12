@@ -60,6 +60,60 @@ func (e *editor) newTab() {
 	e.active++
 }
 
+// openTab 은 파일을 tab 으로 연다. 이미 열려 있으면 새로 열지 않고 그 tab 으로 옮긴다.
+//
+// 같은 파일을 두 tab 에 열면 각각 독립된 Buffer 가 되어, 한쪽에서 저장하는 순간 다른 쪽의
+// 편집이 조용히 사라진다. 그래서 여는 것보다 찾는 것이 먼저다.
+func (e *editor) openTab(path string) error {
+	if index, ok := e.tabOf(path); ok {
+		e.active = index
+
+		return nil
+	}
+
+	buf, err := OpenBuffer(path)
+	if err != nil {
+		return err
+	}
+
+	rest := make([]Buffer, 0, len(e.buffers)+1)
+	rest = append(rest, e.buffers[:e.active+1]...)
+	rest = append(rest, buf)
+	rest = append(rest, e.buffers[e.active+1:]...)
+
+	e.buffers = rest
+	e.active++
+
+	return nil
+}
+
+// tabOf 는 그 파일을 이미 열어둔 tab 을 찾는다.
+//
+// 경로를 정규화해서 비교한다. CLI 로 연 파일은 상대 경로(`internal/core/editor.go`)이고
+// 트리는 절대 경로를 주므로, 글자 그대로 비교하면 같은 파일을 못 알아보고 중복 Buffer 가 생긴다.
+func (e editor) tabOf(path string) (int, bool) {
+	want, err := filepath.Abs(path)
+	if err != nil {
+		return 0, false
+	}
+
+	for i, buf := range e.buffers {
+		if buf.path == "" {
+			continue
+		}
+
+		got, err := filepath.Abs(buf.path)
+		if err != nil {
+			continue
+		}
+		if got == want {
+			return i, true
+		}
+	}
+
+	return 0, false
+}
+
 // closeTab 은 활성 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
 // 닫을 것이 없으면 부르는 쪽이 종료로 넘어간다.
 //

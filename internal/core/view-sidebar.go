@@ -1,7 +1,10 @@
 package core
 
 import (
+	"os"
+
 	tea "charm.land/bubbletea/v2"
+	"github.com/cockroachdb/errors"
 )
 
 // viewSidebar 는 포커스가 좌측 파일 트리에 있는 상태다.
@@ -93,7 +96,26 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, nil
+	// 열기 전에 지금 무엇인지 다시 본다. 트리는 펼칠 때 읽은 것이라 그 사이에 지워졌을 수 있다.
+	//
+	// Stat 은 symlink 를 따라가므로 링크가 가리키는 것이 무엇인지로 판단한다.
+	// 일반 파일이 아니면 열지 않는다 — 디렉터리를 가리키는 링크는 ReadFile 이 EISDIR 을 내고,
+	// FIFO 나 소켓은 ReadFile 이 영영 돌아오지 않아서 편집기가 통째로 멈춘다.
+	info, err := os.Stat(node.path)
+	if err != nil {
+		return normalModeMessage(m.editor, errors.Cause(err).Error())
+	}
+	if !info.Mode().IsRegular() {
+		return normalModeMessage(m.editor, "일반 파일이 아닙니다: "+node.name)
+	}
+
+	if err := m.openTab(node.path); err != nil {
+		return normalModeMessage(m.editor, errors.Cause(err).Error())
+	}
+	m.buffer().scrollTo(m.textWidth(), m.textHeight())
+
+	// 연 파일을 보러 왔으므로 포커스도 편집 영역으로 간다. 돌아올 때는 ctrl+w ctrl+w 다.
+	return normalMode(m.editor)
 }
 
 func (m viewSidebar) View() tea.View {

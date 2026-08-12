@@ -552,3 +552,127 @@ func TestSidebarScrollsWhenSelectionLeavesView(t *testing.T) {
 	require.True(t, ok, "고른 것은 언제나 화면 안에 있다")
 	assert.Less(t, row, v.textHeight())
 }
+
+// selectTree 는 sidebar 에 포커스를 두고 이름이 name 인 항목까지 내려간다.
+func selectTree(t *testing.T, m tea.Model, name string) tea.Model {
+	t.Helper()
+
+	m = send(m, "ctrl+w", "ctrl+w")
+	for range 20 {
+		v, ok := m.(viewSidebar)
+		require.True(t, ok)
+		if node := v.sidebar.selectedNode(); node != nil && node.name == name {
+			return m
+		}
+		m = send(m, "down")
+	}
+
+	t.Fatalf("%q 를 찾지 못했다", name)
+	return nil
+}
+
+func TestSidebarEnterOpensFileInNewTab(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "README.md")
+	model = send(model, "enter")
+
+	require.IsType(t, viewEditorNormal{}, model, "연 파일을 보러 편집 영역으로 간다")
+
+	v := model.(viewEditorNormal)
+	require.Len(t, v.buffers, 2)
+	assert.Equal(t, filepath.Join(root, "README.md"), v.buffers[v.active].path)
+	assert.True(t, v.sidebar.open, "sidebar 는 열린 채로 남는다")
+}
+
+// 이미 열려 있으면 새 tab 을 만들지 않고 그 tab 으로 옮긴다.
+// 같은 파일을 두 Buffer 로 열면 한쪽 저장이 다른 쪽 편집을 조용히 덮어쓴다.
+func TestSidebarEnterSwitchesToOpenTab(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+
+	model := selectTree(t, tea.Model(m), "README.md")
+	model = send(model, "enter")
+	require.Len(t, model.(viewEditorNormal).buffers, 2)
+
+	model = selectTree(t, model, "README.md")
+	model = send(model, "enter")
+
+	v := model.(viewEditorNormal)
+	assert.Len(t, v.buffers, 2, "tab 이 늘지 않는다")
+	assert.Equal(t, "README.md", filepath.Base(v.buffers[v.active].path))
+}
+
+// CLI 로 상대 경로로 연 파일과 트리의 절대 경로가 같은 파일임을 알아봐야 한다.
+// 글자 그대로 비교하면 여기서 중복 Buffer 가 생긴다.
+func TestSidebarEnterMatchesRelativePath(t *testing.T) {
+	root := newTreeFixture(t)
+	t.Chdir(root)
+
+	m := viewEditorNormal{
+		editor: editor{
+			// CLI 로 상대 경로로 연 것과 같은 모양이다.
+			buffers: []Buffer{newBuffer("README.md", []byte("x\n"))},
+			width:   80,
+			height:  10 + tablineHeight + statusBarHeight,
+		},
+	}
+	m.sidebar = openSidebar(root)
+
+	model := selectTree(t, tea.Model(m), "README.md")
+	model = send(model, "enter")
+
+	v := model.(viewEditorNormal)
+	assert.Len(t, v.buffers, 1, "상대 경로와 절대 경로가 같은 파일이다")
+}
+
+// 일반 파일이 아니면 열지 않는다. FIFO 를 ReadFile 하면 편집기가 영영 멈춘다.
+func TestSidebarEnterRefusesNonRegularFile(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, exec.Command("mkfifo", filepath.Join(root, "pipe")).Run())
+
+	m := viewEditorNormal{
+		editor: editor{
+			buffers: []Buffer{newBuffer("main.go", []byte("a\n"))},
+			width:   80,
+			height:  10 + tablineHeight + statusBarHeight,
+		},
+	}
+	m.sidebar = openSidebar(root)
+
+	model := selectTree(t, tea.Model(m), "pipe")
+	model = send(model, "enter")
+
+	require.IsType(t, viewEditorNormal{}, model)
+	assert.Len(t, model.(viewEditorNormal).buffers, 1, "열지 않는다")
+	assert.Contains(t, barOf(t, model)[1], "일반 파일이 아닙니다")
+}
+
+// 디렉터리를 가리키는 symlink 는 잎으로 보이지만 열면 안 된다.
+func TestSidebarEnterRefusesSymlinkToDir(t *testing.T) {
+	root := newTreeFixture(t)
+	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
+
+	m := newTreeEditor(t, 80, 10)
+	m.sidebar = openSidebar(root)
+
+	model := selectTree(t, tea.Model(m), "link")
+	model = send(model, "enter")
+
+	assert.Len(t, model.(viewEditorNormal).buffers, 1)
+	assert.Contains(t, barOf(t, model)[1], "일반 파일이 아닙니다")
+}
+
+// 트리를 읽은 뒤에 지워진 파일을 고르면 빈 buffer 를 만들지 말고 알려야 한다.
+func TestSidebarEnterRefusesDeletedFile(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "README.md")
+	require.NoError(t, os.Remove(filepath.Join(root, "README.md")))
+
+	model = send(model, "enter")
+
+	require.IsType(t, viewEditorNormal{}, model)
+	assert.Len(t, model.(viewEditorNormal).buffers, 1, "빈 buffer 를 만들지 않는다")
+}
