@@ -4,8 +4,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -218,5 +221,187 @@ func TestSidebarNoRepoMarksNothing(t *testing.T) {
 
 	for _, row := range s.rows() {
 		assert.False(t, row.node.ignored, "%s", row.node.name)
+	}
+}
+
+// newTreeEditor 는 sidebar 를 연 편집기다. 뿌리는 t.TempDir() 라 cwd 를 건드리지 않는다.
+func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
+	t.Helper()
+
+	m := viewEditorNormal{
+		editor: editor{
+			buffers: []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
+			width:   width,
+			height:  height + tablineHeight + statusBarHeight,
+		},
+	}
+	m.sidebar = openSidebar(newTreeFixture(t))
+	m.sidebar.scrollTo(m.textHeight())
+
+	return m
+}
+
+// sidebarCellsOf 는 화면에서 sidebar 가 차지하는 왼쪽 칸만 떼어낸다.
+func sidebarCellsOf(t *testing.T, view tea.View) []string {
+	t.Helper()
+
+	rows := strings.Split(view.Content, "\n")
+	require.Greater(t, len(rows), tablineHeight+statusBarHeight)
+
+	out := []string{}
+	for _, row := range rows[tablineHeight : len(rows)-statusBarHeight] {
+		plain := []byte(ansi.Strip(row))
+		out = append(out, string(plain[:offsetAtScreenCol(plain, sidebarWidth)]))
+	}
+
+	return out
+}
+
+// sidebar 는 한 행이 정확히 24 칸이어야 한다. 어긋나면 편집 내용이 통째로 밀린다.
+func TestSidebarCellsAreExactlyWide(t *testing.T) {
+	s := openSidebar(newTreeFixture(t))
+
+	for i, cell := range s.cells(10) {
+		plain := ansi.Strip(cell)
+		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
+	}
+}
+
+// 트리가 화면보다 짧아도 구분선은 화면 아래까지 이어져야 한다.
+func TestSidebarCellsFillHeight(t *testing.T) {
+	s := openSidebar(t.TempDir())
+
+	cells := s.cells(6)
+
+	require.Len(t, cells, 6)
+	for _, cell := range cells[1:] {
+		assert.Equal(t, strings.Repeat(" ", labelWidth)+"│ ", ansi.Strip(cell))
+	}
+}
+
+// 한글 파일 이름이 경계에 걸쳐도 칸이 어긋나면 안 된다.
+func TestSidebarCellsWithWideChars(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "아주아주긴한글파일이름입니다.md"), []byte("x\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "이모지🇰🇷파일.txt"), []byte("x\n"), 0644))
+
+	s := openSidebar(root)
+
+	for i, cell := range s.cells(4) {
+		plain := ansi.Strip(cell)
+		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
+	}
+}
+
+// 파일 이름의 제어문자는 화면에 나가면 안 된다. \n 하나면 그 아래가 통째로 밀린다.
+func TestSidebarSanitizesControlChars(t *testing.T) {
+	assert.Equal(t, "a?b", sanitizeName("a\nb"))
+	assert.Equal(t, "a?b", sanitizeName("a\tb"))
+	assert.Equal(t, "?[7mfake", sanitizeName("\x1b[7mfake"))
+	assert.Equal(t, "보통이름.go", sanitizeName("보통이름.go"))
+}
+
+func TestSidebarLabels(t *testing.T) {
+	root := newTreeFixture(t)
+	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
+
+	s := openSidebar(root)
+	s.rows()[1].node.toggle() // build/ 를 펼친다
+
+	labels := []string{}
+	for _, row := range s.rows() {
+		labels = append(labels, row.label())
+	}
+
+	assert.Contains(t, labels, "  ▾ build/")
+	assert.Contains(t, labels, "      out", "깊이 2 는 들여쓰기 4 칸 + 표시 자리 2 칸")
+	assert.Contains(t, labels, "  ▸ docs/")
+	assert.Contains(t, labels, "    main.go")
+	assert.Contains(t, labels, "    link@", "symlink 은 따라가지 않는다는 표시")
+}
+
+// 트리가 화면보다 길면 고른 항목을 화면 안에 유지한다.
+func TestSidebarScrollKeepsSelectionVisible(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"a", "b", "c", "d", "e", "f", "g"} {
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("x\n"), 0644))
+	}
+
+	s := openSidebar(root)
+	require.Len(t, s.rows(), 8)
+
+	s.selected = 7
+	s.scrollTo(3)
+	assert.Equal(t, 5, s.top, "아래로 벗어나면 최소한만 민다")
+	row, ok := s.selectedRow(3)
+	require.True(t, ok)
+	assert.Equal(t, 2, row)
+
+	s.selected = 1
+	s.scrollTo(3)
+	assert.Equal(t, 1, s.top, "위로 벗어나면 고른 것이 맨 위")
+}
+
+// 트리가 줄어들면 selected 와 top 을 범위 안으로 당긴다.
+func TestSidebarScrollClampsAfterCollapse(t *testing.T) {
+	s := openSidebar(newTreeFixture(t))
+	docs := s.rows()[2].node
+	docs.toggle()
+
+	s.selected = len(s.rows()) - 1
+	s.scrollTo(10)
+
+	docs.toggle()
+	s.scrollTo(10)
+
+	assert.Less(t, s.selected, len(s.rows()))
+	assert.NotNil(t, s.selectedNode())
+}
+
+// sidebar 가 열리면 편집 영역이 좁아지고 커서가 그만큼 오른쪽으로 간다.
+func TestSidebarShiftsTextAndCursor(t *testing.T) {
+	m := newTreeEditor(t, 80, 5)
+
+	assert.Equal(t, 80-sidebarWidth, m.textWidth())
+	assert.Equal(t, sidebarWidth, m.sidebarLeft())
+	assert.Equal(t, tea.Position{X: sidebarWidth, Y: tablineHeight}, m.View().Cursor.Position)
+}
+
+// 편집 내용이 짧아도 sidebar 는 화면 아래까지 이어져야 한다.
+func TestSidebarRendersFullHeightBesideShortFile(t *testing.T) {
+	m := newTreeEditor(t, 80, 6)
+
+	cells := sidebarCellsOf(t, m.View())
+
+	require.Len(t, cells, 6)
+	for i, cell := range cells {
+		assert.Equal(t, sidebarWidth, screenColAt([]byte(cell), len(cell)), "행 %d", i)
+	}
+	assert.Contains(t, cells[0], "▾ ")
+	assert.Contains(t, cells[5], "│", "파일은 2 줄뿐이지만 구분선은 아래까지 간다")
+}
+
+// 화면이 좁으면 sidebar 를 켜뒀어도 그리지 않는다. 안 그러면 편집할 자리가 없다.
+func TestSidebarAutoHidesOnNarrowScreen(t *testing.T) {
+	m := newTreeEditor(t, sidebarWidth+minTextWidth, 5)
+	require.True(t, m.sidebarVisible())
+
+	m.width = sidebarWidth + minTextWidth - 1
+
+	assert.True(t, m.sidebar.open, "사용자 의도는 그대로다")
+	assert.False(t, m.sidebarVisible(), "그리지는 않는다")
+	assert.Equal(t, m.width, m.textWidth())
+	assert.Equal(t, 0, m.sidebarLeft())
+}
+
+// 아주 좁거나 낮은 화면에서도 죽지 않아야 한다. 음수 폭이 여기서 잡힌다.
+func TestSidebarTinyScreenDoesNotPanic(t *testing.T) {
+	for _, width := range []int{0, 1, 10, 23, 24, 25, 44} {
+		for _, height := range []int{0, 1, 3, 5} {
+			m := newTreeEditor(t, width, 0)
+			m.height = height
+
+			assert.NotPanics(t, func() { m.View() }, "width=%d height=%d", width, height)
+		}
 	}
 }

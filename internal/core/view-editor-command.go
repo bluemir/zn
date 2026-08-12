@@ -84,6 +84,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		m.newTab()
 
 		return normalMode(m.editor)
+	case "tree":
+		// `!` 는 이 명령에서 뜻이 없다. 그냥 여닫는다.
+		if err := m.toggleTree(); err != nil {
+			return m.fail(err)
+		}
+
+		return normalMode(m.editor)
 	case "q":
 		// 지금 보고 있는 tab 만 닫는다. 마지막 tab 이면 종료가 된다.
 		// `!` 는 묻지 않고 닫는다. 그냥 `:q` 는 저장하지 않은 변경이 있으면 확인창을 띄우고,

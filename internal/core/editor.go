@@ -3,11 +3,13 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/cockroachdb/errors"
 )
 
 // editor 는 mode 가 바뀌어도 유지되는 상태다.
@@ -92,6 +94,29 @@ func (e editor) anyDirty() bool {
 	return false
 }
 
+// toggleTree 는 sidebar 를 여닫는다. `:tree` 가 쓴다.
+//
+// 닫을 때 트리를 버린다. 다시 열면 뿌리부터 새로 읽으므로 여닫는 것이 곧 새로고침이다.
+// 여닫으면 편집 영역 너비가 달라져서 줄바꿈이 바뀌므로 활성 buffer 를 다시 맞춘다.
+// 보고 있지 않은 tab 은 gt 로 갈 때 scrollTo 를 지나면서 알아서 맞는다.
+func (e *editor) toggleTree() error {
+	if e.sidebar.open {
+		e.sidebar = sidebar{}
+	} else {
+		root, err := os.Getwd()
+		if err != nil {
+			return errors.Wrap(err, "cannot find current directory")
+		}
+
+		e.sidebar = openSidebar(root)
+		e.sidebar.scrollTo(e.textHeight())
+	}
+
+	e.buffer().scrollTo(e.textWidth(), e.textHeight())
+
+	return nil
+}
+
 // tablineHeight 는 화면 위 tabline 이 차지하는 줄 수다(docs/spec.md).
 const tablineHeight = 1
 
@@ -144,17 +169,14 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 	buf := e.buffers[e.active]
 	height := e.textHeight()
 
-	rows := []string{e.tabline()}
-
 	// 화면보다 긴 줄은 visibleRows 가 이미 화면 행 여러 개로 나눠서 준다.
+	textRows := make([]string, 0, height)
 	for _, row := range buf.visibleRows(e.textWidth(), height) {
-		rows = append(rows, expandTabs(buf.lines[row.line][row.start:row.end]))
+		textRows = append(textRows, expandTabs(buf.lines[row.line][row.start:row.end]))
 	}
 
-	// 파일이 화면보다 짧아도 statusBar 는 화면 아래에 붙어 있어야 한다.
-	for len(rows) < tablineHeight+height {
-		rows = append(rows, "")
-	}
+	rows := []string{e.tabline()}
+	rows = append(rows, e.textArea(textRows, height)...)
 	rows = append(rows, e.statusBar(mode, bottom)...)
 
 	view := tea.NewView(strings.Join(rows, "\n"))
@@ -162,12 +184,44 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 	view.MouseMode = tea.MouseModeCellMotion
 	view.AltScreen = true
 	if x, y, ok := buf.cursorScreenPos(e.textWidth(), height); ok {
-		// cursorScreenPos 는 편집 영역 안에서의 행을 주므로 tabline 만큼 내린다.
-		view.Cursor = tea.NewCursor(x, y+tablineHeight)
+		// cursorScreenPos 는 편집 영역 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
+		view.Cursor = tea.NewCursor(x+e.sidebarLeft(), y+tablineHeight)
 		view.Cursor.Shape = shape
 	}
 
 	return view
+}
+
+// textArea 는 tabline 과 statusBar 사이를 채우는 행들이다. 언제나 height 개다.
+//
+// sidebar 가 있으면 행마다 sidebar 와 편집 내용을 맞물려야 한다. 앞에 붙이기만 하면
+// 파일이 짧을 때 채움 행에 sidebar 가 안 실려서 트리가 파일 길이만큼만 그려진다.
+//
+// sidebar 가 없으면 지금까지와 똑같이 그린다. 채움 행은 빈 문자열이고 본문 뒤에
+// 빈 칸을 붙이지 않는다. 그래야 화면 문자열이 예전과 한 글자도 다르지 않다.
+func (e editor) textArea(textRows []string, height int) []string {
+	if !e.sidebarVisible() {
+		rows := make([]string, 0, height)
+		rows = append(rows, textRows...)
+		for len(rows) < height {
+			rows = append(rows, "")
+		}
+
+		return rows
+	}
+
+	cells := e.sidebar.cells(height)
+
+	rows := make([]string, 0, height)
+	for i := range height {
+		text := ""
+		if i < len(textRows) {
+			text = textRows[i]
+		}
+		rows = append(rows, cells[i]+text)
+	}
+
+	return rows
 }
 
 // reverse 는 편집 내용과 구분되는 색이다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다.

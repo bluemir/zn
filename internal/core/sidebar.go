@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"charm.land/lipgloss/v2"
 )
 
 // sidebarWidth 는 좌측 sidebar 가 차지하는 칸 수다(docs/spec.md).
@@ -202,4 +204,136 @@ func (s sidebar) selectedNode() *treeNode {
 	}
 
 	return rows[s.selected].node
+}
+
+// scrollTo 는 고른 항목이 화면 안에 들어오도록 top 을 최소한으로 움직인다.
+// 트리가 줄어들었을 수도 있으므로 selected 와 top 을 먼저 범위 안으로 당긴다.
+func (s *sidebar) scrollTo(height int) {
+	rows := len(s.rows())
+	if rows == 0 || height < 1 {
+		s.selected, s.top = 0, 0
+		return
+	}
+
+	s.selected = max(0, min(s.selected, rows-1))
+	s.top = max(0, min(s.top, rows-1))
+
+	if s.selected < s.top {
+		s.top = s.selected
+	}
+	if s.selected >= s.top+height {
+		s.top = s.selected - height + 1
+	}
+}
+
+// selectedRow 는 고른 항목이 sidebar 안에서 몇 번째 화면 행인지다.
+// 화면 밖이면 ok 가 false 다.
+func (s sidebar) selectedRow(height int) (int, bool) {
+	row := s.selected - s.top
+	if row < 0 || row >= height || s.selectedNode() == nil {
+		return 0, false
+	}
+
+	return row, true
+}
+
+// labelWidth 는 sidebar 24 칸 중 이름에 쓰는 칸이다. 나머지 둘은 구분선 `│` 과 그 뒤 빈 칸이다.
+const labelWidth = sidebarWidth - 2
+
+// 파일 종류별 글자색이다. 256 색 고정값이라 터미널 테마를 타지 않는다(ADR-0005).
+var (
+	styleTreeDir     = lipgloss.NewStyle().Foreground(lipgloss.Color("117")).Bold(true)
+	styleTreeGo      = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))
+	styleTreeDoc     = lipgloss.NewStyle().Foreground(lipgloss.Color("150"))
+	styleTreeWeb     = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
+	styleTreeIgnored = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+)
+
+// cells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
+// 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
+func (s sidebar) cells(height int) []string {
+	rows := s.rows()
+
+	cells := make([]string, 0, max(0, height))
+	for i := range height {
+		index := s.top + i
+		if index < 0 || index >= len(rows) {
+			// 트리가 끝나도 구분선은 화면 아래까지 이어져야 한다.
+			cells = append(cells, strings.Repeat(" ", labelWidth)+"│ ")
+			continue
+		}
+
+		cells = append(cells, rows[index].cell())
+	}
+
+	return cells
+}
+
+// cell 은 행 하나를 정확히 sidebarWidth 칸으로 그린다.
+//
+// 자르는 것이 색을 입히는 것보다 먼저다. escape 가 섞이면 폭을 셀 수 없다.
+// 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
+func (r treeRow) cell() string {
+	label := truncateToWidth(r.label(), labelWidth)
+	pad := max(0, labelWidth-screenColAt([]byte(label), len(label)))
+
+	// 빈 칸은 색 밖에 둔다. 글자색만 쓰므로 어차피 보이지 않지만 escape 를 덜 낸다.
+	return r.style().Render(label) + strings.Repeat(" ", pad) + "│ "
+}
+
+// label 은 들여쓰기와 펼침 표시가 붙은 이름이다.
+//
+// 파일은 펼침 표시 자리에 빈 칸을 두어 같은 깊이의 디렉터리와 이름이 나란히 선다.
+func (r treeRow) label() string {
+	marker := "  "
+	if r.node.isDir && !r.node.symlink {
+		marker = "▸ "
+		if r.node.expanded {
+			marker = "▾ "
+		}
+	}
+
+	name := sanitizeName(r.node.name)
+	switch {
+	case r.node.symlink:
+		name += "@" // ls -F 와 같다. 따라가지 않는다는 표시다
+	case r.node.isDir:
+		name += "/"
+	}
+
+	return strings.Repeat("  ", r.depth) + marker + name
+}
+
+// style 은 파일 종류별 글자색이다. gitignore 된 것은 종류와 무관하게 흐리다.
+func (r treeRow) style() lipgloss.Style {
+	switch {
+	case r.node.ignored:
+		return styleTreeIgnored
+	case r.node.isDir:
+		return styleTreeDir
+	}
+
+	switch filepath.Ext(r.node.name) {
+	case ".go":
+		return styleTreeGo
+	case ".md", ".txt":
+		return styleTreeDoc
+	case ".html", ".css", ".js":
+		return styleTreeWeb
+	default:
+		return lipgloss.NewStyle()
+	}
+}
+
+// sanitizeName 은 파일 이름의 제어문자를 걷어낸다.
+//
+// unix 파일 이름에는 `\n` 이나 escape 가 들어갈 수 있다. `\n` 하나면 그 아래 화면이
+// 통째로 밀리고, escape 는 폭 계산을 무너뜨린다. 화면에 내보내기 전에 없앤다.
+func sanitizeName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return '?'
+		}
+		return r
+	}, name)
 }
