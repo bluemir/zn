@@ -405,3 +405,150 @@ func TestSidebarTinyScreenDoesNotPanic(t *testing.T) {
 		}
 	}
 }
+
+// ctrl+w ctrl+w 와 ctrl+w w 로 편집 영역과 트리를 오간다. pane 이 둘뿐이라 순환이 곧 왕래다.
+func TestSidebarFocusCycles(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+
+	m = send(m, "ctrl+w", "ctrl+w")
+	require.IsType(t, viewSidebar{}, m)
+
+	m = send(m, "ctrl+w", "ctrl+w")
+	require.IsType(t, viewEditorNormal{}, m)
+
+	m = send(m, "ctrl+w", "w")
+	assert.IsType(t, viewSidebar{}, m, "ctrl+w w 도 같다")
+}
+
+func TestSidebarEscapeLeaves(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+
+	m = send(m, "ctrl+w", "ctrl+w", "esc")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+// sidebar 가 안 보이면 ctrl+w 가 접두 키를 세우지 않는다.
+// 접두 키는 다음 키를 삼키는데, 갈 곳도 없이 키를 먹으면 안 된다.
+func TestCtrlWDoesNotSwallowWhenSidebarHidden(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 80, 5)
+
+	m = send(m, "ctrl+w", "i")
+
+	assert.IsType(t, viewEditorInsert{}, m, "ctrl+w 가 다음 키를 먹지 않는다")
+}
+
+// 접두 키를 기다리는 동안의 esc 는 접두 키만 무른다. sidebar 를 나가면 안 된다.
+func TestSidebarPendingEscapeStays(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+
+	m = send(m, "ctrl+w", "ctrl+w")
+	require.IsType(t, viewSidebar{}, m)
+
+	m = send(m, "ctrl+w", "esc")
+
+	assert.IsType(t, viewSidebar{}, m)
+}
+
+func TestSidebarMovesSelection(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	m = send(m, "down", "down")
+	assert.Equal(t, "docs", m.(viewSidebar).sidebar.selectedNode().name)
+
+	m = send(m, "up")
+	assert.Equal(t, "build", m.(viewSidebar).sidebar.selectedNode().name)
+
+	// 맨 위에서 더 올라가지 않는다.
+	m = send(m, "up", "up", "up")
+	assert.Equal(t, 0, m.(viewSidebar).sidebar.selected)
+}
+
+func TestSidebarEnterTogglesDirectory(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 10)
+	m = send(m, "ctrl+w", "ctrl+w", "down", "down")
+	require.Equal(t, "docs", m.(viewSidebar).sidebar.selectedNode().name)
+
+	m = send(m, "enter")
+	assert.Contains(t, names(m.(viewSidebar).sidebar.rows()), "2:spec.md")
+
+	m = send(m, "enter")
+	assert.NotContains(t, names(m.(viewSidebar).sidebar.rows()), "2:spec.md")
+}
+
+// 커서가 고른 항목 위에 있어야 한다. 이 커서가 곧 포커스 표시다.
+func TestSidebarCursorFollowsSelection(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	assert.Equal(t, tea.Position{X: 0, Y: tablineHeight}, m.(viewSidebar).View().Cursor.Position)
+
+	m = send(m, "down", "down")
+
+	assert.Equal(t, tea.Position{X: 0, Y: tablineHeight + 2}, m.(viewSidebar).View().Cursor.Position)
+}
+
+func TestSidebarShowsModeAndPath(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	assert.Contains(t, barOf(t, m)[0], "TREE")
+	assert.Equal(t, filepath.Base(m.(viewSidebar).sidebar.root)+"/", barOf(t, m)[1], "뿌리는 이름만")
+
+	m = send(m, "down", "down")
+	assert.Equal(t, "docs", barOf(t, m)[1], "뿌리 기준 상대 경로라 절대 경로처럼 잘리지 않는다")
+}
+
+// 화면이 좁아져서 sidebar 가 숨으면 포커스가 안 보이는 곳에 남으면 안 된다.
+func TestSidebarFocusEscapesOnAutoHide(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+	require.IsType(t, viewSidebar{}, m)
+
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
+
+	assert.IsType(t, viewEditorNormal{}, m, "안 보이는 pane 에 포커스를 남기지 않는다")
+}
+
+// ctrl+c 는 다른 mode 와 같은 경로다. 취소하면 sidebar 로 돌아온다.
+func TestSidebarCtrlCQuits(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	m = send(m, "i", "X")
+	require.IsType(t, viewSidebar{}, m, "sidebar 에서 i 는 아무 일도 하지 않는다")
+
+	m, _ = m.Update(key("ctrl+c"))
+	assert.IsType(t, finalExit{}, m, "변경이 없으면 그냥 종료")
+}
+
+func TestSidebarCtrlCConfirmsAndReturns(t *testing.T) {
+	m := newTreeEditor(t, 80, 6)
+	m.buffers[0].dirty = true
+
+	var model tea.Model = m
+	model = send(model, "ctrl+w", "ctrl+w")
+	model, _ = model.Update(key("ctrl+c"))
+	require.IsType(t, viewQuitConfirm{}, model)
+
+	model, _ = model.Update(key("esc"))
+	assert.IsType(t, viewSidebar{}, model, "취소하면 sidebar 로 돌아온다")
+}
+
+// 트리가 화면보다 길면 아래로 내려갈 때 스크롤한다.
+func TestSidebarScrollsWhenSelectionLeavesView(t *testing.T) {
+	m := newTreeEditor(t, 80, 3)
+
+	var model tea.Model = m
+	model = send(model, "ctrl+w", "ctrl+w")
+	require.Equal(t, 0, model.(viewSidebar).sidebar.top)
+
+	model = send(model, "down", "down", "down", "down")
+
+	v := model.(viewSidebar)
+	assert.Greater(t, v.sidebar.top, 0, "화면 밖으로 나가면 민다")
+	row, ok := v.sidebar.selectedRow(v.textHeight())
+	require.True(t, ok, "고른 것은 언제나 화면 안에 있다")
+	assert.Less(t, row, v.textHeight())
+}

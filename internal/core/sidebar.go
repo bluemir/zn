@@ -206,6 +206,23 @@ func (s sidebar) selectedNode() *treeNode {
 	return rows[s.selected].node
 }
 
+// selectedLabel 은 고른 항목을 statusBar 아래 줄에 보일 형태로 준다.
+//
+// 뿌리 기준 상대 경로다. 절대 경로는 조금만 깊어도 statusBar 너비를 다 먹고 잘린다.
+func (s sidebar) selectedLabel() string {
+	node := s.selectedNode()
+	if node == nil {
+		return ""
+	}
+
+	rel, err := filepath.Rel(s.root, node.path)
+	if err != nil || rel == "." {
+		return filepath.Base(s.root) + "/"
+	}
+
+	return rel
+}
+
 // scrollTo 는 고른 항목이 화면 안에 들어오도록 top 을 최소한으로 움직인다.
 // 트리가 줄어들었을 수도 있으므로 selected 와 top 을 먼저 범위 안으로 당긴다.
 func (s *sidebar) scrollTo(height int) {

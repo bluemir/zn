@@ -20,7 +20,14 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyLeft}
 	case "right":
 		return tea.KeyPressMsg{Code: tea.KeyRight}
+	case "enter":
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "ctrl+w":
+		return tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
+	case "ctrl+c":
+		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	default:
+		// 나머지는 글자 키다. Text 가 차 있으면 String() 이 그것을 그대로 준다.
 		return tea.KeyPressMsg{Code: rune(s[0]), Text: s}
 	}
 }

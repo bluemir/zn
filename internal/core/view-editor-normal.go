@@ -56,6 +56,18 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pending = "g"
 
 			return m, nil
+		case "ctrl+w":
+			// vim 의 window 명령 접두 키다.
+			//
+			// sidebar 가 안 보이면 접두 키를 세우지 않는다. 접두 키는 다음 키를 삼키는데
+			// (ctrl+c 까지) ctrl+w 는 셸에서 단어 지우기 근육기억이라, 갈 곳도 없는데
+			// 키를 먹으면 안 된다.
+			if !m.sidebarVisible() {
+				return m, nil
+			}
+			m.pending = "ctrl+w"
+
+			return m, nil
 		case ":":
 			return commandMode(m.editor)
 		case "i":
@@ -104,23 +116,31 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // `esc` 와 `ctrl+c` 도 여기로 와서 버려진다. 잘못 누른 접두 키를 무르는 것이라
 // vim 과 같고, `g` 뒤에 손이 미끄러져서 편집기가 꺼지는 일도 없다.
 func (m viewEditorNormal) runPending(pending, key string) (tea.Model, tea.Cmd) {
-	if pending != "g" {
-		return m, nil
-	}
+	switch pending {
+	case "ctrl+w":
+		// pane 이 둘뿐이라 순환이 곧 왕래다. vim 의 ctrl+w ctrl+w / ctrl+w w 와 같다.
+		if key == "ctrl+w" || key == "w" {
+			return sidebarMode(m.editor)
+		}
 
-	switch key {
-	case "t":
-		m.nextTab()
-	case "T":
-		m.prevTab()
+		return m, nil
+	case "g":
+		switch key {
+		case "t":
+			m.nextTab()
+		case "T":
+			m.prevTab()
+		default:
+			return m, nil
+		}
+
+		// 옮겨 간 tab 은 이 크기의 화면을 처음 볼 수도 있다.
+		m.buffer().scrollTo(m.textWidth(), m.textHeight())
+
+		return m, nil
 	default:
 		return m, nil
 	}
-
-	// 옮겨 간 tab 은 이 크기의 화면을 처음 볼 수도 있다.
-	m.buffer().scrollTo(m.textWidth(), m.textHeight())
-
-	return m, nil
 }
 
 func (m viewEditorNormal) View() tea.View {
