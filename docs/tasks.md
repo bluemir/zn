@@ -28,9 +28,16 @@
 - [ ] 상대 줄번호와 절대 줄번호 동시 표시의 렌더 형태를 정하고 구현한다
 - [x] statusBar 를 구현한다. 첫 줄은 mode 와 파일 경로, 둘째 줄은 커서 위치(`줄:칸`, 1 부터, 칸은 화면 칸) 와 전체 줄 수다. mode 이름은 각 mode 의 `View` 가 직접 넘긴다(ADR-0002)
 - [x] statusBar 와 tabline 을 편집 내용과 눈으로 구분되게 한다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다. statusBar 는 첫 줄만, tabline 은 활성 tab 만 빼고 반전이다 (ADR-0004)
-- [ ] 팔레트를 정한다. 지금은 반전뿐이라 mode 를 색으로 구분할 수 없다. `config 는 compile 됨` 의 형태를 정하는 것과 같이 본다
+- [ ] 팔레트를 정한다. sidebar 만 256색 고정값을 쓰고(ADR-0005) 나머지는 반전뿐이라 mode 를 색으로 구분할 수 없다. 고정값이라 밝은 테마에서 회색(244)이 잘 안 보이는 것도 같이 본다. `config 는 compile 됨` 의 형태를 정하는 것과 같이 본다
 - [ ] statusBar 의 파일 경로 표시 방식을 정한다. 지금은 인자로 받은 경로를 그대로 찍어서 절대 경로면 너비를 다 먹는다
-- [ ] sidebar(filetree) 를 구현한다. 너비와 토글 여부를 정한다
+- [x] sidebar(filetree) 를 구현한다. 24칸 고정, `:tree` 로 여닫고 `ctrl+w ctrl+w` 로 포커스를 오간다. 데이터·렌더는 struct 로 두고 포커스만 mode(`viewSidebar`) 로 나타낸다 (ADR-0005)
+- [x] `scrollTo` 가 폭이 넓어졌을 때 `topRow` 를 다시 맞추지 않아 화면이 조용히 밀리던 것을 고친다. wrap 된 줄 안에 스크롤해 둔 상태에서 터미널을 넓히면 그 줄이 통째로 사라졌다
+- [ ] 아주 큰 디렉터리를 펼치면 한 키가 멈춘다. `os.ReadDir` 이 전부 읽고 `Update` 안에서 동기로 돈다. `File.ReadDir(n)` 으로 끊고 `… N개 더` 행을 두는 것을 본다
+- [ ] `git check-ignore` 도 같은 이유로 동기 호출이다. 느린 저장소에서 펼치는 순간 멈칫한다
+- [ ] sidebar 에 새로고침 키(`R`) 를 넣는다. 지금은 접었다 펴야 다시 읽는다
+- [ ] 트리에서 파일을 만들거나 지우거나 이름을 바꾸는 것을 정한다
+- [ ] sidebar 너비를 사용자가 바꾸는 방법을 정한다
+- [ ] insert mode 의 `ctrl+w`(앞 단어 지우기) 를 넣는다. normal mode 에서 `ctrl+w` 를 쓰기 시작하면 insert 에서 눌렀을 때 아무 일도 안 나는 것이 헷갈린다
 - [x] tab 기능을 구현한다. 전환 키는 vim 과 같은 `gt`/`gT` 로 하고, 화면 맨 위에 tabline 한 줄을 그린다. `:q` 는 보고 있는 tab 만 닫고 `Ctrl+C` 는 `:qa` 로 전체를 끝낸다 (ADR-0003)
 - [ ] tabline 이 화면 너비를 넘칠 때 활성 tab 이 잘려서 안 보인다. 활성 tab 이 보이도록 가로로 밀거나 이름을 줄여야 한다
 - [ ] `g` 를 누르고 다음 키를 기다리는 동안 화면에 아무 표시가 없다. vim 의 `showcmd` 처럼 statusBar 에 보여준다
@@ -49,12 +56,13 @@
 - [ ] 키 하나로 현재 화면을 cat 과 동일한 형태로 표시하는 기능을 넣는다 (복사·붙여넣기용)
 - [ ] home, end, page up, page down 의 일관적인 동작을 정의하고 구현한다
 - [ ] README 에 기술 스택, 빌드·실행 방법, 현재 구현 상태를 넣는다. feature 목록이 구현된 것인지 목표인지 구분되지 않아 초기 단계임이 전달되지 않는다
-- [ ] `docs/spec.md` 에 sidebar/statusBar 수치와 저장소 구조를 넣는다. 저장소 구조는(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
+- [ ] `docs/spec.md` 에 저장소 구조를 넣는다. sidebar/statusBar 수치는 넣었다. 저장소 구조는(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
 - [ ] `scripts/makefile.d/dev-run.mk` 의 `run`·`dev-run` 을 에디터에 맞게 고친다. web server scaffolding 이 남아 `$< -vvv server --config runtime/config.hjson` 을 실행하며, `server` 서브커맨드가 없어 `unknown long flag '--config'` 로 실패한다
 - [ ] `scripts/makefile.d/build.mk` 의 `gen` 타겟이 없는 `assets/src/js/index.js` 에 의존해 실패하는 것을 고친다. `prod` 와 `install` 이 이것 때문에 막혀 있다
 - [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다
 - [ ] (나중에) `pubsub`·`workers`·`datastruct`·`util` 을 별도 저장소로 뺄지 정한다. 에디터와 무관한 개인 공통 라이브러리라 분리하면 `go.mod` 정리와 `httpproxy` 의 gin 의존성이 같이 해결된다
-- [ ] `go.mod` 에서 쓰이지 않는 의존성을 정리한다. grpc, swaggo, prometheus, sqlite, sessions, hjson, expr-lang, validator, mongo-driver, gin-contrib, protobuf, gorm 은 import 되는 곳이 없다(gorm 은 struct tag 문자열로만 등장). `tool` 지시자의 esbuild·protoc-gen-\*·swag 도 같이 본다
+- [x] `go.mod` 에서 쓰이지 않는 의존성을 정리한다. grpc, swaggo, prometheus, sqlite, sessions, hjson, expr-lang, validator, mongo-driver, gin-contrib, protobuf, gorm 을 걷어냈다
+- [ ] `go.mod` 의 `tool` 지시자에 남은 esbuild·protoc-gen-\*·swag 을 정리한다. 에디터에는 쓰이지 않는다
 - [x] command parser
 	- state pattern 을 기반으로 만든다.
-- [ ] filetree 에서 파일 종류 마다 글자색을 달리, gitignore 의 파일은 회색등 연한 색으로
+- [x] filetree 에서 파일 종류 마다 글자색을 달리, gitignore 의 파일은 회색등 연한 색으로. 무시 여부는 펼칠 때 `git check-ignore` 에 묻는다 (ADR-0005)
