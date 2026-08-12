@@ -24,8 +24,8 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
 		buf := m.buffer()
-		buf.insert([]byte(msg.Content), m.width)
-		buf.scrollTo(m.width, m.textHeight())
+		buf.insert([]byte(msg.Content), m.textWidth())
+		buf.scrollTo(m.textWidth(), m.textHeight())
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -33,36 +33,36 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "ctrl+c":
-			// :q 와 같은 경로다. 저장하지 않은 변경이 있을 때만 확인창이 뜬다.
-			return quit(m, buf)
+			// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
+			return quitAll(m, m.editor)
 		case "esc":
 			// insert mode 의 커서는 글자 사이에 있다. normal 로 돌아오면 왼쪽 글자 위에 선다.
 			// vim 과 같은 동작이라 a<Esc> 는 제자리로 돌아오고 i<Esc> 는 한 글자 왼쪽이 된다.
 			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
 			buf.endEdit()
-			buf.moveLeft(m.width)
-			buf.scrollTo(m.width, m.textHeight())
+			buf.moveLeft(m.textWidth())
+			buf.scrollTo(m.textWidth(), m.textHeight())
 
 			return normalMode(m.editor)
 		case "enter":
-			buf.insert([]byte("\n"), m.width)
+			buf.insert([]byte("\n"), m.textWidth())
 		case "backspace":
-			buf.deleteBackward(m.width)
+			buf.deleteBackward(m.textWidth())
 		case "tab":
-			buf.insert([]byte("\t"), m.width)
+			buf.insert([]byte("\t"), m.textWidth())
 		case "up", "down", "left", "right":
 			// 커서를 옮기면 undo 구간이 끊긴다. vim 과 같다.
 			buf.endEdit()
 
 			switch msg.String() {
 			case "up":
-				buf.moveUp(1, m.width)
+				buf.moveUp(1, m.textWidth())
 			case "down":
-				buf.moveDown(1, m.width)
+				buf.moveDown(1, m.textWidth())
 			case "left":
-				buf.moveLeft(m.width)
+				buf.moveLeft(m.textWidth())
 			case "right":
-				buf.moveRight(m.width)
+				buf.moveRight(m.textWidth())
 			}
 		default:
 			// Text 는 출력 가능한 문자에만 채워진다. Enter·Tab 같은 특수 키와
@@ -70,10 +70,10 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			buf.insert([]byte(msg.Text), m.width)
+			buf.insert([]byte(msg.Text), m.textWidth())
 		}
 
-		buf.scrollTo(m.width, m.textHeight())
+		buf.scrollTo(m.textWidth(), m.textHeight())
 
 		return m, nil
 	default:

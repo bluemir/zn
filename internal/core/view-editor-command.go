@@ -1,8 +1,6 @@
 package core
 
 import (
-	"strings"
-
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
 )
@@ -32,7 +30,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			return quit(m, m.buffer())
+			return quitAll(m, m.editor)
 		case "esc":
 			return normalMode(m.editor)
 		case "enter":
@@ -62,7 +60,17 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	buf := m.buffer()
 
-	switch strings.TrimSpace(m.input) {
+	cmd, err := parseCommand(m.input)
+	if err != nil {
+		return m.fail(err)
+	}
+
+	// 인자를 받는 명령은 아직 없다. 조용히 버리면 `:w foo` 가 foo 에 저장한 것처럼 보인다.
+	if len(cmd.args) > 0 {
+		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
+	}
+
+	switch cmd.name {
 	case "":
 		return normalMode(m.editor)
 	case "w":
@@ -71,20 +79,35 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		return normalModeMessage(m.editor, "저장함: "+buf.path)
+	case "tabnew":
+		// 이름 없는 빈 tab 을 연다. 파일을 지정해서 여는 것은 아직 없다.
+		m.newTab()
+
+		return normalMode(m.editor)
 	case "q":
-		// 저장하지 않은 변경이 있으면 확인창을 띄운다. Ctrl+C 와 같은 경로다.
+		// 지금 보고 있는 tab 만 닫는다. 마지막 tab 이면 종료가 된다.
+		// `!` 는 묻지 않고 닫는다. 그냥 `:q` 는 저장하지 않은 변경이 있으면 확인창을 띄우고,
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다.
+		if cmd.force {
+			return forceCloseTab(m.editor)
+		}
 		back, _ := normalMode(m.editor)
 
-		return quit(back, buf)
+		return closeTab(back, m.editor)
 	case "wq", "x":
 		if err := buf.Save(); err != nil {
 			return m.fail(err)
 		}
 
-		return Exit()
-	case "q!":
-		return Exit()
+		return forceCloseTab(m.editor)
+	case "qa":
+		// 전체 종료다. `!` 는 묻지 않고, 그냥 `:qa` 는 어느 tab 이든 변경이 남아 있으면 묻는다.
+		if cmd.force {
+			return Exit()
+		}
+		back, _ := normalMode(m.editor)
+
+		return quitAll(back, m.editor)
 	default:
 		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
 	}

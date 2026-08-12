@@ -379,6 +379,52 @@ func TestScrollToWithinWrappedLine(t *testing.T) {
 	assert.Equal(t, 4, buf.topRow, "위로 벗어나면 커서 행이 최상단")
 }
 
+// 화면이 넓어지면 그 줄의 wrap 행 수가 줄어서 예전 topRow 가 없는 행을 가리키게 된다.
+// 그대로 두면 visibleRows 가 그 줄을 통째로 건너뛰어서 화면이 조용히 밀린다.
+//
+// 커서가 top 보다 아래 줄에 있어야 재현된다. 커서가 top 보다 위면 scrollTo 의
+// "위로 벗어났으면" 갈래가 top 을 커서 자리로 새로 잡아서 우연히 나아버린다.
+func TestScrollToClampsTopRowWhenWidened(t *testing.T) {
+	narrow, wide, height := 4, 40, 3
+	buf := newBuffer("test.txt", []byte(strings.Repeat("x", 40)+"\na\nb\nc\n"))
+	require.Len(t, wrapOffsets(buf.lines[0], narrow), 10)
+	require.Len(t, wrapOffsets(buf.lines[0], wide), 1, "넓히면 한 행으로 준다")
+
+	// 긴 줄 끝까지 내려가서 그 줄 깊숙이 스크롤한 뒤, 아래 줄들로 커서를 옮긴다.
+	buf.moveDown(9, narrow)
+	buf.scrollTo(narrow, height)
+	buf.moveDown(1, narrow)
+	buf.scrollTo(narrow, height)
+	buf.moveDown(1, narrow)
+	buf.scrollTo(narrow, height)
+
+	require.Equal(t, 2, buf.cursorLine, "커서는 top 보다 아래 줄")
+	require.Equal(t, 0, buf.top)
+	require.Equal(t, 9, buf.topRow, "긴 줄의 마지막 행부터 그리고 있다")
+
+	buf.scrollTo(wide, height)
+
+	assert.Equal(t, 0, buf.top)
+	assert.Equal(t, 0, buf.topRow, "넓어진 뒤에는 그 줄에 행이 하나뿐이다")
+
+	rows := buf.visibleRows(wide, height)
+	require.NotEmpty(t, rows)
+	assert.Equal(t, 0, rows[0].line, "첫 줄이 통째로 사라지면 안 된다")
+}
+
+// 줄이 지워져서 top 이 파일 끝을 넘어가도 죽지 않아야 한다.
+func TestScrollToClampsTopBeyondEnd(t *testing.T) {
+	width, height := 10, 3
+	buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
+
+	buf.top, buf.topRow = 4, 0
+	buf.lines = buf.lines[:2]
+	buf.cursorLine, buf.cursorCol = 0, 0
+
+	assert.NotPanics(t, func() { buf.scrollTo(width, height) })
+	assert.Less(t, buf.top, len(buf.lines))
+}
+
 func TestCursorScreenPos(t *testing.T) {
 	width, height := 4, 5
 	buf := newBuffer("test.txt", []byte("abcdefgh\nnext\n"))

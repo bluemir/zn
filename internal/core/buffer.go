@@ -401,6 +401,8 @@ func (buf *Buffer) scrollTo(width, height int) {
 		return
 	}
 
+	buf.clampTop(width)
+
 	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursorLine], width), buf.cursorCol)
 
 	// 위로 벗어났으면 커서 행을 최상단으로 올린다.
@@ -415,6 +417,19 @@ func (buf *Buffer) scrollTo(width, height int) {
 	if rowBefore(buf.top, buf.topRow, limitLine, limitRow) {
 		buf.top, buf.topRow = limitLine, limitRow
 	}
+}
+
+// clampTop 은 top, topRow 를 지금 너비에서 실제로 있는 화면 행으로 맞춘다.
+//
+// topRow 는 그 줄이 몇 번째 wrap 행부터 그려지는지인데, 화면이 넓어지면 그 줄의 wrap 행 수가
+// 줄어서 예전 topRow 가 없는 행을 가리키게 된다. 그대로 두면 visibleRows 가 그 줄을 통째로
+// 건너뛰어서 panic 없이 화면이 한 줄씩 밀린다.
+//
+// 폭이 바뀌는 경로가 여럿(터미널 리사이즈, tab 전환, sidebar 여닫기)이라
+// 부르는 쪽마다 챙기지 않고 scrollTo 안에서 한 번에 맞춘다.
+func (buf *Buffer) clampTop(width int) {
+	buf.top = min(buf.top, len(buf.lines)-1)
+	buf.topRow = min(buf.topRow, len(wrapOffsets(buf.lines[buf.top], width))-1)
 }
 
 // rowBefore 는 화면 행 (line1,row1) 이 (line2,row2) 보다 위인지 본다.
@@ -485,6 +500,12 @@ func (buf Buffer) cursorScreenPos(width, height int) (x, y int, ok bool) {
 // Save 는 buffer 를 파일에 쓴다.
 // 줄끝 형식과 파일 끝 줄끝 유무는 읽었을 때 그대로 되돌린다.
 func (buf *Buffer) Save() error {
+	// :tabnew 로 만든 buffer 는 이름이 없어서 쓸 곳이 없다. vim 의 E32 와 같다.
+	// 이름을 주는 방법(`:w <파일>`) 은 아직 없으므로 알리고 끝낸다.
+	if buf.path == "" {
+		return errors.New("파일 이름이 없습니다")
+	}
+
 	eol := buf.lineEnding.bytes()
 
 	size := 0

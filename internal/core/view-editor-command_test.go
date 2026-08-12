@@ -25,7 +25,7 @@ func newFileEditor(t *testing.T, data string) (viewEditorNormal, string) {
 		editor: editor{
 			buffers: []Buffer{buf},
 			width:   40,
-			height:  5 + statusBarHeight,
+			height:  5 + tablineHeight + statusBarHeight,
 		},
 	}, path
 }
@@ -81,7 +81,7 @@ func TestCommandModeKeepsTextHeight(t *testing.T) {
 	m = send(m, ":")
 
 	assert.Equal(t, before, strings.Count(m.(viewEditorCommand).View().Content, "\n"))
-	assert.Equal(t, "a", strings.Split(m.(viewEditorCommand).View().Content, "\n")[0])
+	assert.Equal(t, "a", strings.Split(m.(viewEditorCommand).View().Content, "\n")[tablineHeight])
 }
 
 func TestCommandWriteSavesFile(t *testing.T) {
@@ -177,6 +177,42 @@ func TestCommandUnknown(t *testing.T) {
 	assert.Contains(t, barOf(t, m)[1], "알 수 없는 명령")
 }
 
+// 인자를 받는 명령은 아직 없다. 조용히 버리면 :w foo 가 foo 에 저장한 것처럼 보인다.
+func TestCommandRejectsUnexpectedArgument(t *testing.T) {
+	m, path := newFileEditor(t, "abc\n")
+
+	var model tea.Model = m
+	model = send(model, "i", "X", "esc")
+	model = send(model, ":", "w", " ", "f", "o", "o", "enter")
+
+	assert.IsType(t, viewEditorNormal{}, model)
+	assert.Contains(t, barOf(t, model)[1], "알 수 없는 명령")
+	assert.True(t, bufferOf(t, model).dirty, "저장하지 않는다")
+
+	saved, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "abc\n", string(saved), "원래 파일도 건드리지 않는다")
+}
+
+// 앞뒤 공백은 명령 이름으로 치지 않는다.
+func TestCommandIgnoresSurroundingSpaces(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", " ", "q", " ", "enter")
+
+	assert.IsType(t, finalExit{}, m)
+}
+
+// 따옴표가 닫히지 않으면 실행하지 않고 알린다.
+func TestCommandReportsParseError(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 40, 5)
+
+	m = send(m, ":", "w", " ", "\"", "f", "o", "o", "enter")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "따옴표가 닫히지 않았습니다")
+}
+
 func TestCommandEmptyReturnsToNormal(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 5)
 
@@ -194,7 +230,7 @@ func TestCommandWriteFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	var m tea.Model = viewEditorNormal{
-		editor: editor{buffers: []Buffer{buf}, width: 40, height: 5 + statusBarHeight},
+		editor: editor{buffers: []Buffer{buf}, width: 40, height: 5 + tablineHeight + statusBarHeight},
 	}
 	m = send(m, ":", "w", "enter")
 

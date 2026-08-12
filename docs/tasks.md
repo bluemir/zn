@@ -27,10 +27,22 @@
 - [x] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다
 - [ ] 상대 줄번호와 절대 줄번호 동시 표시의 렌더 형태를 정하고 구현한다
 - [x] statusBar 를 구현한다. 첫 줄은 mode 와 파일 경로, 둘째 줄은 커서 위치(`줄:칸`, 1 부터, 칸은 화면 칸) 와 전체 줄 수다. mode 이름은 각 mode 의 `View` 가 직접 넘긴다(ADR-0002)
-- [ ] statusBar 를 편집 내용과 눈으로 구분되게 한다. 지금은 색·배경이 없어서 파일 내용처럼 보인다. 색 결정이 없어서 미뤘다
+- [x] statusBar 와 tabline 을 편집 내용과 눈으로 구분되게 한다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다. statusBar 는 첫 줄만, tabline 은 활성 tab 만 빼고 반전이다 (ADR-0004)
+- [ ] 팔레트를 정한다. 지금은 반전뿐이라 mode 를 색으로 구분할 수 없다. `config 는 compile 됨` 의 형태를 정하는 것과 같이 본다
 - [ ] statusBar 의 파일 경로 표시 방식을 정한다. 지금은 인자로 받은 경로를 그대로 찍어서 절대 경로면 너비를 다 먹는다
 - [ ] sidebar(filetree) 를 구현한다. 너비와 토글 여부를 정한다
-- [ ] tab 기능을 구현한다. 여러 파일을 열었을 때의 전환 키를 정한다
+- [x] tab 기능을 구현한다. 전환 키는 vim 과 같은 `gt`/`gT` 로 하고, 화면 맨 위에 tabline 한 줄을 그린다. `:q` 는 보고 있는 tab 만 닫고 `Ctrl+C` 는 `:qa` 로 전체를 끝낸다 (ADR-0003)
+- [ ] tabline 이 화면 너비를 넘칠 때 활성 tab 이 잘려서 안 보인다. 활성 tab 이 보이도록 가로로 밀거나 이름을 줄여야 한다
+- [ ] `g` 를 누르고 다음 키를 기다리는 동안 화면에 아무 표시가 없다. vim 의 `showcmd` 처럼 statusBar 에 보여준다
+- [ ] `:wa`(전부 저장) 와 `:wqa`(전부 저장하고 종료) 를 넣는다
+- [x] `:tabnew` 로 이름 없는 빈 tab 을 연다. 보고 있던 tab 바로 뒤에 생기고 그리로 옮겨간다
+- [x] 명령줄 parser 를 만든다. `이름[!] [인자 ...]` 를 뜯어서 `command{name, force, args}` 로 준다. 따옴표와 `\` 로 공백이 든 파일 이름을 쓸 수 있다. `!` 가 flag 로 빠져서 `q`/`q!`/`qa`/`qa!` 네 case 가 둘로 줄었다
+- [ ] 토큰에서 command 를 만드는 단계에 상태 기계가 없다. 지금은 "첫 토큰이 이름, 나머지가 인자" 로 끝나서 필요하지 않다. 범위 문법(`:1,5d`) 을 넣을 때 다시 본다
+- [ ] `:!<shell command>` 를 넣을 때 tokenizer 에 "뒤를 통째로 넘기는" 상태를 더한다. 지금 구조가 그것을 받도록 되어 있다
+- [ ] `:e <파일>` 과 `:tabnew <파일>` 로 편집 중에 파일을 연다. 지금은 인자 없는 명령만 파싱해서 명령 파싱을 손봐야 한다. **이미 열려 있는 파일이면 새 tab 을 만들지 말고 그 tab 으로 옮겨간다** — tab 마다 Buffer 가 독립이라 같은 파일을 두 번 열면 한쪽 저장이 다른 쪽 편집을 조용히 덮어쓴다
+- [ ] `:w <파일>` 로 이름 없는 buffer 에 이름을 준다. 지금은 `:tabnew` 로 만든 tab 을 저장할 방법이 없어서 임시 메모장으로만 쓸 수 있다
+- [ ] CLI 인자로 같은 파일을 두 번 주면(`be a.txt a.txt`) tab 두 개가 각각 독립 Buffer 로 열린다. 위와 같은 덮어쓰기 위험이 있다
+- [ ] tab 순서를 바꾸거나 옮기는 동작을 정한다
 - [ ] fzf 와 command palette 를 구현한다. file matching 에서 `>` 로 command 로 넘어가는 동작과 `!` 의 shell command 매핑 포함
 - [ ] 언어별 지원(golang, markdown, html, css, js) 을 넣는다
 - [ ] mouse 지원을 넣는다
@@ -43,3 +55,6 @@
 - [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다
 - [ ] (나중에) `pubsub`·`workers`·`datastruct`·`util` 을 별도 저장소로 뺄지 정한다. 에디터와 무관한 개인 공통 라이브러리라 분리하면 `go.mod` 정리와 `httpproxy` 의 gin 의존성이 같이 해결된다
 - [ ] `go.mod` 에서 쓰이지 않는 의존성을 정리한다. grpc, swaggo, prometheus, sqlite, sessions, hjson, expr-lang, validator, mongo-driver, gin-contrib, protobuf, gorm 은 import 되는 곳이 없다(gorm 은 struct tag 문자열로만 등장). `tool` 지시자의 esbuild·protoc-gen-\*·swag 도 같이 본다
+- [x] command parser
+	- state pattern 을 기반으로 만든다.
+- [ ] filetree 에서 파일 종류 마다 글자색을 달리, gitignore 의 파일은 회색등 연한 색으로

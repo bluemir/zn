@@ -6,25 +6,57 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-// quit 은 `:q` 와 `Ctrl+C` 가 공유하는 종료 경로다. 둘의 동작이 같아야 한다.
+// quitAll 은 `Ctrl+C` 와 `:qa` 가 쓰는 경로다. 편집기를 통째로 끝낸다.
 //
-// 저장하지 않은 변경이 있을 때만 확인창을 띄운다. 잃을 것이 없으면 묻지 않고 나간다.
+// 어느 tab 이든 저장하지 않은 변경이 있으면 확인창을 띄운다. 보고 있지 않은 tab 의 변경도
+// 같이 잃기 때문에 활성 buffer 만 봐서는 안 된다. 잃을 것이 없으면 묻지 않고 나간다.
 // parent 는 확인창에서 취소했을 때 돌아갈 화면이다.
-func quit(parent tea.Model, buf *Buffer) (tea.Model, tea.Cmd) {
-	if buf.dirty {
-		return QuitConfirm(parent), nil
+func quitAll(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
+	if e.anyDirty() {
+		return QuitConfirm(parent, "정말 종료 하시겠습니까?", Exit), nil
 	}
 
 	return Exit()
 }
 
-func QuitConfirm(parent tea.Model) tea.Model {
-	return viewQuitConfirm{parent: parent}
+// closeTab 은 `:q` 가 쓰는 경로다. 지금 보고 있는 tab 만 닫는다.
+// 마지막 tab 이면 닫을 것이 없으므로 종료가 된다.
+//
+// 활성 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다. 다른 tab 의 변경은 남으므로 묻지 않는다.
+func closeTab(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
+	if len(e.buffers) < 2 {
+		return quitAll(parent, e)
+	}
+
+	if e.buffer().dirty {
+		return QuitConfirm(parent, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+			return forceCloseTab(e)
+		}), nil
+	}
+
+	return forceCloseTab(e)
+}
+
+// forceCloseTab 은 묻지 않고 활성 tab 을 닫는다. `:q!` 와 확인창의 Yes 가 쓴다.
+func forceCloseTab(e editor) (tea.Model, tea.Cmd) {
+	if !e.closeTab() {
+		return Exit()
+	}
+
+	return normalMode(e)
+}
+
+// QuitConfirm 은 잃을 것이 있을 때 한 번 더 묻는 화면이다.
+// confirm 은 Yes 를 눌렀을 때 갈 곳이다. 종료일 수도 있고 tab 닫기일 수도 있다.
+func QuitConfirm(parent tea.Model, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
+	return viewQuitConfirm{parent: parent, question: question, confirm: confirm}
 }
 
 type viewQuitConfirm struct {
-	parent tea.Model
-	cursor int
+	parent   tea.Model
+	question string
+	confirm  func() (tea.Model, tea.Cmd)
+	cursor   int
 }
 
 func (m viewQuitConfirm) Init() tea.Cmd {
@@ -48,7 +80,7 @@ func (m viewQuitConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch m.cursor {
 			case 0:
-				return Exit()
+				return m.confirm()
 			case 1:
 				return m.parent, nil
 			default:
@@ -70,7 +102,7 @@ func (m viewQuitConfirm) View() tea.View {
 				// 좁은 화면에서 잘리지 않게 두 줄로 나눈다.
 				// 이 화면은 터미널 너비를 몰라서 statusBar 처럼 잘라내지 못한다.
 				"저장하지 않은 변경이 있습니다.",
-				"정말 종료 하시겠습니까?",
+				m.question,
 				"",
 				lipgloss.JoinHorizontal(
 					lipgloss.Top,

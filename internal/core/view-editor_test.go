@@ -5,29 +5,48 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// newTestEditor 의 height 는 편집 내용을 그릴 높이다. statusBar 는 별도로 얹힌다.
+// newTestEditor 의 height 는 편집 내용을 그릴 높이다. tabline 과 statusBar 는 별도로 얹힌다.
 func newTestEditor(data string, width, height int) viewEditorNormal {
 	return viewEditorNormal{
 		editor: editor{
 			buffers: []Buffer{newBuffer("test.txt", []byte(data))},
 			width:   width,
-			height:  height + statusBarHeight,
+			height:  height + tablineHeight + statusBarHeight,
 		},
 	}
 }
 
-// textOf 는 statusBar 를 뺀 편집 내용만 돌려준다.
+// textOf 는 tabline 과 statusBar 를 뺀 편집 내용만 돌려준다.
 func textOf(t *testing.T, view tea.View) string {
 	t.Helper()
 
 	rows := strings.Split(view.Content, "\n")
-	require.GreaterOrEqual(t, len(rows), statusBarHeight)
+	require.GreaterOrEqual(t, len(rows), tablineHeight+statusBarHeight)
 
-	return strings.Join(rows[:len(rows)-statusBarHeight], "\n")
+	return strings.Join(rows[tablineHeight:len(rows)-statusBarHeight], "\n")
+}
+
+// tablineOf 는 화면 맨 위 tabline 줄에서 tab 들만 돌려준다.
+// 색과 줄 끝을 채우는 빈 칸은 뺀다. 그 둘은 splitByReverse 로 따로 본다.
+func tablineOf(t *testing.T, view tea.View) string {
+	t.Helper()
+
+	return strings.TrimRight(ansi.Strip(rawTablineOf(t, view)), " ")
+}
+
+// rawTablineOf 는 tabline 줄을 색이 붙은 그대로 돌려준다.
+func rawTablineOf(t *testing.T, view tea.View) string {
+	t.Helper()
+
+	rows := strings.Split(view.Content, "\n")
+	require.NotEmpty(t, rows)
+
+	return rows[0]
 }
 
 func TestViewEditorRendersVisibleLines(t *testing.T) {
@@ -63,15 +82,16 @@ func TestViewEditorCursorPosition(t *testing.T) {
 	m := newTestEditor("한글abc\nsecond\n", 80, 5)
 	buf := &m.buffers[0]
 
+	// Y 는 tabline 한 줄만큼 내려간다. 첫 줄이 화면 1 행이다.
 	require.NotNil(t, m.View().Cursor)
-	assert.Equal(t, tea.Position{X: 0, Y: 0}, m.View().Cursor.Position)
+	assert.Equal(t, tea.Position{X: 0, Y: 1}, m.View().Cursor.Position)
 
 	// 한글 한 글자 = 두 칸
 	buf.moveRight(m.width)
-	assert.Equal(t, tea.Position{X: 2, Y: 0}, m.View().Cursor.Position)
+	assert.Equal(t, tea.Position{X: 2, Y: 1}, m.View().Cursor.Position)
 
 	buf.moveDown(1, m.width)
-	assert.Equal(t, tea.Position{X: 2, Y: 1}, m.View().Cursor.Position)
+	assert.Equal(t, tea.Position{X: 2, Y: 2}, m.View().Cursor.Position)
 }
 
 // 스크롤된 뒤에도 커서는 화면 기준으로 그려져야 한다.
@@ -83,7 +103,7 @@ func TestViewEditorCursorAfterScroll(t *testing.T) {
 	buf.scrollTo(m.width, m.textHeight())
 
 	require.Equal(t, 11, buf.top)
-	assert.Equal(t, 9, m.View().Cursor.Position.Y, "커서는 화면 맨 아래 줄")
+	assert.Equal(t, 10, m.View().Cursor.Position.Y, "커서는 편집 영역 맨 아래 줄")
 }
 
 // wrap 된 줄 안에서 아래로 내려가면 커서가 다음 화면 행에 있어야 한다.
@@ -92,10 +112,10 @@ func TestViewEditorCursorInWrappedLine(t *testing.T) {
 	buf := &m.buffers[0]
 
 	buf.moveRight(m.width)
-	assert.Equal(t, tea.Position{X: 1, Y: 0}, m.View().Cursor.Position)
+	assert.Equal(t, tea.Position{X: 1, Y: 1}, m.View().Cursor.Position)
 
 	buf.moveDown(1, m.width)
-	assert.Equal(t, tea.Position{X: 1, Y: 1}, m.View().Cursor.Position, "같은 줄의 두 번째 행")
+	assert.Equal(t, tea.Position{X: 1, Y: 2}, m.View().Cursor.Position, "같은 줄의 두 번째 행")
 }
 
 func TestViewEditorHandlesWindowSize(t *testing.T) {
@@ -107,7 +127,7 @@ func TestViewEditorHandlesWindowSize(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 40, resized.width)
 	assert.Equal(t, 5, resized.height)
-	assert.Equal(t, 5, strings.Count(resized.View().Content, "\n")+1, "편집 내용 + statusBar 가 화면을 채운다")
+	assert.Equal(t, 5, strings.Count(resized.View().Content, "\n")+1, "tabline + 편집 내용 + statusBar 가 화면을 채운다")
 }
 
 // 화면 크기를 받기 전에도 render 가 죽지 않아야 한다.
