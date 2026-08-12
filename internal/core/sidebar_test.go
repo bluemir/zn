@@ -257,7 +257,7 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 	return out
 }
 
-// sidebar 는 한 행이 정확히 24 칸이어야 한다. 어긋나면 편집 내용이 통째로 밀린다.
+// sidebar 는 한 행이 정확히 sidebarWidth 칸이어야 한다. 어긋나면 편집 내용이 통째로 밀린다.
 func TestSidebarCellsAreExactlyWide(t *testing.T) {
 	s := openSidebar(newTreeFixture(t))
 
@@ -396,7 +396,9 @@ func TestSidebarAutoHidesOnNarrowScreen(t *testing.T) {
 
 // 아주 좁거나 낮은 화면에서도 죽지 않아야 한다. 음수 폭이 여기서 잡힌다.
 func TestSidebarTinyScreenDoesNotPanic(t *testing.T) {
-	for _, width := range []int{0, 1, 10, 23, 24, 25, 44} {
+	// 임계값 언저리를 상수로 잡는다. 숫자를 박아두면 너비를 바꿀 때 조용히 낡는다.
+	widths := []int{0, 1, 10, sidebarWidth - 1, sidebarWidth, sidebarWidth + 1, sidebarWidth + minTextWidth}
+	for _, width := range widths {
 		for _, height := range []int{0, 1, 3, 5} {
 			m := newTreeEditor(t, width, 0)
 			m.height = height

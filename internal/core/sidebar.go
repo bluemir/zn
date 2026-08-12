@@ -10,7 +10,7 @@ import (
 )
 
 // sidebarWidth 는 좌측 sidebar 가 차지하는 칸 수다(docs/spec.md).
-const sidebarWidth = 24
+const sidebarWidth = 32
 
 // minTextWidth 는 sidebar 를 그리고도 남아 있어야 하는 편집 영역 너비다.
 // 이보다 좁아지면 sidebar 가 켜져 있어도 그리지 않는다.

@@ -7,7 +7,7 @@
 	- 1줄로 표시. 파일이 하나여도 그린다
 - 좌측 sidebar
 	- filetree
-	- 24칸 고정. tabline 아래, statusBar 위를 차지한다
+	- 32칸 고정. tabline 아래, statusBar 위를 차지한다
 	- 편집 영역이 20칸 아래로 떨어지면 켜져 있어도 그리지 않는다
 - 하단 statusBar
 	- mode 표시
@@ -38,12 +38,12 @@ tab 하나는 `번호 파일이름` 이고, 이름은 경로가 아니라 파일
 `.git` 은 어느 깊이에서든 감추고 나머지 숨김 파일은 보인다.
 
 ```
-▾ be/                 │ package core
-  ▸ docs/             │
-  ▾ internal/         │ func main() {
-      main.go         │ }
-    README.md         │
-└──── 24칸 ──────────┘└─ 나머지가 편집 영역 ─┘
+▾ be/                         │ package core
+  ▸ docs/                     │
+  ▾ internal/                 │ func main() {
+      main.go                 │ }
+    README.md                 │
+└──────────── 32칸 ────────────┘└─ 나머지가 편집 영역 ─┘
 ```
 
 디렉터리는 먼저 오고 그 안은 이름순이다. 펼침 표시는 `▾`(펼침) `▸`(접힘) 이고 파일은 그 자리가

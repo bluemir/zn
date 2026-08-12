@@ -30,7 +30,7 @@
 - [x] statusBar 와 tabline 을 편집 내용과 눈으로 구분되게 한다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다. statusBar 는 첫 줄만, tabline 은 활성 tab 만 빼고 반전이다 (ADR-0004)
 - [ ] 팔레트를 정한다. sidebar 만 256색 고정값을 쓰고(ADR-0005) 나머지는 반전뿐이라 mode 를 색으로 구분할 수 없다. 고정값이라 밝은 테마에서 회색(244)이 잘 안 보이는 것도 같이 본다. `config 는 compile 됨` 의 형태를 정하는 것과 같이 본다
 - [ ] statusBar 의 파일 경로 표시 방식을 정한다. 지금은 인자로 받은 경로를 그대로 찍어서 절대 경로면 너비를 다 먹는다
-- [x] sidebar(filetree) 를 구현한다. 24칸 고정, `:tree` 로 여닫고 `ctrl+w ctrl+w` 로 포커스를 오간다. 데이터·렌더는 struct 로 두고 포커스만 mode(`viewSidebar`) 로 나타낸다 (ADR-0005)
+- [x] sidebar(filetree) 를 구현한다. 32칸 고정, `:tree` 로 여닫고 `ctrl+w ctrl+w` 로 포커스를 오간다. 데이터·렌더는 struct 로 두고 포커스만 mode(`viewSidebar`) 로 나타낸다 (ADR-0005)
 - [x] `scrollTo` 가 폭이 넓어졌을 때 `topRow` 를 다시 맞추지 않아 화면이 조용히 밀리던 것을 고친다. wrap 된 줄 안에 스크롤해 둔 상태에서 터미널을 넓히면 그 줄이 통째로 사라졌다
 - [ ] 아주 큰 디렉터리를 펼치면 한 키가 멈춘다. `os.ReadDir` 이 전부 읽고 `Update` 안에서 동기로 돈다. `File.ReadDir(n)` 으로 끊고 `… N개 더` 행을 두는 것을 본다
 - [ ] `git check-ignore` 도 같은 이유로 동기 호출이다. 느린 저장소에서 펼치는 순간 멈칫한다
