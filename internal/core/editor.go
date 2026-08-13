@@ -585,9 +585,16 @@ func (e editor) tabAt(x int) (int, bool) {
 // 위 줄만 반전이다. 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.
 // `:` 를 칠 때 배경이 뜨지 않고 명령 결과와 오류도 평범한 글자로 읽힌다.
 //
-// 줄은 sidebar 아래까지 화면 끝에서 끝까지 이어지지만 글자는 편집 영역 아래에서 시작한다.
-// 편집 영역에 딸린 내용이라 그 왼쪽 끝에 맞추고, 줄 자체는 tabline 과 달리 끊지 않는다 —
+// 줄은 sidebar 아래까지 화면 끝에서 끝까지 이어진다. 줄 자체는 tabline 과 달리 끊지 않는다 —
 // 화면 맨 아래를 가로지르는 한 줄이라야 편집기 전체의 상태 표시로 읽힌다.
+//
+// 위 줄은 mode 가 sidebar 아래, 경로가 편집 영역 아래다. 둘 다 자기가 가리키는 것 바로 밑에
+// 서게 된다. TREE 는 트리 아래에, 경로는 그 파일을 편집하는 자리 아래에 온다.
+//
+// sidebar 가 없으면 mode 를 놓을 왼쪽 칸 자체가 없으므로 경로 앞에 나란히 붙인다.
+//
+// 아래 줄은 mode 를 따라가지 않고 편집 영역에 맞춰 들여쓴다. 명령줄과 커서 위치는 편집 중인
+// 파일에 딸린 것이라 위 줄의 경로와 세로로 맞아야 읽힌다.
 func (e editor) statusBar(mode, bottom string) []string {
 	buf := e.buffers[e.active]
 
@@ -599,14 +606,21 @@ func (e editor) statusBar(mode, bottom string) []string {
 		path += " [+]"
 	}
 
-	// sidebar 아래를 빈 칸으로 지난다. 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.
-	indent := strings.Repeat(" ", e.sidebarLeft())
+	// 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.
+	// 자르는 것이 채우는 것보다 먼저다 — 두 칸짜리 글자가 경계에 걸치면 통째로 버려진다.
+	left, text := "", mode+"  "+path
+	if e.sidebarVisible() {
+		label := truncateToWidth(mode, sidebarWidth)
+		left = label + strings.Repeat(" ", max(0, sidebarWidth-screenColAt([]byte(label), len(label))))
+		text = path
+	}
+
 	width := e.textWidth()
 
 	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
 	return []string{
-		reverse.Width(e.width).Render(indent + e.withGit(truncateToWidth(mode+"  "+path, width))),
-		indent + truncateToWidth(bottom, width),
+		reverse.Width(e.width).Render(left + e.withGit(truncateToWidth(text, width))),
+		strings.Repeat(" ", e.sidebarLeft()) + truncateToWidth(bottom, width),
 	}
 }
 

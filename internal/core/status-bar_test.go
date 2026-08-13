@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// barOf 는 statusBar 두 줄을 색을 뺀 글자로 돌려준다.
-// 색 자체를 보는 것은 rawBarOf 로 한다.
+// barOf 는 statusBar 두 줄 중 편집 영역 아래 부분만 색을 뺀 글자로 돌려준다.
+// 색 자체를 보는 것은 rawBarOf 로, sidebar 아래 칸에 있는 mode 는 modeOf 로 본다.
 //
-// statusBar 는 편집 영역 아래에만 있으므로 sidebar 가 열려 있으면 왼쪽 칸을 떼어낸다.
+// sidebar 가 열려 있으면 왼쪽 칸을 떼어낸다. 그래야 sidebar 를 여닫아도 같은 것을 본다.
 func barOf(t *testing.T, m tea.Model) []string {
 	t.Helper()
 
@@ -31,6 +31,18 @@ func barOf(t *testing.T, m tea.Model) []string {
 	return plain
 }
 
+// modeOf 는 statusBar 위 줄에 그려진 mode 다.
+//
+// sidebar 가 열려 있으면 그 아래 칸에 있고, 닫혀 있으면 경로 앞에 나란히 붙는다.
+// 어느 쪽이든 위 줄 맨 앞이라 첫 낱말을 떼어내면 된다.
+func modeOf(t *testing.T, m tea.Model) string {
+	t.Helper()
+
+	top := ansi.Strip(rawBarOf(t, m)[0])
+
+	return strings.Fields(top)[0]
+}
+
 // rawBarOf 는 statusBar 두 줄을 색이 붙은 그대로 돌려준다.
 func rawBarOf(t *testing.T, m tea.Model) []string {
 	t.Helper()
@@ -45,13 +57,42 @@ func rawBarOf(t *testing.T, m tea.Model) []string {
 func TestStatusBarShowsMode(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 3)
 
-	assert.Contains(t, barOf(t, m)[0], "NORMAL")
+	assert.Equal(t, "NORMAL", modeOf(t, m))
 
 	m = send(m, "i")
-	assert.Contains(t, barOf(t, m)[0], "INSERT")
+	assert.Equal(t, "INSERT", modeOf(t, m))
 
 	m = send(m, "esc")
-	assert.Contains(t, barOf(t, m)[0], "NORMAL")
+	assert.Equal(t, "NORMAL", modeOf(t, m))
+}
+
+// sidebar 가 열려 있으면 mode 는 그 아래 칸에, 경로는 편집 영역 아래에 선다.
+func TestStatusBarPutsModeUnderSidebar(t *testing.T) {
+	m := newTreeEditor(t, 80, 6)
+	require.True(t, m.sidebarVisible())
+
+	top := ansi.Strip(rawBarOf(t, m)[0])
+
+	assert.True(t, strings.HasPrefix(top, "NORMAL"), "mode 는 화면 왼쪽 끝에서 시작한다")
+	assert.Equal(t, sidebarWidth, strings.Index(top, "main.go"), "경로는 편집 영역 왼쪽 끝에 맞는다")
+	assert.Equal(t, "main.go", strings.TrimSpace(barOf(t, m)[0]), "편집 영역 아래에는 경로만 있다")
+}
+
+// sidebar 를 놓을 칸이 없으면 mode 는 경로 앞에 나란히 붙는다.
+func TestStatusBarKeepsModeInlineWithoutSidebar(t *testing.T) {
+	m := newTreeEditor(t, sidebarWidth+minTextWidth-1, 6)
+	require.False(t, m.sidebarVisible())
+
+	assert.Equal(t, "NORMAL  main.go", strings.TrimRight(ansi.Strip(rawBarOf(t, m)[0]), " "))
+}
+
+// 아래 줄은 mode 를 따라가지 않는다. 위 줄의 경로와 세로로 맞아야 편집 중인 파일에 딸린 것으로 읽힌다.
+func TestStatusBarBottomLineAlignsWithPath(t *testing.T) {
+	m := newTreeEditor(t, 80, 6)
+
+	top, bottom := ansi.Strip(rawBarOf(t, m)[0]), ansi.Strip(rawBarOf(t, m)[1])
+
+	assert.Equal(t, strings.Index(top, "main.go"), strings.Index(bottom, "1:1"))
 }
 
 func TestStatusBarShowsPath(t *testing.T) {

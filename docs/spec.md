@@ -14,7 +14,7 @@
 	- 32칸 고정. 화면 맨 윗줄부터 statusBar 앞줄까지를 차지한다
 	- 편집 영역이 20칸 아래로 떨어지면 켜져 있어도 그리지 않는다
 - 하단 statusBar
-	- mode 표시
+	- mode 는 sidebar 아래, 파일 경로는 편집 영역 아래
 	- 2줄로 표시
 	- 첫 줄만 반전. 둘째 줄은 명령줄이라 배경을 그대로 둔다(ADR-0004)
 	- 첫 줄 오른쪽 끝에 git branch·commit·dirty 여부(ADR-0009)
@@ -98,7 +98,7 @@ wrap 되어 이어지는 화면 행은 번호 칸이 빈 칸이다. 번호가 �
 `.git` 은 어느 깊이에서든 감추고 나머지 숨김 파일은 보인다.
 
 sidebar 는 화면 맨 윗줄부터 statusBar 앞줄까지다. tabline 은 그 오른쪽, 편집 영역 위에만 있다.
-statusBar 는 sidebar 아래를 지나 화면을 가로지르고 글자만 편집 영역 아래에서 시작한다.
+statusBar 는 sidebar 아래를 지나 화면을 가로지르고, 그 아래 칸에는 mode 가 온다.
 
 ```
 ▾ be/                         │ 1 main.go
@@ -185,11 +185,25 @@ sidebar 는 `:` 를 받지 않는다.
 아래 줄은 mode 가 정한다 — normal/insert 는 `줄:칸  (N 줄)`, command mode 는 치고 있는 명령,
 sidebar 는 고른 항목의 경로다. 아래 줄 오른쪽 끝은 showcmd 자리다.
 
+mode 는 sidebar 아래 칸에, 파일 경로는 편집 영역 아래에 놓는다. 둘 다 자기가 가리키는 것
+바로 밑에 서게 된다 — `TREE` 는 트리 아래에, 경로는 그 파일을 편집하는 자리 아래에 온다.
+아래 줄은 mode 를 따라가지 않고 위 줄의 경로와 세로로 맞춘다. 명령줄과 커서 위치는
+편집 중인 파일에 딸린 것이기 때문이다.
+
+```
+▾ be/                         │ 1 editor.go
+  ▸ docs/                     │  1  0 package core
+NORMAL                          internal/core/editor.go    master(f6cacbd*)
+                                1:1  (550 줄)                            3g
+└─ mode ────┘└─ 위 줄만 반전 ──────────────────────────────────────────────┘
+                                                                       └ showcmd
+```
+
+sidebar 가 없으면 mode 를 놓을 왼쪽 칸 자체가 없으므로 경로 앞에 나란히 붙인다.
+
 ```
 NORMAL  internal/core/editor.go              master(f6cacbd*)
 1:1  (550 줄)                                              3g
-└─ 위 줄만 반전 ────────────────────────────────────────────┘
-                                                         └ showcmd
 ```
 
 #### git 표시

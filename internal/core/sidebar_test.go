@@ -385,8 +385,8 @@ func TestSidebarRendersFullHeightBesideShortFile(t *testing.T) {
 	assert.Contains(t, cells[len(cells)-1], "│", "파일은 2 줄뿐이지만 구분선은 statusBar 앞까지 간다")
 }
 
-// tabline 은 sidebar 옆에서 끊기고, statusBar 는 sidebar 아래까지 이어지되
-// 글자는 편집 영역 아래에서 시작해야 한다.
+// tabline 은 sidebar 옆에서 끊기고, statusBar 는 sidebar 아래까지 이어진다.
+// 아래까지 이어지는 자리에는 트리가 아니라 mode 가 온다.
 func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	m := newTreeEditor(t, 80, 6)
 
@@ -404,9 +404,10 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	assert.Contains(t, cell, "▾ ", "맨 윗줄 왼쪽은 트리다")
 	assert.Contains(t, tabline, "1 main.go", "tab 목록은 그 오른쪽에 있다")
 
-	left, mode := split(rows[len(rows)-statusBarHeight])
-	assert.Equal(t, strings.Repeat(" ", sidebarWidth), left, "statusBar 아래에는 트리가 없다")
-	assert.True(t, strings.HasPrefix(mode, "NORMAL"), "글자는 편집 영역 왼쪽 끝에서 시작한다: %q", mode)
+	left, path := split(rows[len(rows)-statusBarHeight])
+	assert.NotContains(t, left, "▾", "statusBar 아래에는 트리가 없다")
+	assert.Equal(t, "NORMAL", strings.TrimSpace(left), "그 자리는 mode 다")
+	assert.True(t, strings.HasPrefix(path, "main.go"), "경로는 편집 영역 왼쪽 끝에서 시작한다: %q", path)
 
 	left, command := split(rows[len(rows)-1])
 	assert.Equal(t, strings.Repeat(" ", sidebarWidth), left, "명령줄도 마찬가지다")
@@ -563,7 +564,7 @@ func TestSidebarShowsModeAndPath(t *testing.T) {
 	var m tea.Model = newTreeEditor(t, 80, 6)
 	m = send(m, "ctrl+w", "ctrl+w")
 
-	assert.Contains(t, barOf(t, m)[0], "TREE")
+	assert.Equal(t, "TREE", modeOf(t, m))
 	assert.Equal(t, filepath.Base(m.(viewSidebar).sidebar.root)+"/", barOf(t, m)[1], "뿌리는 이름만")
 
 	m = send(m, "down", "down")
