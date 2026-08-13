@@ -100,6 +100,56 @@ func TestCommandWriteSavesFile(t *testing.T) {
 	assert.False(t, bufferOf(t, model).dirty, "저장하면 변경 표시가 사라진다")
 }
 
+// 읽은 뒤 밖에서 바뀐 파일은 `:w` 로 덮어쓰이지 않고 알림만 뜬다.
+func TestCommandWriteRefusesChangedFile(t *testing.T) {
+	m, path := newFileEditor(t, "abc\n")
+
+	var model tea.Model = m
+	model = send(model, "i", "X", "esc")
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	model = send(model, ":", "w", "enter")
+
+	assert.IsType(t, viewEditorNormal{}, model)
+	assert.Contains(t, barOf(t, model)[1], "바뀌었습니다")
+	assert.True(t, bufferOf(t, model).dirty, "저장되지 않았다")
+
+	saved, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "남이 쓴 것\n", string(saved))
+}
+
+// `:w!` 는 그것을 알고도 덮어쓴다.
+func TestCommandForceWriteOverwritesChangedFile(t *testing.T) {
+	m, path := newFileEditor(t, "abc\n")
+
+	var model tea.Model = m
+	model = send(model, "i", "X", "esc")
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	model = send(model, ":", "w", "!", "enter")
+
+	assert.Contains(t, barOf(t, model)[1], "저장함")
+
+	saved, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "Xabc\n", string(saved))
+}
+
+// :wq 도 같은 곳을 지나므로 저장이 막히면 tab 을 닫지 않는다.
+func TestCommandWriteQuitRefusesChangedFile(t *testing.T) {
+	m, path := newFileEditor(t, "abc\n")
+
+	var model tea.Model = m
+	model = send(model, "i", "X", "esc")
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	model = send(model, ":", "w", "q", "enter")
+
+	require.IsType(t, viewEditorNormal{}, model, "실패하면 닫지 않는다")
+	assert.Contains(t, barOf(t, model)[1], "바뀌었습니다")
+}
+
 func TestCommandQuitWhenClean(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 5)
 

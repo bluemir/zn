@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"os"
 
 	"github.com/charmbracelet/x/ansi"
@@ -61,6 +62,10 @@ type Buffer struct {
 	editing bool
 
 	dirty bool //마지막 저장 이후 변경사항의 여부.
+
+	// diskHash 는 마지막으로 읽거나 쓴 시점의 파일 내용 해시다. nil 이면 그때 파일이 없었다는 뜻이다.
+	// 저장하기 직전에 파일을 다시 읽어 이것과 맞춰 보고, 다르면 쓰지 않는다 (ADR-0015).
+	diskHash []byte
 }
 
 // edit 은 되돌릴 수 있는 변경 하나다. lines 의 [at, at+count) 를 before 로 바꾸면 되돌아간다.
@@ -108,10 +113,12 @@ func OpenBuffer(path string) (Buffer, error) {
 }
 
 func newBuffer(path string, data []byte) Buffer {
+	sum := sha256.Sum256(data)
 	buf := Buffer{
 		path:       path,
 		data:       data,
 		lineEnding: detectLineEnding(data),
+		diskHash:   sum[:],
 	}
 
 	// 마지막 줄끝은 빈 줄이 아니라 "줄끝으로 끝났다" 는 사실이므로 떼어내고 기록한다.
@@ -636,7 +643,7 @@ func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
 }
 
 // Save 는 buffer 를 파일에 쓴다.
-// 줄끝 형식과 파일 끝 줄끝 유무는 읽었을 때 그대로 되돌린다.
+// 읽은 뒤에 파일이 밖에서 바뀌었으면 쓰지 않고 알린다 (ADR-0015).
 func (buf *Buffer) Save() error {
 	// :tabnew 로 만든 buffer 는 이름이 없어서 쓸 곳이 없다. vim 의 E32 와 같다.
 	// 이름을 주는 방법(`:w <파일>`) 은 아직 없으므로 알리고 끝낸다.
@@ -644,6 +651,54 @@ func (buf *Buffer) Save() error {
 		return errors.New("파일 이름이 없습니다")
 	}
 
+	if err := buf.checkNotChangedOutside(); err != nil {
+		return err
+	}
+
+	return buf.write()
+}
+
+// SaveForce 는 밖에서 바뀌었는지 보지 않고 덮어쓴다. `:w!` 다.
+func (buf *Buffer) SaveForce() error {
+	if buf.path == "" {
+		return errors.New("파일 이름이 없습니다")
+	}
+
+	return buf.write()
+}
+
+// checkNotChangedOutside 는 파일이 읽은(또는 마지막으로 쓴) 시점과 같은지 본다.
+// 다르면 무엇이 달라졌는지를 담은 error 를 준다.
+//
+// 판정은 내용 해시로 한다. mtime 은 내용이 같아도 바뀌는 일이 흔해서(git checkout,
+// 다른 도구의 되쓰기) 그것으로 막으면 헛경고가 잦다 (ADR-0015).
+func (buf Buffer) checkNotChangedOutside() error {
+	data, err := os.ReadFile(buf.path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		// 열 때도 없던 파일이면 지금 새로 만드는 것이 맞다.
+		if buf.diskHash == nil {
+			return nil
+		}
+
+		return errors.New("파일이 밖에서 사라졌습니다. 다시 만들려면 `:w!` 입니다")
+	case err != nil:
+		return errors.Wrapf(err, "cannot read %s", buf.path)
+	case buf.diskHash == nil:
+		return errors.New("파일이 밖에서 새로 생겼습니다. 덮어쓰려면 `:w!` 입니다")
+	}
+
+	sum := sha256.Sum256(data)
+	if !bytes.Equal(sum[:], buf.diskHash) {
+		return errors.New("파일이 밖에서 바뀌었습니다. 덮어쓰려면 `:w!` 입니다")
+	}
+
+	return nil
+}
+
+// write 는 검사 없이 파일에 쓴다.
+// 줄끝 형식과 파일 끝 줄끝 유무는 읽었을 때 그대로 되돌린다.
+func (buf *Buffer) write() error {
 	eol := buf.lineEnding.bytes()
 
 	size := 0
@@ -667,6 +722,9 @@ func (buf *Buffer) Save() error {
 		return errors.Wrapf(err, "cannot write %s", buf.path)
 	}
 
+	// 방금 쓴 것이 새 기준이다. 이어서 저장할 때 자기가 쓴 것을 남의 변경으로 보지 않는다.
+	sum := sha256.Sum256(out)
+	buf.diskHash = sum[:]
 	buf.dirty = false
 
 	return nil

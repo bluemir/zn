@@ -80,13 +80,33 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "":
 		return normalMode(m.editor)
 	case "w":
-		if err := buf.Save(); err != nil {
+		// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
+		var err error
+		if cmd.force {
+			err = buf.SaveForce()
+		} else {
+			err = buf.Save()
+		}
+		if err != nil {
 			return m.fail(err)
 		}
 		// 저장하면 저장소가 dirty 가 된다. statusBar 의 git 표시를 여기서 맞춘다(ADR-0009).
 		m.git = readGitStatus()
 
 		return normalModeMessage(m.editor, "저장함: "+buf.path)
+	case "wq", "x":
+		var err error
+		if cmd.force {
+			err = buf.SaveForce()
+		} else {
+			err = buf.Save()
+		}
+		if err != nil {
+			return m.fail(err)
+		}
+		m.git = readGitStatus()
+
+		return forceCloseTab(m.editor)
 	case "tabnew":
 		// 이름 없는 빈 tab 을 연다. 파일을 지정해서 여는 것은 아직 없다.
 		m.newTab()
@@ -114,13 +134,6 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		back, _ := normalMode(m.editor)
 
 		return closeTab(back, m.editor)
-	case "wq", "x":
-		if err := buf.Save(); err != nil {
-			return m.fail(err)
-		}
-		m.git = readGitStatus()
-
-		return forceCloseTab(m.editor)
 	case "qa":
 		// 전체 종료다. `!` 는 묻지 않고, 그냥 `:qa` 는 어느 tab 이든 변경이 남아 있으면 묻는다.
 		if cmd.force {

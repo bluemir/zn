@@ -161,6 +161,140 @@ func TestBufferSaveKeepsFileMode(t *testing.T) {
 	assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
 }
 
+// 읽은 뒤에 밖에서 바뀐 파일은 덮어쓰지 않는다. 남의 편집을 조용히 날리지 않기 위해서다.
+func TestBufferSaveRefusesWhenFileChangedOutside(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	err = buf.Save()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "바뀌었습니다")
+	assert.True(t, buf.dirty, "저장되지 않았으므로 변경 표시가 남는다")
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "남이 쓴 것\n", string(after), "파일을 건드리지 않는다")
+}
+
+// `:w!` 는 알고도 덮어쓰겠다는 뜻이다.
+func TestBufferSaveForceOverwritesChangedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	require.NoError(t, buf.SaveForce())
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "Xabc\n", string(after))
+	assert.False(t, buf.dirty)
+}
+
+// 내용이 같으면 밖에서 되쓰였어도 헛경고를 내지 않는다. mtime 이 아니라 내용을 보는 이유다.
+func TestBufferSaveAllowsRewriteWithSameContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	require.NoError(t, buf.Save())
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "Xabc\n", string(after))
+}
+
+// 저장한 뒤에는 방금 쓴 것이 기준이다. 이어지는 저장이 자기가 쓴 것을 남의 변경으로 보면 안 된다.
+func TestBufferSaveTwice(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, buf.Save())
+
+	buf.insert([]byte("Y"), wide)
+	require.NoError(t, buf.Save())
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "XYabc\n", string(after))
+}
+
+// 열 때 없던 파일이 저장 시점에 생겨 있으면 남이 만든 것이다.
+func TestBufferSaveRefusesWhenFileAppeared(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "new.txt")
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.WriteFile(path, []byte("남이 만든 것\n"), 0644))
+
+	err = buf.Save()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "새로 생겼습니다")
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "남이 만든 것\n", string(after))
+}
+
+// 열 때도 없었고 지금도 없으면 그냥 새로 만든다.
+func TestBufferSaveCreatesNewFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "new.txt")
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, buf.Save())
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "X\n", string(after))
+}
+
+// 밖에서 지워진 파일도 알린다. 조용히 되살아나면 지운 쪽이 모른다.
+func TestBufferSaveRefusesWhenFileRemoved(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.Remove(path))
+
+	err = buf.Save()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "사라졌습니다")
+	assert.NoFileExists(t, path)
+
+	require.NoError(t, buf.SaveForce(), "`:w!` 로 다시 만들 수 있다")
+	assert.FileExists(t, path)
+}
+
 func TestScreenCol(t *testing.T) {
 	tests := []struct {
 		line   string

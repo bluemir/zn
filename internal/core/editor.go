@@ -74,7 +74,8 @@ func (e *editor) newTab() {
 // openTab 은 파일을 tab 으로 연다. 이미 열려 있으면 새로 열지 않고 그 tab 으로 옮긴다.
 //
 // 같은 파일을 두 tab 에 열면 각각 독립된 Buffer 가 되어, 한쪽에서 저장하는 순간 다른 쪽의
-// 편집이 조용히 사라진다. 그래서 여는 것보다 찾는 것이 먼저다.
+// 편집이 사라진다. 나중 저장은 바깥 변경으로 잡혀 막히지만(ADR-0015) 두 편집을 합칠 길은
+// 없다. 그래서 여는 것보다 찾는 것이 먼저다.
 func (e *editor) openTab(path string) error {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
