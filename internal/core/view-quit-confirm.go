@@ -6,46 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-// quitAll 은 `Ctrl+C` 와 `:qa` 가 쓰는 경로다. 편집기를 통째로 끝낸다.
-//
-// 어느 tab 이든 저장하지 않은 변경이 있으면 확인창을 띄운다. 보고 있지 않은 tab 의 변경도
-// 같이 잃기 때문에 활성 buffer 만 봐서는 안 된다. 잃을 것이 없으면 묻지 않고 나간다.
-// parent 는 확인창에서 취소했을 때 돌아갈 화면이다.
-func quitAll(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
-	if e.anyDirty() {
-		return ConfirmDiscard(parent, "정말 종료 하시겠습니까?", Exit), nil
-	}
-
-	return Exit()
-}
-
-// closeTab 은 `:q` 가 쓰는 경로다. 지금 보고 있는 tab 만 닫는다.
-// 마지막 tab 이면 닫을 것이 없으므로 종료가 된다.
-//
-// 활성 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다. 다른 tab 의 변경은 남으므로 묻지 않는다.
-func closeTab(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
-	if len(e.buffers) < 2 {
-		return quitAll(parent, e)
-	}
-
-	if e.buffer().dirty {
-		return ConfirmDiscard(parent, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
-			return forceCloseTab(e)
-		}), nil
-	}
-
-	return forceCloseTab(e)
-}
-
-// forceCloseTab 은 묻지 않고 활성 tab 을 닫는다. `:q!` 와 확인창의 Yes 가 쓴다.
-func forceCloseTab(e editor) (tea.Model, tea.Cmd) {
-	if !e.closeTab() {
-		return Exit()
-	}
-
-	return normalMode(e)
-}
-
 // ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
 // confirm 은 Yes 를 눌렀을 때 갈 곳이다. 종료일 수도, tab 닫기일 수도, 다시 읽기일 수도 있다.
 func ConfirmDiscard(parent tea.Model, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
@@ -90,6 +50,11 @@ func (m viewConfirmDiscard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
+	case jobProgressMsg:
+		// 이 창은 editor 를 들고 있지 않아 진행을 반영할 곳이 없다. 그렇다고 흘려보내면
+		// 다음 조각을 받을 Cmd 를 아무도 발행하지 않아 작업이 영영 멈춘다. 고리만 잇는다 —
+		// 놓친 진행은 부모로 돌아간 뒤 다음 조각이 통째로 채운다(job.go).
+		return m, waitJob(msg.name, msg.ch)
 	default:
 		return m, nil
 	}
@@ -166,4 +131,44 @@ func cursor(cond bool, str string) string {
 	} else {
 		return "  " + str
 	}
+}
+
+// quitAll 은 `Ctrl+C` 와 `:qa` 가 쓰는 경로다. 편집기를 통째로 끝낸다.
+//
+// 어느 tab 이든 저장하지 않은 변경이 있으면 확인창을 띄운다. 보고 있지 않은 tab 의 변경도
+// 같이 잃기 때문에 활성 buffer 만 봐서는 안 된다. 잃을 것이 없으면 묻지 않고 나간다.
+// parent 는 확인창에서 취소했을 때 돌아갈 화면이다.
+func quitAll(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
+	if e.anyDirty() {
+		return ConfirmDiscard(parent, "정말 종료 하시겠습니까?", Exit), nil
+	}
+
+	return Exit()
+}
+
+// closeTab 은 `:q` 가 쓰는 경로다. 지금 보고 있는 tab 만 닫는다.
+// 마지막 tab 이면 닫을 것이 없으므로 종료가 된다.
+//
+// 활성 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다. 다른 tab 의 변경은 남으므로 묻지 않는다.
+func closeTab(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
+	if len(e.buffers) < 2 {
+		return quitAll(parent, e)
+	}
+
+	if e.buffer().dirty {
+		return ConfirmDiscard(parent, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+			return forceCloseTab(e)
+		}), nil
+	}
+
+	return forceCloseTab(e)
+}
+
+// forceCloseTab 은 묻지 않고 활성 tab 을 닫는다. `:q!` 와 확인창의 Yes 가 쓴다.
+func forceCloseTab(e editor) (tea.Model, tea.Cmd) {
+	if !e.closeTab() {
+		return Exit()
+	}
+
+	return normalMode(e)
 }

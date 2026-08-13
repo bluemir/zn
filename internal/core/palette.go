@@ -62,22 +62,57 @@ func filterPalette(pattern string, labels []string) []paletteHit {
 	return hits
 }
 
-// paletteFiles 는 고를 수 있는 파일 목록이다. root 기준 상대 경로다.
+// indexChunk 는 한 조각에 실어 보내는 파일 수다.
+// 조각마다 팔레트가 목록을 다시 거르므로 너무 잘게 나누면 거르는 일이 그만큼 늘어난다.
+const indexChunk = 1024
+
+// indexFiles 는 고를 수 있는 파일 목록을 백그라운드에서 모은다. root 기준 상대 경로다.
 //
 // 저장소 안이면 git 에게 통으로 묻는다 — `.gitignore` 가 공짜로 따라오고 프로세스가 하나다.
 // 규칙을 직접 구현하지 않는 것은 sidebar 의 gitignore 표시와 같은 태도다(ADR-0005).
 // 저장소가 아니거나 git 이 없으면 직접 훑고 `.git` 만 건너뛴다.
-func paletteFiles(root string) []string {
-	files, ok := gitFiles(root)
-	if !ok {
-		files = walkFiles(root)
-	}
+//
+// 다 모으기 전에는 개수만 알린다. 어디까지 왔는지 모르는 채로 목록을 조금씩 보여주면 순서가
+// 뒤에 뒤집히기 때문이다. 정렬을 끝낸 배열은 다시 고치지 않으므로 조각이 그 앞부분을 그대로
+// 가리켜도 된다 — 보내는 쪽도 받는 쪽도 복사하지 않는다.
+//
+// 편집기를 끝낼 때 보내다 막힌 goroutine 은 프로세스가 끝나면서 사라진다. 취소는 아직 없다.
+func indexFiles(root string) <-chan jobProgress {
+	ch := make(chan jobProgress)
 
-	// git 은 추적 중인 것과 아직 추가하지 않은 것을 따로 모아서 주므로 섞어 정렬한다.
-	// 아무것도 치지 않았을 때 보이는 첫 화면이 이 순서다 — 예측할 수 있는 차례여야 한다.
-	slices.Sort(files)
+	go func() {
+		defer close(ch)
 
-	return files
+		files, ok := gitFiles(root)
+		if !ok {
+			files = walkFiles(root, func(done int) {
+				ch <- jobProgress{done: done}
+			})
+		}
+
+		// git 은 추적 중인 것과 아직 추가하지 않은 것을 따로 모아서 주므로 섞어 정렬한다.
+		// 아무것도 치지 않았을 때 보이는 첫 화면이 이 순서다 — 예측할 수 있는 차례여야 한다.
+		slices.Sort(files)
+
+		// 조각이 하나도 없으면 앞서 보던 목록이 그대로 남는다. 빈 것도 결과이므로 한 번은 보낸다.
+		if len(files) == 0 {
+			ch <- jobProgress{apply: func(e *editor) { e.files = nil }}
+
+			return
+		}
+
+		for sent := 0; sent < len(files); sent += indexChunk {
+			done := min(sent+indexChunk, len(files))
+
+			ch <- jobProgress{
+				done:  done,
+				total: len(files),
+				apply: func(e *editor) { e.files = files[:done] },
+			}
+		}
+	}()
+
+	return ch
 }
 
 // gitFiles 는 git 이 아는 파일 목록이다. 추적 중인 것과 아직 추가하지 않은 것을 모두 주되
@@ -107,7 +142,10 @@ func gitFiles(root string) ([]string, bool) {
 // walkFiles 는 root 아래를 직접 훑는다. `.git` 은 어느 깊이에서든 건너뛴다.
 //
 // 읽지 못하는 디렉터리는 조용히 지나간다. 목록이 조금 모자랄 뿐이고, 팔레트를 못 여는 것보다 낫다.
-func walkFiles(root string) []string {
+//
+// report 는 지금까지 센 개수를 알린다. 훑는 것이 가장 오래 걸리는데 그동안 진행 표시가 0 에
+// 멈춰 있으면 멎은 것으로 보인다. 조각마다 부르지 않고 indexChunk 마다 부른다.
+func walkFiles(root string, report func(done int)) []string {
 	files := []string{}
 
 	filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
@@ -128,6 +166,10 @@ func walkFiles(root string) []string {
 		}
 
 		files = append(files, filepath.ToSlash(rel))
+
+		if len(files)%indexChunk == 0 {
+			report(len(files))
+		}
 
 		return nil
 	})

@@ -32,6 +32,14 @@ type editor struct {
 	// 여기에 들고 있다가 파일을 열거나 저장할 때만 다시 읽는다(ADR-0009).
 	git gitStatus
 
+	// jobs 는 백그라운드에서 도는 작업들이다. statusBar 에 진행을 찍는 데만 쓴다.
+	// 결과는 여기가 아니라 종류마다 자기 자리에 쌓인다(job.go).
+	jobs []job
+
+	// files 는 팔레트가 고르는 파일 목록이다. 인덱싱 작업이 채운다.
+	// 팔레트를 닫아도 남는다 — 인덱싱은 팔레트보다 오래 살고, 다시 열면 모아둔 것부터 보인다.
+	files []string
+
 	width  int
 	height int
 }
@@ -619,27 +627,49 @@ func (e editor) statusBar(mode, bottom string) []string {
 
 	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
 	return []string{
-		reverse.Width(e.width).Render(left + e.withGit(truncateToWidth(text, width))),
+		reverse.Width(e.width).Render(left + e.withStatus(truncateToWidth(text, width))),
 		strings.Repeat(" ", e.sidebarLeft()) + truncateToWidth(bottom, width),
 	}
 }
 
-// withGit 은 statusBar 위 줄 오른쪽 끝에 저장소 상태를 붙인다.
+// withStatus 는 statusBar 위 줄 오른쪽 끝에 진행 표시와 저장소 상태를 붙인다.
 //
 // 붙일 칸이 없으면 그대로 둔다 — 지금 무슨 mode 인지와 어느 파일인지가 먼저다.
 // 사이를 두 칸 이상 띄운다. 한 칸이면 파일 이름이 긴 tab 에서 경로에 붙은 글자처럼 읽힌다.
-func (e editor) withGit(top string) string {
-	label := e.git.label()
-	if label == "" {
-		return top
+//
+// 오른쪽 끝이 git 이고 그 왼쪽이 진행 표시다. 칸이 모자라면 진행 표시부터 줄인다 —
+// 막대를 떼고, 그래도 모자라면 진행 표시를 통째로 뺀다. git 은 늘 같은 자리에 있어야 눈이 찾는다.
+func (e editor) withStatus(top string) string {
+	git := e.git.label()
+
+	// 진행 표시와 git 을 잇는다. 한쪽이 비면 나머지만 남는다.
+	right := func(progress string) string {
+		switch {
+		case progress == "":
+			return git
+		case git == "":
+			return progress
+		default:
+			return progress + "  " + git
+		}
 	}
 
-	pad := e.textWidth() - screenColAt([]byte(top), len(top)) - screenColAt([]byte(label), len(label))
-	if pad < 2 {
-		return top
+	used := screenColAt([]byte(top), len(top))
+
+	for _, label := range []string{right(e.jobText(e.jobBar())), right(e.jobText("")), git} {
+		if label == "" {
+			continue
+		}
+
+		pad := e.textWidth() - used - screenColAt([]byte(label), len(label))
+		if pad < 2 {
+			continue
+		}
+
+		return top + strings.Repeat(" ", pad) + label
 	}
 
-	return top + strings.Repeat(" ", pad) + label
+	return top
 }
 
 // position 은 커서 위치와 전체 줄 수다. normal/insert 의 statusBar 아래 줄이다.

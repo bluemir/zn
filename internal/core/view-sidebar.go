@@ -82,6 +82,9 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
+	case jobProgressMsg, jobDoneMsg:
+		//background job 을 처리한다.
+		return m, m.handleJob(msg)
 	default:
 		return m, nil
 	}

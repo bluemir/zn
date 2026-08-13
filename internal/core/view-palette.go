@@ -48,10 +48,17 @@ func paletteMode(e editor) (tea.Model, tea.Cmd) {
 		return normalModeMessage(e, errors.Cause(err).Error())
 	}
 
-	m := viewPalette{editor: e, files: paletteFiles(root)}
+	// 목록은 백그라운드 작업이 채운다. 열 때마다 새로 읽는 것은 그대로이고(ADR-0011),
+	// 다 읽을 때까지 기다리지 않을 뿐이다. 이미 돌고 있으면 그것에 붙는다.
+	//
+	// 앞서 모아둔 목록이 있으면 그것을 보면서 시작한다. 새 조각이 오면 통째로 갈린다 —
+	// 빈 목록에서 시작하면 열 때마다 화면이 한 번 번쩍인다.
+	cmd := e.startJob("파일 인덱싱", func() <-chan jobProgress { return indexFiles(root) })
+
+	m := viewPalette{editor: e}
 	m.filter()
 
-	return m, nil
+	return m, cmd
 }
 
 type viewPalette struct {
@@ -59,9 +66,6 @@ type viewPalette struct {
 
 	// input 은 친 그대로다. 맨 앞의 `>` 도 지우지 않고 들고 있다 — 그것이 곧 어느 표를 보는지다.
 	input string
-
-	// files 는 열 때 한 번 읽은 목록이다. 캐시하지 않으므로 열 때마다 새것이다.
-	files []string
 
 	hits     []paletteHit
 	selected int // hits 안의 자리
@@ -131,6 +135,13 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	case jobProgressMsg, jobDoneMsg:
+		// 다른 mode 와 같이 공용 처리에 넘기고, 여기서만 목록을 다시 거른다.
+		// 인덱싱이 도는 동안 목록이 길어지므로 새로 온 파일도 치고 있는 패턴에 걸려야 한다.
+		cmd := m.handleJob(msg)
+		m.refilter()
+
+		return m, cmd
 	default:
 		return m, nil
 	}
@@ -162,12 +173,23 @@ func (m viewPalette) labels() []string {
 	return labels
 }
 
-// filter 는 입력으로 목록을 다시 거른다. 목록이 바뀌었으므로 고른 자리는 처음으로 돌아간다.
+// filter 는 입력으로 목록을 다시 거른다. 입력이 바뀌었으므로 고른 자리는 처음으로 돌아간다.
 func (m *viewPalette) filter() {
 	pattern, _ := m.commandInput()
 
 	m.hits = filterPalette(pattern, m.labels())
 	m.selected, m.top = 0, 0
+}
+
+// refilter 는 후보가 늘었을 때 다시 거른다. filter 와 달리 고른 자리를 그대로 둔다.
+//
+// 인덱싱이 파일을 부을 때마다 맨 위로 튀면 목록을 훑을 수 없다. 새로 온 파일이 위로 끼어들면
+// 커서가 가리키는 항목은 바뀔 수 있지만, 그것이 매번 처음으로 돌아가는 것보다 낫다.
+func (m *viewPalette) refilter() {
+	pattern, _ := m.commandInput()
+
+	m.hits = filterPalette(pattern, m.labels())
+	m.scrollTo()
 }
 
 // move 는 고른 자리를 옮긴다. 양끝에서 멈춘다 — 둘러 가면 목록의 끝이 어디인지 알 수 없다.

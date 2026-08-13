@@ -26,19 +26,34 @@ func newPaletteFixture(t *testing.T) string {
 	return root
 }
 
+// indexedFiles 는 인덱싱 작업을 끝까지 돌려 모인 목록을 준다.
+// 조각이 누적분 전체를 갈아끼우므로 마지막 것이 곧 결과다.
+func indexedFiles(t *testing.T, root string) []string {
+	t.Helper()
+
+	e := editor{}
+	for progress := range indexFiles(root) {
+		if progress.apply != nil {
+			progress.apply(&e)
+		}
+	}
+
+	return e.files
+}
+
 // 저장소가 아니면 직접 훑는다. `.git` 안은 나오지 않는다.
-func TestPaletteFilesWalks(t *testing.T) {
+func TestIndexFilesWalks(t *testing.T) {
 	root := newPaletteFixture(t)
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".git"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".git", "HEAD"), []byte("x\n"), 0644))
 
-	files := paletteFiles(root)
+	files := indexedFiles(t, root)
 
 	assert.Equal(t, []string{".gitignore", "build/out", "internal/edit.go", "main.go"}, files)
 }
 
 // 저장소면 git 이 준 목록이라 gitignore 된 것이 빠진다.
-func TestPaletteFilesUsesGitignore(t *testing.T) {
+func TestIndexFilesUsesGitignore(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git 이 없다")
 	}
@@ -48,7 +63,7 @@ func TestPaletteFilesUsesGitignore(t *testing.T) {
 	cmd.Dir = root
 	require.NoError(t, cmd.Run())
 
-	files := paletteFiles(root)
+	files := indexedFiles(t, root)
 
 	assert.Contains(t, files, "internal/edit.go")
 	assert.Contains(t, files, ".gitignore", "추가하지 않은 파일도 나온다")

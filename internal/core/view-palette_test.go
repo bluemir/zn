@@ -16,7 +16,10 @@ import (
 func newPaletteView(t *testing.T, width, height int, files ...string) viewPalette {
 	t.Helper()
 
-	m := viewPalette{editor: newTestEditor("a\nb\n", width, height).editor, files: files}
+	e := newTestEditor("a\nb\n", width, height).editor
+	e.files = files
+
+	m := viewPalette{editor: e}
 	m.filter()
 
 	return m
@@ -340,4 +343,59 @@ func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, next)
 	assert.Contains(t, barOf(t, next)[1], "파일 이름이 없습니다")
+}
+
+// 여는 순간 목록을 다 읽고 기다리지 않는다. 인덱싱을 시작하고 바로 뜬다.
+func TestPaletteStartsIndexingOnOpen(t *testing.T) {
+	next, cmd := tea.Model(newTestEditor("abc\n", 80, 20)).Update(key("ctrl+p"))
+
+	require.IsType(t, viewPalette{}, next)
+	assert.NotNil(t, cmd, "인덱싱 작업이 시작된다")
+	assert.True(t, next.(viewPalette).jobRunning("파일 인덱싱"))
+}
+
+// 인덱싱이 부은 파일도 치고 있는 패턴에 걸린다.
+func TestPaletteGrowsWhileIndexing(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "main.go")
+	m.input = "go"
+	m.filter()
+	require.Len(t, m.hits, 1)
+
+	found := progressOf("파일 인덱싱", 2, 2)
+	found.apply = func(e *editor) { e.files = []string{"main.go", "edit.go"} }
+
+	next, cmd := tea.Model(m).Update(found)
+
+	require.IsType(t, viewPalette{}, next)
+	assert.NotNil(t, cmd, "다음 조각을 받을 고리가 이어진다")
+	assert.Len(t, next.(viewPalette).hits, 2)
+}
+
+// 파일이 붙을 때마다 고른 자리가 맨 위로 튀면 목록을 훑을 수 없다.
+func TestPaletteKeepsSelectionWhileIndexing(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "a.go", "b.go", "c.go", "d.go")
+
+	var moved tea.Model = send(m, "down", "down")
+	require.Equal(t, 2, moved.(viewPalette).selected)
+
+	found := progressOf("파일 인덱싱", 6, 6)
+	found.apply = func(e *editor) { e.files = []string{"a.go", "b.go", "c.go", "d.go", "e.go", "f.go"} }
+
+	next, _ := moved.Update(found)
+
+	assert.Equal(t, 2, next.(viewPalette).selected, "고른 자리는 그대로다")
+	assert.Len(t, next.(viewPalette).hits, 6)
+}
+
+// 닫았다 다시 열면 모아둔 목록부터 보인다. 인덱싱은 팔레트보다 오래 산다.
+func TestPaletteReopenKeepsIndexedFiles(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "main.go", "edit.go")
+
+	var back tea.Model = send(m, "esc")
+	require.IsType(t, viewEditorNormal{}, back)
+
+	again, _ := back.Update(key("ctrl+p"))
+
+	require.IsType(t, viewPalette{}, again)
+	assert.Equal(t, []string{"main.go", "edit.go"}, again.(viewPalette).files)
 }
