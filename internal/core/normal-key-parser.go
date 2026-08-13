@@ -45,6 +45,9 @@ func (s normalStart) press(key string) (normalKey, normalState) {
 	case "g", "ctrl+w":
 		// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
 		return normalKey{}, normalPending{prefix: key}
+	case "d":
+		// 뒤에 motion 이 붙어서 지울 범위를 정한다.
+		return normalKey{}, normalOperator{op: key}
 	}
 
 	return normalKey{name: key}, normalStart{}
@@ -70,7 +73,10 @@ func (s normalCount) press(key string) (normalKey, normalState) {
 	case "g":
 		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
 		return normalKey{}, normalPending{prefix: key, count: s.count}
-	case "h", "j", "k", "l", "w", "W", "e", "E", "b", "B", "$", "G", "n", "N", "*", "#":
+	case "d":
+		// operator 도 숫자를 들고 간다. `3dd` 는 세 줄이다.
+		return normalKey{}, normalOperator{op: key, count: s.count}
+	case "h", "j", "k", "l", "w", "W", "e", "E", "b", "B", "$", "G", "n", "N", "*", "#", "x":
 		return normalKey{name: key, count: s.count}, normalStart{}
 	}
 
@@ -95,11 +101,82 @@ func (s normalPending) press(key string) (normalKey, normalState) {
 }
 
 func (s normalPending) showcmd() string {
-	if s.count > 0 {
-		return strconv.Itoa(s.count) + s.prefix
+	return countString(s.count) + s.prefix
+}
+
+// normalOperator 는 `d` 처럼 뒤에 motion 이 붙어 범위를 정하는 키를 먹은 뒤다.
+// vim 의 operator-pending 이다.
+//
+// motion 쪽 키는 inner 가 처음부터 다시 먹는다. 숫자(`d3w`)와 접두 키(`dgg`)가 이동 키에서와
+// 똑같이 동작해야 하는데 그 규칙은 이미 다른 상태들에 있다. 여기서 다시 쓰면 두 벌이 되어 갈린다.
+//
+// 완성된 이름은 접두 키와 같은 모양으로 잇는다 — `d w`, `d g g`. 실행하는 쪽은 이름 하나로 받는다.
+type normalOperator struct {
+	op    string
+	count int // operator 앞에 붙은 숫자
+
+	// inner 는 motion 쪽 상태다. zero value(nil) 는 아직 아무것도 안 먹은 처음이다.
+	inner normalState
+}
+
+func (s normalOperator) press(key string) (normalKey, normalState) {
+	inner := s.motionState()
+
+	// operator 를 두 번 치면 줄 단위다(`dd`). inner 에 넘기면 operator 를 하나 더 여는 셈이 된다.
+	// 그 앞에 모아둔 숫자는 줄 수다 — `d3d` 는 `3dd` 와 같다.
+	if key == s.op {
+		return normalKey{name: s.op + " " + s.op, count: operatorCount(s.count, motionCount(inner))}, normalStart{}
 	}
 
-	return s.prefix
+	motion, next := inner.press(key)
+	if motion.name == "" {
+		return normalKey{}, normalOperator{op: s.op, count: s.count, inner: next}
+	}
+
+	return normalKey{name: s.op + " " + motion.name, count: operatorCount(s.count, motion.count)}, normalStart{}
+}
+
+func (s normalOperator) showcmd() string {
+	return countString(s.count) + s.op + s.motionState().showcmd()
+}
+
+func (s normalOperator) motionState() normalState {
+	if s.inner == nil {
+		return normalStart{}
+	}
+
+	return s.inner
+}
+
+// motionCount 는 motion 자리에 모아둔 숫자다. 숫자를 모으는 중이 아니면 없는 것이다.
+func motionCount(state normalState) int {
+	count, ok := state.(normalCount)
+	if !ok {
+		return 0
+	}
+
+	return count.count
+}
+
+// operatorCount 는 operator 앞뒤의 두 숫자를 하나로 합친다. vim 처럼 곱한다 — `3d2w` 는 여섯 단어다.
+//
+// 둘 다 없으면 0 이다. `dG` 처럼 숫자가 되풀이가 아니라 줄 번호인 motion 이 "숫자 없음" 을
+// 알아야 해서, 없는 자리를 1 로 메워 넘기지 않는다.
+func operatorCount(operator, motion int) int {
+	if operator == 0 && motion == 0 {
+		return 0
+	}
+
+	return min(max(operator, 1)*max(motion, 1), maxCount)
+}
+
+// countString 은 showcmd 에 붙일 숫자다. 숫자가 없으면 빈 값이다.
+func countString(count int) string {
+	if count == 0 {
+		return ""
+	}
+
+	return strconv.Itoa(count)
 }
 
 // keyDigit 은 키가 숫자 하나면 그 값을 준다.

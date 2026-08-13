@@ -25,6 +25,10 @@ type editor struct {
 	// search 는 마지막 검색이다. `n` 은 tab 을 옮겨서도 같은 것을 찾으므로 Buffer 가 아니라 여기 있다.
 	search searchState
 
+	// register 는 마지막으로 지운 내용이다. 붙여넣기가 tab 을 넘어 되어야 하므로 여기 있다.
+	// vim 의 register 도 buffer 밖이다. 아직 읽는 곳이 없다 — `p` 를 넣을 때 쓴다.
+	register register
+
 	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고
 	// 여기에 들고 있다가 파일을 열거나 저장할 때만 다시 읽는다(ADR-0009).
 	git gitStatus
@@ -351,6 +355,11 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 
 	view.MouseMode = tea.MouseModeCellMotion
 	view.AltScreen = true
+
+	// 터미널에 PC-101 자리의 키를 같이 달라고 한다. 한글 입력 상태에서 `ctrl+p` 가
+	// `ctrl+ㅔ` 로 오는 것을 터미널이 되돌려 준다(ADR-0014).
+	view.KeyboardEnhancements.ReportAlternateKeys = true
+
 	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
 		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)

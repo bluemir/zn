@@ -58,6 +58,21 @@ func TestNormalKeyParser(t *testing.T) {
 
 		// 명령이 끝나면 처음 상태로 돌아간다. 앞의 count 가 다음 키에 남으면 안 된다.
 		{name: "count 는 명령 하나에만 붙는다", keys: []string{"3", "j", "j"}, want: normalKey{name: "j"}},
+
+		// operator 는 뒤에 붙은 motion 과 한 이름이 된다. 접두 키와 같은 모양이다.
+		{name: "operator 를 두 번 치면 줄 단위", keys: []string{"d", "d"}, want: normalKey{name: "d d"}},
+		{name: "operator 와 motion", keys: []string{"d", "w"}, want: normalKey{name: "d w"}},
+		{name: "operator 와 접두 키 motion", keys: []string{"d", "g", "g"}, want: normalKey{name: "d g g"}},
+		{name: "operator 앞의 숫자", keys: []string{"3", "d", "d"}, want: normalKey{name: "d d", count: 3}},
+		{name: "motion 앞의 숫자", keys: []string{"d", "3", "w"}, want: normalKey{name: "d w", count: 3}},
+		{name: "숫자 뒤에 operator 를 되풀이", keys: []string{"d", "3", "d"}, want: normalKey{name: "d d", count: 3}},
+		{name: "숫자 둘은 곱한다", keys: []string{"3", "d", "2", "w"}, want: normalKey{name: "d w", count: 6}},
+		{name: "숫자가 접두 키 motion 까지 실려 간다", keys: []string{"1", "0", "d", "g", "g"}, want: normalKey{name: "d g g", count: 10}},
+		{name: "operator 뒤 숫자 없는 G", keys: []string{"d", "G"}, want: normalKey{name: "d G"}},
+		{name: "operator 뒤 G 의 숫자는 줄 번호", keys: []string{"d", "2", "G"}, want: normalKey{name: "d G", count: 2}},
+		{name: "짝 없는 operator 조합도 이름은 완성된다", keys: []string{"d", "i"}, want: normalKey{name: "d i"}},
+		{name: "operator 가 esc 를 삼킨다", keys: []string{"d", "esc"}, want: normalKey{name: "d esc"}},
+		{name: "x 는 count 를 받는다", keys: []string{"3", "x"}, want: normalKey{name: "x", count: 3}},
 	}
 
 	for _, test := range tests {
@@ -79,6 +94,9 @@ func TestNormalKeyParserWaits(t *testing.T) {
 		{name: "숫자를 여럿 모으는 중", keys: []string{"1", "0"}},
 		{name: "접두 키 뒤", keys: []string{"g"}},
 		{name: "window 접두 키 뒤", keys: []string{"ctrl+w"}},
+		{name: "operator 뒤", keys: []string{"d"}},
+		{name: "operator 뒤 숫자를 모으는 중", keys: []string{"d", "3"}},
+		{name: "operator 뒤 접두 키", keys: []string{"d", "g"}},
 	}
 
 	for _, test := range tests {
@@ -102,6 +120,9 @@ func TestNormalKeyParserShowcmd(t *testing.T) {
 		{name: "접두 키", keys: []string{"g"}, want: "g"},
 		{name: "window 접두 키", keys: []string{"ctrl+w"}, want: "ctrl+w"},
 		{name: "명령이 끝나면 사라진다", keys: []string{"3", "j"}, want: ""},
+		{name: "operator", keys: []string{"d"}, want: "d"},
+		{name: "operator 앞뒤의 숫자", keys: []string{"3", "d", "2"}, want: "3d2"},
+		{name: "operator 뒤 접두 키", keys: []string{"d", "g"}, want: "dg"},
 	}
 
 	for _, test := range tests {

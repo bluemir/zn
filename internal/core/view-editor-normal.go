@@ -1,6 +1,8 @@
 package core
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -122,6 +124,18 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 	// count 를 받지 않는 명령은 파서가 0 을 준다.
 	n := max(key.count, 1)
 
+	// `d` 는 뒤에 붙은 motion 이 지울 범위를 정한다. 이름이 `d w` 처럼 둘로 되어 있어서
+	// 아래 switch 의 평평한 이름으로는 받을 수 없다. 모르는 motion 은 아무 일도 하지 않는다.
+	if motion, found := strings.CutPrefix(key.name, "d "); found {
+		if deleted, ok := buf.deleteByMotion(motion, key.count, width); ok {
+			m.register = deleted
+		}
+
+		buf.scrollTo(width, m.textHeight())
+
+		return m, nil
+	}
+
 	switch key.name {
 	case "ctrl+c":
 		// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
@@ -168,6 +182,11 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		buf.scrollTo(width, m.textHeight())
 
 		return next, cmd
+	case "x":
+		// `dl` 과 같다. 줄 끝을 넘지 않으므로 다음 줄이 끌려 올라오지 않는다. vim 과 같다.
+		if deleted, ok := buf.deleteByMotion("l", key.count, width); ok {
+			m.register = deleted
+		}
 	case "u":
 		buf.applyUndo(width)
 		buf.clampToNormal(width)

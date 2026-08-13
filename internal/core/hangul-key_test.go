@@ -63,13 +63,15 @@ func TestNormalHangulCompoundVowelRunsBothKeys(t *testing.T) {
 	assert.Equal(t, 1, buf.cursorCol, "ㅘ 의 h 가 왼쪽으로 옮긴다")
 }
 
-// 조합된 음절도 자모로 되돌린다. `어` 는 `d` 와 `j` 다 — `d` 는 아직 없는 명령이라 그냥 지나간다.
-func TestNormalHangulSyllableMoves(t *testing.T) {
+// 조합된 음절도 자모로 되돌린다. `어` 는 `d` 와 `j` 라 `dj` 가 되어 두 줄이 지워진다.
+// 음절 하나가 operator 와 motion 으로 갈리는 것이라, 한글 상태로 잘못 친 키 하나가
+// 편집이 될 수 있다. 두벌식 자리로 되돌리는 이상 편집기가 가릴 수 없다(ADR-0008).
+func TestNormalHangulSyllableRunsBothKeys(t *testing.T) {
 	var m tea.Model = newTestEditor("one\ntwo\nthree\n", 40, 5)
 
 	m = send(m, "어")
 
-	assert.Equal(t, 1, bufferOf(t, m).cursorLine, "어 의 j 가 아래로 옮긴다")
+	assert.Equal(t, []string{"three"}, linesOf(bufferOf(t, m)), "어 가 dj 로 동작한다")
 }
 
 // 숫자 접두는 한글이 아니라 그대로 온다. 뒤에 오는 한글 키와 이어져야 한다.
