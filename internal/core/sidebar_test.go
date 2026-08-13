@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -921,12 +923,34 @@ func TestCloseTabRevealsRemainingFile(t *testing.T) {
 	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
 }
 
-// boldNames 는 굵게 칠해진 행의 이름이다.
-// lipgloss 는 굵기를 다른 속성과 묶어서 내므로 `ESC[1m` 과 `ESC[1;…m` 을 둘 다 본다.
-func boldNames(cells []string) []string {
+// sgrPattern 은 SGR sequence 와 그 뒤에 딸린 글자다. lipgloss 는 밑줄이 있으면 글자마다
+// style 을 내므로 한 이름이 조각 여럿으로 쪼개진다.
+var sgrPattern = regexp.MustCompile(`\x1b\[([0-9;]*)m([^\x1b]*)`)
+
+// activeText 는 "지금 보고 있는 파일" 표시가 걸린 글자만 이어 붙인 것이다.
+//
+// 굵기(1) 와 밑줄(4) 이 한 SGR 안에 같이 있는 조각을 찾는다. lipgloss 가 속성을 어떤 순서로
+// 묶어 내든 상관없다. 색 매개변수(`38;5;81`) 가 섞여 들지만 트리 색에 1 과 4 는 없다.
+func activeText(cell string) string {
+	out := strings.Builder{}
+
+	for _, match := range sgrPattern.FindAllStringSubmatch(cell, -1) {
+		params := strings.Split(match[1], ";")
+		if !slices.Contains(params, "1") || !slices.Contains(params, "4") {
+			continue
+		}
+
+		out.WriteString(match[2])
+	}
+
+	return out.String()
+}
+
+// activeNames 는 그 표시가 걸린 행의 이름이다.
+func activeNames(cells []string) []string {
 	out := []string{}
 	for _, cell := range cells {
-		if !strings.Contains(cell, "\x1b[1m") && !strings.Contains(cell, "\x1b[1;") {
+		if activeText(cell) == "" {
 			continue
 		}
 
@@ -937,45 +961,64 @@ func boldNames(cells []string) []string {
 	return out
 }
 
-// 지금 보고 있는 파일만 굵다. 트리 커서는 포커스가 트리에 있을 때만 보이므로,
-// 편집 중에 트리가 지금 자리를 나타내는 것은 이 굵기뿐이다 (ADR-0022).
-func TestSidebarBoldsActiveFile(t *testing.T) {
+// 지금 보고 있는 파일만 굵고 밑줄이 있다. 트리 커서는 포커스가 트리에 있을 때만 보이므로,
+// 편집 중에 트리가 지금 자리를 나타내는 것은 이 표시뿐이다 (ADR-0022).
+func TestSidebarMarksActiveFile(t *testing.T) {
 	root := newTreeFixture(t)
 	s := openSidebar(root)
 
 	cells := s.cells(10, filepath.Join(root, "main.go"))
 
-	assert.Equal(t, []string{"main.go"}, boldNames(cells))
+	assert.Equal(t, []string{"main.go"}, activeNames(cells))
 }
 
-// 디렉터리는 더 이상 굵지 않다. 굵기가 뜻 둘을 가지면 읽는 규칙이 흐려진다 (ADR-0022).
+// 표시는 이름에만 걸린다. 들여쓰기까지 이으면 깊은 자리의 파일에서 밑줄이 이름 앞 빈 칸을 끌고 온다.
+func TestSidebarMarksNameWithoutIndent(t *testing.T) {
+	root := newTreeFixture(t)
+	s := openSidebar(root)
+
+	// 한 칸 들여쓰인 자리라야 밑줄이 앞 빈 칸을 끌고 오는지가 드러난다.
+	spec := filepath.Join(root, "docs", "spec.md")
+	require.True(t, s.reveal(spec))
+
+	for _, cell := range s.cells(10, spec) {
+		if text := activeText(cell); text != "" {
+			assert.Equal(t, "spec.md", text)
+			return
+		}
+	}
+
+	t.Fatal("표시가 걸린 행이 없다")
+}
+
+// 디렉터리는 표시가 없다. 굵기가 뜻 둘을 가지면 읽는 규칙이 흐려진다 (ADR-0022).
 // 디렉터리는 색과 `▸`/`▾` 표시와 `/` 접미로 이미 갈린다.
-func TestSidebarDirIsNotBold(t *testing.T) {
+func TestSidebarDirIsNotMarked(t *testing.T) {
 	s := openSidebar(newTreeFixture(t))
 
-	assert.Empty(t, boldNames(s.cells(10, "")))
+	assert.Empty(t, activeNames(s.cells(10, "")))
 }
 
 // 이름 없는 buffer 는 어느 행과도 맞지 않는다. `:tabnew` 로 만든 tab 이 그렇다.
-func TestSidebarBoldsNothingWithoutName(t *testing.T) {
+func TestSidebarMarksNothingWithoutName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	m.buffers = []Buffer{newEmptyBuffer("")}
 
-	assert.Empty(t, boldNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
+	assert.Empty(t, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
 }
 
-// tab 을 옮기면 굵은 자리도 따라간다. 트리가 그 자리를 펼치는 것(reveal) 과 짝이다.
-func TestSidebarBoldFollowsActiveTab(t *testing.T) {
+// tab 을 옮기면 표시도 따라간다. 트리가 그 자리를 펼치는 것(reveal) 과 짝이다.
+func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
 	m.buffers = []Buffer{
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
-	require.Equal(t, []string{"main.go"}, boldNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
+	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
 
 	next := send(tea.Model(m), "g", "t").(viewEditorNormal)
 
 	assert.Equal(t, []string{"spec.md"},
-		boldNames(next.sidebar.cells(next.sidebarHeight(), next.activePath())))
+		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath())))
 }

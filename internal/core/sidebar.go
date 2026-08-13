@@ -351,7 +351,7 @@ const labelWidth = sidebarWidth - 2
 
 // 파일 종류별 글자색이다. 256 색 고정값이라 터미널 테마를 타지 않는다(ADR-0005).
 //
-// 굵기는 여기 없다. 굵은 글씨는 "지금 보고 있는 파일" 한 뜻으로만 쓴다(ADR-0022).
+// 굵기와 밑줄은 여기 없다. 그 둘은 "지금 보고 있는 파일" 한 뜻으로만 쓴다(ADR-0022).
 // 디렉터리는 색과 `▸`/`▾` 표시와 `/` 접미로 이미 갈린다.
 var (
 	styleTreeDir     = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
@@ -364,9 +364,9 @@ var (
 // cells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
 // 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
 //
-// activePath 는 지금 보고 있는 파일의 절대 경로다. 그 행만 굵게 그린다(ADR-0022).
+// activePath 는 지금 보고 있는 파일의 절대 경로다. 그 행만 굵게, 밑줄 그어 그린다(ADR-0022).
 // 트리 커서는 터미널 커서라 포커스가 트리에 있을 때만 보이므로, 편집 중에 트리가
-// 지금 자리를 나타내는 것은 이 굵기뿐이다. 이름 없는 buffer 는 빈 문자열이라 어느 행과도 안 맞는다.
+// 지금 자리를 나타내는 것은 이 표시뿐이다. 이름 없는 buffer 는 빈 문자열이라 어느 행과도 안 맞는다.
 func (s sidebar) cells(height int, activePath string) []string {
 	rows := s.rows()
 
@@ -393,20 +393,36 @@ func (r treeRow) cell(active bool) string {
 	label := truncateToWidth(r.label(), labelWidth)
 	pad := max(0, labelWidth-screenColAt([]byte(label), len(label)))
 
-	// 굵기는 종류별 색 위에 덧입힌다. 색은 그 파일이 무엇인지, 굵기는 지금 보고 있는지다(ADR-0022).
+	// 빈 칸은 색 밖에 둔다. 글자색만 쓰므로 어차피 보이지 않지만 escape 를 덜 낸다.
 	style := r.style()
-	if active {
-		style = style.Bold(true)
+	if !active {
+		return style.Render(label) + strings.Repeat(" ", pad) + "│ "
 	}
 
-	// 빈 칸은 색 밖에 둔다. 글자색만 쓰므로 어차피 보이지 않지만 escape 를 덜 낸다.
-	return style.Render(label) + strings.Repeat(" ", pad) + "│ "
+	// 굵기와 밑줄은 종류별 색 위에 덧입힌다. 색은 그 파일이 무엇인지, 이 둘은 지금 보고 있는지다(ADR-0022).
+	//
+	// 이름에만 얹고 들여쓰기는 뗀다. 표시가 가리키는 것은 그 파일이므로 밑줄도 이름 아래에만
+	// 있어야 한다 — 들여쓰기까지 이으면 깊은 자리의 파일에서 밑줄이 이름 앞의 빈 칸을 끌고 온다.
+	//
+	// 잘려서 이름이 남지 않으면 뒤 조각이 빈 문자열이라 앞부분만 그려진다.
+	indent := min(len(r.indent()), len(label))
+
+	return style.Render(label[:indent]) +
+		style.Bold(true).Underline(true).Render(label[indent:]) +
+		strings.Repeat(" ", pad) + "│ "
 }
 
 // label 은 들여쓰기와 펼침 표시가 붙은 이름이다.
+func (r treeRow) label() string {
+	return r.indent() + r.name()
+}
+
+// indent 는 이름 앞에 붙는 빈 칸과 펼침 표시다.
 //
 // 파일은 펼침 표시 자리에 빈 칸을 두어 같은 깊이의 디렉터리와 이름이 나란히 선다.
-func (r treeRow) label() string {
+//
+// 굵기·밑줄이 이름에만 얹혀야 하므로 이름과 나눠 둔다(ADR-0022).
+func (r treeRow) indent() string {
 	marker := "  "
 	if r.node.isDir && !r.node.symlink {
 		marker = "▸ "
@@ -415,6 +431,11 @@ func (r treeRow) label() string {
 		}
 	}
 
+	return strings.Repeat("  ", r.depth) + marker
+}
+
+// name 은 트리에 찍히는 이름이다.
+func (r treeRow) name() string {
 	name := sanitizeName(r.node.name)
 	switch {
 	case r.node.symlink:
@@ -423,7 +444,7 @@ func (r treeRow) label() string {
 		name += "/"
 	}
 
-	return strings.Repeat("  ", r.depth) + marker + name
+	return name
 }
 
 // style 은 파일 종류별 글자색이다. gitignore 된 것은 종류와 무관하게 흐리다.
