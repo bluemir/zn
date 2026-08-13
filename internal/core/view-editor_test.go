@@ -236,14 +236,14 @@ func TestExpandWhitespaceMarkers(t *testing.T) {
 		row  string
 		want string
 	}{
-		{name: "space 들여쓰기", row: "  ab", want: "··ab"},
+		{name: "space 들여쓰기", row: "  ab", want: "⋅⋅ab"},
 		{name: "tab 들여쓰기", row: "\tab", want: "»   ab"},
-		{name: "섞인 들여쓰기", row: "\t  ab", want: "»   ··ab"},
+		{name: "섞인 들여쓰기", row: "\t  ab", want: "»   ⋅⋅ab"},
 		{name: "가운데 공백은 그대로", row: "a b c", want: "a b c"},
 		{name: "가운데 tab 은 빈 칸으로만", row: "a\tb", want: "a   b"},
-		{name: "줄 끝 공백", row: "ab  ", want: "ab··"},
+		{name: "줄 끝 공백", row: "ab  ", want: "ab⋅⋅"},
 		{name: "줄 끝 tab", row: "ab\t", want: "ab» "},
-		{name: "공백뿐인 줄은 전부 마커", row: "  \t", want: "··» "},
+		{name: "공백뿐인 줄은 전부 마커", row: "  \t", want: "⋅⋅» "},
 		{name: "빈 줄", row: "", want: ""},
 	}
 
@@ -262,7 +262,7 @@ func TestExpandRowSplitsMarkerParts(t *testing.T) {
 	assert.Equal(t, []screenPart{
 		{text: "»   ", marker: true},
 		{text: "ab", marker: false},
-		{text: "··", marker: true},
+		{text: "⋅⋅", marker: true},
 	}, parts)
 	assert.Equal(t, 8, col, "tab 4 칸 + ab 2 칸 + 공백 2 칸")
 }
@@ -297,14 +297,15 @@ func TestLineNumbers(t *testing.T) {
 	}, gutterOf(t, m), "커서 줄이 0 이고 위아래로 멀어진다")
 }
 
-// 상대번호만 흐린 색이다. 절대번호와 본문은 색이 없다.
-func TestLineNumberRelativeIsDimmed(t *testing.T) {
+// 절대번호는 vim 처럼 노란색이고 상대번호는 흐린 회색이다. 본문에는 색이 없다.
+func TestLineNumberColors(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 40, 2)
 
 	row := contentRowsOf(t, m)[1]
 
-	assert.Equal(t, "  2 \x1b[38;5;244m 1\x1b[m one"[:4], ansi.Strip(row)[:4], "절대번호는 맨 앞")
-	assert.Contains(t, row, "\x1b[38;5;244m 1", "상대번호에만 색이 붙는다")
+	assert.Equal(t, "  2 ", ansi.Strip(row)[:4], "절대번호는 맨 앞")
+	assert.Contains(t, row, "\x1b[33m  2", "절대번호는 노란색이다")
+	assert.Contains(t, row, "\x1b[38;5;244m 1", "상대번호는 흐리다")
 	assert.NotContains(t, textOf(t, m), "\x1b[", "본문에는 색이 가지 않는다")
 }
 

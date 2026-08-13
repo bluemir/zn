@@ -57,9 +57,9 @@ tab 마커는 tab 이 시작하는 한 칸뿐이고 남는 칸은 빈 칸이다 
 space 와 같아 보인다. tab 폭은 4 칸이므로 줄 앞 tab 하나는 `»` 와 빈 칸 3 개다.
 
 ```
-»   println("hello")··      ← tab 들여쓰기 + 줄 끝 공백 2 개
-····spaces indent           ← space 4 개 들여쓰기
-»   ··mixed indent          ← tab 뒤에 space 2 개
+»   println("hello")⋅⋅      ← tab 들여쓰기 + 줄 끝 공백 2 개
+⋅⋅⋅⋅spaces indent           ← space 4 개 들여쓰기
+»   ⋅⋅mixed indent          ← tab 뒤에 space 2 개
 a b c                       ← 줄 가운데 공백은 그대로
 ```
 
@@ -503,7 +503,9 @@ cwd 가 뿌리다. sidebar 트리와 같은 기준이라 무엇을 찾는지 화
 이름 | 오른쪽 | 하는 일
 -----|--------|--------
 줄 끝 공백 지우기 | `trim trailing space` | 모든 줄 끝의 공백과 tab 을 지운다. 한 번의 `u` 로 전부 돌아온다
+파일 다시 읽기 | `reload file` | 파일을 디스크에서 다시 읽는다. 저장하지 않은 변경이 있으면 확인창을 띄운다
 파일 트리 열기/닫기 | `toggle file tree :tree` | `:tree` 와 같다
+검색 강조 끄기 | `disable search highlight :noh` | `:noh` 와 같다. 강조만 끄고 마지막 검색은 남는다
 
 「줄 끝 공백 지우기」는 활성 buffer 만 건드린다. 지우는 것은 `' '` 와 `'\t'` 뿐이고
 유니코드 공백(NBSP 등) 은 그대로 둔다 — 눈에 보이지 않는 글자가 조용히 사라지는 편이 더 나쁘다.

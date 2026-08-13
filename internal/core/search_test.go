@@ -377,24 +377,24 @@ func TestSearchHighlightKeepsTabWidth(t *testing.T) {
 // 한 번씩만 입혀야 마커 뒤에서 강조가 이어진다.
 func TestRenderPartsKeepsStyleAcrossMarker(t *testing.T) {
 	parts := []screenPart{
-		{text: "··", marker: true},
+		{text: "⋅⋅", marker: true},
 		{text: "ab", marker: false},
 	}
 
 	got := renderParts(parts, styleSearchMatch)
 
 	assert.Contains(t, got, styleSearchMatch.Render("ab"), "마커 뒤 글자가 강조를 그대로 쓴다")
-	assert.Equal(t, "··ab", ansi.Strip(got))
+	assert.Equal(t, "⋅⋅ab", ansi.Strip(got))
 }
 
 // 강조 밖의 마커는 흐린 색이다.
 func TestRenderPartsDimsMarker(t *testing.T) {
 	var plain lipgloss.Style
 
-	got := renderParts([]screenPart{{text: "··", marker: true}, {text: "ab"}}, plain)
+	got := renderParts([]screenPart{{text: "⋅⋅", marker: true}, {text: "ab"}}, plain)
 
-	assert.Contains(t, got, plain.Foreground(colorWhitespace).Render("··"))
-	assert.Equal(t, "··ab", ansi.Strip(got))
+	assert.Contains(t, got, plain.Foreground(colorWhitespace).Render("⋅⋅"))
+	assert.Equal(t, "⋅⋅ab", ansi.Strip(got))
 }
 
 // 검색은 tab 을 넘어 남는다. `n` 이 다른 tab 에서도 같은 것을 찾는다.

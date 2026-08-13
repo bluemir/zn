@@ -8,9 +8,12 @@ import (
 
 // tab 과 space 는 화면에서 똑같은 빈 칸이라, 들여쓰기가 둘로 섞여도 알아챌 수 없다.
 // 마커를 찍어 눈으로 가른다.
+//
+// 둘 다 East Asian Width 가 Neutral 이라 어느 터미널에서나 한 칸이다. Ambiguous 인 글자
+// (`·` U+00B7, `→` U+2192 …) 는 ambiguous 를 두 칸으로 잡는 터미널에서 들여쓰기를 밀어낸다.
 const (
-	markerTab   = "»"
-	markerSpace = "·"
+	markerTab   = "»" // U+00BB
+	markerSpace = "⋅" // U+22C5 DOT OPERATOR
 )
 
 // colorWhitespace 는 공백 마커의 색이다. 본문보다 흐려야 코드를 읽는 데 끼어들지 않는다.

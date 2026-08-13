@@ -310,9 +310,15 @@ func digits(n int) int {
 	return count
 }
 
-// styleLineNumberRelative 는 상대 줄번호 색이다. sidebar 의 흐린 색과 같은 값이다(ADR-0005).
-// 절대번호는 본문과 같은 색이라, 둘이 나란히 있어도 어느 쪽이 무엇인지 색으로 갈린다.
-var styleLineNumberRelative = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+var (
+	// styleLineNumberAbsolute 는 절대 줄번호 색이다. vim 의 `LineNr` 과 같은 노란색(ANSI 3)이라
+	// 256 색 고정값과 달리 터미널 테마가 정한 노랑을 따른다(ADR-0007).
+	styleLineNumberAbsolute = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+
+	// styleLineNumberRelative 는 상대 줄번호 색이다. sidebar 의 흐린 색과 같은 값이다(ADR-0005).
+	// 절대번호와 색이 달라, 둘이 나란히 있어도 어느 쪽이 무엇인지 색으로 갈린다.
+	styleLineNumberRelative = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+)
 
 // lineNumber 는 화면 행 앞에 붙는 줄번호 칸이다. `절대 상대 ` 순서다.
 //
@@ -335,7 +341,7 @@ func (e editor) lineNumber(cursorLine int, row screenRow) string {
 		distance = -distance
 	}
 
-	return fmt.Sprintf("%*d ", absolute, row.line+1) +
+	return styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
 		styleLineNumberRelative.Render(fmt.Sprintf("%*d", relative, distance)) + " "
 }
 
