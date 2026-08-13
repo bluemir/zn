@@ -174,6 +174,7 @@ dirty 는 `git status --porcelain` 기준이라 untracked 파일도 센다. tabl
 - visual mode
 - copy mode
 - command-line mode
+- search mode
 
 ### Normal mode
 
@@ -322,3 +323,8 @@ normal mode 에서 `:` 로 들어간다. 치는 명령은 statusBar 의 아래 �
 어느 쪽이든 잃을 것이 있을 때만 확인창이 뜨고, 없으면 묻지 않는다.
 묻는 범위는 각자 잃는 것에 맞춘다 — `:q` 는 닫는 tab 의 변경만 보고,
 `:qa` 와 `Ctrl+C` 는 어느 tab 이든 변경이 남아 있는지를 본다.
+
+
+## Command Palette
+
+TBD

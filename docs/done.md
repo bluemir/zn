@@ -15,3 +15,6 @@
 - [x] tabline 을 sidebar 위에 걸치지 않고 편집 영역 위에만 그린다. statusBar 는 sidebar 아래까지 이어지되 글자만 편집 영역 아래에서 시작한다 (ADR-0005)
 - [x] 편집기를 열면 filetree 가 기본으로 열려 있게 한다. cwd 를 못 읽으면 트리 없이 연다
 - [x] filetree 에서 `j` `k` 로 트리를 오르내린다. `↓` `↑` 와 같은 동작이다
+- [x] 줄 갈아끼우기 방식으로 편집을 구현한다. backing buffer 에는 쓰지 않는다 (ADR-0001)
+- [x] CLI 인자로 받은 파일을 실제로 연다
+- [x] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다

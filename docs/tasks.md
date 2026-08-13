@@ -18,9 +18,6 @@
 - [ ] autoindent 를 넣을지 정한다. 지금 `o` `O` 는 앞 줄의 들여쓰기를 이어받지 않아서 Go 소스를 쓸 때 매번 tab 을 다시 친다. 언어별 지원과 같이 본다
 - [x] 한글 입력 상태의 키를 두벌식 자리의 영문 키로 되돌려 받는다. `ㅁ` 이 `a` 다. 조합된 음절과 겹자모는 키 여럿으로 풀고(`ㅘ`→`h` `k`, `값`→`r` `k` `q` `t`), 도중에 mode 가 바뀌면 남은 키는 버린다. normal·sidebar·확인창에만 적용한다 (ADR-0008)
 - [ ] 한글 상태에서 마지막으로 누른 키가 입력기에 잡혀 있어 명령이 한 키 밀리는 것은 편집기 안에서 고칠 수 없다. 확실하게 하려면 mode 에 맞춰 입력기를 바꿔야 하는데(macOS 는 Karabiner-Elements 로 `esc` 에 영문 전환을 걸고, Linux 는 입력기 설정) ssh 로 쓰면 원격이 아니라 로컬 설정이라 편집기가 할 수 있는 일이 없다. README 에 이 안내를 넣는다 (ADR-0008)
-- [x] 줄 갈아끼우기 방식으로 편집을 구현한다. backing buffer 에는 쓰지 않는다 (ADR-0001)
-- [x] CLI 인자로 받은 파일을 실제로 연다
-- [x] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다
 - [x] 상대 줄번호와 절대 줄번호 동시 표시의 렌더 형태를 정하고 구현한다. 편집 영역 왼쪽에 `절대 상대` 순서로 나란히 두고, 상대번호만 흐린 색이다. 커서 줄은 `0` 이고 wrap 된 행은 빈 칸이다 (ADR-0007)
 - [ ] `:number` 로 줄번호를 여닫는다. 지금은 항상 그린다. 화면을 복사·붙여넣기할 때 번호가 거슬리면 그때 넣는다
 - [ ] 줄 수가 1000 을 넘는 파일로 tab 을 옮기면 번호 칸이 한 칸 늘어 본문 시작 칸이 밀린다. 자릿수를 고정할지 다시 본다
@@ -51,13 +48,15 @@
 - [ ] tab 순서를 바꾸거나 옮기는 동작을 정한다
 - [ ] fzf 와 command palette 를 구현한다. file matching 에서 `>` 로 command 로 넘어가는 동작과 `!` 의 shell command 매핑 포함
 - [ ] 언어별 지원(golang, markdown, html, css, js) 을 넣는다
-- [ ] mouse 지원을 넣는다
+- mouse 기능
+	- [ ] file tree 를 mouse 로도 펼치기 접기 열기 가능하도록
+	- [ ] 커서 위치를 이동 할수 있도록
 - [ ] 키 하나로 현재 화면을 cat 과 동일한 형태로 표시하는 기능을 넣는다 (복사·붙여넣기용)
 - [ ] home, end, page up, page down 의 일관적인 동작을 정의하고 구현한다
 - [ ] README 에 기술 스택, 빌드·실행 방법, 현재 구현 상태를 넣는다. feature 목록이 구현된 것인지 목표인지 구분되지 않아 초기 단계임이 전달되지 않는다
 - [ ] `docs/spec.md` 에 저장소 구조를 넣는다. sidebar/statusBar 수치는 넣었다. 저장소 구조는(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
-- [ ] `scripts/makefile.d/dev-run.mk` 의 `run`·`dev-run` 을 에디터에 맞게 고친다. web server scaffolding 이 남아 `$< -vvv server --config runtime/config.hjson` 을 실행하며, `server` 서브커맨드가 없어 `unknown long flag '--config'` 로 실패한다
-- [ ] `scripts/makefile.d/build.mk` 의 `gen` 타겟이 없는 `assets/src/js/index.js` 에 의존해 실패하는 것을 고친다. `prod` 와 `install` 이 이것 때문에 막혀 있다
+- [x] `scripts/makefile.d/dev-run.mk` 의 `run`·`dev-run` 을 에디터에 맞게 고친다. web server scaffolding 이 남아 `$< -vvv server --config runtime/config.hjson` 을 실행하며, `server` 서브커맨드가 없어 `unknown long flag '--config'` 로 실패한다
+- [x] `scripts/makefile.d/build.mk` 의 `gen` 타겟이 없는 `assets/src/js/index.js` 에 의존해 실패하는 것을 고친다. `prod` 와 `install` 이 이것 때문에 막혀 있다
 - [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다
 - [ ] (나중에) `pubsub`·`workers`·`datastruct`·`util` 을 별도 저장소로 뺄지 정한다. 에디터와 무관한 개인 공통 라이브러리라 분리하면 `go.mod` 정리와 `httpproxy` 의 gin 의존성이 같이 해결된다
 - [x] `go.mod` 에서 쓰이지 않는 의존성을 정리한다. grpc, swaggo, prometheus, sqlite, sessions, hjson, expr-lang, validator, mongo-driver, gin-contrib, protobuf, gorm 을 걷어냈다
@@ -70,7 +69,6 @@
 - [x] statusbar 우측에 git branch, commit id 그리고 dirty 여부를 표시. 위 줄 오른쪽 끝에 `master(a1b2c3d*)` 이고 detached HEAD 는 해시만 찍는다. dirty 는 untracked 를 포함하고 기준은 cwd 저장소다. 값은 편집기를 열 때·파일을 열 때·저장할 때만 다시 읽는다 (ADR-0009)
 - [ ] git 표시 새로고침 키를 넣는다. 바깥에서 `commit`/`checkout` 을 하면 다음에 파일을 열거나 저장할 때까지 낡은 값이 보인다 (ADR-0009)
 - [ ] `:w` 마다 `git status --porcelain` 이 동기로 돈다. `git check-ignore` 와 같은 문제라 큰 저장소에서 저장이 늦어진다. 같이 본다
-- [ ] file tree 를 mouse 로도 펼치기 접기 열기 가능하도록
 - [x] 검색 기능(`/` `?` `n` `N` `*` `#`) 을 넣는다. 패턴은 Go 정규식(RE2) 이고 flag 는 뒤에 `/i` 로 붙인다. 치는 동안 첫 매칭으로 따라가고(incsearch) `Esc` 로 되돌아온다. 찾은 자리는 모두 칠하되 커서가 선 것만 색이 다르다. 파일 끝에서 감싸고 그 사실을 알린다. `:noh` 로 강조를 끈다 (ADR-0010)
 - [ ] 검색 이력을 넣는다. 명령줄에서 위·아래로 이전 검색어를 꺼내 쓴다. `:` 명령 이력과 같은 구조라 같이 정한다 (ADR-0010)
 - [ ] `f` `t` `;` `,`(줄 안에서 글자 찾기) 를 넣는다. `normalPending` 이 인자를 한 글자 더 받는 자리다 (ADR-0006)
@@ -78,3 +76,15 @@
 - [ ] 검색이 줄 단위라 줄바꿈을 건너뛰는 패턴(`func\s*\n`) 은 맞지 않는다. 여러 줄 패턴을 지원할지 정한다 (ADR-0010)
 - [ ] 강조를 켠 채로 아주 긴 줄이 화면을 채우면 그릴 때마다 그 줄에 정규식을 돌린다. 줄이 바뀔 때만 다시 찾도록 줄여뒀지만 실제로 거슬리면 캐시를 본다 (ADR-0010)
 - [ ] 검색으로 뛰기 전 자리로 돌아가는 것(vim 의 jump list, `` `` ``) 을 정한다 (ADR-0010)
+- [ ] tailing whitespace 제거 기능
+	- command palette 에서 접근 가능한 기능
+- [ ] tab 문자와 space 를 구분해서 보여주기
+- [ ] 비동기 작업 지원
+	- 대량 작업을 위한 비동기 작업 표시
+		- command palette 의 파일 찾기를 위한 인덱싱
+		- 여러 파일에 걸친 검색
+		- 여러 파일 replace
+		- 대용량 구문 분석
+		- ....
+	- 작업이 있을때 status bar 에 progress bar 로 진행 사항 표시
+
