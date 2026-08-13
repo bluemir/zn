@@ -3,21 +3,15 @@ package core
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 func Run(ctx context.Context, files []string) error {
-	buffers := make([]Buffer, 0, len(files))
-	for _, file := range files {
-		buf, err := OpenBuffer(file)
-		if err != nil {
-			return err
-		}
-		buffers = append(buffers, buf)
-	}
-	if len(buffers) == 0 {
-		buffers = append(buffers, newEmptyBuffer(""))
+	buffers, err := openBuffers(files)
+	if err != nil {
+		return err
 	}
 
 	e := editor{buffers: buffers, git: readGitStatus()}
@@ -48,4 +42,39 @@ func Run(ctx context.Context, files []string) error {
 	}
 
 	return nil
+}
+
+// openBuffers 는 CLI 인자로 받은 파일들을 tab 순서대로 연다.
+// 인자가 없으면 이름 없는 빈 buffer 하나로 시작한다.
+//
+// 같은 파일을 두 번 넘겨도 tab 은 하나다. 같은 파일에 Buffer 가 둘이면 한쪽에서 저장하는
+// 순간 다른 쪽 편집이 사라진다 — openTab 이 이미 열린 tab 으로 옮겨 가는 것과 같은 이유다.
+func openBuffers(files []string) ([]Buffer, error) {
+	buffers := make([]Buffer, 0, len(files))
+	opened := map[string]bool{}
+
+	for _, file := range files {
+		// 표기가 달라도(`a.txt` 와 `./a.txt`) 같은 파일이면 한 번만 연다. tabOf 와 같은 기준이다.
+		// 정규화하지 못하면 적힌 그대로를 기준으로 삼는다 — 글자가 같은 것까지는 걸러진다.
+		key, err := filepath.Abs(file)
+		if err != nil {
+			key = file
+		}
+		if opened[key] {
+			continue
+		}
+		opened[key] = true
+
+		buf, err := OpenBuffer(file)
+		if err != nil {
+			return nil, err
+		}
+		buffers = append(buffers, buf)
+	}
+
+	if len(buffers) == 0 {
+		buffers = append(buffers, newEmptyBuffer(""))
+	}
+
+	return buffers, nil
 }
