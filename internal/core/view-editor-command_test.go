@@ -227,13 +227,14 @@ func TestCommandUnknown(t *testing.T) {
 	assert.Contains(t, barOf(t, m)[1], "알 수 없는 명령")
 }
 
-// 인자를 받는 명령은 아직 없다. 조용히 버리면 :w foo 가 foo 에 저장한 것처럼 보인다.
+// 인자를 받는 명령은 `:w` `:e` `:tabnew` 뿐이다.
+// 나머지에 붙은 인자를 조용히 버리면 `:wq foo` 가 foo 에 저장한 것처럼 보인다.
 func TestCommandRejectsUnexpectedArgument(t *testing.T) {
 	m, path := newFileEditor(t, "abc\n")
 
 	var model tea.Model = m
 	model = send(model, "i", "X", "esc")
-	model = send(model, ":", "w", " ", "f", "o", "o", "enter")
+	model = send(model, ":", "w", "q", " ", "f", "o", "o", "enter")
 
 	assert.IsType(t, viewEditorNormal{}, model)
 	assert.Contains(t, barOf(t, model)[1], "알 수 없는 명령")

@@ -8,7 +8,9 @@
 - [ ] 아주 큰 디렉터리를 펼치면 한 키가 멈춘다. `os.ReadDir` 이 전부 읽고 `Update` 안에서 동기로 돈다. `File.ReadDir(n)` 으로 끊고 `… N개 더` 행을 두는 것을 본다
 - [ ] `git check-ignore` 도 같은 이유로 동기 호출이다. 느린 저장소에서 펼치는 순간 멈칫한다
 - [ ] tabline 이 편집 영역 너비를 넘칠 때 활성 tab 이 잘려서 안 보인다. 활성 tab 이 보이도록 가로로 밀거나 이름을 줄여야 한다. sidebar 를 열면 32 칸이 더 줄어서 더 빨리 잘린다
-- [ ] `:w <파일>` 로 이름 없는 buffer 에 이름을 준다. 지금은 `:tabnew` 로 만든 tab 을 저장할 방법이 없어서 임시 메모장으로만 쓸 수 있다
+- [x] `:w <파일>` 을 넣는다. 이름 있는 tab 에서는 사본만 쓰고 이름·dirty 는 그대로다(vim 과 같다). 이름 없는 tab 만 그 이름을 받아서 `:tabnew` 로 만든 tab 을 저장할 길이 생겼다. 이미 있는 파일은 막고 `:w!` 로 덮어쓴다(vim 의 E13). 보고 있는 파일을 주면 제자리 저장이고, 이름을 받으려는 파일이 다른 tab 에 열려 있으면 막는다 (ADR-0024)
+- [ ] `:saveas <파일>`(이름을 그 파일로 옮기고 저장) 을 넣을지 정한다. 지금 `:w <파일>` 은 이름 있는 tab 에서 사본만 쓴다 (ADR-0024)
+- [ ] `:wq <파일>` 과 `:x <파일>` 을 받을지 정한다. 지금은 「알 수 없는 명령」이고 vim 과 다른 자리다 — vim 은 받지만 사본을 쓰고 닫아서 원래 파일의 편집이 사라진다(9.1 로 확인). 한 명령이 인자에 따라 잃는 것과 잃지 않는 것으로 갈린다 (ADR-0024)
 - [x] CLI 인자로 같은 파일을 두 번 주어도(`be a.txt a.txt`) tab 은 하나다. `openBuffers` 가 경로를 정규화해서 걸러 낸다. 표기가 달라도(`a.txt` 와 `./a.txt`) 같은 파일이면 한 번만 연다
 - [x] tab 문자와 space 를 구분해서 보여준다. tab 은 `»`(U+00BB), space 는 `⋅`(U+22C5) 이고 흐린 색(240) 이다. 줄 앞 들여쓰기와 줄 끝 공백에만 찍는다 — 줄 가운데까지 찍으면 산문이 점으로 뒤덮인다. 항상 켜져 있다. 검색 강조와 겹쳐도 강조가 끊기지 않도록 행을 조각으로 나눠 조각마다 style 을 한 번씩 입힌다 (ADR-0020)
 - [x] 공백 마커의 폭이 확실한지 확인한다. `»`(U+00BB) 는 Neutral 이라 그대로 두고, Ambiguous 인 space 마커 `·`(U+00B7) 만 `⋅`(U+22C5 DOT OPERATOR) 로 바꿨다. 터미널의 "ambiguous 를 2 칸으로" 설정은 Ambiguous 에만 걸린다 (ADR-0020)
@@ -39,6 +41,7 @@
 - [ ] `ctrl+z` 를 insert·명령줄·검색·팔레트에서도 받을지 정한다. vim 은 어디서든 내려간다. 치던 문자열과 mode 를 어떻게 할지가 남았다 (ADR-0023)
 - [x] 셸에서 올라올 때 git 상태도 다시 읽는다. 내려가 있는 동안 `commit`/`checkout` 을 하는 것이 흔해서다. 파일 검사와 달리 트리에 포커스가 있어도 읽는다 — statusBar 오른쪽은 mode 와 무관하게 늘 보이고 알림을 놓을 자리가 필요하지 않다 (ADR-0009, ADR-0023)
 - [x] 절대 줄번호는 노란 글씨로 표시 하기
+- [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다
 
 ## backlog
 
@@ -115,7 +118,6 @@
 - [ ] `docs/spec.md` 에 저장소 구조를 넣는다. sidebar/statusBar 수치는 넣었다. 저장소 구조는(`core` = 에디터 화면, `tui` = 재사용 위젯, `pubsub`·`workers`·`datastruct`·`util` = 프로젝트 무관한 개인 공통 라이브러리)
 - [x] `scripts/makefile.d/dev-run.mk` 의 `run`·`dev-run` 을 에디터에 맞게 고친다. web server scaffolding 이 남아 `$< -vvv server --config runtime/config.hjson` 을 실행하며, `server` 서브커맨드가 없어 `unknown long flag '--config'` 로 실패한다
 - [x] `scripts/makefile.d/build.mk` 의 `gen` 타겟이 없는 `assets/src/js/index.js` 에 의존해 실패하는 것을 고친다. `prod` 와 `install` 이 이것 때문에 막혀 있다
-- [ ] `build.mk` 의 "Build web app", "minified + embedded" 주석을 에디터 기준으로 고친다
 - [ ] (나중에) `pubsub`·`workers`·`datastruct`·`util` 을 별도 저장소로 뺄지 정한다. 에디터와 무관한 개인 공통 라이브러리라 분리하면 `go.mod` 정리와 `httpproxy` 의 gin 의존성이 같이 해결된다
 - [x] `go.mod` 에서 쓰이지 않는 의존성을 정리한다. grpc, swaggo, prometheus, sqlite, sessions, hjson, expr-lang, validator, mongo-driver, gin-contrib, protobuf, gorm 을 걷어냈다
 - [x] command parser

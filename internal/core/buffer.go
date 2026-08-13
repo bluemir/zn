@@ -646,9 +646,9 @@ func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
 // 읽은 뒤에 파일이 밖에서 바뀌었으면 쓰지 않고 알린다 (ADR-0015).
 func (buf *Buffer) Save() error {
 	// :tabnew 로 만든 buffer 는 이름이 없어서 쓸 곳이 없다. vim 의 E32 와 같다.
-	// 이름을 주는 방법(`:w <파일>`) 은 아직 없으므로 알리고 끝낸다.
+	// 이름을 주려면 `:w <파일>`, 즉 SaveTo 다 (ADR-0024).
 	if buf.path == "" {
-		return errors.New("파일 이름이 없습니다")
+		return errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
 	}
 
 	if err := buf.checkNotChangedOutside(); err != nil {
@@ -661,10 +661,67 @@ func (buf *Buffer) Save() error {
 // SaveForce 는 밖에서 바뀌었는지 보지 않고 덮어쓴다. `:w!` 다.
 func (buf *Buffer) SaveForce() error {
 	if buf.path == "" {
-		return errors.New("파일 이름이 없습니다")
+		return errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
 	}
 
 	return buf.write()
+}
+
+// SaveTo 는 buffer 를 다른 파일에 쓴다. `:w <파일>` 이다.
+// 그 자리에 이미 파일이 있으면 쓰지 않고 알린다 (ADR-0024).
+func (buf *Buffer) SaveTo(path string) error {
+	if err := checkNotExist(path); err != nil {
+		return err
+	}
+
+	return buf.saveTo(path)
+}
+
+// SaveToForce 는 이미 있는 파일도 덮어쓴다. `:w! <파일>` 이다.
+func (buf *Buffer) SaveToForce(path string) error {
+	return buf.saveTo(path)
+}
+
+// saveTo 는 검사 없이 path 에 쓴다.
+//
+// 이름 있는 buffer 는 사본만 쓴다. 이름도 dirty 도 그대로 두어서 이어지는 `:w` 는 여전히
+// 원래 파일에 쓴다. 이름 없는 buffer 만 이 저장으로 그 파일의 buffer 가 된다 — vim 과 같은
+// 나눔이고, 이름을 갈아치우는 것은 `:saveas` 의 몫이다 (ADR-0024).
+func (buf *Buffer) saveTo(path string) error {
+	out := buf.contents()
+
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		return errors.Wrapf(err, "cannot write %s", path)
+	}
+
+	if buf.path == "" {
+		// 이제 이 파일의 buffer 다. 방금 쓴 것이 저장 기준이 되어 이어지는 `:w` 가
+		// 자기가 쓴 것을 남의 변경으로 보지 않는다 (ADR-0015).
+		sum := sha256.Sum256(out)
+
+		buf.path = path
+		buf.diskHash = sum[:]
+		buf.dirty = false
+	}
+
+	return nil
+}
+
+// checkNotExist 는 그 자리에 파일이 없는지 본다.
+// 있으면 `:w!` 로 빠져나가는 길을 담은 error 를 준다. vim 의 E13 과 같다.
+//
+// 다른 파일에 쓰는 것은 ADR-0015 의 해시 비교로 막을 수 없다 — 읽은 적이 없는 파일이라
+// 맞춰 볼 기준이 아예 없다. 그래서 내용이 아니라 있는지 없는지만 본다 (ADR-0024).
+func checkNotExist(path string) error {
+	_, err := os.Stat(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil
+	case err != nil:
+		return errors.Wrapf(err, "cannot check %s", path)
+	}
+
+	return errors.Errorf("파일이 이미 있습니다: %s. 덮어쓰려면 `:w!` 입니다", path)
 }
 
 // Reload 는 파일을 다시 읽어 내용을 갈아끼운다. 팔레트의 「파일 다시 읽기」가 쓴다 (ADR-0016).
@@ -778,9 +835,9 @@ func (buf Buffer) checkNotChangedOutside() error {
 	return nil
 }
 
-// write 는 검사 없이 파일에 쓴다.
+// contents 는 파일에 쓸 내용이다.
 // 줄끝 형식과 파일 끝 줄끝 유무는 읽었을 때 그대로 되돌린다.
-func (buf *Buffer) write() error {
+func (buf Buffer) contents() []byte {
 	eol := buf.lineEnding.bytes()
 
 	size := 0
@@ -798,6 +855,13 @@ func (buf *Buffer) write() error {
 	if buf.finalLineEnding {
 		out = append(out, eol...)
 	}
+
+	return out
+}
+
+// write 는 검사 없이 보고 있는 파일에 쓴다.
+func (buf *Buffer) write() error {
+	out := buf.contents()
 
 	// 이미 있는 파일은 원래 권한을 유지한다. 0644 는 새로 만들 때만 쓰인다.
 	if err := os.WriteFile(buf.path, out, 0644); err != nil {

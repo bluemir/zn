@@ -71,10 +71,14 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return m.fail(err)
 	}
 
-	// 인자를 받는 명령은 `:e` 와 `:tabnew` 뿐이다. 나머지에 붙은 인자를 조용히 버리면
-	// `:w foo` 가 foo 에 저장한 것처럼 보인다.
-	if len(cmd.args) > 0 && cmd.name != "e" && cmd.name != "tabnew" {
-		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
+	// 인자를 받는 명령은 이 셋뿐이다. 나머지에 붙은 인자를 조용히 버리면
+	// `:qa foo` 가 foo 에 무언가를 한 것처럼 보인다.
+	switch cmd.name {
+	case "w", "e", "tabnew":
+	default:
+		if len(cmd.args) > 0 {
+			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
+		}
 	}
 	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
 	if len(cmd.args) > 1 {
@@ -85,20 +89,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "":
 		return normalMode(m.editor)
 	case "w":
-		// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
-		var err error
-		if cmd.force {
-			err = buf.SaveForce()
-		} else {
-			err = buf.Save()
-		}
-		if err != nil {
-			return m.fail(err)
-		}
-		// 저장하면 저장소가 dirty 가 된다. statusBar 의 git 표시를 여기서 맞춘다(ADR-0009).
-		m.git = readGitStatus()
-
-		return normalModeMessage(m.editor, "저장함: "+buf.path)
+		return m.write(cmd)
 	case "wq", "x":
 		var err error
 		if cmd.force {
@@ -161,6 +152,82 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	default:
 		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
 	}
+}
+
+// write 는 `:w` 다.
+//
+//	:w             보고 있는 파일에 쓴다. 밖에서 바뀌었으면 알리고 만다 (ADR-0015)
+//	:w!            밖에서 바뀐 파일도 덮어쓴다
+//	:w <파일>       그 파일에 쓴다. 이미 있으면 알리고 만다 (ADR-0024)
+//	:w! <파일>      이미 있는 파일도 덮어쓴다
+//
+// 인자가 붙으면 사본을 쓰는 것이라 보고 있는 파일도 tab 도 그대로다. 이름 없는 buffer 만
+// 예외로 그 이름을 받는다 — `:tabnew` 로 만든 tab 을 저장하는 길이 이것뿐이다.
+func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
+	buf := m.buffer()
+
+	if len(cmd.args) == 0 {
+		return m.save(cmd)
+	}
+
+	path := cmd.args[0]
+
+	// `:w <보고 있는 파일>` 은 사본이 아니라 제자리 저장이다. 사본 쪽으로 보내면
+	// 「이미 있습니다」로 막히고, `!` 를 붙여도 dirty 가 남는다.
+	if buf.path != "" && samePath(buf.path, path) {
+		return m.save(cmd)
+	}
+
+	// 이름 없는 buffer 는 이 저장으로 그 파일의 buffer 가 되므로 「같은 파일은 한 tab」에
+	// 걸린다(ADR-0015, ADR-0021). 이름 있는 buffer 는 이름이 그대로라 걸리지 않는다.
+	naming := buf.path == ""
+	if naming {
+		if _, ok := m.tabOf(path); ok {
+			return normalModeMessage(m.editor, "그 파일은 이미 다른 tab 에 열려 있습니다")
+		}
+	}
+
+	var err error
+	if cmd.force {
+		err = buf.SaveToForce(path)
+	} else {
+		err = buf.SaveTo(path)
+	}
+	if err != nil {
+		return m.fail(err)
+	}
+	// 저장하면 저장소가 dirty 가 된다. statusBar 의 git 표시를 여기서 맞춘다(ADR-0009).
+	m.git = readGitStatus()
+
+	if !naming {
+		// 보고 있는 파일이 아니라 다른 파일에 썼다. 문구를 나눠야 tabline 의 이름이
+		// 그대로인 것이 실패로 읽히지 않는다.
+		return normalModeMessage(m.editor, "사본을 씀: "+path)
+	}
+
+	// 이름이 붙어서 이제 이 파일을 보고 있는 것이다. 트리도 그 자리를 가리켜야 한다(ADR-0019).
+	m.revealInSidebar(path)
+
+	return normalModeMessage(m.editor, "저장함: "+path)
+}
+
+// save 는 보고 있는 파일에 쓴다. 인자 없는 `:w` 와 `:w <보고 있는 파일>` 이 쓴다.
+func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
+	buf := m.buffer()
+
+	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
+	var err error
+	if cmd.force {
+		err = buf.SaveForce()
+	} else {
+		err = buf.Save()
+	}
+	if err != nil {
+		return m.fail(err)
+	}
+	m.git = readGitStatus()
+
+	return normalModeMessage(m.editor, "저장함: "+buf.path)
 }
 
 // edit 은 `:e` 다. 인자가 있으면 파일을 열고, 없으면 보고 있는 파일을 다시 읽는다(ADR-0021).

@@ -180,12 +180,12 @@ func TestTabNewWithFileMovesToTabAlreadyOpen(t *testing.T) {
 	assert.Equal(t, 1, activeOf(t, m))
 }
 
-// 인자를 받는 명령은 `:e` 와 `:tabnew` 뿐이다.
-// `:w foo` 를 조용히 받으면 foo 에 저장한 것처럼 보인다.
+// 인자를 받는 명령은 `:w` `:e` `:tabnew` 뿐이다.
+// `:wq foo` 를 조용히 받으면 foo 에 저장한 것처럼 보인다.
 func TestCommandWithArgIsRejected(t *testing.T) {
 	start, _ := newFilesEditor(t, "a.txt")
 
-	m := runCommand(start, "w other.txt")
+	m := runCommand(start, "wq other.txt")
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Contains(t, barOf(t, m)[1], "알 수 없는 명령")

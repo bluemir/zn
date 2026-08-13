@@ -174,30 +174,37 @@ func (e *editor) replaceTab(path string) error {
 }
 
 // tabOf 는 그 파일을 이미 열어둔 tab 을 찾는다.
-//
-// 경로를 정규화해서 비교한다. CLI 로 연 파일은 상대 경로(`internal/core/editor.go`)이고
-// 트리는 절대 경로를 주므로, 글자 그대로 비교하면 같은 파일을 못 알아보고 중복 Buffer 가 생긴다.
 func (e editor) tabOf(path string) (int, bool) {
-	want, err := filepath.Abs(path)
-	if err != nil {
-		return 0, false
-	}
-
 	for i, buf := range e.buffers {
+		// 이름 없는 buffer 는 어느 파일도 아니다.
 		if buf.path == "" {
 			continue
 		}
-
-		got, err := filepath.Abs(buf.path)
-		if err != nil {
-			continue
-		}
-		if got == want {
+		if samePath(buf.path, path) {
 			return i, true
 		}
 	}
 
 	return 0, false
+}
+
+// samePath 는 두 경로가 같은 파일을 가리키는지다.
+//
+// 정규화해서 비교한다. CLI 로 연 파일은 상대 경로(`internal/core/editor.go`)이고
+// 트리는 절대 경로를 주므로, 글자 그대로 비교하면 같은 파일을 못 알아본다.
+// 그러면 tabOf 가 중복 Buffer 를 만들고 `:w <파일>` 이 제자리 저장을 사본 쓰기로 본다.
+func samePath(a, b string) bool {
+	absA, err := filepath.Abs(a)
+	if err != nil {
+		return false
+	}
+
+	absB, err := filepath.Abs(b)
+	if err != nil {
+		return false
+	}
+
+	return absA == absB
 }
 
 // closeTab 은 활성 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
