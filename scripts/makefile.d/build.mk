@@ -3,8 +3,7 @@
 GO_SOURCES = $(shell find . -name "vendor"  -prune -o \
                             -type f -name "*.go" -print)
 
-# dev build (default, serves source files directly)
-# no tag means //go:build !prod is used automatically
+# dev build (default): unversioned binary at build/$(APP_NAME)
 .PHONY: build
 build: build/$(APP_NAME) ## Build app (dev mode)
 
@@ -24,8 +23,8 @@ build/$(APP_NAME): $(GO_SOURCES) $(MAKEFILE_LIST) | fmt vet test runtime/tools/g
 		$(OPTIONAL_BUILD_ARGS) \
 		-o $@ .
 
-# prod build (for deployment, minified + embedded)
-# -tags prod enables //go:build prod files
+# prod build (for install): version suffixed binary, built with -tags prod
+# no //go:build prod file exists yet, so the tag is reserved for future use
 .PHONY: prod
 prod: build/$(APP_NAME)-$(VERSION) ## Build app (prod mode)
 
