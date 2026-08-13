@@ -77,6 +77,8 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		if err := buf.Save(); err != nil {
 			return m.fail(err)
 		}
+		// 저장하면 저장소가 dirty 가 된다. statusBar 의 git 표시를 여기서 맞춘다(ADR-0009).
+		m.git = readGitStatus()
 
 		return normalModeMessage(m.editor, "저장함: "+buf.path)
 	case "tabnew":
@@ -105,6 +107,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		if err := buf.Save(); err != nil {
 			return m.fail(err)
 		}
+		m.git = readGitStatus()
 
 		return forceCloseTab(m.editor)
 	case "qa":

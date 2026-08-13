@@ -1,0 +1,17 @@
+- [x] normal/insert 전환을 구현한다. `i` 는 커서 앞, `a` 는 커서 뒤에서 insert 로 들어가고 `Esc` 로 normal 로 돌아온다. normal 의 커서는 글자 위에 있어 줄 끝 다음 칸에 설 수 없고, `Esc` 는 vim 처럼 왼쪽으로 한 글자 옮긴다
+- [x] insert mode 에서 글자 입력을 구현한다. undo 기록과 같이 넣어야 한다(ADR-0001). `Enter`·`Backspace`·`Tab`·붙여넣기가 모두 `insert` 한 경로를 지나고, normal mode 의 `u`/`ctrl+r` 로 되돌리고 다시 적용한다
+- [x] 저장 키를 연결한다. command-line mode 를 만들고 `:w`·`:q`·`:wq`·`:q!` 를 붙였다
+- [x] 미저장 상태를 다룬다. statusBar 에 `[+]` 로 표시하고 `:q` 를 거부한다
+- [x] `Ctrl+C` 의 종료 확인창이 미저장 상태를 모른다. `Ctrl+C` 와 `:q` 가 같은 `quit` 경로를 쓰게 하고, 저장하지 않은 변경이 있을 때만 확인창을 띄운다
+- [x] `docs/spec.md` 에 편집 키 규칙을 반영한다
+- [x] 줄바꿈(LF/CRLF) 과 tab 폭 처리 방식을 정한다. CRLF 는 파일 단위로 기억해 저장할 때 되돌리고, tab 폭은 8 칸(vim tabstop 기본값) 으로 한다
+- [x] tab 이 화면에서 사라지는 것을 고친다. `ansi` 가 tab 을 폭 0 으로 보고 bubbletea 의 셀 렌더러가 폭 0 인 제어문자를 버려서, Go 소스를 열면 들여쓰기가 통째로 없어졌다. 렌더할 때 tab stop 까지 공백으로 펼치고 커서 열 계산도 같은 규칙을 쓴다
+- [x] 종료 확인 화면이 대체 화면을 빠져나가는 것을 고친다. `viewQuitConfirm` 이 `AltScreen` 을 설정하지 않아 `Ctrl+C` 마다 셸 화면이 번쩍이고 편집 내용이 사라졌다. 부모 화면의 상태를 따라가게 한다
+- [x] backing buffer 하나를 읽고 각 줄을 subslice(`[][]byte`) 로 두는 buffer 를 구현한다 (ADR-0001)
+- [x] 한글 폭 계산과 grapheme cluster 처리를 구현한다. `ansi.FirstGraphemeCluster` 로 글자 경계와 폭을 같은 곳에서 얻는다. NFD 한글·결합 악센트·ZWJ 이모지·국기가 한 글자로 다뤄진다
+- [x] 화면에 보이는 줄만 rune/폭 계산해서 렌더한다
+- [x] 화면 스크롤을 구현한다. 커서가 화면 안이면 움직이지 않고, wrap 된 줄 안에서도 행 단위로 스크롤한다
+- [x] `hjkl` 이동을 넣는다. `j`/`k` 는 논리 줄이고 `↓`/`↑` 는 화면 행이다. 앞에 숫자를 붙이면(`10j`, `20k`) 그만큼 움직인다. 키 입력은 `pending` 필드가 아니라 상태 기계(`normal-key-parser.go`) 로 받는다 (ADR-0006)
+- [x] tabline 을 sidebar 위에 걸치지 않고 편집 영역 위에만 그린다. statusBar 는 sidebar 아래까지 이어지되 글자만 편집 영역 아래에서 시작한다 (ADR-0005)
+- [x] 편집기를 열면 filetree 가 기본으로 열려 있게 한다. cwd 를 못 읽으면 트리 없이 연다
+- [x] filetree 에서 `j` `k` 로 트리를 오르내린다. `↓` `↑` 와 같은 동작이다

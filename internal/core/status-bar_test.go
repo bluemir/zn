@@ -109,6 +109,53 @@ func TestStatusBarShowsPendingKeys(t *testing.T) {
 	assert.True(t, strings.HasSuffix(barOf(t, m)[1], "g"), "접두 키도 보인다")
 }
 
+// git 표시는 위 줄 오른쪽 끝이다. mode 와 파일 이름 반대편이라 서로 밀지 않는다.
+func TestStatusBarShowsGitOnTheRight(t *testing.T) {
+	m := newTestEditor("abc\n", 40, 3)
+	m.git = gitStatus{branch: "master", commit: "a1b2c3d"}
+
+	top := barOf(t, m)[0]
+
+	assert.True(t, strings.HasSuffix(strings.TrimRight(top, " "), "master(a1b2c3d)"))
+	assert.Contains(t, top, "NORMAL", "mode 와 파일은 그대로 왼쪽에 있다")
+	assert.Contains(t, top, "test.txt")
+}
+
+func TestStatusBarShowsGitDirtyMark(t *testing.T) {
+	m := newTestEditor("abc\n", 40, 3)
+	m.git = gitStatus{branch: "master", commit: "a1b2c3d", dirty: true}
+
+	assert.Contains(t, barOf(t, m)[0], "master(a1b2c3d*)")
+}
+
+// detached HEAD 는 가리킬 branch 가 없어서 해시만 찍는다.
+func TestStatusBarShowsGitDetachedHead(t *testing.T) {
+	m := newTestEditor("abc\n", 40, 3)
+	m.git = gitStatus{commit: "a1b2c3d"}
+
+	assert.Contains(t, barOf(t, m)[0], "a1b2c3d")
+	assert.NotContains(t, barOf(t, m)[0], "(", "빈 괄호를 두지 않는다")
+}
+
+// 저장소가 아니면 아무것도 찍지 않는다. git 이 없는 곳에서도 편집기는 그대로 열린다.
+func TestStatusBarOmitsGitOutsideRepository(t *testing.T) {
+	m := newTestEditor("abc\n", 40, 3)
+
+	assert.Empty(t, gitStatus{}.label())
+	assert.Equal(t, "NORMAL  test.txt", strings.TrimRight(barOf(t, m)[0], " "))
+}
+
+// 붙일 칸이 없으면 mode 와 파일 이름이 먼저다. git 을 넣겠다고 그것을 밀어내지 않는다.
+func TestStatusBarSkipsGitWhenNarrow(t *testing.T) {
+	m := newTestEditor("abc\n", 24, 3)
+	m.git = gitStatus{branch: "very-long-branch-name", commit: "a1b2c3d"}
+
+	top := barOf(t, m)[0]
+
+	assert.Equal(t, "NORMAL  test.txt", strings.TrimRight(top, " "))
+	assert.LessOrEqual(t, screenColAt([]byte(top), len(top)), 24)
+}
+
 // 붙일 칸이 없으면 아래 줄을 그대로 둔다. 커서 위치가 밀려나는 것이 더 나쁘다.
 func TestStatusBarSkipsShowcmdWhenNarrow(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 12, 3)

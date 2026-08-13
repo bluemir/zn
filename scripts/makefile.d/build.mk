@@ -70,9 +70,8 @@ sec: runtime/tools/gosec ## Run gosec
 	./runtime/tools/gosec -quiet ./...
 
 .PHONY: gen
-gen: assets/src/js/index.js ## Run go generate
+gen: ## Run go generate
 	PATH=$(shell pwd)/runtime/tools:$(PATH) go generate -tags prod -x ./...
-
 
 runtime/tools/go:
 	@which $(notdir $@) || echo "see https://golang.org/doc/install"

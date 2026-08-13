@@ -17,6 +17,7 @@
 	- mode 표시
 	- 2줄로 표시
 	- 첫 줄만 반전. 둘째 줄은 명령줄이라 배경을 그대로 둔다(ADR-0004)
+	- 첫 줄 오른쪽 끝에 git branch·commit·dirty 여부(ADR-0009)
 
 sidebar 가 화면 위쪽을 세로로 가르고 tabline 과 편집 내용이 그 오른쪽에 쌓인다.
 맨 아래 statusBar 두 줄만 그 가름을 지나 화면을 가로지른다.
@@ -132,6 +133,36 @@ sidebar 는 `:` 를 받지 않는다.
 
 한글 입력 상태의 키는 편집 영역과 같이 두벌식 자리의 영문 키로 되돌려 받는다
 (`ㅓ` 가 `j` 다). Normal mode 의 「한글 입력 상태」 를 참고한다.
+
+### statusBar
+
+화면 아래 두 줄이다. 위 줄은 mode 와 파일 경로, 그리고 오른쪽 끝에 git 상태다.
+아래 줄은 mode 가 정한다 — normal/insert 는 `줄:칸  (N 줄)`, command mode 는 치고 있는 명령,
+sidebar 는 고른 항목의 경로다. 아래 줄 오른쪽 끝은 showcmd 자리다.
+
+```
+NORMAL  internal/core/editor.go              master(f6cacbd*)
+1:1  (550 줄)                                              3g
+└─ 위 줄만 반전 ────────────────────────────────────────────┘
+                                                         └ showcmd
+```
+
+#### git 표시
+
+`branch(commit)` 이고 저장하지 않은 변경이 있으면 commit 뒤에 `*` 가 붙는다.
+detached HEAD 는 가리킬 branch 가 없어서 괄호 없이 짧은 해시만 찍는다(`a1b2c3d*`).
+저장소가 아니거나 commit 이 하나도 없으면 아무것도 찍지 않는다.
+
+dirty 는 `git status --porcelain` 기준이라 untracked 파일도 센다. tabline 의 `+` 와 파일 경로
+뒤의 `[+]` 는 buffer 의 미저장 상태이고, 이 `*` 는 저장소의 미commit 상태다.
+
+기준은 활성 파일이 아니라 cwd 다 — sidebar 트리의 뿌리와 같다. 그래서 tab 을 오가도 바뀌지 않는다.
+
+값은 편집기를 열 때, 파일을 열 때, 저장할 때만 다시 읽는다(ADR-0009). 화면을 그릴 때는 읽지
+않는다 — 외부 프로세스라 키 입력마다 부를 수 없다. 바깥에서 `commit`/`checkout` 을 하면
+다음에 파일을 열거나 저장할 때까지 낡은 값이 보인다.
+
+붙일 칸이 없으면 넣지 않는다. mode 와 파일 이름이 먼저다.
 
 
 ## Mode

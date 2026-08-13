@@ -22,6 +22,10 @@ type editor struct {
 
 	sidebar sidebar
 
+	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고
+	// 여기에 들고 있다가 파일을 열거나 저장할 때만 다시 읽는다(ADR-0009).
+	git gitStatus
+
 	width  int
 	height int
 }
@@ -75,6 +79,9 @@ func (e *editor) openTab(path string) error {
 	if err != nil {
 		return err
 	}
+
+	// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다.
+	e.git = readGitStatus()
 
 	rest := make([]Buffer, 0, len(e.buffers)+1)
 	rest = append(rest, e.buffers[:e.active+1]...)
@@ -429,7 +436,7 @@ func (e editor) tabline(width int) string {
 	return line.String()
 }
 
-// statusBar 는 화면 아래 두 줄이다. 위 줄은 mode 와 파일, 아래 줄은 부르는 쪽이 정한다.
+// statusBar 는 화면 아래 두 줄이다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.
 //
 // 위 줄만 반전이다. 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.
 // `:` 를 칠 때 배경이 뜨지 않고 명령 결과와 오류도 평범한 글자로 읽힌다.
@@ -454,9 +461,27 @@ func (e editor) statusBar(mode, bottom string) []string {
 
 	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
 	return []string{
-		reverse.Width(e.width).Render(indent + truncateToWidth(mode+"  "+path, width)),
+		reverse.Width(e.width).Render(indent + e.withGit(truncateToWidth(mode+"  "+path, width))),
 		indent + truncateToWidth(bottom, width),
 	}
+}
+
+// withGit 은 statusBar 위 줄 오른쪽 끝에 저장소 상태를 붙인다.
+//
+// 붙일 칸이 없으면 그대로 둔다 — 지금 무슨 mode 인지와 어느 파일인지가 먼저다.
+// 사이를 두 칸 이상 띄운다. 한 칸이면 파일 이름이 긴 tab 에서 경로에 붙은 글자처럼 읽힌다.
+func (e editor) withGit(top string) string {
+	label := e.git.label()
+	if label == "" {
+		return top
+	}
+
+	pad := e.textWidth() - screenColAt([]byte(top), len(top)) - screenColAt([]byte(label), len(label))
+	if pad < 2 {
+		return top
+	}
+
+	return top + strings.Repeat(" ", pad) + label
 }
 
 // position 은 커서 위치와 전체 줄 수다. normal/insert 의 statusBar 아래 줄이다.
