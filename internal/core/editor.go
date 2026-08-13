@@ -52,9 +52,26 @@ func (e *editor) resize(msg tea.WindowSizeMsg) {
 // nextTab, prevTab 은 활성 tab 을 옮긴다. 양끝에서 둘러 간다. vim 의 gt/gT 와 같다.
 func (e *editor) nextTab() {
 	e.active = (e.active + 1) % len(e.buffers)
+	e.revealInSidebar(e.buffer().path)
 }
 func (e *editor) prevTab() {
 	e.active = (e.active - 1 + len(e.buffers)) % len(e.buffers)
+	e.revealInSidebar(e.buffer().path)
+}
+
+// revealInSidebar 는 트리를 그 파일 자리까지 펼치고 고른 뒤 화면 안으로 끌어온다.
+// 보고 있는 파일이 바뀌는 모든 길이 이것을 부른다(ADR-0019).
+//
+// sidebar 를 열지는 않는다. `:tree` 로 닫혀 있으면 트리가 아예 없어서 아무 일도 하지 않고,
+// 좁은 화면이라 감춰진 상태면 트리만 펼쳐 둔다 — 화면이 넓어지면 그 자리가 보인다.
+//
+// 이름 없는 buffer 는 경로가 빈 문자열이라 reveal 이 false 를 주고 고른 자리가 그대로 남는다.
+func (e *editor) revealInSidebar(path string) {
+	if !e.sidebar.reveal(path) {
+		return
+	}
+
+	e.sidebar.scrollTo(e.sidebarHeight())
 }
 
 // newTab 은 이름 없는 빈 tab 을 활성 tab 바로 뒤에 끼우고 그리로 옮긴다.
@@ -79,25 +96,25 @@ func (e *editor) newTab() {
 func (e *editor) openTab(path string) error {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
+	} else {
+		buf, err := OpenBuffer(path)
+		if err != nil {
+			return err
+		}
 
-		return nil
+		// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다.
+		e.git = readGitStatus()
+
+		rest := make([]Buffer, 0, len(e.buffers)+1)
+		rest = append(rest, e.buffers[:e.active+1]...)
+		rest = append(rest, buf)
+		rest = append(rest, e.buffers[e.active+1:]...)
+
+		e.buffers = rest
+		e.active++
 	}
 
-	buf, err := OpenBuffer(path)
-	if err != nil {
-		return err
-	}
-
-	// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다.
-	e.git = readGitStatus()
-
-	rest := make([]Buffer, 0, len(e.buffers)+1)
-	rest = append(rest, e.buffers[:e.active+1]...)
-	rest = append(rest, buf)
-	rest = append(rest, e.buffers[e.active+1:]...)
-
-	e.buffers = rest
-	e.active++
+	e.revealInSidebar(path)
 
 	return nil
 }
@@ -178,6 +195,9 @@ func (e *editor) toggleTree() error {
 		}
 
 		e.sidebar = openSidebar(root)
+
+		// 닫을 때 트리를 버렸으므로 여는 이 자리에서 보고 있는 파일 자리를 다시 펼친다.
+		e.revealInSidebar(e.buffer().path)
 		e.sidebar.scrollTo(e.sidebarHeight())
 	}
 

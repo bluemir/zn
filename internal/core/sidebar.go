@@ -97,6 +97,17 @@ func (n *treeNode) toggle() {
 	n.expand()
 }
 
+// child 는 이름이 name 인 자식이다. 없으면 nil 이다.
+func (n *treeNode) child(name string) *treeNode {
+	for _, child := range n.children {
+		if child.name == name {
+			return child
+		}
+	}
+
+	return nil
+}
+
 // readDir 은 디렉터리 하나를 읽어 자식 목록을 만든다. 디렉터리가 먼저 오고 그 안은 이름순이다.
 //
 // os.ReadDir 이 이미 이름순으로 주므로 디렉터리와 파일로 한 번 가르기만 하면 된다.
@@ -204,6 +215,57 @@ func (s sidebar) selectedNode() *treeNode {
 	}
 
 	return rows[s.selected].node
+}
+
+// reveal 은 그 파일이 있는 자리까지 디렉터리를 펼치고 그 항목을 고른다.
+// 팔레트나 tab 으로 보는 파일을 옮겨도 트리가 따라오게 하는 길이다(ADR-0019).
+//
+// 이미 펼쳐진 디렉터리는 다시 읽지 않는다. expand 는 자식을 새로 만들므로 다시 읽으면
+// 그 아래 펼쳐 둔 것이 통째로 접힌다. 새로고침은 접었다 펴는 것이고 파일을 여는 것이 아니다.
+//
+// 뿌리 밖의 파일이거나(트리는 cwd 가 뿌리다) 도중에 항목을 찾지 못하면 고르지 않고 false 다.
+// symlink 디렉터리 안쪽이 그렇다 — 따라가지 않으므로 펼칠 자식이 없다.
+// 그때까지 펼친 것은 되돌리지 않는다. 펼친 것 자체는 틀린 상태가 아니다.
+func (s *sidebar) reveal(path string) bool {
+	if s.tree == nil || path == "" {
+		return false
+	}
+
+	// CLI 로 연 파일은 상대 경로이고 트리는 절대 경로다. tabOf 와 같은 이유로 맞춰 본다.
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	rel, err := filepath.Rel(s.root, abs)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+
+	node := s.tree
+	for _, name := range strings.Split(rel, string(filepath.Separator)) {
+		if !node.expanded {
+			node.expand()
+		}
+
+		child := node.child(name)
+		if child == nil {
+			return false
+		}
+
+		node = child
+	}
+
+	// 고른 자리는 보이는 행 중 몇 번째인지로 들고 있으므로 펼친 뒤에 다시 센다.
+	for i, row := range s.rows() {
+		if row.node == node {
+			s.selected = i
+
+			return true
+		}
+	}
+
+	return false
 }
 
 // selectedLabel 은 고른 항목을 statusBar 아래 줄에 보일 형태로 준다.

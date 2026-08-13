@@ -745,3 +745,160 @@ func TestSidebarEnterRefusesDeletedFile(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, model)
 	assert.Len(t, model.(viewEditorNormal).buffers, 1, "빈 buffer 를 만들지 않는다")
 }
+
+// reveal 은 파일이 있는 자리까지 펼치고 그 항목을 고른다(ADR-0019).
+func TestSidebarRevealExpandsAndSelects(t *testing.T) {
+	root := newTreeFixture(t)
+	s := openSidebar(root)
+
+	require.True(t, s.reveal(filepath.Join(root, "docs", "spec.md")))
+
+	assert.Contains(t, names(s.rows()), "2:spec.md", "가는 길의 디렉터리가 펼쳐진다")
+	require.NotNil(t, s.selectedNode())
+	assert.Equal(t, "spec.md", s.selectedNode().name, "고른 항목이 그 파일이다")
+}
+
+// 뿌리 바로 아래의 파일도 고른다. 펼칠 것이 없는 짧은 경로다.
+func TestSidebarRevealSelectsFileAtRoot(t *testing.T) {
+	root := newTreeFixture(t)
+	s := openSidebar(root)
+
+	require.True(t, s.reveal(filepath.Join(root, "README.md")))
+
+	assert.Equal(t, "README.md", s.selectedNode().name)
+}
+
+// CLI 로 상대 경로로 연 파일도 절대 경로인 트리에서 찾아야 한다. tabOf 와 같은 문제다.
+func TestSidebarRevealMatchesRelativePath(t *testing.T) {
+	root := newTreeFixture(t)
+	t.Chdir(root)
+
+	s := openSidebar(root)
+
+	require.True(t, s.reveal(filepath.Join("docs", "spec.md")))
+	assert.Equal(t, "spec.md", s.selectedNode().name)
+}
+
+// 이미 펼쳐진 디렉터리는 다시 읽지 않는다. 다시 읽으면 자식이 새로 만들어져서
+// 그 아래 펼쳐 둔 것이 통째로 접힌다.
+func TestSidebarRevealDoesNotRereadExpandedDir(t *testing.T) {
+	root := newTreeFixture(t)
+	s := openSidebar(root)
+
+	docs := s.rows()[2].node
+	require.Equal(t, "docs", docs.name)
+	docs.toggle()
+
+	before := docs.children[0]
+	require.Equal(t, "spec.md", before.name)
+
+	require.True(t, s.reveal(filepath.Join(root, "docs", "spec.md")))
+
+	assert.Same(t, before, s.selectedNode(), "자식을 새로 만들지 않는다")
+}
+
+// 뿌리 밖의 파일은 트리에 자리가 없다. 고른 자리를 건드리지 않는다.
+func TestSidebarRevealIgnoresOutsideRoot(t *testing.T) {
+	root := newTreeFixture(t)
+	outside := filepath.Join(t.TempDir(), "other.go")
+	require.NoError(t, os.WriteFile(outside, []byte("x\n"), 0644))
+
+	s := openSidebar(root)
+	s.selected = 2
+
+	assert.False(t, s.reveal(outside))
+	assert.Equal(t, 2, s.selected, "고른 자리가 그대로다")
+}
+
+// 이름 없는 buffer 는 경로가 빈 문자열이다.
+func TestSidebarRevealIgnoresEmptyPath(t *testing.T) {
+	s := openSidebar(newTreeFixture(t))
+	s.selected = 2
+
+	assert.False(t, s.reveal(""))
+	assert.Equal(t, 2, s.selected)
+}
+
+// symlink 디렉터리는 따라가지 않으므로 그 안쪽은 펼칠 자식이 없다.
+func TestSidebarRevealStopsAtSymlinkDir(t *testing.T) {
+	root := newTreeFixture(t)
+	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
+
+	s := openSidebar(root)
+	s.selected = 1
+
+	assert.False(t, s.reveal(filepath.Join(root, "link", "spec.md")))
+	assert.Equal(t, 1, s.selected)
+}
+
+// 팔레트나 트리에서 파일을 열면(openTab) 트리가 그 자리를 펼치고 고른다.
+func TestOpenTabRevealsInSidebar(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	require.NoError(t, m.openTab(filepath.Join(root, "docs", "spec.md")))
+
+	assert.Contains(t, names(m.sidebar.rows()), "2:spec.md")
+	assert.Equal(t, "spec.md", m.sidebar.selectedNode().name)
+	row, ok := m.sidebar.selectedRow(m.sidebarHeight())
+	assert.True(t, ok, "고른 자리가 화면 안으로 들어온다")
+	assert.Less(t, row, m.sidebarHeight())
+}
+
+// tab 을 옮기면 트리도 그 파일 자리로 따라간다.
+func TestTabSwitchRevealsInSidebar(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+	m.buffers = []Buffer{
+		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
+	}
+
+	model := send(tea.Model(m), "g", "t")
+
+	v := model.(viewEditorNormal)
+	require.Equal(t, "spec.md", filepath.Base(v.buffer().path))
+	assert.Equal(t, "spec.md", v.sidebar.selectedNode().name)
+
+	model = send(model, "g", "T")
+
+	v = model.(viewEditorNormal)
+	assert.Equal(t, "main.go", v.sidebar.selectedNode().name)
+}
+
+// 이름 없는 tab 으로 옮기면 고른 자리는 그대로 남는다.
+func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+	m.buffers = []Buffer{
+		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		newEmptyBuffer(""),
+	}
+	m.revealInSidebar(m.buffer().path)
+
+	model := send(tea.Model(m), "g", "t")
+
+	v := model.(viewEditorNormal)
+	assert.Equal(t, "main.go", v.sidebar.selectedNode().name, "이름이 없으면 트리는 움직이지 않는다")
+}
+
+// `:tree` 로 닫으면 트리를 버리므로, 다시 열 때 보고 있는 파일 자리를 다시 펼친다.
+func TestToggleTreeRevealsCurrentFile(t *testing.T) {
+	root := newTreeFixture(t)
+	t.Chdir(root)
+
+	e := editor{
+		buffers: []Buffer{newBuffer(filepath.Join("docs", "spec.md"), []byte("a\n"))},
+		width:   80,
+		height:  10 + tablineHeight + statusBarHeight,
+	}
+	e.sidebar = openSidebar(root)
+
+	require.NoError(t, e.toggleTree())
+	require.False(t, e.sidebar.open)
+
+	require.NoError(t, e.toggleTree())
+
+	require.NotNil(t, e.sidebar.selectedNode())
+	assert.Equal(t, "spec.md", e.sidebar.selectedNode().name)
+}

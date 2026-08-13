@@ -86,6 +86,7 @@ func (e *editor) clickTabline(x int) {
 
 	// 그 buffer 는 이 창 크기를 본 적이 없을 수 있다. gt 와 같은 처리다.
 	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.revealInSidebar(e.buffer().path)
 }
 
 // wheelRows 는 휠 한 번에 굴리는 화면 행 수다.
