@@ -118,6 +118,43 @@ func (e *editor) openTab(path string) error {
 	return nil
 }
 
+// replaceTab 은 활성 tab 의 내용을 그 파일로 갈아끼운다. tab 수는 그대로다. `:e <파일>` 이 쓴다.
+//
+// 이미 다른 tab 에 열려 있으면 갈아끼우지 않고 그 tab 으로 옮긴다. openTab 과 같은 이유다 —
+// 같은 파일에 Buffer 가 둘이면 한쪽 저장이 다른 쪽 편집을 덮어쓴다. 옮겨가기만 하는 길이라
+// 지금 tab 의 편집도 그대로 남는다(ADR-0021).
+//
+// 갈아끼우는 쪽은 지금 tab 의 저장하지 않은 변경을 잃는다. 물을지 말지는 부르는 쪽이 정한다 —
+// 여기까지 왔으면 이미 정해진 것이다. Reload 와 같은 나눔이다.
+//
+// closeTab 과 같은 이유로 slice 를 새로 할당한다.
+func (e *editor) replaceTab(path string) error {
+	if index, ok := e.tabOf(path); ok {
+		e.active = index
+		e.revealInSidebar(path)
+
+		return nil
+	}
+
+	buf, err := OpenBuffer(path)
+	if err != nil {
+		return err
+	}
+
+	// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다. openTab 과 같다.
+	e.git = readGitStatus()
+
+	rest := make([]Buffer, len(e.buffers))
+	copy(rest, e.buffers)
+	rest[e.active] = buf
+
+	e.buffers = rest
+
+	e.revealInSidebar(path)
+
+	return nil
+}
+
 // tabOf 는 그 파일을 이미 열어둔 tab 을 찾는다.
 //
 // 경로를 정규화해서 비교한다. CLI 로 연 파일은 상대 경로(`internal/core/editor.go`)이고

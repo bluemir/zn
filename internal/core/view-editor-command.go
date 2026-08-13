@@ -71,9 +71,14 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return m.fail(err)
 	}
 
-	// 인자를 받는 명령은 아직 없다. 조용히 버리면 `:w foo` 가 foo 에 저장한 것처럼 보인다.
-	if len(cmd.args) > 0 {
+	// 인자를 받는 명령은 `:e` 와 `:tabnew` 뿐이다. 나머지에 붙은 인자를 조용히 버리면
+	// `:w foo` 가 foo 에 저장한 것처럼 보인다.
+	if len(cmd.args) > 0 && cmd.name != "e" && cmd.name != "tabnew" {
 		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
+	}
+	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
+	if len(cmd.args) > 1 {
+		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
 	}
 
 	switch cmd.name {
@@ -107,9 +112,20 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		m.git = readGitStatus()
 
 		return forceCloseTab(m.editor)
+	case "e":
+		return m.edit(cmd)
 	case "tabnew":
-		// 이름 없는 빈 tab 을 연다. 파일을 지정해서 여는 것은 아직 없다.
-		m.newTab()
+		// 인자가 없으면 이름 없는 빈 tab 이다.
+		if len(cmd.args) == 0 {
+			m.newTab()
+
+			return normalMode(m.editor)
+		}
+
+		// 이미 열려 있으면 새 tab 을 만들지 않고 그 tab 으로 옮겨간다(ADR-0021).
+		if err := m.openTab(cmd.args[0]); err != nil {
+			return m.fail(err)
+		}
 
 		return normalMode(m.editor)
 	case "noh", "nohlsearch":
@@ -145,6 +161,53 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	default:
 		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
 	}
+}
+
+// edit 은 `:e` 다. 인자가 있으면 파일을 열고, 없으면 보고 있는 파일을 다시 읽는다(ADR-0021).
+//
+//	:e            다시 읽는다. 저장하지 않은 변경이 있으면 확인창을 띄운다
+//	:e!           묻지 않고 다시 읽는다
+//	:e <파일>      활성 tab 을 그 파일로 갈아끼운다. 잃을 것이 있으면 확인창을 띄운다
+//	:e! <파일>     묻지 않고 갈아끼운다
+func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
+	if len(cmd.args) == 0 {
+		// 팔레트의 「파일 다시 읽기」와 같은 길이다. `!` 가 확인창 자리를 대신한다(ADR-0016).
+		if cmd.force {
+			return reloadFile(m.editor)
+		}
+
+		return runReloadFile(m.editor)
+	}
+
+	path := cmd.args[0]
+
+	// 지금 tab 의 편집이 사라지는 것은 갈아끼울 때뿐이다. 이미 다른 tab 에 열려 있으면
+	// replaceTab 이 그리로 옮겨가기만 하므로 잃을 것이 없다.
+	_, opened := m.tabOf(path)
+	if m.buffer().dirty && !cmd.force && !opened {
+		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
+		back, _ := normalMode(m.editor)
+
+		return ConfirmDiscard(back, "이 tab 에 다른 파일을 여시겠습니까?", func() (tea.Model, tea.Cmd) {
+			return editFile(m.editor, path)
+		}), nil
+	}
+
+	return editFile(m.editor, path)
+}
+
+// editFile 은 묻지 않고 연다. 확인창의 Yes 와 잃을 것이 없을 때가 쓴다.
+// reloadFile 과 같은 짝이다.
+func editFile(e editor, path string) (tea.Model, tea.Cmd) {
+	if err := e.replaceTab(path); err != nil {
+		return normalModeMessage(e, errors.Cause(err).Error())
+	}
+
+	// 갈아끼운 buffer 는 맨 위에서 시작하지만, 옮겨간 tab 은 보던 자리를 그대로 이어받는다.
+	// 어느 쪽이든 지금 폭에 맞춰 둔다 — sidebar 를 여닫은 뒤라면 폭이 달라져 있다.
+	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+
+	return normalMode(e)
 }
 
 // fail 은 명령이 실패했음을 아래 줄에 알리고 normal 로 돌아간다.

@@ -157,7 +157,7 @@ type paletteCommand struct {
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace},
-	{name: "파일 다시 읽기", hint: "reload file", run: runReloadFile},
+	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 }
