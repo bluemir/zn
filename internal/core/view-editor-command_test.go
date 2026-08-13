@@ -165,7 +165,7 @@ func TestCommandQuitConfirmsWhenDirty(t *testing.T) {
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "enter")
 
-	assert.IsType(t, viewQuitConfirm{}, m, "묻고 나서 나간다")
+	assert.IsType(t, viewConfirmDiscard{}, m, "묻고 나서 나간다")
 	assert.Contains(t, m.View().Content, "저장하지 않은 변경")
 }
 
@@ -175,7 +175,7 @@ func TestCommandQuitCancelReturnsToNormal(t *testing.T) {
 
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "enter")
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 
 	m, _ = m.Update(key("esc"))
 
@@ -188,7 +188,7 @@ func TestQuitConfirmYesExits(t *testing.T) {
 
 	m = send(m, "i", "X", "esc")
 	m, _ = m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 
 	m, _ = m.Update(key("enter"))
 

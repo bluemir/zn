@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -237,4 +239,84 @@ func TestPaletteTellsWhenFileIsGone(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1)
 	assert.NotEmpty(t, barOf(t, m)[1])
+}
+
+// newFilePalette 는 실제로 있는 파일을 연 buffer 위에 명령 목록을 띄운 팔레트다.
+// 다시 읽기는 파일을 정말로 읽으므로 newTestEditor 의 없는 경로로는 볼 수 없다.
+func newFilePalette(t *testing.T, path, input string) viewPalette {
+	t.Helper()
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	m := viewPalette{
+		editor: editor{
+			buffers: []Buffer{buf},
+			width:   80,
+			height:  20 + tablineHeight + statusBarHeight,
+		},
+		input: input,
+	}
+	m.filter()
+
+	require.Equal(t, "파일 다시 읽기", paletteCommands[m.hits[m.selected].index].name)
+
+	return m
+}
+
+// 저장하지 않은 변경이 없으면 묻지 않고 다시 읽는다 (ADR-0016).
+func TestPaletteReloadsFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	m := newFilePalette(t, path, "> reload")
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	var next tea.Model = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, next)
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, next).lines[0]))
+	assert.Contains(t, barOf(t, next)[1], "다시 읽음")
+}
+
+// 저장하지 않은 변경이 있으면 한 번 더 묻는다. 팔레트 항목에는 `!` 를 붙일 자리가 없다.
+func TestPaletteReloadAsksWhenDirty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	m := newFilePalette(t, path, "> reload")
+	m.buffer().insert([]byte("X"), m.contentWidth())
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	confirm := send(m, "enter")
+	require.IsType(t, viewConfirmDiscard{}, confirm)
+
+	// No 로 취소하면 편집이 그대로 남고 팔레트가 아니라 normal 로 돌아간다.
+	cancelled := send(confirm, "n", "enter")
+	require.IsType(t, viewEditorNormal{}, cancelled)
+	assert.Equal(t, "Xabc", string(bufferOf(t, cancelled).lines[0]))
+
+	reloaded := send(confirm, "y", "enter")
+	require.IsType(t, viewEditorNormal{}, reloaded)
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, reloaded).lines[0]))
+}
+
+// 이름 없는 buffer 는 읽을 곳이 없다. 변경이 있어도 묻지 않고 알리고 만다 —
+// Yes 를 눌러도 실패로 끝나는 확인창은 띄우지 않는다.
+func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
+	m := viewPalette{
+		editor: editor{
+			buffers: []Buffer{newEmptyBuffer("")},
+			width:   80,
+			height:  20 + tablineHeight + statusBarHeight,
+		},
+		input: "> reload",
+	}
+	m.filter()
+	m.buffer().insert([]byte("X"), m.contentWidth())
+
+	var next tea.Model = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, next)
+	assert.Contains(t, barOf(t, next)[1], "파일 이름이 없습니다")
 }

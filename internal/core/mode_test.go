@@ -540,6 +540,6 @@ func TestQuitFromBothModesWhenDirty(t *testing.T) {
 
 		next, _ := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 
-		assert.IsType(t, viewQuitConfirm{}, next)
+		assert.IsType(t, viewConfirmDiscard{}, next)
 	}
 }

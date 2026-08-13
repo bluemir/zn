@@ -598,7 +598,7 @@ func TestSidebarCtrlCConfirmsAndReturns(t *testing.T) {
 	var model tea.Model = m
 	model = send(model, "ctrl+w", "ctrl+w")
 	model, _ = model.Update(key("ctrl+c"))
-	require.IsType(t, viewQuitConfirm{}, model)
+	require.IsType(t, viewConfirmDiscard{}, model)
 
 	model, _ = model.Update(key("esc"))
 	assert.IsType(t, viewSidebar{}, model, "취소하면 sidebar 로 돌아온다")

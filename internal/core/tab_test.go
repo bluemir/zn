@@ -298,7 +298,7 @@ func TestCloseDirtyUnnamedTabConfirms(t *testing.T) {
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "enter")
 
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 
 	m, _ = m.Update(key("enter"))
 
@@ -358,7 +358,7 @@ func TestCloseTabConfirmsWhenDirty(t *testing.T) {
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "enter")
 
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 	assert.Contains(t, m.View().Content, "이 tab 을 닫으시겠습니까?")
 
 	m, _ = m.Update(key("enter"))
@@ -373,7 +373,7 @@ func TestCloseTabCancelKeepsTab(t *testing.T) {
 
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "enter")
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 
 	m, _ = m.Update(key("esc"))
 
@@ -413,7 +413,7 @@ func TestCtrlCConfirmsWhenAnotherTabIsDirty(t *testing.T) {
 
 	m, _ = m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 	assert.Contains(t, m.View().Content, "정말 종료 하시겠습니까?")
 }
 
@@ -424,7 +424,7 @@ func TestCommandQuitAllConfirmsWhenAnotherTabIsDirty(t *testing.T) {
 	m = send(m, "g", "t")
 	m = send(m, ":", "q", "a", "enter")
 
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 
 	m, _ = m.Update(key("enter"))
 	assert.IsType(t, finalExit{}, m, "Yes 는 tab 을 닫는 것이 아니라 종료다")
@@ -454,7 +454,7 @@ func TestQuitAllCancelKeepsAllBuffers(t *testing.T) {
 	m = send(m, "i", "X", "esc")
 	m = send(m, "g", "t")
 	m, _ = m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
-	require.IsType(t, viewQuitConfirm{}, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
 
 	m, _ = m.Update(key("esc"))
 

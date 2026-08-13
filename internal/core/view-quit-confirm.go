@@ -13,7 +13,7 @@ import (
 // parent 는 확인창에서 취소했을 때 돌아갈 화면이다.
 func quitAll(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
 	if e.anyDirty() {
-		return QuitConfirm(parent, "정말 종료 하시겠습니까?", Exit), nil
+		return ConfirmDiscard(parent, "정말 종료 하시겠습니까?", Exit), nil
 	}
 
 	return Exit()
@@ -29,7 +29,7 @@ func closeTab(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
 	}
 
 	if e.buffer().dirty {
-		return QuitConfirm(parent, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return ConfirmDiscard(parent, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return forceCloseTab(e)
 		}), nil
 	}
@@ -46,24 +46,24 @@ func forceCloseTab(e editor) (tea.Model, tea.Cmd) {
 	return normalMode(e)
 }
 
-// QuitConfirm 은 잃을 것이 있을 때 한 번 더 묻는 화면이다.
-// confirm 은 Yes 를 눌렀을 때 갈 곳이다. 종료일 수도 있고 tab 닫기일 수도 있다.
-func QuitConfirm(parent tea.Model, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
-	return viewQuitConfirm{parent: parent, question: question, confirm: confirm}
+// ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
+// confirm 은 Yes 를 눌렀을 때 갈 곳이다. 종료일 수도, tab 닫기일 수도, 다시 읽기일 수도 있다.
+func ConfirmDiscard(parent tea.Model, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
+	return viewConfirmDiscard{parent: parent, question: question, confirm: confirm}
 }
 
-type viewQuitConfirm struct {
+type viewConfirmDiscard struct {
 	parent   tea.Model
 	question string
 	confirm  func() (tea.Model, tea.Cmd)
 	cursor   int
 }
 
-func (m viewQuitConfirm) Init() tea.Cmd {
+func (m viewConfirmDiscard) Init() tea.Cmd {
 	return nil
 }
 
-func (m viewQuitConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m viewConfirmDiscard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
@@ -75,7 +75,7 @@ func (m viewQuitConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		var model tea.Model = m
 		for _, key := range keys {
-			confirm, ok := model.(viewQuitConfirm)
+			confirm, ok := model.(viewConfirmDiscard)
 			if !ok {
 				// 앞의 키에서 창을 벗어났다. 남은 키는 버린다.
 				return model, nil
@@ -96,7 +96,7 @@ func (m viewQuitConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // press 는 키 하나를 먹는다.
-func (m viewQuitConfirm) press(key string) (tea.Model, tea.Cmd) {
+func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return Exit()
@@ -121,7 +121,7 @@ func (m viewQuitConfirm) press(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 }
-func (m viewQuitConfirm) View() tea.View {
+func (m viewConfirmDiscard) View() tea.View {
 	style := lipgloss.NewStyle().Padding(2)
 	view := tea.NewView(
 		style.Render(

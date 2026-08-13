@@ -157,6 +157,7 @@ type paletteCommand struct {
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace},
+	{name: "파일 다시 읽기", hint: "reload file", run: runReloadFile},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 }
 
@@ -184,6 +185,47 @@ func runTrimTrailingSpace(e editor) (tea.Model, tea.Cmd) {
 	buf.scrollTo(width, e.textHeight())
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 끝 공백을 지웠습니다", count))
+}
+
+// runReloadFile 은 파일을 다시 읽는다. 밖에서 바뀐 내용을 편집기 안으로 가져오는 길이다.
+//
+// 저장하지 않은 변경이 있으면 그것이 사라지므로 한 번 더 묻는다. 팔레트 항목에는 `:w!` 의 `!`
+// 처럼 강제를 붙일 자리가 없어서 확인창을 쓴다 (ADR-0016).
+func runReloadFile(e editor) (tea.Model, tea.Cmd) {
+	// 이름이 없으면 다시 읽을 곳도 없다. 물어보기 전에 여기서 끝낸다 —
+	// Yes 를 눌러도 실패로 끝나는 확인창을 띄우지 않는다.
+	if e.buffer().path == "" {
+		return normalModeMessage(e, "파일 이름이 없습니다")
+	}
+
+	if !e.buffer().dirty {
+		return reloadFile(e)
+	}
+
+	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
+	back, _ := normalMode(e)
+
+	return ConfirmDiscard(back, "다시 읽으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return reloadFile(e)
+	}), nil
+}
+
+// reloadFile 은 묻지 않고 다시 읽는다. 확인창의 Yes 와 dirty 가 아닐 때가 쓴다.
+func reloadFile(e editor) (tea.Model, tea.Cmd) {
+	buf := e.buffer()
+
+	if err := buf.Reload(); err != nil {
+		return normalModeMessage(e, errors.Cause(err).Error())
+	}
+
+	// 커서 칸은 유지하지만 그 자리가 새 내용에서는 줄 끝 다음일 수 있다.
+	buf.clampToNormal(e.contentWidth())
+	buf.scrollTo(e.contentWidth(), e.textHeight())
+
+	// 밖에서 checkout 이나 commit 이 있었을 자리다. 파일을 열 때·저장할 때와 같이 여기서 맞춘다(ADR-0009).
+	e.git = readGitStatus()
+
+	return normalModeMessage(e, "다시 읽음: "+buf.path)
 }
 
 func runToggleTree(e editor) (tea.Model, tea.Cmd) {

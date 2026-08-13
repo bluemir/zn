@@ -295,6 +295,112 @@ func TestBufferSaveRefusesWhenFileRemoved(t *testing.T) {
 	assert.FileExists(t, path)
 }
 
+// 다시 읽으면 바깥 내용이 들어오고 저장하지 않은 변경과 undo 이력은 사라진다 (ADR-0016).
+func TestBufferReloadTakesOutsideChange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+
+	require.NoError(t, buf.Reload())
+
+	assert.Equal(t, "남이 쓴 것", string(buf.lines[0]))
+	assert.False(t, buf.dirty)
+	assert.Empty(t, buf.undo, "이력은 버린다")
+	assert.Empty(t, buf.redo)
+}
+
+// 다시 읽은 뒤 바로 저장해도 막히지 않는다. 방금 읽은 것이 새 기준이다.
+func TestBufferReloadResetsDiskHash(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
+	require.NoError(t, buf.Reload())
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, buf.Save())
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "X남이 쓴 것\n", string(after))
+}
+
+// 커서는 줄 번호와 화면 칸을 유지한다. byte offset 이 아니라 칸이라 두 칸 글자 중간에 서지 않는다.
+func TestBufferReloadKeepsCursorColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\ndef\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.moveDownLine(1)
+	buf.moveRight(2, wide)
+	require.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+
+	// 둘째 줄이 두 칸 글자로 바뀐다. 2 칸은 두 번째 글자의 시작이다.
+	require.NoError(t, os.WriteFile(path, []byte("abc\n한글\n"), 0644))
+	require.NoError(t, buf.Reload())
+
+	assert.Equal(t, 1, buf.cursorLine)
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+	assert.Equal(t, "글", string(buf.lines[1][buf.cursorCol:]), "글자 경계에 선다")
+}
+
+// 파일이 짧아졌으면 커서를 범위 안으로 끌어온다.
+func TestBufferReloadClampsCursorToShorterFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("a\nb\nc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.moveDownLine(2)
+	require.Equal(t, 2, buf.cursorLine)
+
+	require.NoError(t, os.WriteFile(path, []byte("a\n"), 0644))
+	require.NoError(t, buf.Reload())
+
+	assert.Equal(t, 0, buf.cursorLine, "한 줄만 남았으므로 그 줄로 끌려온다")
+	assert.Equal(t, 0, buf.cursorCol)
+}
+
+// 밖에서 지워진 파일은 다시 읽지 않는다. 손에 든 것이 마지막 사본이다.
+func TestBufferReloadRefusesWhenFileRemoved(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	buf.insert([]byte("X"), wide)
+	require.NoError(t, os.Remove(path))
+
+	err = buf.Reload()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "파일이 없습니다")
+	assert.Equal(t, "Xabc", string(buf.lines[0]), "내용을 건드리지 않는다")
+	assert.True(t, buf.dirty)
+}
+
+// 이름 없는 buffer 는 다시 읽을 곳이 없다.
+func TestBufferReloadRefusesWithoutPath(t *testing.T) {
+	buf := newEmptyBuffer("")
+
+	err := buf.Reload()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "파일 이름이 없습니다")
+}
+
 func TestScreenCol(t *testing.T) {
 	tests := []struct {
 		line   string
