@@ -6,16 +6,16 @@ Bluemir's Editor
 
 철저히 개인화된 vim의 개선 판 Text Editor
 
-### motive: 
+### motive
 ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복잡한 설정파일과 플러그인을 제공 하기 보다는 
 그냥 각자가 코드 수정을 AI 에게 맡기는것이 더 비용이 낮을 것 같다는 생각이 들었습니다. 
 코드의 품질이 일정수준 이상이라면 AI 도 수정을 쉽게 해주므로 필요에 맞는 editor 를 code 단위에서 설정할수 있도록 합니다. 
 
 ## feature
 
+- terminal editor
 - vim 키매핑
 - 현대화된 tab 기능
-- terminal editor
 - 한국어 지원
 - integration 잘 된 file tree
 - no config(config 는 compile 됨)
@@ -58,3 +58,5 @@ feature 에 넣지 않을 기능
 - plugin
 	- 필요한 기능은 전부 코드로 작성한다.
 	- 플러그인 구조를 제외 하여 복잡도를 줄인다. 
+
+

@@ -45,6 +45,12 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
+		// `r` 뒤의 한 키는 명령이 아니라 파일에 들어갈 글자다. 두벌식 자리로 되돌리면
+		// `한` 이 `g` `k` `s` 세 키로 풀려서 한글을 넣을 수 없다. 이 한 키만 그대로 받는다(ADR-0018).
+		if _, waiting := m.state.(normalReplace); waiting {
+			return m.press(msg.String())
+		}
+
 		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
 		keys := hangulKeys(msg.String())
 		if keys == nil {
@@ -129,6 +135,20 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 	if motion, found := strings.CutPrefix(key.name, "d "); found {
 		if deleted, ok := buf.deleteByMotion(motion, key.count, width); ok {
 			m.register = deleted
+		}
+
+		buf.scrollTo(width, m.textHeight())
+
+		return m, nil
+	}
+
+	// `r` 은 뒤에 바꿔 넣을 글자 한 개가 붙는다. 이것도 이름이 둘로 되어 있다.
+	// 글자가 아닌 키(`esc` 방향키 ...) 는 아무 일도 하지 않아서 잘못 누른 `r` 을 무르는 길이 된다.
+	if char, found := strings.CutPrefix(key.name, "r "); found {
+		if char == "enter" {
+			buf.replaceWithNewline(key.count, width)
+		} else if text, ok := replacementText(char); ok {
+			buf.replaceChar(text, key.count, width)
 		}
 
 		buf.scrollTo(width, m.textHeight())

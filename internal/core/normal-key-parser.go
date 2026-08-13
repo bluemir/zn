@@ -48,6 +48,9 @@ func (s normalStart) press(key string) (normalKey, normalState) {
 	case "d", "y":
 		// 뒤에 motion 이 붙어서 지우거나 복사할 범위를 정한다.
 		return normalKey{}, normalOperator{op: key}
+	case "r":
+		// 뒤에 바꿔 넣을 글자 한 개가 붙는다.
+		return normalKey{}, normalReplace{}
 	}
 
 	return normalKey{name: key}, normalStart{}
@@ -76,6 +79,9 @@ func (s normalCount) press(key string) (normalKey, normalState) {
 	case "d", "y":
 		// operator 도 숫자를 들고 간다. `3dd` 는 세 줄이다.
 		return normalKey{}, normalOperator{op: key, count: s.count}
+	case "r":
+		// `3rx` 는 세 글자를 바꾼다.
+		return normalKey{}, normalReplace{count: s.count}
 	case "h", "j", "k", "l", "w", "W", "e", "E", "b", "B", "$", "G", "n", "N", "*", "#", "x", "p", "P":
 		return normalKey{name: key, count: s.count}, normalStart{}
 	}
@@ -102,6 +108,23 @@ func (s normalPending) press(key string) (normalKey, normalState) {
 
 func (s normalPending) showcmd() string {
 	return countString(s.count) + s.prefix
+}
+
+// normalReplace 는 `r` 을 먹고 바꿔 넣을 글자 한 개를 기다리는 상태다.
+//
+// 다음 키는 명령이 아니라 파일에 들어갈 글자다. 그래서 접두 키(normalPending) 와 따로 있다 —
+// 한글 되돌림(ADR-0008) 을 이 한 키만 건너뛰어야 `r한` 이 한글을 넣는다(ADR-0018).
+// 이름은 접두 키와 같은 모양으로 잇는다(`r x`). 글자가 아닌 키는 실행하는 쪽이 무른다.
+type normalReplace struct {
+	count int
+}
+
+func (s normalReplace) press(key string) (normalKey, normalState) {
+	return normalKey{name: "r " + key, count: s.count}, normalStart{}
+}
+
+func (s normalReplace) showcmd() string {
+	return countString(s.count) + "r"
 }
 
 // normalOperator 는 `d` 처럼 뒤에 motion 이 붙어 범위를 정하는 키를 먹은 뒤다.
