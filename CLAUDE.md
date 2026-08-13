@@ -22,7 +22,7 @@
 - 실행 계획이나 추후 개선점 등 해야 할 일은 `docs/tasks.md` 에 기록한다.
 - `- [ ] 내용` 처럼 checklist 형태로 기록 한다.
 - 하나의 list가 되도록 기록한다.
-- 끝낸 항목은 주기적으로 `docs/done.md` 로 옮긴다. `docs/tasks.md` 에는 남은 일만 둔다.
+- 끝낸 항목중 오래되거나 장기 추적이 필요 없는 건은 주기적으로 `docs/done.md` 로 옮긴다.
 
 ### ADR (Architecture Decision Records)
 
