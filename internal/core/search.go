@@ -133,22 +133,20 @@ func (e editor) searchMatches(line []byte) [][]int {
 //
 // cursorCol 은 커서가 이 줄에 없으면 -1 이다.
 func highlightRow(line []byte, row screenRow, matches [][]int, cursorCol int) string {
-	if len(matches) == 0 {
-		return expandTabs(line[row.start:row.end])
-	}
+	mark := markWhitespace(line)
 
 	out := strings.Builder{}
 	col := 0
 	offset := row.start
 
-	// put 은 offset 부터 end 까지를 그 색으로 그린다. 아무 속성 없는 style 은 글자를 그대로 둔다.
+	// put 은 offset 부터 end 까지를 그 색으로 그린다.
 	put := func(end int, style lipgloss.Style) {
 		if end <= offset {
 			return
 		}
 
-		text, next := expandTabsFrom(line[offset:end], col)
-		out.WriteString(style.Render(text))
+		parts, next := expandRow(line, offset, end, col, mark)
+		out.WriteString(renderParts(parts, style))
 		col, offset = next, end
 	}
 

@@ -847,11 +847,11 @@ func TestClusterAtTab(t *testing.T) {
 		col   int
 		width int
 	}{
-		{col: 0, width: 8},
-		{col: 1, width: 7},
-		{col: 7, width: 1},
-		{col: 8, width: 8},
-		{col: 9, width: 7},
+		{col: 0, width: 4},
+		{col: 1, width: 3},
+		{col: 3, width: 1},
+		{col: 4, width: 4},
+		{col: 5, width: 3},
 	}
 
 	for _, test := range tests {
@@ -871,12 +871,12 @@ func TestScreenColWithTab(t *testing.T) {
 		offset int
 		col    int
 	}{
-		{name: "줄 앞 tab", line: "\tab", offset: 1, col: 8},
-		{name: "tab 뒤 글자", line: "\tab", offset: 2, col: 9},
-		{name: "tab 두 개", line: "\t\ta", offset: 2, col: 16},
-		{name: "글자 뒤 tab 은 남은 칸만", line: "ab\tc", offset: 3, col: 8},
-		{name: "7 칸 뒤 tab 은 1 칸", line: "0123456\tx", offset: 8, col: 8},
-		{name: "8 칸 뒤 tab 은 8 칸", line: "01234567\tx", offset: 9, col: 16},
+		{name: "줄 앞 tab", line: "\tab", offset: 1, col: 4},
+		{name: "tab 뒤 글자", line: "\tab", offset: 2, col: 5},
+		{name: "tab 두 개", line: "\t\ta", offset: 2, col: 8},
+		{name: "글자 뒤 tab 은 남은 칸만", line: "ab\tc", offset: 3, col: 4},
+		{name: "3 칸 뒤 tab 은 1 칸", line: "012\tx", offset: 4, col: 4},
+		{name: "4 칸 뒤 tab 은 4 칸", line: "0123\tx", offset: 5, col: 8},
 	}
 
 	for _, test := range tests {
@@ -892,7 +892,7 @@ func TestCursorMoveOverTab(t *testing.T) {
 
 	buf.moveRight(1, wide)
 	assert.Equal(t, 1, buf.cursorCol, "tab 은 1 byte")
-	assert.Equal(t, 8, screenColAt(buf.lines[0], buf.cursorCol), "화면 칸은 8")
+	assert.Equal(t, 4, screenColAt(buf.lines[0], buf.cursorCol), "화면 칸은 4")
 
 	buf.moveLeft(1, wide)
 	assert.Equal(t, 0, buf.cursorCol)
@@ -900,6 +900,6 @@ func TestCursorMoveOverTab(t *testing.T) {
 
 // tab 이 든 줄도 화면 너비 기준으로 나뉘어야 한다.
 func TestWrapWithTab(t *testing.T) {
-	// tab(8 칸) + "abcd" 를 너비 10 에 넣으면 ab 까지만 들어간다
-	assert.Equal(t, []int{0, 3}, wrapOffsets([]byte("\tabcd"), 10))
+	// tab(4 칸) + "abcd" 를 너비 6 에 넣으면 ab 까지만 들어간다
+	assert.Equal(t, []int{0, 3}, wrapOffsets([]byte("\tabcd"), 6))
 }

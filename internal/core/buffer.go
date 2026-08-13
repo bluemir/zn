@@ -151,8 +151,8 @@ func detectLineEnding(data []byte) lineEnding {
 }
 
 // tabWidth 는 tab 이 다음 몇 칸 경계까지 밀어내는지다.
-// vim 의 tabstop 기본값이자 터미널 기본 tab stop 이 8 이다.
-const tabWidth = 8
+// 터미널 기본 tab stop 은 8 이지만, 8 칸은 깊게 들여쓴 코드를 화면 밖으로 밀어낸다.
+const tabWidth = 4
 
 // clusterAt 은 offset 에서 시작하는 grapheme cluster 의 byte 길이와 화면 폭을 돌려준다.
 // col 은 그 글자가 시작하는 화면 칸이다. tab 이 시작 위치에 따라 폭이 달라서 필요하다.

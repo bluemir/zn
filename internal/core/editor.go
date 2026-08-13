@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -596,42 +595,4 @@ func truncateToWidth(s string, width int) string {
 
 	line := []byte(s)
 	return string(line[:offsetAtScreenCol(line, width)])
-}
-
-// expandTabs 는 화면 행의 tab 을 공백으로 펼친다.
-//
-// bubbletea 의 셀 렌더러는 폭 0 인 제어문자를 셀에 담지 못해 버린다.
-// tab 을 그대로 넘기면 화면에서 들여쓰기가 사라진다. Go 소스는 tab 들여쓰기라 바로 드러난다.
-// 행은 화면 왼쪽 끝에서 시작하므로 tab stop 도 행 시작 기준으로 센다.
-func expandTabs(row []byte) string {
-	if !bytes.ContainsRune(row, '\t') {
-		return string(row)
-	}
-
-	text, _ := expandTabsFrom(row, 0)
-
-	return text
-}
-
-// expandTabsFrom 은 화면 칸 col 에서 시작하는 조각을 펼치고, 펼친 뒤의 칸을 같이 돌려준다.
-//
-// 행을 조각내어 그릴 때(검색 강조) 조각마다 시작 칸이 다르다. tab 이 다음 tab stop 까지
-// 밀어내는 폭은 시작 칸에 달려 있어서, 조각을 각각 0 칸부터 세면 들여쓰기가 어긋난다.
-func expandTabsFrom(part []byte, col int) (string, int) {
-	out := strings.Builder{}
-
-	for offset := 0; offset < len(part); {
-		size, w := clusterAt(part, offset, col)
-
-		if part[offset] == '\t' {
-			out.WriteString(strings.Repeat(" ", w))
-		} else {
-			out.Write(part[offset : offset+size])
-		}
-
-		col += w
-		offset += size
-	}
-
-	return out.String(), col
 }

@@ -51,11 +51,11 @@ func TestPositionAt(t *testing.T) {
 		{
 			// tab stop 은 화면 행의 시작에서 센다. 줄을 통째로 넘기면 여기가 틀린다.
 			name: "tab 으로 들여쓴 줄", data: "\tabc\n", width: wide,
-			x: 8, y: 0, line: 0, col: 1,
+			x: 4, y: 0, line: 0, col: 1,
 		},
 		{
 			name: "tab 자리 안을 누르면 tab 시작", data: "\tabc\n", width: wide,
-			x: 4, y: 0, line: 0, col: 0,
+			x: 2, y: 0, line: 0, col: 0,
 		},
 		{
 			// 두 칸짜리 글자의 둘째 칸은 그 글자의 시작으로 맞춘다.

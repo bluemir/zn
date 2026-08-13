@@ -193,6 +193,19 @@ func TestViewEditorArrowKeysMoveCursor(t *testing.T) {
 	assert.Equal(t, 1, moved.buffers[0].cursorLine)
 }
 
+// expandedRow 는 줄 하나를 화면 글자로 펼친 것이다. 색은 빼고 글자만 본다.
+func expandedRow(row string) string {
+	line := []byte(row)
+	parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line))
+
+	out := strings.Builder{}
+	for _, part := range parts {
+		out.WriteString(part.text)
+	}
+
+	return out.String()
+}
+
 // tab 을 그대로 넘기면 bubbletea 가 버려서 들여쓰기가 사라진다. 공백으로 펼쳐야 한다.
 func TestExpandTabs(t *testing.T) {
 	tests := []struct {
@@ -201,24 +214,63 @@ func TestExpandTabs(t *testing.T) {
 		want string
 	}{
 		{name: "tab 없으면 그대로", row: "abc", want: "abc"},
-		{name: "줄 앞 tab", row: "\tabc", want: "        abc"},
-		{name: "글자 뒤 tab 은 남은 칸만", row: "ab\tc", want: "ab      c"},
-		{name: "tab 두 개", row: "\t\ta", want: "                a"},
-		{name: "7 칸 뒤 tab 은 1 칸", row: "0123456\tx", want: "0123456 x"},
+		{name: "줄 앞 tab", row: "\tabc", want: "»   abc"},
+		{name: "글자 뒤 tab 은 남은 칸만", row: "ab\tc", want: "ab  c"},
+		{name: "tab 두 개", row: "\t\ta", want: "»   »   a"},
+		{name: "3 칸 뒤 tab 은 1 칸", row: "012\tx", want: "012 x"},
 		{name: "한글 뒤 tab", row: "한글\tx", want: "한글    x"}, // 한글 4 칸 + 4 칸
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, expandTabs([]byte(test.row)))
+			assert.Equal(t, test.want, expandedRow(test.row))
 		})
 	}
+}
+
+// tab 과 space 는 화면에서 같은 빈 칸이라 마커로 가른다.
+// 줄 가운데 공백은 찍지 않는다 — 산문과 주석이 점으로 뒤덮인다.
+func TestExpandWhitespaceMarkers(t *testing.T) {
+	tests := []struct {
+		name string
+		row  string
+		want string
+	}{
+		{name: "space 들여쓰기", row: "  ab", want: "··ab"},
+		{name: "tab 들여쓰기", row: "\tab", want: "»   ab"},
+		{name: "섞인 들여쓰기", row: "\t  ab", want: "»   ··ab"},
+		{name: "가운데 공백은 그대로", row: "a b c", want: "a b c"},
+		{name: "가운데 tab 은 빈 칸으로만", row: "a\tb", want: "a   b"},
+		{name: "줄 끝 공백", row: "ab  ", want: "ab··"},
+		{name: "줄 끝 tab", row: "ab\t", want: "ab» "},
+		{name: "공백뿐인 줄은 전부 마커", row: "  \t", want: "··» "},
+		{name: "빈 줄", row: "", want: ""},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, expandedRow(test.row))
+		})
+	}
+}
+
+// 마커와 본문은 색이 달라서 조각이 갈린다. 조각 경계가 어긋나면 색이 본문으로 번진다.
+func TestExpandRowSplitsMarkerParts(t *testing.T) {
+	line := []byte("\tab  ")
+	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line))
+
+	assert.Equal(t, []screenPart{
+		{text: "»   ", marker: true},
+		{text: "ab", marker: false},
+		{text: "··", marker: true},
+	}, parts)
+	assert.Equal(t, 8, col, "tab 4 칸 + ab 2 칸 + 공백 2 칸")
 }
 
 func TestViewEditorRendersTabs(t *testing.T) {
 	m := newTestEditor("func main() {\n\tprintln()\n}\n", 40, 3)
 
-	assert.Equal(t, "func main() {\n        println()\n}", textOf(t, m))
+	assert.Equal(t, "func main() {\n»   println()\n}", ansi.Strip(textOf(t, m)))
 }
 
 // 편집 영역 왼쪽에 절대번호와 상대번호가 나란히 붙는다.

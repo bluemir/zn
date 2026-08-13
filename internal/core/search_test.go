@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -367,7 +368,33 @@ func TestSearchHighlightKeepsTabWidth(t *testing.T) {
 
 	row := ansi.Strip(contentRowsOf(t, m)[0])[gutterWidthOf(m):]
 
-	assert.Equal(t, strings.Repeat(" ", tabWidth)+"foo", row)
+	assert.Equal(t, markerTab+strings.Repeat(" ", tabWidth-1)+"foo", row)
+}
+
+// 강조 구간에 공백 마커가 끼어도 그 뒤 글자가 강조를 잃지 않는다.
+//
+// 마커에만 색을 얹으면 그 색을 끝내는 리셋이 강조까지 함께 꺼버린다. 조각마다 style 을
+// 한 번씩만 입혀야 마커 뒤에서 강조가 이어진다.
+func TestRenderPartsKeepsStyleAcrossMarker(t *testing.T) {
+	parts := []screenPart{
+		{text: "··", marker: true},
+		{text: "ab", marker: false},
+	}
+
+	got := renderParts(parts, styleSearchMatch)
+
+	assert.Contains(t, got, styleSearchMatch.Render("ab"), "마커 뒤 글자가 강조를 그대로 쓴다")
+	assert.Equal(t, "··ab", ansi.Strip(got))
+}
+
+// 강조 밖의 마커는 흐린 색이다.
+func TestRenderPartsDimsMarker(t *testing.T) {
+	var plain lipgloss.Style
+
+	got := renderParts([]screenPart{{text: "··", marker: true}, {text: "ab"}}, plain)
+
+	assert.Contains(t, got, plain.Foreground(colorWhitespace).Render("··"))
+	assert.Equal(t, "··ab", ansi.Strip(got))
 }
 
 // 검색은 tab 을 넘어 남는다. `n` 이 다른 tab 에서도 같은 것을 찾는다.
