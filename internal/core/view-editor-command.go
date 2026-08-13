@@ -51,6 +51,12 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
+	case tea.MouseWheelMsg:
+		// 명령을 치는 동안에도 화면은 둘러볼 수 있다.
+		// 클릭은 받지 않는다 — 치던 명령이 클릭 한 번에 조용히 사라지면 안 된다.
+		m.wheel(msg.Mouse())
+
+		return m, nil
 	default:
 		return m, nil
 	}

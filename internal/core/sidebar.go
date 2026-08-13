@@ -243,6 +243,36 @@ func (s *sidebar) scrollTo(height int) {
 	}
 }
 
+// selectRow 는 sidebar 의 화면 행 y 에 있는 항목을 고른다.
+// 트리가 끝난 아래 빈 행이면 아무것도 하지 않고 false 다.
+//
+// cells 는 트리가 짧아도 height 개를 채우므로 그 채움 행을 걸러야 한다.
+func (s *sidebar) selectRow(y, height int) bool {
+	index := s.top + y
+	if index < 0 || index >= len(s.rows()) {
+		return false
+	}
+
+	s.selected = index
+	s.scrollTo(height)
+
+	return true
+}
+
+// scrollBy 는 트리를 화면 행 n 개만큼 굴린다. 고른 항목은 건드리지 않는다.
+//
+// scrollTo 를 부르면 안 된다. 그것은 고른 항목을 화면에 넣으려고 top 을 되돌려서
+// 굴린 것이 그대로 사라진다. 고른 항목이 화면 밖으로 나가면 selectedRow 가 false 를 주고
+// 커서가 잠시 사라진다 — 다음 `j`/`k` 가 데려온다.
+func (s *sidebar) scrollBy(n, height int) {
+	rows := len(s.rows())
+	if rows == 0 || height < 1 {
+		return
+	}
+
+	s.top = max(0, min(s.top+n, rows-1))
+}
+
 // selectedRow 는 고른 항목이 sidebar 안에서 몇 번째 화면 행인지다.
 // 화면 밖이면 ok 가 false 다.
 func (s sidebar) selectedRow(height int) (int, bool) {

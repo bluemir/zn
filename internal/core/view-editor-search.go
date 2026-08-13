@@ -85,6 +85,12 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
+	case tea.MouseWheelMsg:
+		// 명령줄과 같다. 다만 다음 글자를 치면 preview 가 첫 매칭으로 화면을 다시 잡아당기므로
+		// 굴려둔 것은 그때 사라진다.
+		m.wheel(msg.Mouse())
+
+		return m, nil
 	default:
 		return m, nil
 	}

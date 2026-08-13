@@ -120,6 +120,17 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
+	case tea.MouseWheelMsg:
+		// 팔레트는 화면 위에 얹힌 박스라 아래 편집 내용을 굴려도 볼 수 없다.
+		// 그래서 다른 mode 와 달리 포인터가 어디 있든 목록을 오르내린다 — 화살표와 같다.
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.move(-wheelRows)
+		case tea.MouseWheelDown:
+			m.move(wheelRows)
+		}
+
+		return m, nil
 	default:
 		return m, nil
 	}

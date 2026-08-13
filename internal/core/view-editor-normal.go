@@ -70,6 +70,20 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
+	case tea.MouseClickMsg:
+		// 왼쪽 버튼만 본다. 가운데·오른쪽에 붙일 동작은 아직 정하지 않았다.
+		//
+		// 누를 때 반응하고 뗄 때는 보지 않는다. 드래그가 없으니 누른 자리가 곧 고른 자리다.
+		// 대기 중인 접두 키(m.state) 와 알림(m.message) 은 그대로 둔다 — 키 이야기다.
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+			return m.click(mouse)
+		}
+
+		return m, nil
+	case tea.MouseWheelMsg:
+		m.wheel(msg.Mouse())
+
+		return m, nil
 	default:
 		return m, nil
 	}

@@ -76,6 +76,16 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		buf.scrollTo(m.contentWidth(), m.textHeight())
 
 		return m, nil
+	case tea.MouseClickMsg:
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+			return m.click(mouse)
+		}
+
+		return m, nil
+	case tea.MouseWheelMsg:
+		m.wheel(msg.Mouse())
+
+		return m, nil
 	default:
 		return m, nil
 	}

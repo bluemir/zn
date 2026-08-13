@@ -143,7 +143,12 @@ func (m viewQuitConfirm) View() tea.View {
 
 	// 부모 화면 위에 뜨는 것이므로 터미널 상태는 부모를 따라간다.
 	// 여기서 AltScreen 이 꺼지면 종료 확인창을 띄울 때마다 셸 화면이 번쩍이고 편집 내용이 사라진다.
-	view.AltScreen = m.parent.View().AltScreen
+	//
+	// MouseMode 도 같이 따라간다. 이 창은 mouse 를 받지 않지만(선택지 둘이라 키로 충분하다)
+	// 여기서 꺼지면 확인창이 뜰 때마다 터미널에 mouse 를 끄고 켜는 escape 가 오간다.
+	parent := m.parent.View()
+	view.AltScreen = parent.AltScreen
+	view.MouseMode = parent.MouseMode
 
 	return view
 }

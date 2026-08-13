@@ -37,11 +37,8 @@ type Buffer struct {
 	data  []byte
 	lines [][]byte
 
-	lineEnding lineEnding
-
-	// finalLineEnding 은 파일 마지막 줄이 줄끝 문자로 끝났는지다.
-	// git 이 `\ No newline at end of file` 로 잡아내는 차이라 원본대로 되돌린다.
-	finalLineEnding bool
+	lineEnding      lineEnding
+	finalLineEnding bool //파일 마지막 줄이 줄끝 문자로 끝났는지
 
 	// 아래는 파일 내용이 아니라 이 파일을 어떻게 보고 있는지다.
 	// tab 을 오갈 때 파일별로 유지되어야 하므로 Buffer 가 들고 있다.
@@ -49,11 +46,7 @@ type Buffer struct {
 
 	cursorLine int // lines 의 index
 	cursorCol  int // lines[cursorLine] 안의 byte offset
-
-	// desiredCol 은 위아래로 움직일 때 유지할 화면 칸이다.
-	// 짧은 줄을 지나가도 원래 열로 돌아오게 하려면 실제 열과 따로 기억해야 한다.
-	// wrap 된 줄에서도 자연스럽게 움직이도록 화면 행 안에서의 칸으로 센다.
-	desiredCol int
+	desiredCol int // 현재 cursor 가 있는 열. 위아래로 움직일떄 현재 열로 올수 있도록 한다. 화면행 안에서의 칸으로 센다.
 
 	// top, topRow 는 화면 최상단에 그릴 위치다. 커서에서 파생할 수 없다.
 	// 커서를 두고 화면만 움직이는 동작이 있고, 커서가 화면 안에 있는 동안은 화면이 움직이지 않아야 한다.
@@ -61,15 +54,13 @@ type Buffer struct {
 	top    int // lines 의 index
 	topRow int // 그 줄의 몇 번째 wrap 행부터 그리는지
 
-	// undo, redo 는 되돌리기 이력이다.
+	// undo, redo 는 되돌리기 이력
 	// editing 은 열린 구간이 있는지다. 이어지는 타이핑을 한 항목으로 모은다.
 	undo    []edit
 	redo    []edit
 	editing bool
 
-	// dirty 는 마지막 저장 이후 바뀐 것이 있는지다.
-	// undo 로 저장 시점 내용까지 되돌려도 켜진 채로 남는다. vim 은 이때 꺼주는데 아직 거기까지 하지 않는다.
-	dirty bool
+	dirty bool //마지막 저장 이후 변경사항의 여부.
 }
 
 // edit 은 되돌릴 수 있는 변경 하나다. lines 의 [at, at+count) 를 before 로 바꾸면 되돌아간다.
@@ -525,6 +516,61 @@ func (buf Buffer) retreatRows(line, row, n, width int) (int, int) {
 	return line, row
 }
 
+// advanceRows 는 (line,row) 에서 화면 행 n 개 아래로 내려간 위치를 돌려준다.
+// 파일 끝을 넘으면 마지막 줄의 마지막 행에서 멈춘다. retreatRows 의 반대 방향이다.
+func (buf Buffer) advanceRows(line, row, n, width int) (int, int) {
+	for range n {
+		last := len(wrapOffsets(buf.lines[line], width)) - 1
+
+		switch {
+		case row < last:
+			row++
+		case line < len(buf.lines)-1:
+			line++
+			row = 0
+		default:
+			return line, row
+		}
+	}
+	return line, row
+}
+
+// scrollBy 는 화면을 n 행 굴린다. 위로 굴릴 때는 n 이 음수다.
+//
+// 커서는 그대로 두고 화면만 움직인다. 화면 밖으로 밀려나면 그때만 화면 안 끝 행으로
+// 끌어온다 — vim 의 휠과 같다. scrollTo 가 커서를 따라 화면을 옮기는 것의 반대다.
+func (buf *Buffer) scrollBy(n, width, height int) {
+	if height < 1 || n == 0 {
+		return
+	}
+
+	// 폭이 바뀐 뒤일 수 있다. scrollTo 와 같은 이유로 여기서 한 번 맞춘다.
+	buf.clampTop(width)
+
+	if n < 0 {
+		buf.top, buf.topRow = buf.retreatRows(buf.top, buf.topRow, -n, width)
+	} else {
+		buf.top, buf.topRow = buf.advanceRows(buf.top, buf.topRow, n, width)
+	}
+
+	// 커서가 아직 화면 안이면 건드릴 것이 없다.
+	if _, _, ok := buf.cursorScreenPos(width, height); ok {
+		return
+	}
+
+	// 화면 밖으로 밀려났다. 밀려난 쪽 끝 행으로 데려온다.
+	//
+	// 아래로 굴리면(n>0) 화면이 커서를 지나쳐 내려가므로 커서는 화면 위로 벗어난다 —
+	// 맨 윗줄로 데려온다. 위로 굴리면 그 반대다.
+	line, row := buf.top, buf.topRow
+	if n < 0 {
+		line, row = buf.advanceRows(buf.top, buf.topRow, height-1, width)
+	}
+
+	// 칸은 desiredCol 을 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
+	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width), row, width)
+}
+
 // visibleRows 는 화면에 그릴 행들을 위에서부터 돌려준다.
 func (buf Buffer) visibleRows(width, height int) []screenRow {
 	if height < 1 {
@@ -567,6 +613,26 @@ func (buf Buffer) cursorScreenPos(width, height int) (x, y int, ok bool) {
 	}
 
 	return 0, 0, false
+}
+
+// positionAt 은 본문 안 화면 좌표 (x, y) 에 있는 줄과 byte offset 이다.
+// 그 자리에 행이 없으면 ok 가 false 다. cursorScreenPos 의 반대 방향이다.
+//
+// 파일 마지막 줄 아래 빈 자리는 없는 자리로 본다. 마지막 줄로 끌어당기지 않는다 —
+// 아무것도 없는 곳을 눌렀는데 커서가 움직이면 어디를 눌렀는지와 어긋난다.
+//
+// x 가 음수면 줄 시작이다. 줄번호 칸을 누른 경우가 그렇게 들어온다.
+func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
+	rows := buf.visibleRows(width, height)
+	if y < 0 || y >= len(rows) {
+		return 0, 0, false
+	}
+
+	row := rows[y]
+
+	// 행 안에서 잘라서 센다. tab 이 다음 tab stop 까지 벌어지는 기준이 논리 줄이 아니라
+	// 화면 행의 시작이라(wrapOffsets 주석) 줄을 통째로 넘기면 tab 으로 들여쓴 줄에서 어긋난다.
+	return row.line, row.start + offsetAtScreenCol(buf.lines[row.line][row.start:row.end], max(0, x)), true
 }
 
 // Save 는 buffer 를 파일에 쓴다.

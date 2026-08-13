@@ -378,8 +378,10 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 	height := e.sidebarHeight()
 
 	// sidebar 오른쪽에 쌓이는 것들이다. 맨 위가 tabline 이고 그 아래가 편집 내용이다.
+	tabline, _ := e.tabline(e.textWidth())
+
 	right := make([]string, 0, height)
-	right = append(right, e.tabline(e.textWidth()))
+	right = append(right, tabline)
 	right = append(right, textRows...)
 	for len(right) < height {
 		right = append(right, "")
@@ -408,7 +410,11 @@ var reverse = lipgloss.NewStyle().Reverse(true)
 // 활성 tab 이 아래 내용과 이어져 보이는 것이 tab 이라는 비유 자체다.
 //
 // width 는 화면 너비가 아니라 편집 영역 너비다. sidebar 가 열려 있으면 그만큼 좁다.
-func (e editor) tabline(width int) string {
+//
+// spans 는 tab 마다 실제로 그려진 칸 범위 [start, end) 다. 넘쳐서 잘린 tab 은 빈 범위다.
+// 클릭이 어느 tab 인지 여기서 같이 내준다 — 배치 계산을 두 벌 두면 `+`(dirty) 하나로
+// 칸이 밀렸을 때 클릭이 옆 tab 으로 간다.
+func (e editor) tabline(width int) (string, [][2]int) {
 	line := strings.Builder{}
 	col := 0
 
@@ -431,6 +437,7 @@ func (e editor) tabline(width int) string {
 	}
 
 	// 넘치면 잘린다. 활성 tab 이 오른쪽 끝에 있으면 안 보이게 되는데 아직 다루지 않는다.
+	spans := make([][2]int, 0, len(e.buffers))
 	for i, buf := range e.buffers {
 		name := filepath.Base(buf.path)
 		if buf.path == "" {
@@ -443,7 +450,11 @@ func (e editor) tabline(width int) string {
 		if i > 0 {
 			put("│", false)
 		}
+
+		// put 이 쓴 만큼만 그 tab 의 자리다. 잘렸으면 start 와 end 가 같아진다.
+		start := col
 		put(fmt.Sprintf(" %d %s ", i+1, name), i == e.active)
+		spans = append(spans, [2]int{start, col})
 	}
 
 	// 남은 칸도 채워야 줄 전체가 한 덩어리로 보인다.
@@ -451,7 +462,22 @@ func (e editor) tabline(width int) string {
 		put(strings.Repeat(" ", width-col), false)
 	}
 
-	return line.String()
+	return line.String(), spans
+}
+
+// tabAt 은 편집 영역 기준이 아니라 화면 칸 x 에 그려진 tab 번호다.
+// 구분선과 오른쪽 빈 칸, 잘려서 안 보이는 tab 자리는 ok 가 false 다.
+func (e editor) tabAt(x int) (int, bool) {
+	_, spans := e.tabline(e.textWidth())
+
+	col := x - e.sidebarLeft()
+	for i, span := range spans {
+		if col >= span[0] && col < span[1] {
+			return i, true
+		}
+	}
+
+	return 0, false
 }
 
 // statusBar 는 화면 아래 두 줄이다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.
