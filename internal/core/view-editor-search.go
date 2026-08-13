@@ -1,0 +1,248 @@
+package core
+
+import (
+	"regexp"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+// viewEditorSearch 는 `/` `?` 로 들어가는 검색 입력이다. command mode 와 같은 자리를 쓴다.
+//
+// 치는 동안 첫 매칭으로 커서와 화면이 따라간다(vim 의 incsearch). 그래서 들어온 자리와
+// 들어올 때의 검색을 들고 있다가 `Esc` 로 나가면 되돌린다 — 미리보기가 실제 이동으로 남으면
+// 검색을 무를 방법이 없다.
+func searchMode(e editor, direction searchDirection) (tea.Model, tea.Cmd) {
+	buf := e.buffer()
+
+	return viewEditorSearch{
+		editor:    e,
+		direction: direction,
+		origin: searchOrigin{
+			cursorLine: buf.cursorLine,
+			cursorCol:  buf.cursorCol,
+			top:        buf.top,
+			topRow:     buf.topRow,
+			search:     e.search,
+		},
+	}, nil
+}
+
+type viewEditorSearch struct {
+	editor
+
+	direction searchDirection
+	input     string // `/` 나 `?` 뒤에 친 것
+
+	origin searchOrigin
+}
+
+// searchOrigin 은 검색을 시작한 자리다.
+//
+// 화면 위치까지 들고 있어야 되돌릴 때 화면이 튀지 않는다. 커서만 되돌리면 scrollTo 가
+// 이미 옮겨둔 화면을 그대로 두어서, 커서는 제자리인데 보이는 곳이 달라진다.
+type searchOrigin struct {
+	cursorLine, cursorCol int
+	top, topRow           int
+
+	search searchState
+}
+
+func (m viewEditorSearch) Init() tea.Cmd { return nil }
+
+func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.resize(msg)
+
+		return m, nil
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "ctrl+c":
+			return quitAll(m, m.editor)
+		case "esc":
+			m.restore()
+
+			return normalMode(m.editor)
+		case "enter":
+			return m.run()
+		case "backspace":
+			// command mode 와 같이 `/` 까지 지우면 검색에서 나간다.
+			if m.input == "" {
+				m.restore()
+
+				return normalMode(m.editor)
+			}
+			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.preview()
+
+			return m, nil
+		default:
+			if msg.Text == "" {
+				return m, nil
+			}
+			m.input += msg.Text
+			m.preview()
+
+			return m, nil
+		}
+	default:
+		return m, nil
+	}
+}
+
+// preview 는 치는 동안 첫 매칭으로 화면을 옮긴다. vim 의 incsearch 다.
+//
+// 항상 시작 자리에서 다시 찾는다. 옮겨간 자리에서 이어 찾으면 글자를 지웠을 때 커서가
+// 앞으로 돌아오지 않아서, 같은 글자를 쳤는데 다른 곳에 서 있게 된다.
+//
+// 패턴이 아직 정규식으로 말이 되지 않거나 못 찾으면 시작 자리에 머문다.
+// 치는 도중에는 대부분이 그 상태라 오류를 띄우지 않는다. 오류는 Enter 때 낸다.
+func (m *viewEditorSearch) preview() {
+	m.restore()
+
+	if m.input == "" {
+		return
+	}
+
+	pattern, err := parseSearchPattern(m.input)
+	if err != nil {
+		return
+	}
+
+	buf := m.buffer()
+
+	result, ok := buf.find(pattern, m.direction, m.origin.cursorLine, m.origin.cursorCol)
+	if !ok {
+		return
+	}
+
+	// 찾은 자리를 미리 강조한다. 아직 마지막 검색으로 굳히는 것은 아니라 Esc 로 되돌아간다.
+	m.search = searchState{input: m.input, pattern: pattern, direction: m.direction, highlight: true}
+
+	buf.moveTo(result.line, result.col, m.contentWidth())
+	buf.clampToNormal(m.contentWidth())
+	buf.scrollTo(m.contentWidth(), m.textHeight())
+}
+
+// restore 는 미리보기로 옮긴 커서와 화면을 시작 자리로 되돌린다.
+func (m *viewEditorSearch) restore() {
+	buf := m.buffer()
+
+	buf.cursorLine, buf.cursorCol = m.origin.cursorLine, m.origin.cursorCol
+	buf.top, buf.topRow = m.origin.top, m.origin.topRow
+	buf.updateDesiredCol(m.contentWidth())
+
+	m.search = m.origin.search
+}
+
+// run 은 친 패턴으로 실제 검색을 한다.
+func (m viewEditorSearch) run() (tea.Model, tea.Cmd) {
+	// 미리보기로 옮겨둔 커서에서 다시 찾으면 첫 매칭을 건너뛴다. 시작 자리에서 찾는다.
+	m.restore()
+
+	// 빈 채로 Enter 는 마지막 검색을 이 방향으로 되풀이한다. vim 과 같다.
+	pattern, input := m.origin.search.pattern, m.origin.search.input
+	if m.input != "" {
+		compiled, err := parseSearchPattern(m.input)
+		if err != nil {
+			return normalModeMessage(m.editor, err.Error())
+		}
+
+		pattern, input = compiled, m.input
+	}
+	if pattern == nil {
+		return normalModeMessage(m.editor, "이전 검색이 없습니다")
+	}
+
+	m.search = searchState{input: input, pattern: pattern, direction: m.direction, highlight: true}
+
+	return m.jumpToMatch(m.direction, 1)
+}
+
+func (m viewEditorSearch) View() tea.View {
+	line := m.prompt() + m.input
+	view := m.render(tea.CursorBlock, "SEARCH", line)
+
+	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다. command mode 와 같은 자리다.
+	view.Cursor = tea.NewCursor(screenColAt([]byte(line), len(line))+m.sidebarLeft(), m.height-1)
+
+	return view
+}
+
+// prompt 는 명령줄 맨 앞 글자다. 어느 방향으로 찾는 중인지가 이것으로 보인다. vim 과 같다.
+func (m viewEditorSearch) prompt() string {
+	if m.direction == searchBackward {
+		return "?"
+	}
+
+	return "/"
+}
+
+// jumpToMatch 는 지금 검색을 n 번 되풀이해 커서를 옮기고 결과를 아래 줄에 알린다.
+// `/` `?` `n` `N` `*` `#` 가 모두 이 길로 온다.
+func (e editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.Cmd) {
+	if e.search.pattern == nil {
+		return normalModeMessage(e, "이전 검색이 없습니다")
+	}
+
+	buf := e.buffer()
+	width := e.contentWidth()
+
+	line, col := buf.cursorLine, buf.cursorCol
+	wrapped := false
+
+	for range n {
+		result, ok := buf.find(e.search.pattern, direction, line, col)
+		if !ok {
+			// 하나도 못 찾았으면 커서를 두고 알리기만 한다. 도중까지 옮기면 어디로 갔는지 알 수 없다.
+			return normalModeMessage(e, "찾을 수 없음: "+e.search.input)
+		}
+
+		line, col = result.line, result.col
+		wrapped = wrapped || result.wrapped
+	}
+
+	buf.moveTo(line, col, width)
+	buf.clampToNormal(width)
+	buf.scrollTo(width, e.textHeight())
+
+	if wrapped {
+		return normalModeMessage(e, wrapMessage(direction))
+	}
+
+	return normalMode(e)
+}
+
+// wrapMessage 는 파일 끝을 지나 감쌌음을 알리는 말이다.
+func wrapMessage(direction searchDirection) string {
+	if direction == searchBackward {
+		return "위에서 끝으로 돌아옴"
+	}
+
+	return "아래에서 처음으로 돌아옴"
+}
+
+// searchWord 는 커서 아래 단어를 그대로 찾는다. vim 의 `*` `#` 다.
+func (e editor) searchWord(direction searchDirection, n int) (tea.Model, tea.Cmd) {
+	buf := e.buffer()
+
+	word, col, ok := buf.wordUnderCursor()
+	if !ok {
+		return normalModeMessage(e, "커서 아래에 단어가 없습니다")
+	}
+
+	// 커서를 단어 앞으로 옮기고 거기서 찾는다. 옮기지 않으면 커서 오른쪽에 있던 그 단어가
+	// 첫 매칭이 되어, `*` 를 눌렀는데 제자리에서 한 칸 옆으로 가는 것으로 끝난다. vim 과 같다.
+	buf.moveTo(buf.cursorLine, col, e.contentWidth())
+
+	// QuoteMeta 를 거친 글자와 `\b` 뿐이라 정규식이 될 수 없는 경우가 없다.
+	input := wordSearchPattern(word)
+	e.search = searchState{
+		input:     input,
+		pattern:   regexp.MustCompile(input),
+		direction: direction,
+		highlight: true,
+	}
+
+	return e.jumpToMatch(direction, n)
+}

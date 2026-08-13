@@ -22,6 +22,9 @@ type editor struct {
 
 	sidebar sidebar
 
+	// search 는 마지막 검색이다. `n` 은 tab 을 옮겨서도 같은 것을 찾으므로 Buffer 가 아니라 여기 있다.
+	search searchState
+
 	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고
 	// 여기에 들고 있다가 파일을 열거나 저장할 때만 다시 읽는다(ADR-0009).
 	git gitStatus
@@ -323,8 +326,23 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 
 	// 화면보다 긴 줄은 visibleRows 가 이미 화면 행 여러 개로 나눠서 준다.
 	textRows := make([]string, 0, height)
+
+	// 검색 매칭은 줄 단위로 찾는다. wrap 된 줄은 행이 여럿이라 줄이 바뀔 때만 다시 찾는다.
+	matchLine, matches := -1, [][]int(nil)
+
 	for _, row := range buf.visibleRows(e.contentWidth(), height) {
-		textRows = append(textRows, e.lineNumber(buf.cursorLine, row)+expandTabs(buf.lines[row.line][row.start:row.end]))
+		if row.line != matchLine {
+			matchLine, matches = row.line, e.searchMatches(buf.lines[row.line])
+		}
+
+		// 커서가 선 매칭만 색이 다르다. 다른 줄이면 그런 매칭이 없다.
+		cursorCol := -1
+		if row.line == buf.cursorLine {
+			cursorCol = buf.cursorCol
+		}
+
+		textRows = append(textRows,
+			e.lineNumber(buf.cursorLine, row)+highlightRow(buf.lines[row.line], row, matches, cursorCol))
 	}
 
 	rows := e.screenRows(textRows, mode, bottom)
@@ -531,20 +549,30 @@ func expandTabs(row []byte) string {
 		return string(row)
 	}
 
-	out := strings.Builder{}
-	col := 0
-	for offset := 0; offset < len(row); {
-		size, w := clusterAt(row, offset, col)
+	text, _ := expandTabsFrom(row, 0)
 
-		if row[offset] == '\t' {
+	return text
+}
+
+// expandTabsFrom 은 화면 칸 col 에서 시작하는 조각을 펼치고, 펼친 뒤의 칸을 같이 돌려준다.
+//
+// 행을 조각내어 그릴 때(검색 강조) 조각마다 시작 칸이 다르다. tab 이 다음 tab stop 까지
+// 밀어내는 폭은 시작 칸에 달려 있어서, 조각을 각각 0 칸부터 세면 들여쓰기가 어긋난다.
+func expandTabsFrom(part []byte, col int) (string, int) {
+	out := strings.Builder{}
+
+	for offset := 0; offset < len(part); {
+		size, w := clusterAt(part, offset, col)
+
+		if part[offset] == '\t' {
 			out.WriteString(strings.Repeat(" ", w))
 		} else {
-			out.Write(row[offset : offset+size])
+			out.Write(part[offset : offset+size])
 		}
 
 		col += w
 		offset += size
 	}
 
-	return out.String()
+	return out.String(), col
 }

@@ -86,6 +86,11 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		m.newTab()
 
 		return normalMode(m.editor)
+	case "noh", "nohlsearch":
+		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
+		m.search.highlight = false
+
+		return normalMode(m.editor)
 	case "tree":
 		// `!` 는 이 명령에서 뜻이 없다. 그냥 여닫는다.
 		if err := m.toggleTree(); err != nil {

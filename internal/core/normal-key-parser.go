@@ -70,7 +70,7 @@ func (s normalCount) press(key string) (normalKey, normalState) {
 	case "g":
 		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
 		return normalKey{}, normalPending{prefix: key, count: s.count}
-	case "h", "j", "k", "l", "w", "W", "e", "E", "b", "B", "$", "G":
+	case "h", "j", "k", "l", "w", "W", "e", "E", "b", "B", "$", "G", "n", "N", "*", "#":
 		return normalKey{name: key, count: s.count}, normalStart{}
 	}
 

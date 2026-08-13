@@ -52,6 +52,8 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 		return v.buffers[v.active]
 	case viewEditorInsert:
 		return v.buffers[v.active]
+	case viewEditorSearch:
+		return v.buffers[v.active]
 	default:
 		t.Fatalf("편집 화면이 아니다: %T", m)
 		return Buffer{}

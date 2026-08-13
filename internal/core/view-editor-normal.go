@@ -114,6 +114,19 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		return quitAll(m, m.editor)
 	case ":":
 		return commandMode(m.editor)
+	case "/":
+		return searchMode(m.editor, searchForward)
+	case "?":
+		return searchMode(m.editor, searchBackward)
+	case "n":
+		// 마지막 검색을 같은 방향으로 되풀이한다. `?` 로 찾았으면 `n` 도 위로 간다.
+		return m.jumpToMatch(m.search.direction, n)
+	case "N":
+		return m.jumpToMatch(m.search.direction.reverse(), n)
+	case "*":
+		return m.searchWord(searchForward, n)
+	case "#":
+		return m.searchWord(searchBackward, n)
 	case "i":
 		// 커서 앞에 넣는다. 커서는 그대로다.
 		return insertMode(m.editor)
