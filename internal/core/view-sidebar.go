@@ -40,6 +40,13 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sidebar.scrollTo(m.sidebarHeight())
 
 		return m, nil
+	case tea.ResumeMsg:
+		// 내려가 있는 동안의 commit·checkout 을 statusBar 에 반영한다. git 표시는 mode 와
+		// 무관하게 보이고 알림을 띄울 자리가 필요하지 않아서 편집 화면과 같이 읽는다.
+		// 파일이 밖에서 바뀌었는지는 여기서도 보지 않는다 (ADR-0009, ADR-0023).
+		m.git = readGitStatus()
+
+		return m, nil
 	case tea.KeyPressMsg:
 		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
 		// 편집 화면과 같은 방식이다 — 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
@@ -99,6 +106,10 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		// 다른 mode 와 같은 경로다. 확인창에서 취소하면 여기로 돌아온다.
 		return quitAll(m, m.editor)
+	case "ctrl+z":
+		// 편집 화면과 같이 셸로 내려간다. 포커스는 트리에 그대로 두고 올라온다.
+		// 파일이 밖에서 바뀌었는지는 보지 않는다 — 지금 보고 있는 것은 파일 내용이 아니다(ADR-0023).
+		return m, tea.Suspend
 	case "ctrl+w":
 		m.pending = "ctrl+w"
 

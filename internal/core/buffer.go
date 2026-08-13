@@ -710,29 +710,68 @@ func (buf *Buffer) Reload() error {
 	return nil
 }
 
-// checkNotChangedOutside 는 파일이 읽은(또는 마지막으로 쓴) 시점과 같은지 본다.
-// 다르면 무엇이 달라졌는지를 담은 error 를 준다.
+// outsideChange 는 파일이 읽은(또는 마지막으로 쓴) 시점과 어떻게 달라졌는지다.
+//
+// 알릴 문구는 부르는 쪽이 만든다. 같은 사실에 붙는 다음 걸음이 자리마다 다르다 —
+// 저장이 막힌 자리는 빠져나가는 길(`:w!`) 을 알려야 하고, 셸에서 돌아온 자리는
+// 가져오는 길(`:e`) 을 알린다 (ADR-0015, ADR-0023).
+type outsideChange int
+
+const (
+	outsideSame     outsideChange = iota // 읽은 시점과 같다
+	outsideModified                      // 내용이 달라졌다
+	outsideCreated                       // 없던 파일이 생겼다
+	outsideRemoved                       // 있던 파일이 사라졌다
+)
+
+// checkOutside 는 파일을 다시 읽어 읽은(또는 마지막으로 쓴) 시점과 맞춰 본다.
 //
 // 판정은 내용 해시로 한다. mtime 은 내용이 같아도 바뀌는 일이 흔해서(git checkout,
 // 다른 도구의 되쓰기) 그것으로 막으면 헛경고가 잦다 (ADR-0015).
-func (buf Buffer) checkNotChangedOutside() error {
+//
+// 이름 없는 buffer 는 맞춰 볼 파일이 없으므로 그대로인 것으로 본다.
+func (buf Buffer) checkOutside() (outsideChange, error) {
+	if buf.path == "" {
+		return outsideSame, nil
+	}
+
 	data, err := os.ReadFile(buf.path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		// 열 때도 없던 파일이면 지금 새로 만드는 것이 맞다.
+		// 열 때도 없던 파일이면 달라진 것이 없다. 저장하는 쪽에서는 지금 새로 만드는 것이 맞다.
 		if buf.diskHash == nil {
-			return nil
+			return outsideSame, nil
 		}
 
-		return errors.New("파일이 밖에서 사라졌습니다. 다시 만들려면 `:w!` 입니다")
+		return outsideRemoved, nil
 	case err != nil:
-		return errors.Wrapf(err, "cannot read %s", buf.path)
+		return outsideSame, errors.Wrapf(err, "cannot read %s", buf.path)
 	case buf.diskHash == nil:
-		return errors.New("파일이 밖에서 새로 생겼습니다. 덮어쓰려면 `:w!` 입니다")
+		return outsideCreated, nil
 	}
 
 	sum := sha256.Sum256(data)
 	if !bytes.Equal(sum[:], buf.diskHash) {
+		return outsideModified, nil
+	}
+
+	return outsideSame, nil
+}
+
+// checkNotChangedOutside 는 파일이 읽은(또는 마지막으로 쓴) 시점과 같은지 본다.
+// 다르면 무엇이 달라졌는지와 `:w!` 로 빠져나가는 길을 담은 error 를 준다 (ADR-0015).
+func (buf Buffer) checkNotChangedOutside() error {
+	change, err := buf.checkOutside()
+	if err != nil {
+		return err
+	}
+
+	switch change {
+	case outsideRemoved:
+		return errors.New("파일이 밖에서 사라졌습니다. 다시 만들려면 `:w!` 입니다")
+	case outsideCreated:
+		return errors.New("파일이 밖에서 새로 생겼습니다. 덮어쓰려면 `:w!` 입니다")
+	case outsideModified:
 		return errors.New("파일이 밖에서 바뀌었습니다. 덮어쓰려면 `:w!` 입니다")
 	}
 

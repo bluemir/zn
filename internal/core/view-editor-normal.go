@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cockroachdb/errors"
 )
 
 // viewEditorNormal 은 normal mode 다. 커서가 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
@@ -42,6 +43,16 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.resize(msg)
+
+		return m, nil
+	case tea.ResumeMsg:
+		// `ctrl+z` 로 셸에 내려가 있는 동안 밖에서 commit 이나 checkout 이 있었을 수 있다.
+		// 파일을 열 때와 같은 이유다 (ADR-0009, ADR-0023).
+		m.git = readGitStatus()
+
+		// 보고 있는 파일도 밖에서 바뀌었을 수 있다.
+		// 알리기만 하고 buffer 는 건드리지 않는다 — 가져오는 것은 `:e` 다 (ADR-0023).
+		m.message = outsideChangeMessage(*m.buffer())
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -95,6 +106,29 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// outsideChangeMessage 는 셸에서 돌아왔을 때 알릴 문구다. 달라진 것이 없으면 빈 문자열이다.
+//
+// 저장할 때의 문구(checkNotChangedOutside) 와 판정은 같고 다음 걸음이 다르다. 여기서는 아직
+// 아무것도 쓰려 하지 않았으므로 덮어쓰는 길이 아니라 가져오는 길을 알린다. 사라진 파일은
+// 가져올 것이 없어서 사실만 알린다 — 손에 든 것이 마지막 사본이다 (ADR-0016, ADR-0023).
+func outsideChangeMessage(buf Buffer) string {
+	change, err := buf.checkOutside()
+	if err != nil {
+		return errors.Cause(err).Error()
+	}
+
+	switch change {
+	case outsideRemoved:
+		return "파일이 밖에서 사라졌습니다"
+	case outsideCreated:
+		return "파일이 밖에서 새로 생겼습니다. 다시 읽으려면 `:e` 입니다"
+	case outsideModified:
+		return "파일이 밖에서 바뀌었습니다. 다시 읽으려면 `:e` 입니다"
+	}
+
+	return ""
 }
 
 // press 는 키 하나를 먹는다. 명령이 완성되면 실행한다.
@@ -171,6 +205,10 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
 		return quitAll(m, m.editor)
+	case "ctrl+z":
+		// 셸로 내려간다. vim 과 같고 종료가 아니라 멈춤이라 저장하지 않은 변경을 묻지 않는다.
+		// `fg` 로 올라오면 ResumeMsg 가 이 mode 로 돌아온다 (ADR-0023).
+		return m, tea.Suspend
 	case ":":
 		return commandMode(m.editor)
 	case "ctrl+p":
