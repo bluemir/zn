@@ -1,0 +1,51 @@
+package core
+
+// yankByMotion 은 motion 이 가리키는 범위를 register 에 담는다. `y` 뒤에 붙은 키가 motion 이다.
+//
+// 파일을 건드리지 않으므로 dirty 도 되돌리기도 없다. 범위 계산은 `d` 와 같은 것을 쓴다 —
+// 규칙이 두 벌이 되면 `dw` 와 `yw` 가 갈린다(ADR-0017).
+//
+// 모르는 motion 이거나 복사할 것이 없으면 false 다.
+func (buf *Buffer) yankByMotion(motion string, count, width int) (register, bool) {
+	area, ok := buf.rangeByMotion(motion, count, width)
+	if !ok {
+		return register{}, false
+	}
+
+	if area.linewise {
+		lines := append([][]byte(nil), buf.lines[area.startLine:area.endLine+1]...)
+		buf.moveToRangeStart(area, width)
+
+		return register{lines: lines, linewise: true}, true
+	}
+
+	if area.startLine == area.endLine && area.startCol == area.endCol {
+		return register{}, false
+	}
+
+	lines := buf.textBetween(area.startLine, area.startCol, area.endLine, area.endCol)
+	buf.moveToRangeStart(area, width)
+
+	return register{lines: lines}, true
+}
+
+// moveToRangeStart 는 뒤로 가는 motion 이었으면 커서를 범위의 시작으로 옮긴다.
+// 앞으로 가는 motion 이면 제자리다. vim 의 `y` 가 그렇다 — `yw` 는 안 움직이고 `yb` 는 앞으로 간다.
+//
+// 자리는 motion 이 커서를 둔 곳 그대로다. 그래서 `yk` 는 칸을 지키고 `ygg` 는 첫 비공백으로 간다.
+func (buf *Buffer) moveToRangeStart(area motionRange, width int) {
+	if area.targetLine > buf.cursorLine ||
+		(area.targetLine == buf.cursorLine && area.targetCol >= buf.cursorCol) {
+		return
+	}
+
+	buf.cursorLine, buf.cursorCol = area.targetLine, area.targetCol
+
+	// 줄 단위 motion 의 칸은 desiredCol 을 이미 따라간 값이라 다시 잡지 않는다.
+	// 글자 단위는 좌우로 움직인 것이라 이동 키와 같이 desiredCol 을 갱신한다.
+	if !area.linewise {
+		buf.updateDesiredCol(width)
+	}
+
+	buf.clampToNormal(width)
+}

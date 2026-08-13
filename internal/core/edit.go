@@ -127,6 +127,29 @@ func (buf *Buffer) insert(text []byte, width int) {
 	buf.updateDesiredCol(width)
 }
 
+// insertLines 는 at 자리에 줄들을 끼운다. at 이 줄 수와 같으면 마지막 줄 뒤다.
+// 줄 단위 붙여넣기가 쓴다. 커서는 건드리지 않는다 — 부르는 쪽이 정한다.
+//
+// 끼우는 자리 옆의 줄 하나를 붙잡고 replaceLines 로 갈아끼운다. 되돌리기 구간은 건드린 줄을
+// 담아야 열리는데(beginEdit), 새로 끼우는 줄은 아직 없는 줄이라 붙잡을 것이 없다.
+func (buf *Buffer) insertLines(at int, lines [][]byte) {
+	anchor := min(at, len(buf.lines)-1)
+
+	next := make([][]byte, 0, len(lines)+1)
+	if at > anchor {
+		// 마지막 줄 뒤다. 앞 줄을 붙잡고 그 뒤에 잇는다.
+		next = append(next, buf.lines[anchor])
+		next = append(next, lines...)
+	} else {
+		next = append(next, lines...)
+		next = append(next, buf.lines[anchor])
+	}
+
+	buf.beginEdit(anchor, 1)
+	buf.replaceLines(anchor, 1, next)
+	buf.growEdit(len(lines))
+}
+
 // openLineBelow 는 지금 줄 아래에 빈 줄을 만들고 커서를 그 줄로 옮긴다. `o` 가 쓴다.
 //
 // 줄 끝으로 가서 줄바꿈을 넣는 것과 같다. insert 를 그대로 쓰므로 되돌리기 구간도 거기서 열린다 —

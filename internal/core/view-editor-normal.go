@@ -136,6 +136,17 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// `y` 도 같은 모양이다. 범위 계산은 `d` 와 같은 것을 쓰고 파일은 건드리지 않는다(ADR-0017).
+	if motion, found := strings.CutPrefix(key.name, "y "); found {
+		if yanked, ok := buf.yankByMotion(motion, key.count, width); ok {
+			m.register = yanked
+		}
+
+		buf.scrollTo(width, m.textHeight())
+
+		return m, nil
+	}
+
 	switch key.name {
 	case "ctrl+c":
 		// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
@@ -187,6 +198,11 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		if deleted, ok := buf.deleteByMotion("l", key.count, width); ok {
 			m.register = deleted
 		}
+	case "p":
+		// 지우거나 복사한 것을 커서 뒤에 붙인다. 비어 있으면 아무 일도 하지 않는다.
+		buf.pasteAfter(m.register, n, width)
+	case "P":
+		buf.pasteBefore(m.register, n, width)
 	case "u":
 		buf.applyUndo(width)
 		buf.clampToNormal(width)
