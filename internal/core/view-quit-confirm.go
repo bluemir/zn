@@ -66,28 +66,56 @@ func (m viewQuitConfirm) Init() tea.Cmd {
 func (m viewQuitConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			return Exit()
-		case "left", "y":
-			m.cursor = 0
-			return m, nil
-		case "right", "n":
-			m.cursor = 1
-			return m, nil
-		case "esc":
-			return m.parent, nil
-		case "enter":
-			switch m.cursor {
-			case 0:
-				return m.confirm()
-			case 1:
-				return m.parent, nil
-			default:
-				return ExitWithError(errors.Errorf("Invalid state"))
+		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
+		// 편집 화면과 같은 방식이다 — 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
+		keys := hangulKeys(msg.String())
+		if keys == nil {
+			return m.press(msg.String())
+		}
+
+		var model tea.Model = m
+		for _, key := range keys {
+			confirm, ok := model.(viewQuitConfirm)
+			if !ok {
+				// 앞의 키에서 창을 벗어났다. 남은 키는 버린다.
+				return model, nil
 			}
+
+			next, cmd := confirm.press(key)
+			if cmd != nil {
+				return next, cmd
+			}
+
+			model = next
+		}
+
+		return model, nil
+	default:
+		return m, nil
+	}
+}
+
+// press 는 키 하나를 먹는다.
+func (m viewQuitConfirm) press(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "ctrl+c":
+		return Exit()
+	case "left", "y":
+		m.cursor = 0
+		return m, nil
+	case "right", "n":
+		m.cursor = 1
+		return m, nil
+	case "esc":
+		return m.parent, nil
+	case "enter":
+		switch m.cursor {
+		case 0:
+			return m.confirm()
+		case 1:
+			return m.parent, nil
 		default:
-			return m, nil
+			return ExitWithError(errors.Errorf("Invalid state"))
 		}
 	default:
 		return m, nil

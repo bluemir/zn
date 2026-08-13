@@ -43,28 +43,59 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 알림은 다음 키를 누르면 사라진다.
-		m.message = ""
-
-		// sidebar 가 안 보이면 ctrl+w 를 없는 키로 친다. 접두 키는 다음 키를 삼키는데
-		// (ctrl+c 까지) ctrl+w 는 셸에서 단어 지우기 근육기억이라, 갈 곳도 없는데
-		// 키를 먹으면 안 된다.
-		if msg.String() == "ctrl+w" && !m.sidebarVisible() {
-			return m, nil
+		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
+		keys := hangulKeys(msg.String())
+		if keys == nil {
+			return m.press(msg.String())
 		}
 
-		key, state := m.keyState().press(msg.String())
-		m.state = state
+		// 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
+		var model tea.Model = m
+		for _, key := range keys {
+			normal, ok := model.(viewEditorNormal)
+			if !ok {
+				// 앞의 키에서 mode 가 바뀌었다. 남은 키는 버린다 — 한글 상태로 잘못 들어온
+				// 입력인데 남은 자모가 insert mode 로 흘러가 글자로 꽂히면 안 된다.
+				return model, nil
+			}
 
-		// 아직 다음 키를 기다리는 중이다. 화면은 showcmd 만 바뀐다.
-		if key.name == "" {
-			return m, nil
+			next, cmd := normal.press(key)
+
+			// cmd 를 내는 명령(종료, 확인창) 에서 멈춘다. 뒤에 올 키가 그 결과를 뒤집으면 안 된다.
+			if cmd != nil {
+				return next, cmd
+			}
+
+			model = next
 		}
 
-		return m.run(key)
+		return model, nil
 	default:
 		return m, nil
 	}
+}
+
+// press 는 키 하나를 먹는다. 명령이 완성되면 실행한다.
+func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
+	// 알림은 다음 키를 누르면 사라진다.
+	m.message = ""
+
+	// sidebar 가 안 보이면 ctrl+w 를 없는 키로 친다. 접두 키는 다음 키를 삼키는데
+	// (ctrl+c 까지) ctrl+w 는 셸에서 단어 지우기 근육기억이라, 갈 곳도 없는데
+	// 키를 먹으면 안 된다.
+	if key == "ctrl+w" && !m.sidebarVisible() {
+		return m, nil
+	}
+
+	command, state := m.keyState().press(key)
+	m.state = state
+
+	// 아직 다음 키를 기다리는 중이다. 화면은 showcmd 만 바뀐다.
+	if command.name == "" {
+		return m, nil
+	}
+
+	return m.run(command)
 }
 
 // run 은 완성된 명령 하나를 실행한다.
@@ -91,6 +122,20 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		// 줄 끝 다음 칸은 insert mode 에서만 갈 수 있어서 mode 를 먼저 바꾼다.
 		next, cmd := insertMode(m.editor)
 		buf.moveRight(1, width)
+		buf.scrollTo(width, m.textHeight())
+
+		return next, cmd
+	case "o":
+		// 아래에 빈 줄을 만들고 그 줄에서 넣는다. `a` 와 같은 이유로 mode 를 먼저 바꾼다.
+		next, cmd := insertMode(m.editor)
+		buf.openLineBelow(width)
+		buf.scrollTo(width, m.textHeight())
+
+		return next, cmd
+	case "O":
+		// 위에 빈 줄을 만들고 그 줄에서 넣는다.
+		next, cmd := insertMode(m.editor)
+		buf.openLineAbove(width)
 		buf.scrollTo(width, m.textHeight())
 
 		return next, cmd

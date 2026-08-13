@@ -127,6 +127,27 @@ func (buf *Buffer) insert(text []byte, width int) {
 	buf.updateDesiredCol(width)
 }
 
+// openLineBelow 는 지금 줄 아래에 빈 줄을 만들고 커서를 그 줄로 옮긴다. `o` 가 쓴다.
+//
+// 줄 끝으로 가서 줄바꿈을 넣는 것과 같다. insert 를 그대로 쓰므로 되돌리기 구간도 거기서 열린다 —
+// `o` 로 만든 줄과 이어서 친 글자가 한 번의 `u` 로 같이 사라진다. vim 과 같다.
+//
+// 들여쓰기는 이어받지 않는다. 새 줄은 언제나 빈 줄이다(vim 의 `noautoindent`).
+func (buf *Buffer) openLineBelow(width int) {
+	buf.cursorCol = len(buf.lines[buf.cursorLine])
+	buf.insert([]byte("\n"), width)
+}
+
+// openLineAbove 는 지금 줄 위에 빈 줄을 만들고 커서를 그 줄로 옮긴다. `O` 가 쓴다.
+func (buf *Buffer) openLineAbove(width int) {
+	buf.cursorCol = 0
+	buf.insert([]byte("\n"), width)
+
+	// 줄 맨 앞에서 가르면 원래 내용이 아래로 밀리고 커서가 그것을 따라간다.
+	// 새로 생긴 빈 줄은 그 위이므로 한 줄 되돌아온다.
+	buf.cursorLine--
+}
+
 // deleteBackward 는 커서 앞 글자를 지운다. 줄 시작이면 앞 줄과 합친다.
 func (buf *Buffer) deleteBackward(width int) {
 	if buf.cursorCol > 0 {

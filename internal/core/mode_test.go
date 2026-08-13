@@ -29,7 +29,8 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	default:
 		// 나머지는 글자 키다. Text 가 차 있으면 String() 이 그것을 그대로 준다.
-		return tea.KeyPressMsg{Code: rune(s[0]), Text: s}
+		// 한글도 이 길로 온다 — Code 를 byte 가 아니라 rune 으로 세야 자모가 온전하다.
+		return tea.KeyPressMsg{Code: []rune(s)[0], Text: s}
 	}
 }
 
@@ -117,6 +118,87 @@ func TestEnterInsertWithAOverHangul(t *testing.T) {
 	m = send(m, "a")
 
 	assert.Equal(t, 3, cursorColOf(t, m), "한 글자 = 3 byte")
+}
+
+// o 는 아래에 빈 줄을 만들고 그 줄에서 insert mode 로 들어간다.
+func TestOpenLineBelow(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\ncd\n", 40, 5)
+
+	m = send(m, "o")
+
+	require.IsType(t, viewEditorInsert{}, m)
+	buf := bufferOf(t, m)
+	assert.Equal(t, []string{"ab", "", "cd"}, linesOf(buf))
+	assert.Equal(t, 1, buf.cursorLine, "새로 만든 줄 위")
+	assert.Equal(t, 0, buf.cursorCol)
+}
+
+// 커서가 줄 중간이나 들여쓴 줄에 있어도 새 줄은 빈 줄이다. 들여쓰기를 이어받지 않는다.
+func TestOpenLineBelowIgnoresIndentAndCursor(t *testing.T) {
+	var m tea.Model = newTestEditor("\tab\ncd\n", 40, 5)
+	m = send(m, "right")
+
+	m = send(m, "o", "x")
+
+	assert.Equal(t, []string{"\tab", "x", "cd"}, linesOf(bufferOf(t, m)))
+}
+
+// 마지막 줄에서도 아래에 줄이 생긴다.
+func TestOpenLineBelowAtLastLine(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\n", 40, 5)
+
+	m = send(m, "o", "x")
+
+	buf := bufferOf(t, m)
+	assert.Equal(t, []string{"ab", "x"}, linesOf(buf))
+	assert.Equal(t, 1, buf.cursorLine)
+}
+
+// O 는 위에 빈 줄을 만든다.
+func TestOpenLineAbove(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\ncd\n", 40, 5)
+	m = send(m, "j")
+	require.Equal(t, 1, bufferOf(t, m).cursorLine)
+
+	m = send(m, "O", "x")
+
+	buf := bufferOf(t, m)
+	assert.Equal(t, []string{"ab", "x", "cd"}, linesOf(buf))
+	assert.Equal(t, 1, buf.cursorLine, "새로 만든 줄 위")
+}
+
+// 첫 줄에서 O 를 누르면 파일 맨 앞에 줄이 생긴다.
+func TestOpenLineAboveAtFirstLine(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\n", 40, 5)
+
+	m = send(m, "O", "x")
+
+	buf := bufferOf(t, m)
+	assert.Equal(t, []string{"x", "ab"}, linesOf(buf))
+	assert.Equal(t, 0, buf.cursorLine)
+}
+
+// o 로 만든 줄과 거기에 친 글자는 한 번의 u 로 같이 사라진다. vim 과 같다.
+func TestUndoOpenLineWithTyping(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\n", 40, 5)
+
+	m = send(m, "o", "x", "y", "esc", "u")
+
+	assert.Equal(t, []string{"ab"}, linesOf(bufferOf(t, m)))
+}
+
+// 한글 상태에서도 낼 수 있다. `ㅐ` 가 `o` 이고 `ㅒ`(shift 자리) 가 `O` 다(ADR-0008).
+func TestOpenLineWithHangulKeys(t *testing.T) {
+	var m tea.Model = newTestEditor("ab\n", 40, 5)
+
+	m = send(m, "ㅐ")
+	require.IsType(t, viewEditorInsert{}, m, "ㅐ 는 o 다")
+	assert.Equal(t, []string{"ab", ""}, linesOf(bufferOf(t, m)))
+
+	m = send(m, "esc")
+	m = send(m, "ㅒ")
+	require.IsType(t, viewEditorInsert{}, m, "ㅒ 는 O 다")
+	assert.Equal(t, []string{"ab", "", ""}, linesOf(bufferOf(t, m)))
 }
 
 // esc 는 normal 로 돌아오면서 커서를 왼쪽 글자 위로 옮긴다. vim 과 같다.

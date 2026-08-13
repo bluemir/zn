@@ -41,45 +41,73 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 접두 키를 기다리고 있었으면 이 키가 그 뒤에 붙는 키다.
-		// esc 와 ctrl+c 보다 먼저 봐야 `ctrl+w esc` 가 sidebar 를 나가버리지 않는다.
-		if m.pending != "" {
-			pending := m.pending
-			m.pending = ""
+		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
+		// 편집 화면과 같은 방식이다 — 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
+		keys := hangulKeys(msg.String())
+		if keys == nil {
+			return m.press(msg.String())
+		}
 
-			if pending == "ctrl+w" && (msg.String() == "ctrl+w" || msg.String() == "w") {
-				return normalMode(m.editor)
+		var model tea.Model = m
+		for _, key := range keys {
+			tree, ok := model.(viewSidebar)
+			if !ok {
+				// 앞의 키에서 포커스가 옮겨갔다. 남은 키는 버린다.
+				return model, nil
 			}
 
-			return m, nil
+			next, cmd := tree.press(key)
+			if cmd != nil {
+				return next, cmd
+			}
+
+			model = next
 		}
 
-		switch msg.String() {
-		case "ctrl+c":
-			// 다른 mode 와 같은 경로다. 확인창에서 취소하면 여기로 돌아온다.
-			return quitAll(m, m.editor)
-		case "ctrl+w":
-			m.pending = "ctrl+w"
-
-			return m, nil
-		case "esc":
-			return normalMode(m.editor)
-		case "up", "k":
-			m.sidebar.selected--
-		case "down", "j":
-			m.sidebar.selected++
-		case "enter":
-			return m.enter()
-		default:
-			return m, nil
-		}
-
-		m.sidebar.scrollTo(m.sidebarHeight())
-
-		return m, nil
+		return model, nil
 	default:
 		return m, nil
 	}
+}
+
+// press 는 키 하나를 먹는다.
+func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
+	// 접두 키를 기다리고 있었으면 이 키가 그 뒤에 붙는 키다.
+	// esc 와 ctrl+c 보다 먼저 봐야 `ctrl+w esc` 가 sidebar 를 나가버리지 않는다.
+	if m.pending != "" {
+		pending := m.pending
+		m.pending = ""
+
+		if pending == "ctrl+w" && (key == "ctrl+w" || key == "w") {
+			return normalMode(m.editor)
+		}
+
+		return m, nil
+	}
+
+	switch key {
+	case "ctrl+c":
+		// 다른 mode 와 같은 경로다. 확인창에서 취소하면 여기로 돌아온다.
+		return quitAll(m, m.editor)
+	case "ctrl+w":
+		m.pending = "ctrl+w"
+
+		return m, nil
+	case "esc":
+		return normalMode(m.editor)
+	case "up", "k":
+		m.sidebar.selected--
+	case "down", "j":
+		m.sidebar.selected++
+	case "enter":
+		return m.enter()
+	default:
+		return m, nil
+	}
+
+	m.sidebar.scrollTo(m.sidebarHeight())
+
+	return m, nil
 }
 
 // enter 는 고른 항목을 연다. 디렉터리면 펼치거나 접고, 파일이면 tab 으로 연다.
