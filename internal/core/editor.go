@@ -58,6 +58,24 @@ func (e *editor) prevTab() {
 	e.revealInSidebar(e.buffer().path)
 }
 
+// activePath 는 지금 보고 있는 파일의 절대 경로다. sidebar 가 그 행을 굵게 그린다(ADR-0022).
+//
+// 트리 항목은 절대 경로이고 CLI 로 연 파일은 상대 경로다. tabOf·reveal 과 같은 이유로 맞춰 둔다.
+// 이름 없는 buffer 는 빈 문자열이라 어느 행과도 맞지 않는다.
+func (e editor) activePath() string {
+	path := e.buffers[e.active].path
+	if path == "" {
+		return ""
+	}
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+
+	return abs
+}
+
 // revealInSidebar 는 트리를 그 파일 자리까지 펼치고 고른 뒤 화면 안으로 끌어온다.
 // 보고 있는 파일이 바뀌는 모든 길이 이것을 부른다(ADR-0019).
 //
@@ -464,7 +482,7 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 
 	rows := right
 	if e.sidebarVisible() {
-		cells := e.sidebar.cells(height)
+		cells := e.sidebar.cells(height, e.activePath())
 
 		rows = make([]string, 0, height)
 		for i := range height {

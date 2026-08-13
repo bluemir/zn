@@ -262,7 +262,7 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 func TestSidebarCellsAreExactlyWide(t *testing.T) {
 	s := openSidebar(newTreeFixture(t))
 
-	for i, cell := range s.cells(10) {
+	for i, cell := range s.cells(10, "") {
 		plain := ansi.Strip(cell)
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
 	}
@@ -272,7 +272,7 @@ func TestSidebarCellsAreExactlyWide(t *testing.T) {
 func TestSidebarCellsFillHeight(t *testing.T) {
 	s := openSidebar(t.TempDir())
 
-	cells := s.cells(6)
+	cells := s.cells(6, "")
 
 	require.Len(t, cells, 6)
 	for _, cell := range cells[1:] {
@@ -288,7 +288,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 
 	s := openSidebar(root)
 
-	for i, cell := range s.cells(4) {
+	for i, cell := range s.cells(4, "") {
 		plain := ansi.Strip(cell)
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
 	}
@@ -919,4 +919,63 @@ func TestCloseTabRevealsRemainingFile(t *testing.T) {
 
 	require.Equal(t, "main.go", filepath.Base(m.buffer().path))
 	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
+}
+
+// boldNames 는 굵게 칠해진 행의 이름이다.
+// lipgloss 는 굵기를 다른 속성과 묶어서 내므로 `ESC[1m` 과 `ESC[1;…m` 을 둘 다 본다.
+func boldNames(cells []string) []string {
+	out := []string{}
+	for _, cell := range cells {
+		if !strings.Contains(cell, "\x1b[1m") && !strings.Contains(cell, "\x1b[1;") {
+			continue
+		}
+
+		plain := strings.TrimSpace(ansi.Strip(cell))
+		out = append(out, strings.TrimSpace(strings.TrimSuffix(plain, "│")))
+	}
+
+	return out
+}
+
+// 지금 보고 있는 파일만 굵다. 트리 커서는 포커스가 트리에 있을 때만 보이므로,
+// 편집 중에 트리가 지금 자리를 나타내는 것은 이 굵기뿐이다 (ADR-0022).
+func TestSidebarBoldsActiveFile(t *testing.T) {
+	root := newTreeFixture(t)
+	s := openSidebar(root)
+
+	cells := s.cells(10, filepath.Join(root, "main.go"))
+
+	assert.Equal(t, []string{"main.go"}, boldNames(cells))
+}
+
+// 디렉터리는 더 이상 굵지 않다. 굵기가 뜻 둘을 가지면 읽는 규칙이 흐려진다 (ADR-0022).
+// 디렉터리는 색과 `▸`/`▾` 표시와 `/` 접미로 이미 갈린다.
+func TestSidebarDirIsNotBold(t *testing.T) {
+	s := openSidebar(newTreeFixture(t))
+
+	assert.Empty(t, boldNames(s.cells(10, "")))
+}
+
+// 이름 없는 buffer 는 어느 행과도 맞지 않는다. `:tabnew` 로 만든 tab 이 그렇다.
+func TestSidebarBoldsNothingWithoutName(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	m.buffers = []Buffer{newEmptyBuffer("")}
+
+	assert.Empty(t, boldNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
+}
+
+// tab 을 옮기면 굵은 자리도 따라간다. 트리가 그 자리를 펼치는 것(reveal) 과 짝이다.
+func TestSidebarBoldFollowsActiveTab(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+	m.buffers = []Buffer{
+		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
+	}
+	require.Equal(t, []string{"main.go"}, boldNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
+
+	next := send(tea.Model(m), "g", "t").(viewEditorNormal)
+
+	assert.Equal(t, []string{"spec.md"},
+		boldNames(next.sidebar.cells(next.sidebarHeight(), next.activePath())))
 }

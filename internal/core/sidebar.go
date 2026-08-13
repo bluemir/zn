@@ -350,8 +350,11 @@ func (s sidebar) selectedRow(height int) (int, bool) {
 const labelWidth = sidebarWidth - 2
 
 // 파일 종류별 글자색이다. 256 색 고정값이라 터미널 테마를 타지 않는다(ADR-0005).
+//
+// 굵기는 여기 없다. 굵은 글씨는 "지금 보고 있는 파일" 한 뜻으로만 쓴다(ADR-0022).
+// 디렉터리는 색과 `▸`/`▾` 표시와 `/` 접미로 이미 갈린다.
 var (
-	styleTreeDir     = lipgloss.NewStyle().Foreground(lipgloss.Color("117")).Bold(true)
+	styleTreeDir     = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
 	styleTreeGo      = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))
 	styleTreeDoc     = lipgloss.NewStyle().Foreground(lipgloss.Color("150"))
 	styleTreeWeb     = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
@@ -360,7 +363,11 @@ var (
 
 // cells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
 // 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
-func (s sidebar) cells(height int) []string {
+//
+// activePath 는 지금 보고 있는 파일의 절대 경로다. 그 행만 굵게 그린다(ADR-0022).
+// 트리 커서는 터미널 커서라 포커스가 트리에 있을 때만 보이므로, 편집 중에 트리가
+// 지금 자리를 나타내는 것은 이 굵기뿐이다. 이름 없는 buffer 는 빈 문자열이라 어느 행과도 안 맞는다.
+func (s sidebar) cells(height int, activePath string) []string {
 	rows := s.rows()
 
 	cells := make([]string, 0, max(0, height))
@@ -372,7 +379,7 @@ func (s sidebar) cells(height int) []string {
 			continue
 		}
 
-		cells = append(cells, rows[index].cell())
+		cells = append(cells, rows[index].cell(rows[index].node.path == activePath))
 	}
 
 	return cells
@@ -382,12 +389,18 @@ func (s sidebar) cells(height int) []string {
 //
 // 자르는 것이 색을 입히는 것보다 먼저다. escape 가 섞이면 폭을 셀 수 없다.
 // 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
-func (r treeRow) cell() string {
+func (r treeRow) cell(active bool) string {
 	label := truncateToWidth(r.label(), labelWidth)
 	pad := max(0, labelWidth-screenColAt([]byte(label), len(label)))
 
+	// 굵기는 종류별 색 위에 덧입힌다. 색은 그 파일이 무엇인지, 굵기는 지금 보고 있는지다(ADR-0022).
+	style := r.style()
+	if active {
+		style = style.Bold(true)
+	}
+
 	// 빈 칸은 색 밖에 둔다. 글자색만 쓰므로 어차피 보이지 않지만 escape 를 덜 낸다.
-	return r.style().Render(label) + strings.Repeat(" ", pad) + "│ "
+	return style.Render(label) + strings.Repeat(" ", pad) + "│ "
 }
 
 // label 은 들여쓰기와 펼침 표시가 붙은 이름이다.
