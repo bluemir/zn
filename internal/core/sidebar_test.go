@@ -902,3 +902,21 @@ func TestToggleTreeRevealsCurrentFile(t *testing.T) {
 	require.NotNil(t, e.sidebar.selectedNode())
 	assert.Equal(t, "spec.md", e.sidebar.selectedNode().name)
 }
+
+// tab 을 닫으면 그 자리에 드러난 파일 자리로 트리가 옮겨간다.
+func TestCloseTabRevealsRemainingFile(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+	m.buffers = []Buffer{
+		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
+	}
+	m.active = 1
+	m.revealInSidebar(m.buffer().path)
+	require.Equal(t, "spec.md", m.sidebar.selectedNode().name)
+
+	require.True(t, m.closeTab())
+
+	require.Equal(t, "main.go", filepath.Base(m.buffer().path))
+	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
+}

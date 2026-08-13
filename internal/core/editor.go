@@ -165,6 +165,9 @@ func (e *editor) closeTab() bool {
 	// 마지막 tab 을 닫았으면 왼쪽으로 간다.
 	e.active = min(e.active, len(e.buffers)-1)
 
+	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다.
+	e.revealInSidebar(e.buffer().path)
+
 	return true
 }
 
