@@ -159,6 +159,7 @@ var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace},
 	{name: "파일 다시 읽기", hint: "reload file", run: runReloadFile},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
+	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 }
 
 // label 은 화면에 보이는 것 전부를 이어 붙인 것이다. 매칭이 이것을 본다.
@@ -226,6 +227,15 @@ func reloadFile(e editor) (tea.Model, tea.Cmd) {
 	e.git = readGitStatus()
 
 	return normalModeMessage(e, "다시 읽음: "+buf.path)
+}
+
+// runDisableHighlight 는 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. `:noh` 와 같다.
+//
+// 켜져 있지 않아도 아무 말 하지 않는다 — 끄라고 해서 껐고, 결과가 같다.
+func runDisableHighlight(e editor) (tea.Model, tea.Cmd) {
+	e.search.highlight = false
+
+	return normalMode(e)
 }
 
 func runToggleTree(e editor) (tea.Model, tea.Cmd) {

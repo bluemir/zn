@@ -96,6 +96,7 @@ func TestPaletteCommandMatchesEnglish(t *testing.T) {
 		{"tree", "파일 트리 열기/닫기"},
 		{":tree", "파일 트리 열기/닫기"},
 		{"공백", "줄 끝 공백 지우기"},
+		{"noh", "검색 강조 끄기"},
 	} {
 		hits := filterPalette(testCase.pattern, labels)
 

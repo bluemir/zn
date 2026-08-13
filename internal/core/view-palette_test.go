@@ -187,6 +187,27 @@ func TestPaletteRunsCommand(t *testing.T) {
 	assert.True(t, m.(viewEditorNormal).sidebar.open, "파일 트리가 열렸다")
 }
 
+// 「검색 강조 끄기」는 `:noh` 와 같다. 강조만 끄고 마지막 검색은 남긴다.
+func TestPaletteDisablesSearchHighlight(t *testing.T) {
+	// 팔레트가 들어갈 만큼 넓어야 한다. 좁으면 `ctrl+p` 가 알림만 내고 끝난다.
+	var m tea.Model = newTestEditor("foo bar\n", 80, 20)
+
+	m = typeInto(m, "/foo")
+	m = send(m, "enter")
+	require.Contains(t, contentRowsOf(t, m)[0], styleSearchCurrent.Render("foo"))
+
+	m = send(m, "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+	m = typeInto(m, ">noh")
+	m = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.NotContains(t, contentRowsOf(t, m)[0], styleSearchCurrent.Render("foo"))
+
+	m = send(m, "n")
+	assert.Contains(t, barOf(t, m)[1], "아래에서 처음으로", "마지막 검색은 남아 있다")
+}
+
 // 입력줄이 있는 mode 라 한글은 글자다(ADR-0008).
 func TestPaletteTakesHangulAsText(t *testing.T) {
 	var m tea.Model = newPaletteView(t, 80, 20, "a.go")
