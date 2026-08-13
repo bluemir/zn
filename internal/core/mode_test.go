@@ -25,6 +25,8 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	case "ctrl+w":
 		return tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
+	case "ctrl+p":
+		return tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl}
 	case "ctrl+c":
 		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	default:
@@ -53,6 +55,8 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 	case viewEditorInsert:
 		return v.buffers[v.active]
 	case viewEditorSearch:
+		return v.buffers[v.active]
+	case viewPalette:
 		return v.buffers[v.active]
 	default:
 		t.Fatalf("편집 화면이 아니다: %T", m)

@@ -18,3 +18,4 @@
 - [x] 줄 갈아끼우기 방식으로 편집을 구현한다. backing buffer 에는 쓰지 않는다 (ADR-0001)
 - [x] CLI 인자로 받은 파일을 실제로 연다
 - [x] `core.Run` 이 항상 `Not Implemented` 를 반환하는 것을 고친다. 정상 종료해도 fatal 로그가 찍힌다
+- [x] bootstrap commit 

@@ -114,6 +114,8 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		return quitAll(m, m.editor)
 	case ":":
 		return commandMode(m.editor)
+	case "ctrl+p":
+		return paletteMode(m.editor)
 	case "/":
 		return searchMode(m.editor, searchForward)
 	case "?":

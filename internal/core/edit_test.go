@@ -421,3 +421,84 @@ func TestUndoClampsCursorInNormalMode(t *testing.T) {
 	assert.Equal(t, "ab", string(buf.lines[0]))
 	assert.Less(t, buf.cursorCol, len(buf.lines[0])+1)
 }
+
+// 줄 끝 공백 지우기는 사이에 안 바뀐 줄이 껴 있어도 한 번에 끝난다.
+func TestTrimTrailingSpace(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a  \nb\nc\t\t\n"))
+
+	count := buf.trimTrailingSpace(40)
+
+	assert.Equal(t, 2, count)
+	assert.Equal(t, "a", string(buf.lines[0]))
+	assert.Equal(t, "b", string(buf.lines[1]), "안 바뀐 줄은 그대로")
+	assert.Equal(t, "c", string(buf.lines[2]), "줄 끝 tab 도 지운다")
+}
+
+// 여러 줄을 지워도 `u` 한 번에 전부 돌아온다. 이 기능의 핵심이다.
+func TestTrimTrailingSpaceUndoesAsOne(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a  \nb\nc\t\t\n"))
+	buf.trimTrailingSpace(40)
+
+	require.True(t, buf.applyUndo(40))
+
+	assert.Equal(t, []string{"a  ", "b", "c\t\t"}, linesOf(buf))
+	assert.False(t, buf.applyUndo(40), "되돌릴 것이 하나뿐이었다")
+}
+
+func TestTrimTrailingSpaceRedo(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a  \nb  \n"))
+	buf.trimTrailingSpace(40)
+	buf.applyUndo(40)
+
+	require.True(t, buf.applyRedo(40))
+
+	assert.Equal(t, []string{"a", "b"}, linesOf(buf))
+}
+
+// 지울 것이 없으면 아무 흔적도 남기지 않는다. dirty 가 서면 `[+]` 가 헛되이 붙는다.
+func TestTrimTrailingSpaceNoop(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a\nb\n"))
+
+	count := buf.trimTrailingSpace(40)
+
+	assert.Equal(t, 0, count)
+	assert.False(t, buf.dirty)
+	assert.Empty(t, buf.undo)
+}
+
+// 공백뿐인 줄은 빈 줄이 된다. vim 의 `:%s/\s\+$//e` 와 같다.
+func TestTrimTrailingSpaceEmptiesBlankLine(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("   \n"))
+
+	buf.trimTrailingSpace(40)
+
+	assert.Equal(t, "", string(buf.lines[0]))
+}
+
+// 커서가 잘려나간 자리에 있었으면 당겨지고, `u` 로 원래 칸에 돌아온다.
+func TestTrimTrailingSpaceMovesCursor(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("ab    \n"))
+	buf.cursorCol = 5
+
+	buf.trimTrailingSpace(40)
+	assert.Equal(t, 2, buf.cursorCol)
+
+	buf.applyUndo(40)
+	assert.Equal(t, 5, buf.cursorCol)
+}
+
+// 앞의 타이핑 구간과 섞이지 않는다. 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
+func TestTrimTrailingSpaceDoesNotJoinOpenEdit(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a  \n"))
+	buf.insert([]byte("X"), 40)
+	require.Equal(t, "Xa  ", string(buf.lines[0]))
+
+	buf.trimTrailingSpace(40)
+	require.Equal(t, "Xa", string(buf.lines[0]))
+
+	buf.applyUndo(40)
+	assert.Equal(t, "Xa  ", string(buf.lines[0]), "공백만 돌아온다")
+
+	buf.applyUndo(40)
+	assert.Equal(t, "a  ", string(buf.lines[0]), "타이핑은 그 다음이다")
+}

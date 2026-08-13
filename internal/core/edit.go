@@ -188,6 +188,65 @@ func (buf *Buffer) deleteBackward(width int) {
 	buf.updateDesiredCol(width)
 }
 
+// trimTrailingSpace 는 모든 줄 끝의 공백과 tab 을 지운다. 지운 줄 수를 돌려준다.
+//
+// 지우는 것은 `' '` 와 `'\t'` 뿐이다. 유니코드 공백(NBSP 등) 은 건드리지 않는다 —
+// 눈에 보이지 않는 글자가 조용히 사라지는 것이 더 나쁘고, 일부러 넣는 문서가 있다.
+//
+// 바뀌는 줄 전체를 한 번에 갈아끼운다. 줄마다 beginEdit 를 부르면 두 번째부터 열린 구간을
+// 넓히면서 **이미 잘린 지금 내용** 을 되돌릴 내용으로 담아서, `u` 를 눌러도 원본이 돌아오지 않는다.
+func (buf *Buffer) trimTrailingSpace(width int) int {
+	// 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가 서고 redo 가 날아간다. 먼저 훑기만 한다.
+	first, last, count := -1, -1, 0
+	for i, line := range buf.lines {
+		if len(line) == len(trimLineEnd(line)) {
+			continue
+		}
+
+		if first < 0 {
+			first = i
+		}
+		last = i
+		count++
+	}
+	if count == 0 {
+		return 0
+	}
+
+	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
+	buf.endEdit()
+	buf.beginEdit(first, last-first+1)
+
+	// 사이에 낀 안 바뀐 줄은 원본 그대로 담는다. 범위를 파일 전체로 넓히지 않으려는 것뿐이다.
+	next := make([][]byte, 0, last-first+1)
+	for _, line := range buf.lines[first : last+1] {
+		next = append(next, trimLineEnd(line))
+	}
+
+	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
+	buf.replaceLines(first, last-first+1, next)
+
+	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
+	// beginEdit 가 이미 원래 자리를 기록했으므로 `u` 로 되돌리면 거기로 돌아간다.
+	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.updateDesiredCol(width)
+
+	buf.endEdit()
+
+	return count
+}
+
+// trimLineEnd 는 줄 끝의 공백과 tab 을 뗀 부분이다.
+// 자르기만 하므로 새로 할당하지 않는다(ADR-0001).
+func trimLineEnd(line []byte) []byte {
+	end := len(line)
+	for end > 0 && (line[end-1] == ' ' || line[end-1] == '\t') {
+		end--
+	}
+
+	return line[:end]
+}
+
 // applyUndo 는 마지막 변경을 되돌린다. 되돌릴 것이 없으면 false 다.
 func (buf *Buffer) applyUndo(width int) bool {
 	buf.endEdit()

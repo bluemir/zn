@@ -3,8 +3,6 @@
 GO_SOURCES = $(shell find . -name "vendor"  -prune -o \
                             -type f -name "*.go" -print)
 
-build/docker-image: $(GO_SOURCES)
-
 # dev build (default, serves source files directly)
 # no tag means //go:build !prod is used automatically
 .PHONY: build

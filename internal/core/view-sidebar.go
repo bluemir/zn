@@ -93,6 +93,9 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 		m.pending = "ctrl+w"
 
 		return m, nil
+	case "ctrl+p":
+		// 트리를 뒤지다 이름으로 건너뛰는 길이다. 팔레트가 끝나면 편집 영역으로 나온다.
+		return paletteMode(m.editor)
 	case "esc":
 		return normalMode(m.editor)
 	case "up", "k":

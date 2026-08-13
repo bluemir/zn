@@ -1,0 +1,240 @@
+package core
+
+import (
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// newPaletteView 는 파일 목록을 직접 넣은 팔레트다. os.Getwd 와 git 을 타지 않아 결과가 고정된다.
+func newPaletteView(t *testing.T, width, height int, files ...string) viewPalette {
+	t.Helper()
+
+	m := viewPalette{editor: newTestEditor("a\nb\n", width, height).editor, files: files}
+	m.filter()
+
+	return m
+}
+
+// boxRowsOf 는 화면에서 박스가 차지하는 칸만 떼어 색을 빼고 돌려준다.
+// 박스는 sidebar 나 편집 내용 위에 겹쳐 있으므로 양옆을 잘라내야 박스만 남는다.
+func boxRowsOf(t *testing.T, m viewPalette) []string {
+	t.Helper()
+
+	left, width := m.paletteLeft(), m.paletteWidth()
+
+	rows := []string{}
+	for _, row := range strings.Split(m.View().Content, "\n") {
+		plain := ansi.Strip(row)
+		if !strings.ContainsAny(plain, "┌│└├") {
+			continue
+		}
+
+		cut := ansi.Truncate(ansi.TruncateLeft(plain, left, ""), width, "")
+		if strings.HasPrefix(cut, "┌") || strings.HasPrefix(cut, "│") ||
+			strings.HasPrefix(cut, "└") || strings.HasPrefix(cut, "├") {
+			rows = append(rows, cut)
+		}
+	}
+
+	return rows
+}
+
+func TestPaletteOpensWithCtrlP(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 80, 20)
+
+	m = send(m, "ctrl+p")
+
+	assert.IsType(t, viewPalette{}, m)
+	assert.Contains(t, barOf(t, m)[0], "PALETTE")
+}
+
+// sidebar 에서 열어도 끝나면 편집 영역으로 나온다.
+func TestPaletteFromSidebarReturnsToNormal(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 20)
+
+	m = send(m, "ctrl+w", "ctrl+w")
+	require.IsType(t, viewSidebar{}, m)
+
+	m = send(m, "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(m, "esc")
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+// 박스를 얹어도 화면이 커지면 안 된다. 커지면 터미널이 줄을 흘려서 아래가 통째로 밀린다.
+func TestPaletteDoesNotGrowScreen(t *testing.T) {
+	plain := newTestEditor("a\nb\n", 80, 20)
+	m := newPaletteView(t, 80, 20, "internal/core/edit.go", "main.go")
+
+	before := strings.Split(plain.View().Content, "\n")
+	after := strings.Split(m.View().Content, "\n")
+
+	require.Equal(t, len(before), len(after))
+	for i, row := range after {
+		assert.LessOrEqual(t, ansi.StringWidth(row), m.width, "행 %d", i)
+	}
+}
+
+// 박스는 편집 영역이 아니라 화면 가운데다. sidebar 를 여닫아도 자리가 그대로여야 한다.
+func TestPaletteBoxIsCenteredOnScreen(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "main.go")
+	tree := newPaletteView(t, 80, 20, "main.go")
+	tree.sidebar = openSidebar(newTreeFixture(t))
+
+	for _, view := range []viewPalette{m, tree} {
+		rows := boxRowsOf(t, view)
+		require.NotEmpty(t, rows)
+
+		// 박스가 그 자리에 있어야 boxRowsOf 가 테두리로 시작하는 행을 찾아낸다.
+		assert.Equal(t, (80-view.paletteWidth())/2, view.paletteLeft())
+		assert.True(t, strings.HasPrefix(rows[0], "┌"))
+
+		for _, row := range rows {
+			assert.Equal(t, view.paletteWidth(), ansi.StringWidth(row))
+		}
+	}
+}
+
+// statusBar 는 팔레트가 떠도 그대로 화면 끝까지 이어진다.
+func TestPaletteKeepsStatusBar(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "main.go")
+
+	bar := barOf(t, m)
+
+	require.Len(t, bar, statusBarHeight)
+	assert.Contains(t, bar[0], "PALETTE")
+	assert.Contains(t, bar[1], "1/1", "몇 개 중 몇 개가 걸렸는지")
+}
+
+func TestPaletteRefusesNarrowScreen(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 20, 20)
+
+	m = send(m, "ctrl+p")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "화면이 좁아")
+}
+
+// 열린 뒤 좁아지면 나간다. 보이지 않는 mode 에 갇히면 키를 쳐도 아무 일이 안 난다.
+func TestPaletteLeavesWhenScreenShrinks(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "main.go")
+
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 20, Height: 20})
+
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+func TestPaletteMovesSelectionWithinBounds(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
+
+	m = send(m, "up")
+	assert.Zero(t, m.(viewPalette).selected, "위 끝에서 멈춘다")
+
+	m = send(m, "down", "down", "down")
+	assert.Equal(t, 1, m.(viewPalette).selected, "아래 끝에서 멈춘다")
+}
+
+// 여는 키를 다시 눌러도 아무 일도 하지 않는다.
+func TestPaletteIgnoresCtrlP(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
+	m = send(m, "down")
+
+	m = send(m, "ctrl+p")
+
+	assert.Equal(t, 1, m.(viewPalette).selected)
+}
+
+func TestPaletteBackspaceOnEmptyLeaves(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "a.go")
+
+	m = send(m, "a", "backspace")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(m, "backspace")
+	assert.IsType(t, viewEditorNormal{}, m)
+}
+
+// `>` 는 별도 상태가 아니다. 지우면 파일 목록으로 저절로 돌아온다.
+func TestPaletteSwitchesToCommandsWithAngle(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
+
+	m = send(m, ">")
+	assert.Len(t, m.(viewPalette).hits, len(paletteCommands))
+
+	m = send(m, "t", "r", "e", "e")
+	require.Len(t, m.(viewPalette).hits, 1)
+	assert.Equal(t, "파일 트리 열기/닫기", paletteCommands[m.(viewPalette).hits[0].index].name)
+
+	m = send(m, "backspace", "backspace", "backspace", "backspace", "backspace")
+	assert.Len(t, m.(viewPalette).hits, 2, "파일 목록으로 돌아온다")
+}
+
+// 명령을 고르면 그 자리에서 실행된다.
+func TestPaletteRunsCommand(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "a.go")
+
+	m = send(m, ">", "t", "r", "e", "e", "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.True(t, m.(viewEditorNormal).sidebar.open, "파일 트리가 열렸다")
+}
+
+// 입력줄이 있는 mode 라 한글은 글자다(ADR-0008).
+func TestPaletteTakesHangulAsText(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "a.go")
+
+	m = send(m, "ㅁ")
+
+	assert.Equal(t, "ㅁ", m.(viewPalette).input)
+}
+
+// 두 칸 글자가 경계에 걸려도 행은 정확히 박스 폭이다.
+func TestPaletteRowWidthWithWideChars(t *testing.T) {
+	m := newPaletteView(t, 40, 20, strings.Repeat("한글", 20)+".go")
+
+	for _, row := range boxRowsOf(t, m) {
+		assert.Equal(t, m.paletteWidth(), ansi.StringWidth(strings.TrimLeft(row, " ")))
+	}
+}
+
+// 맞은 글자에만 색이 붙는다.
+func TestPaletteHighlightsMatch(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "edit.go", "editor.go")
+	m = send(m, "e", "d")
+
+	// 고른 행은 반전만 쓰므로 아래 행에서 강조를 본다.
+	m = send(m, "down")
+
+	// 합성을 지나면 색 escape 가 다시 만들어져서 속성 순서가 달라진다. 색 번호와 글자로 본다.
+	assert.Regexp(t, `38;5;214[^m]*med`, m.View().Content)
+}
+
+// 파일을 고르면 tab 으로 열린다. 이미 열려 있으면 그 tab 으로 간다(openTab).
+func TestPaletteOpensFile(t *testing.T) {
+	// cwd 가 이 package 디렉터리라 실제로 있는 파일을 쓴다.
+	var m tea.Model = newPaletteView(t, 80, 20, "editor.go")
+
+	m = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	normal := m.(viewEditorNormal)
+	assert.Len(t, normal.buffers, 2)
+	assert.Equal(t, "editor.go", normal.buffers[normal.active].path)
+}
+
+// 없는 파일을 고르면 알리고 만다. 목록을 읽은 뒤에 지워졌을 수 있다.
+func TestPaletteTellsWhenFileIsGone(t *testing.T) {
+	var m tea.Model = newPaletteView(t, 80, 20, "없는-파일.go")
+
+	m = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Len(t, m.(viewEditorNormal).buffers, 1)
+	assert.NotEmpty(t, barOf(t, m)[1])
+}
