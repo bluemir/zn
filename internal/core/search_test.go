@@ -400,7 +400,7 @@ func TestRenderPartsDimsMarker(t *testing.T) {
 // 검색은 tab 을 넘어 남는다. `n` 이 다른 tab 에서도 같은 것을 찾는다.
 func TestSearchSurvivesTabSwitch(t *testing.T) {
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{
 				newBuffer("a.txt", []byte("foo\nbar\n")),
 				newBuffer("b.txt", []byte("baz\nfoo\n")),

@@ -14,7 +14,7 @@ import (
 // newTestEditor 의 height 는 편집 내용을 그릴 높이다. tabline 과 statusBar 는 별도로 얹힌다.
 func newTestEditor(data string, width, height int) viewEditorNormal {
 	return viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newBuffer("test.txt", []byte(data))},
 			width:   width,
 			height:  height + tablineHeight + statusBarHeight,

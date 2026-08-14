@@ -8,11 +8,18 @@ import (
 
 // ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
 // confirm 은 Yes 를 눌렀을 때 갈 곳이다. 종료일 수도, tab 닫기일 수도, 다시 읽기일 수도 있다.
-func ConfirmDiscard(parent tea.Model, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
-	return viewConfirmDiscard{parent: parent, question: question, confirm: confirm}
+func ConfirmDiscard(parent tea.Model, e *editor, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
+	return viewConfirmDiscard{editor: e, parent: parent, question: question, confirm: confirm}
 }
 
+// viewConfirmDiscard 는 이 창만의 상태(고른 자리, 물음, Yes 로 갈 곳) 를 든다.
+//
+// editor 는 이 창이 그리지 않는다 — 자기 화면을 따로 그리고 statusBar 도 없다.
+// 그래도 들고 있는 것은 다른 mode 와 같이 백그라운드 작업의 진행을 받기 위해서다.
+// 창이 떠 있는 동안 온 진행이 버려지면 부모로 돌아갔을 때 표시가 뒤로 돌아간다.
 type viewConfirmDiscard struct {
+	*editor
+
 	parent   tea.Model
 	question string
 	confirm  func() (tea.Model, tea.Cmd)
@@ -50,11 +57,13 @@ func (m viewConfirmDiscard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
-	case jobProgressMsg:
-		// 이 창은 editor 를 들고 있지 않아 진행을 반영할 곳이 없다. 그렇다고 흘려보내면
-		// 다음 조각을 받을 Cmd 를 아무도 발행하지 않아 작업이 영영 멈춘다. 고리만 잇는다 —
-		// 놓친 진행은 부모로 돌아간 뒤 다음 조각이 통째로 채운다(job.go).
-		return m, waitJob(msg.name, msg.ch)
+	case jobProgressMsg, jobDoneMsg:
+		// 백그라운드 작업의 진행은 mode 와 무관하다. 공용 처리가 statusBar 에 반영하고
+		// 다음 조각을 받을 Cmd 를 준다(job.go).
+		//
+		// 이 창은 statusBar 를 그리지 않지만 그래도 받아야 한다. 흘려보내면 다음 조각을 받을
+		// Cmd 를 아무도 발행하지 않아 작업이 영영 멈춘다.
+		return m, m.handleJob(msg)
 	default:
 		return m, nil
 	}
@@ -138,9 +147,9 @@ func cursor(cond bool, str string) string {
 // 어느 tab 이든 저장하지 않은 변경이 있으면 확인창을 띄운다. 보고 있지 않은 tab 의 변경도
 // 같이 잃기 때문에 활성 buffer 만 봐서는 안 된다. 잃을 것이 없으면 묻지 않고 나간다.
 // parent 는 확인창에서 취소했을 때 돌아갈 화면이다.
-func quitAll(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
+func quitAll(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	if e.anyDirty() {
-		return ConfirmDiscard(parent, "정말 종료 하시겠습니까?", Exit), nil
+		return ConfirmDiscard(parent, e, "정말 종료 하시겠습니까?", Exit), nil
 	}
 
 	return Exit()
@@ -150,13 +159,13 @@ func quitAll(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
 // 마지막 tab 이면 닫을 것이 없으므로 종료가 된다.
 //
 // 활성 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다. 다른 tab 의 변경은 남으므로 묻지 않는다.
-func closeTab(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
+func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	if len(e.buffers) < 2 {
 		return quitAll(parent, e)
 	}
 
 	if e.buffer().dirty {
-		return ConfirmDiscard(parent, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return ConfirmDiscard(parent, e, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return forceCloseTab(e)
 		}), nil
 	}
@@ -165,7 +174,7 @@ func closeTab(parent tea.Model, e editor) (tea.Model, tea.Cmd) {
 }
 
 // forceCloseTab 은 묻지 않고 활성 tab 을 닫는다. `:q!` 와 확인창의 Yes 가 쓴다.
-func forceCloseTab(e editor) (tea.Model, tea.Cmd) {
+func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 	if !e.closeTab() {
 		return Exit()
 	}

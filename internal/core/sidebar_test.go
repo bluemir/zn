@@ -231,7 +231,7 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 	t.Helper()
 
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
 			width:   width,
 			height:  height + tablineHeight + statusBarHeight,
@@ -682,7 +682,7 @@ func TestSidebarEnterMatchesRelativePath(t *testing.T) {
 	t.Chdir(root)
 
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			// CLI 로 상대 경로로 연 것과 같은 모양이다.
 			buffers: []Buffer{newBuffer("README.md", []byte("x\n"))},
 			width:   80,
@@ -704,7 +704,7 @@ func TestSidebarEnterRefusesNonRegularFile(t *testing.T) {
 	require.NoError(t, exec.Command("mkfifo", filepath.Join(root, "pipe")).Run())
 
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newBuffer("main.go", []byte("a\n"))},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,

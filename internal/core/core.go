@@ -14,7 +14,7 @@ func Run(ctx context.Context, files []string) error {
 		return err
 	}
 
-	e := editor{buffers: buffers, git: readGitStatus()}
+	e := &editor{buffers: buffers, git: readGitStatus()}
 
 	// filetree 는 기본으로 열어둔다. `:tree` 로 닫는다.
 	//

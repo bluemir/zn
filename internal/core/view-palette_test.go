@@ -274,7 +274,7 @@ func newFilePalette(t *testing.T, path, input string) viewPalette {
 	require.NoError(t, err)
 
 	m := viewPalette{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{buf},
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
@@ -329,7 +329,7 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 // Yes 를 눌러도 실패로 끝나는 확인창은 띄우지 않는다.
 func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 	m := viewPalette{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newEmptyBuffer("")},
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,

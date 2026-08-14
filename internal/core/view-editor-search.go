@@ -11,7 +11,7 @@ import (
 // 치는 동안 첫 매칭으로 커서와 화면이 따라간다(vim 의 incsearch). 그래서 들어온 자리와
 // 들어올 때의 검색을 들고 있다가 `Esc` 로 나가면 되돌린다 — 미리보기가 실제 이동으로 남으면
 // 검색을 무를 방법이 없다.
-func searchMode(e editor, direction searchDirection) (tea.Model, tea.Cmd) {
+func searchMode(e *editor, direction searchDirection) (tea.Model, tea.Cmd) {
 	buf := e.buffer()
 
 	return viewEditorSearch{
@@ -28,7 +28,7 @@ func searchMode(e editor, direction searchDirection) (tea.Model, tea.Cmd) {
 }
 
 type viewEditorSearch struct {
-	editor
+	*editor
 
 	direction searchDirection
 	input     string // `/` 나 `?` 뒤에 친 것
@@ -190,7 +190,7 @@ func (m viewEditorSearch) prompt() string {
 
 // jumpToMatch 는 지금 검색을 n 번 되풀이해 커서를 옮기고 결과를 아래 줄에 알린다.
 // `/` `?` `n` `N` `*` `#` 가 모두 이 길로 온다.
-func (e editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.Cmd) {
+func (e *editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.Cmd) {
 	if e.search.pattern == nil {
 		return normalModeMessage(e, "이전 검색이 없습니다")
 	}
@@ -233,7 +233,7 @@ func wrapMessage(direction searchDirection) string {
 }
 
 // searchWord 는 커서 아래 단어를 그대로 찾는다. vim 의 `*` `#` 다.
-func (e editor) searchWord(direction searchDirection, n int) (tea.Model, tea.Cmd) {
+func (e *editor) searchWord(direction searchDirection, n int) (tea.Model, tea.Cmd) {
 	buf := e.buffer()
 
 	word, col, ok := buf.wordUnderCursor()

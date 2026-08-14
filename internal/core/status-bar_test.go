@@ -103,7 +103,7 @@ func TestStatusBarShowsPath(t *testing.T) {
 
 func TestStatusBarShowsNoNameForEmptyPath(t *testing.T) {
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newEmptyBuffer("")},
 			width:   40,
 			height:  3 + tablineHeight + statusBarHeight,
@@ -210,7 +210,7 @@ func TestStatusBarSkipsShowcmdWhenNarrow(t *testing.T) {
 // statusBar 가 화면 너비를 넘으면 터미널이 줄바꿈해서 화면이 밀린다.
 func TestStatusBarTruncatesToWidth(t *testing.T) {
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newBuffer(strings.Repeat("long-path/", 20)+"file.txt", []byte("abc\n"))},
 			width:   20,
 			height:  3 + tablineHeight + statusBarHeight,
@@ -276,7 +276,7 @@ func TestTextAreaHasNoColor(t *testing.T) {
 func TestTinyScreenDoesNotPanic(t *testing.T) {
 	for _, height := range []int{0, 1, 2, 3} {
 		m := viewEditorNormal{
-			editor: editor{
+			editor: &editor{
 				buffers: []Buffer{newBuffer("t", []byte("a\nb\n"))},
 				width:   10,
 				height:  height,

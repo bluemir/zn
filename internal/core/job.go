@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,8 +37,8 @@ type job struct {
 
 // jobProgressMsg 는 다음 조각을 받을 채널을 같이 들고 다닌다.
 //
-// 목록에서 찾지 않으므로 editor 복사본이 어긋나도 이어받는 고리가 끊기지 않는다.
-// 확인창처럼 editor 를 아예 들고 있지 않은 화면도 고리를 이어줄 수 있다.
+// 받은 자리에서 바로 고리를 이을 수 있어서 목록을 뒤질 필요가 없다. 아직 목록에 없는
+// 이름의 조각이 와도 마찬가지다.
 type jobProgressMsg struct {
 	name string
 	ch   <-chan jobProgress
@@ -116,37 +117,24 @@ func (e editor) jobRunning(name string) bool {
 }
 
 // putJob 은 진행을 갱신한다. 목록에 없으면 맨 뒤에 붙는다 —
-// 확인창을 거치며 목록이 어긋난 복사본으로 돌아왔어도 다음 조각 하나로 다시 맞는다.
-//
-// buffers 와 같은 이유로 목록을 새로 할당한다(closeTab 참고).
+// 시작한 자리를 지나온 msg 여도 여기서 목록에 자리를 잡는다.
 func (e *editor) putJob(next job) {
-	jobs := make([]job, len(e.jobs), len(e.jobs)+1)
-	copy(jobs, e.jobs)
-
-	for i := range jobs {
-		if jobs[i].name == next.name {
-			jobs[i] = next
-			e.jobs = jobs
+	for i := range e.jobs {
+		if e.jobs[i].name == next.name {
+			e.jobs[i] = next
 
 			return
 		}
 	}
 
-	e.jobs = append(jobs, next)
+	e.jobs = append(e.jobs, next)
 }
 
 // removeJob 은 끝난 작업을 목록에서 뺀다.
 func (e *editor) removeJob(name string) {
-	jobs := make([]job, 0, len(e.jobs))
-	for _, running := range e.jobs {
-		if running.name == name {
-			continue
-		}
-
-		jobs = append(jobs, running)
-	}
-
-	e.jobs = jobs
+	e.jobs = slices.DeleteFunc(e.jobs, func(running job) bool {
+		return running.name == name
+	})
 }
 
 // 막대 크기다. 칸 하나가 여섯 단계라 열 칸이면 예순 단계다.

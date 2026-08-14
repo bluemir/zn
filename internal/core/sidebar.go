@@ -18,13 +18,12 @@ const minTextWidth = 20
 
 // sidebar 는 좌측 파일 트리다.
 //
-// mode 가 바뀌어도 유지되어야 하므로 editor 가 값으로 들고 있다.
+// mode 가 바뀌어도 유지되어야 하므로 editor 가 들고 있다.
 // tea.Model 이 아니라 평범한 struct 다 — 중첩 model 로 만들면 키가 어디서 처리되는지가
 // 한 겹 숨는다. ADR-0002 가 型 교체를 고른 것은 pane 이 아니라 mode 에 대해서였다.
 // 포커스가 여기 있는 상태만 mode(viewSidebar) 로 나타낸다.
 //
-// tree 가 포인터라서 editor 를 값으로 복사해도 트리는 공유된다.
-// buffers 의 backing array 가 공유되는 것과 같고, 펼친 상태가 mode 를 넘어 남으려면 그래야 한다.
+// tree 는 포인터로 이은 항목들이다. editor 하나를 mode 마다 나눠 쓰므로 펼친 상태가 mode 를 넘어 남는다.
 type sidebar struct {
 	// open 은 사용자가 열어둔 상태인지다. 실제로 그리는지는 editor.sidebarVisible 이 정한다.
 	open bool

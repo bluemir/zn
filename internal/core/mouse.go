@@ -66,7 +66,7 @@ func (e *editor) clickText(x, y int) {
 //
 // 고르기와 열기를 클릭 한 번으로 같이 한다. double-click 을 알 수 없고
 // (bubbletea 의 Mouse 에 누른 횟수가 없다) 트리에서는 이것이 오히려 `enter` 와 같아서 자연스럽다.
-func (e editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
+func (e *editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
 	if !e.sidebar.selectRow(y, e.sidebarHeight()) {
 		return viewSidebar{editor: e}, nil
 	}

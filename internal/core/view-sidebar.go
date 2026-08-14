@@ -12,14 +12,14 @@ import (
 // 키 해석이 통째로 다르다 — 위아래가 커서 이동이 아니라 트리 이동이다.
 // 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 型 을 따로 뒀다(ADR-0002).
 // 트리 자체(펼친 상태, 고른 항목)는 mode 를 넘어 살아야 하므로 editor.sidebar 에 있다.
-func sidebarMode(e editor) (tea.Model, tea.Cmd) {
+func sidebarMode(e *editor) (tea.Model, tea.Cmd) {
 	e.sidebar.scrollTo(e.sidebarHeight())
 
 	return viewSidebar{editor: e}, nil
 }
 
 type viewSidebar struct {
-	editor
+	*editor
 
 	// pending 은 ctrl+w 처럼 뒤에 키가 하나 더 붙는 접두 키다.
 	pending string

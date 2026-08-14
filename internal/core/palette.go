@@ -190,10 +190,9 @@ type paletteCommand struct {
 	hint  string
 	alias string
 
-	// run 은 editor 를 값으로 받는다. normalMode·commandMode·quitAll 과 같은 서명이다.
-	// 값이라서 안전한 이유도 같다 — buffer 는 공유되는 backing array 를 가리키고,
-	// sidebar 처럼 값인 필드는 여기서 바꾼 복사본이 그대로 다음 화면에 넘어간다.
-	run func(e editor) (tea.Model, tea.Cmd)
+	// run 은 editor 를 포인터로 받는다. normalMode·commandMode·quitAll 과 같은 서명이고,
+	// 여기서 고친 것이 곧 다음 화면의 상태다(ADR-0026).
+	run func(e *editor) (tea.Model, tea.Cmd)
 }
 
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
@@ -215,7 +214,7 @@ func (c paletteCommand) detail() string {
 	return strings.TrimRight(c.hint+" "+c.alias, " ")
 }
 
-func runTrimTrailingSpace(e editor) (tea.Model, tea.Cmd) {
+func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.buffer()
 	width := e.contentWidth()
 
@@ -234,7 +233,7 @@ func runTrimTrailingSpace(e editor) (tea.Model, tea.Cmd) {
 //
 // 저장하지 않은 변경이 있으면 그것이 사라지므로 한 번 더 묻는다. 팔레트 항목에는 `:w!` 의 `!`
 // 처럼 강제를 붙일 자리가 없어서 확인창을 쓴다 (ADR-0016).
-func runReloadFile(e editor) (tea.Model, tea.Cmd) {
+func runReloadFile(e *editor) (tea.Model, tea.Cmd) {
 	// 이름이 없으면 다시 읽을 곳도 없다. 물어보기 전에 여기서 끝낸다 —
 	// Yes 를 눌러도 실패로 끝나는 확인창을 띄우지 않는다.
 	if e.buffer().path == "" {
@@ -248,13 +247,13 @@ func runReloadFile(e editor) (tea.Model, tea.Cmd) {
 	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 	back, _ := normalMode(e)
 
-	return ConfirmDiscard(back, "다시 읽으시겠습니까?", func() (tea.Model, tea.Cmd) {
+	return ConfirmDiscard(back, e, "다시 읽으시겠습니까?", func() (tea.Model, tea.Cmd) {
 		return reloadFile(e)
 	}), nil
 }
 
 // reloadFile 은 묻지 않고 다시 읽는다. 확인창의 Yes 와 dirty 가 아닐 때가 쓴다.
-func reloadFile(e editor) (tea.Model, tea.Cmd) {
+func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.buffer()
 
 	if err := buf.Reload(); err != nil {
@@ -274,13 +273,13 @@ func reloadFile(e editor) (tea.Model, tea.Cmd) {
 // runDisableHighlight 는 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. `:noh` 와 같다.
 //
 // 켜져 있지 않아도 아무 말 하지 않는다 — 끄라고 해서 껐고, 결과가 같다.
-func runDisableHighlight(e editor) (tea.Model, tea.Cmd) {
+func runDisableHighlight(e *editor) (tea.Model, tea.Cmd) {
 	e.search.highlight = false
 
 	return normalMode(e)
 }
 
-func runToggleTree(e editor) (tea.Model, tea.Cmd) {
+func runToggleTree(e *editor) (tea.Model, tea.Cmd) {
 	if err := e.toggleTree(); err != nil {
 		return normalModeMessage(e, errors.Cause(err).Error())
 	}

@@ -29,7 +29,7 @@ func newFilesEditor(t *testing.T, names ...string) (viewEditorNormal, string) {
 	}
 
 	return viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: buffers,
 			width:   60,
 			height:  5 + tablineHeight + statusBarHeight,

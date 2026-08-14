@@ -76,30 +76,27 @@ func TestJobShowsRestAsCount(t *testing.T) {
 
 // 칸이 모자라면 진행 표시부터 줄인다. 막대를 떼고, 그래도 모자라면 통째로 뺀다.
 func TestJobProgressGivesWayWhenNarrow(t *testing.T) {
-	wide := newTestEditor("abc\n", 70, 5)
-	wide.git = gitStatus{branch: "master", commit: "a1b2c3d"}
+	// editor 는 하나뿐이라 폭마다 새로 연다. 같은 것을 고쳐 쓰면 앞의 검사가 뒤에 섞인다.
+	atWidth := func(width int) string {
+		e := newTestEditor("abc\n", width, 5)
+		e.git = gitStatus{branch: "master", commit: "a1b2c3d"}
 
-	var m tea.Model = wide
-	m, _ = m.Update(progressOf("파일 인덱싱", 42, 100))
-	assert.Contains(t, barOf(t, m)[0], "⣿", "넓으면 막대까지 그린다")
+		m, _ := tea.Model(e).Update(progressOf("파일 인덱싱", 42, 100))
 
-	narrow := wide
-	narrow.width = 52
-	m, _ = tea.Model(narrow).Update(progressOf("파일 인덱싱", 42, 100))
+		return barOf(t, m)[0]
+	}
 
-	top := barOf(t, m)[0]
-	assert.Contains(t, top, "파일 인덱싱 42%")
-	assert.NotContains(t, top, "⣿", "칸이 모자라면 막대를 뗀다")
-	assert.Contains(t, top, "master(a1b2c3d)", "git 은 늘 같은 자리다")
+	assert.Contains(t, atWidth(70), "파일 인덱싱 ⣿⣿⣿⣿⣄⣀⣀⣀⣀⣀ 42%", "넓으면 막대까지 그린다")
 
-	narrower := wide
-	narrower.width = 40
-	m, _ = tea.Model(narrower).Update(progressOf("파일 인덱싱", 42, 100))
+	narrow := atWidth(52)
+	assert.Contains(t, narrow, "파일 인덱싱 42%")
+	assert.NotContains(t, narrow, "⣿", "칸이 모자라면 막대를 뗀다")
+	assert.Contains(t, narrow, "master(a1b2c3d)", "git 은 늘 같은 자리다")
 
-	top = barOf(t, m)[0]
-	assert.NotContains(t, top, "파일 인덱싱", "더 좁으면 진행 표시를 통째로 뺀다")
-	assert.Contains(t, top, "master(a1b2c3d)")
-	assert.Contains(t, top, "test.txt", "경로도 그대로다")
+	narrower := atWidth(40)
+	assert.NotContains(t, narrower, "파일 인덱싱", "더 좁으면 진행 표시를 통째로 뺀다")
+	assert.Contains(t, narrower, "master(a1b2c3d)")
+	assert.Contains(t, narrower, "test.txt", "경로도 그대로다")
 }
 
 // 어느 mode 에 있든 진행을 받고 다음 조각을 받을 Cmd 를 돌려준다.
@@ -121,7 +118,7 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 			e := newTestEditor("abc\n", 80, 5)
 			e.buffer().insert([]byte("X"), e.contentWidth())
 
-			return ConfirmDiscard(e, "정말 종료 하시겠습니까?", Exit)
+			return ConfirmDiscard(e, e.editor, "정말 종료 하시겠습니까?", Exit)
 		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -136,23 +133,21 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 	}
 }
 
-// 확인창은 editor 를 들고 있지 않아 진행을 반영하지 못한다. 부모로 돌아간 뒤 다음 조각이 채운다.
+// 확인창이 떠 있는 동안 온 진행도 그대로 남는다. 창은 statusBar 를 그리지 않지만
+// editor 는 하나뿐이라, No 로 부모에 돌아가면 그동안의 진행이 보인다 (ADR-0026).
 func TestJobSurvivesConfirmDialog(t *testing.T) {
 	parent := newTestEditor("abc\n", 80, 5)
 	parent.buffer().insert([]byte("X"), parent.contentWidth())
 
-	var confirm tea.Model = ConfirmDiscard(parent, "이 tab 을 닫으시겠습니까?", Exit)
+	var confirm tea.Model = ConfirmDiscard(parent, parent.editor, "이 tab 을 닫으시겠습니까?", Exit)
 
-	confirm, cmd := confirm.Update(progressOf("파일 인덱싱", 1, 2))
-	require.NotNil(t, cmd)
+	confirm, cmd := confirm.Update(progressOf("파일 인덱싱", 42, 100))
+	require.NotNil(t, cmd, "다음 조각을 받을 고리를 잇는다")
 
-	// No 로 돌아간 부모는 그 조각을 모른다. 다음 조각 하나로 맞는다.
 	back := send(confirm, "n", "enter")
-	require.IsType(t, viewEditorNormal{}, back)
-	assert.NotContains(t, barOf(t, back)[0], "파일 인덱싱")
 
-	back, _ = back.Update(progressOf("파일 인덱싱", 1, 2))
-	assert.Contains(t, barOf(t, back)[0], "파일 인덱싱")
+	require.IsType(t, viewEditorNormal{}, back)
+	assert.Contains(t, barOf(t, back)[0], "파일 인덱싱 ⣿⣿⣿⣿⣄⣀⣀⣀⣀⣀ 42%")
 }
 
 // 결과를 어디에 어떻게 넣을지는 작업이 정한다. 실행기는 그것이 무엇인지 알지 못한다.

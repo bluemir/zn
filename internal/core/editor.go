@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,7 +15,8 @@ import (
 // editor 는 mode 가 바뀌어도 유지되는 상태다.
 //
 // mode 는 enum 이 아니라 화면 model 을 갈아끼워서 나타낸다(ADR-0002).
-// mode 별 model 이 이것을 embed 해서 들고 다니고, 전환할 때 그대로 넘긴다.
+// mode 별 model 이 이것을 포인터로 embed 하고, 전환할 때 그 포인터를 그대로 넘긴다.
+// 편집기가 도는 동안 이것은 하나뿐이라 어느 mode 에서 고쳐도 다음 화면이 같은 것을 본다(ADR-0026).
 type editor struct {
 	buffers []Buffer
 	active  int
@@ -45,7 +47,7 @@ type editor struct {
 }
 
 // buffer 는 활성 buffer 를 가리킨다.
-// slice 요소를 직접 가리켜야 커서 이동이 model 복사를 넘어 남는다.
+// 값이 아니라 slice 요소를 가리켜야 커서 이동과 편집이 제자리에 남는다.
 func (e *editor) buffer() *Buffer {
 	return &e.buffers[e.active]
 }
@@ -101,15 +103,8 @@ func (e *editor) revealInSidebar(path string) {
 
 // newTab 은 이름 없는 빈 tab 을 활성 tab 바로 뒤에 끼우고 그리로 옮긴다.
 // vim 의 :tabnew 와 같다. 맨 뒤가 아니라 보고 있던 것 옆에 생겨야 방금 만든 것을 찾기 쉽다.
-//
-// closeTab 과 같은 이유로 slice 를 새로 할당한다.
 func (e *editor) newTab() {
-	rest := make([]Buffer, 0, len(e.buffers)+1)
-	rest = append(rest, e.buffers[:e.active+1]...)
-	rest = append(rest, newEmptyBuffer(""))
-	rest = append(rest, e.buffers[e.active+1:]...)
-
-	e.buffers = rest
+	e.buffers = slices.Insert(e.buffers, e.active+1, newEmptyBuffer(""))
 	e.active++
 }
 
@@ -130,12 +125,7 @@ func (e *editor) openTab(path string) error {
 		// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다.
 		e.git = readGitStatus()
 
-		rest := make([]Buffer, 0, len(e.buffers)+1)
-		rest = append(rest, e.buffers[:e.active+1]...)
-		rest = append(rest, buf)
-		rest = append(rest, e.buffers[e.active+1:]...)
-
-		e.buffers = rest
+		e.buffers = slices.Insert(e.buffers, e.active+1, buf)
 		e.active++
 	}
 
@@ -152,8 +142,6 @@ func (e *editor) openTab(path string) error {
 //
 // 갈아끼우는 쪽은 지금 tab 의 저장하지 않은 변경을 잃는다. 물을지 말지는 부르는 쪽이 정한다 —
 // 여기까지 왔으면 이미 정해진 것이다. Reload 와 같은 나눔이다.
-//
-// closeTab 과 같은 이유로 slice 를 새로 할당한다.
 func (e *editor) replaceTab(path string) error {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
@@ -170,11 +158,7 @@ func (e *editor) replaceTab(path string) error {
 	// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다. openTab 과 같다.
 	e.git = readGitStatus()
 
-	rest := make([]Buffer, len(e.buffers))
-	copy(rest, e.buffers)
-	rest[e.active] = buf
-
-	e.buffers = rest
+	e.buffers[e.active] = buf
 
 	e.revealInSidebar(path)
 
@@ -217,20 +201,12 @@ func samePath(a, b string) bool {
 
 // closeTab 은 활성 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
 // 닫을 것이 없으면 부르는 쪽이 종료로 넘어간다.
-//
-// slice 를 제자리에서 줄이지 않고 새로 할당한다. mode model 이 editor 를 값으로 embed 해서
-// backing array 를 공유하므로, 제자리에서 줄이면 아직 살아 있는 다른 복사본(확인창의 parent 등)이
-// 어긋난 내용을 보게 된다. Buffer 는 slice header 뭉치라 복사가 싸다.
 func (e *editor) closeTab() bool {
 	if len(e.buffers) < 2 {
 		return false
 	}
 
-	rest := make([]Buffer, 0, len(e.buffers)-1)
-	rest = append(rest, e.buffers[:e.active]...)
-	rest = append(rest, e.buffers[e.active+1:]...)
-
-	e.buffers = rest
+	e.buffers = slices.Delete(e.buffers, e.active, e.active+1)
 	// 마지막 tab 을 닫았으면 왼쪽으로 간다.
 	e.active = min(e.active, len(e.buffers)-1)
 

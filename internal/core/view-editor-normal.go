@@ -8,17 +8,17 @@ import (
 )
 
 // viewEditorNormal 은 normal mode 다. 커서가 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
-func normalMode(e editor) (tea.Model, tea.Cmd) {
+func normalMode(e *editor) (tea.Model, tea.Cmd) {
 	return viewEditorNormal{editor: e}, nil
 }
 
 // normalModeMessage 는 명령 결과를 아래 줄에 띄운 채로 normal 로 돌아간다.
-func normalModeMessage(e editor, message string) (tea.Model, tea.Cmd) {
+func normalModeMessage(e *editor, message string) (tea.Model, tea.Cmd) {
 	return viewEditorNormal{editor: e, message: message}, nil
 }
 
 type viewEditorNormal struct {
-	editor
+	*editor
 
 	// message 는 명령 결과나 오류다. 다음 키를 누르면 사라진다.
 	message string

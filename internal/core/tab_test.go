@@ -19,7 +19,7 @@ func newTabsEditor(paths ...string) viewEditorNormal {
 	}
 
 	return viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: buffers,
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,
@@ -191,7 +191,7 @@ func TestTablineShowsDirtyMarkOfInactiveTab(t *testing.T) {
 
 func TestTablineShowsNoNameForEmptyPath(t *testing.T) {
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newEmptyBuffer("")},
 			width:   40,
 			height:  3 + tablineHeight + statusBarHeight,
@@ -470,7 +470,7 @@ func TestCloseTabAfterWriteQuit(t *testing.T) {
 	second := newBuffer("other.txt", []byte("x\n"))
 
 	var m tea.Model = viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: append(first.buffers, second),
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,

@@ -37,7 +37,7 @@ var (
 //
 // 어디서 열렸는지 기억하지 않는다. sidebar 에서 열어도 끝나면 편집 영역으로 나온다 —
 // 돌아갈 곳을 들고 다니는 것은 ADR-0005 가 `:` 에서 이미 거절한 비용이다.
-func paletteMode(e editor) (tea.Model, tea.Cmd) {
+func paletteMode(e *editor) (tea.Model, tea.Cmd) {
 	if !e.paletteFits() {
 		return normalModeMessage(e, "화면이 좁아 팔레트를 열 수 없습니다")
 	}
@@ -62,7 +62,7 @@ func paletteMode(e editor) (tea.Model, tea.Cmd) {
 }
 
 type viewPalette struct {
-	editor
+	*editor
 
 	// input 은 친 그대로다. 맨 앞의 `>` 도 지우지 않고 들고 있다 — 그것이 곧 어느 표를 보는지다.
 	input string

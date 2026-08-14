@@ -108,7 +108,7 @@ func TestResumeQuietWhenFileUnchanged(t *testing.T) {
 // 이름 없는 buffer 는 맞춰 볼 파일이 없다.
 func TestResumeQuietWithoutFileName(t *testing.T) {
 	m := viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newEmptyBuffer("")},
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,

@@ -5,12 +5,12 @@ import (
 )
 
 // viewEditorInsert 는 insert mode 다. 커서가 글자 사이에 있어서 줄 끝 다음 칸까지 갈 수 있다.
-func insertMode(e editor) (tea.Model, tea.Cmd) {
+func insertMode(e *editor) (tea.Model, tea.Cmd) {
 	return viewEditorInsert{editor: e}, nil
 }
 
 type viewEditorInsert struct {
-	editor
+	*editor
 }
 
 func (m viewEditorInsert) Init() tea.Cmd { return nil }

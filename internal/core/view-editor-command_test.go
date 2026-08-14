@@ -22,7 +22,7 @@ func newFileEditor(t *testing.T, data string) (viewEditorNormal, string) {
 	require.NoError(t, err)
 
 	return viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{buf},
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,
@@ -281,7 +281,7 @@ func TestCommandWriteFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	var m tea.Model = viewEditorNormal{
-		editor: editor{buffers: []Buffer{buf}, width: 40, height: 5 + tablineHeight + statusBarHeight},
+		editor: &editor{buffers: []Buffer{buf}, width: 40, height: 5 + tablineHeight + statusBarHeight},
 	}
 	m = send(m, ":", "w", "enter")
 

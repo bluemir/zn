@@ -545,3 +545,14 @@ func TestQuitFromBothModesWhenDirty(t *testing.T) {
 		assert.IsType(t, viewConfirmDiscard{}, next)
 	}
 }
+
+// mode 를 옮겨도 editor 는 하나다. 전환 함수가 포인터를 그대로 넘긴다 (ADR-0026).
+// 값으로 넘기던 때에는 넘기는 것을 빼먹으면 화면 크기와 커서가 조용히 초기화됐다.
+func TestModeTransitionKeepsOneEditor(t *testing.T) {
+	normal := newTestEditor("abc\n", 80, 5)
+
+	assert.Same(t, normal.editor, send(normal, "i").(viewEditorInsert).editor, "insert")
+	assert.Same(t, normal.editor, send(normal, ":").(viewEditorCommand).editor, "command")
+	assert.Same(t, normal.editor, send(normal, "/").(viewEditorSearch).editor, "search")
+	assert.Same(t, normal.editor, send(normal, "ctrl+p").(viewPalette).editor, "palette")
+}

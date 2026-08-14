@@ -9,12 +9,12 @@ import (
 //
 // 치고 있는 명령 문자열은 이 mode 에만 있는 상태다.
 // mode 를 model 로 나눈 덕에 다른 mode 가 이 필드를 이고 다니지 않는다(ADR-0002).
-func commandMode(e editor) (tea.Model, tea.Cmd) {
+func commandMode(e *editor) (tea.Model, tea.Cmd) {
 	return viewEditorCommand{editor: e}, nil
 }
 
 type viewEditorCommand struct {
-	editor
+	*editor
 
 	input string // `:` 뒤에 친 것
 }
@@ -259,7 +259,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 		back, _ := normalMode(m.editor)
 
-		return ConfirmDiscard(back, "이 tab 에 다른 파일을 여시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return ConfirmDiscard(back, m.editor, "이 tab 에 다른 파일을 여시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return editFile(m.editor, path)
 		}), nil
 	}
@@ -269,7 +269,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 
 // editFile 은 묻지 않고 연다. 확인창의 Yes 와 잃을 것이 없을 때가 쓴다.
 // reloadFile 과 같은 짝이다.
-func editFile(e editor, path string) (tea.Model, tea.Cmd) {
+func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 	if err := e.replaceTab(path); err != nil {
 		return normalModeMessage(e, errors.Cause(err).Error())
 	}

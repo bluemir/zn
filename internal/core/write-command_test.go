@@ -16,7 +16,7 @@ func newUnnamedEditor(t *testing.T) (viewEditorNormal, string) {
 	t.Helper()
 
 	return viewEditorNormal{
-		editor: editor{
+		editor: &editor{
 			buffers: []Buffer{newEmptyBuffer("")},
 			width:   60,
 			height:  5 + tablineHeight + statusBarHeight,

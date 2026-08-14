@@ -14,7 +14,7 @@ func TestQuitConfirmKeepsParentAltScreen(t *testing.T) {
 	editor := newTestEditor("a\nb\n", 40, 5)
 	require.True(t, editor.View().AltScreen, "편집 화면은 대체 화면이다")
 
-	confirm := ConfirmDiscard(editor, "정말 종료 하시겠습니까?", Exit)
+	confirm := ConfirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", Exit)
 
 	assert.True(t, confirm.View().AltScreen, "종료 확인창도 대체 화면을 유지한다")
 }
@@ -22,7 +22,7 @@ func TestQuitConfirmKeepsParentAltScreen(t *testing.T) {
 func TestQuitConfirmEscapeReturnsToParent(t *testing.T) {
 	editor := newTestEditor("a\nb\n", 40, 5)
 
-	confirm := ConfirmDiscard(editor, "정말 종료 하시겠습니까?", Exit)
+	confirm := ConfirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", Exit)
 	back, _ := confirm.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 
 	assert.IsType(t, viewEditorNormal{}, back, "Escape 는 편집 화면으로 돌아간다")
