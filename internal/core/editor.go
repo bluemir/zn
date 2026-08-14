@@ -55,8 +55,22 @@ type editor struct {
 	// 팔레트를 닫아도 남는다 — 인덱싱은 팔레트보다 오래 살고, 다시 열면 모아둔 것부터 보인다.
 	files []string
 
+	// asciiBox 는 테두리·구분선을 ASCII 로 그릴지다. 시작할 때 터미널을 재서 한 번 정하고
+	// 그 뒤로 바뀌지 않는다(ADR-0028). zero value 는 유니코드 박스라 재보지 않은 곳 —
+	// 테스트가 그렇다 — 은 지금까지와 똑같이 그린다.
+	asciiBox bool
+
 	width  int
 	height int
+}
+
+// boxChars 는 이 편집기가 쓸 테두리·구분선 글자다.
+func (e editor) boxChars() boxSet {
+	if e.asciiBox {
+		return boxASCII
+	}
+
+	return boxUnicode
 }
 
 // buffer 는 활성 buffer 를 가리킨다.
@@ -501,7 +515,7 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 
 	rows := right
 	if e.sidebarVisible() {
-		cells := e.sidebar.cells(height, e.activePath())
+		cells := e.sidebar.cells(height, e.activePath(), e.boxChars())
 
 		rows = make([]string, 0, height)
 		for i := range height {
@@ -560,7 +574,7 @@ func (e editor) tabline(width int) (string, [][2]int) {
 		}
 
 		if i > 0 {
-			put("│", false)
+			put(e.boxChars().vertical, false)
 		}
 
 		// put 이 쓴 만큼만 그 tab 의 자리다. 잘렸으면 start 와 end 가 같아진다.

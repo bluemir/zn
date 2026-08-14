@@ -264,7 +264,7 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 func TestSidebarCellsAreExactlyWide(t *testing.T) {
 	s := openSidebar(newTreeFixture(t))
 
-	for i, cell := range s.cells(10, "") {
+	for i, cell := range s.cells(10, "", boxUnicode) {
 		plain := ansi.Strip(cell)
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
 	}
@@ -274,7 +274,7 @@ func TestSidebarCellsAreExactlyWide(t *testing.T) {
 func TestSidebarCellsFillHeight(t *testing.T) {
 	s := openSidebar(t.TempDir())
 
-	cells := s.cells(6, "")
+	cells := s.cells(6, "", boxUnicode)
 
 	require.Len(t, cells, 6)
 	for _, cell := range cells[1:] {
@@ -290,7 +290,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 
 	s := openSidebar(root)
 
-	for i, cell := range s.cells(4, "") {
+	for i, cell := range s.cells(4, "", boxUnicode) {
 		plain := ansi.Strip(cell)
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
 	}
@@ -968,7 +968,7 @@ func TestSidebarMarksActiveFile(t *testing.T) {
 	root := newTreeFixture(t)
 	s := openSidebar(root)
 
-	cells := s.cells(10, filepath.Join(root, "main.go"))
+	cells := s.cells(10, filepath.Join(root, "main.go"), boxUnicode)
 
 	assert.Equal(t, []string{"main.go"}, activeNames(cells))
 }
@@ -982,7 +982,7 @@ func TestSidebarMarksNameWithoutIndent(t *testing.T) {
 	spec := filepath.Join(root, "docs", "spec.md")
 	require.True(t, s.reveal(spec))
 
-	for _, cell := range s.cells(10, spec) {
+	for _, cell := range s.cells(10, spec, boxUnicode) {
 		if text := activeText(cell); text != "" {
 			assert.Equal(t, "spec.md", text)
 			return
@@ -997,7 +997,7 @@ func TestSidebarMarksNameWithoutIndent(t *testing.T) {
 func TestSidebarDirIsNotMarked(t *testing.T) {
 	s := openSidebar(newTreeFixture(t))
 
-	assert.Empty(t, activeNames(s.cells(10, "")))
+	assert.Empty(t, activeNames(s.cells(10, "", boxUnicode)))
 }
 
 // 이름 없는 buffer 는 어느 행과도 맞지 않는다. `:tabnew` 로 만든 tab 이 그렇다.
@@ -1005,7 +1005,7 @@ func TestSidebarMarksNothingWithoutName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	m.buffers = []Buffer{newEmptyBuffer("")}
 
-	assert.Empty(t, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
+	assert.Empty(t, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
 }
 
 // tab 을 옮기면 표시도 따라간다. 트리가 그 자리를 펼치는 것(reveal) 과 짝이다.
@@ -1016,10 +1016,10 @@ func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
-	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath())))
+	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
 
 	next := send(tea.Model(m), "g", "t").(viewEditorNormal)
 
 	assert.Equal(t, []string{"spec.md"},
-		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath())))
+		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath(), next.boxChars())))
 }

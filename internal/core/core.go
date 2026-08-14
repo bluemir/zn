@@ -16,6 +16,12 @@ func Run(ctx context.Context, files []string) error {
 
 	e := &editor{ctx: ctx, buffers: buffers, git: readGitStatus()}
 
+	// 박스 그리기 문자는 East Asian Width 가 Ambiguous 라 터미널마다 폭이 다르다.
+	// 한 칸으로 확인된 터미널에서만 쓰고, 두 칸이거나 재지 못했으면 ASCII 로 내린다(ADR-0028).
+	//
+	// tea.NewProgram 보다 먼저다. bubbletea 가 stdin 을 읽기 시작하면 답을 그쪽이 가져간다.
+	e.asciiBox = probeAmbiguousWidth() != 1
+
 	// filetree 는 기본으로 열어둔다. `:tree` 로 닫는다.
 	//
 	// cwd 를 못 읽으면 트리 없이 연다. 이때 편집기를 아예 못 열 이유는 없다 —

@@ -304,36 +304,43 @@ func (m viewPalette) counter() string {
 // box 는 박스 전체를 화면 행 문자열로 만든다. 각 행이 정확히 paletteWidth() 칸이다.
 //
 // 테두리는 lipgloss 의 Border 를 쓰지 않고 손으로 붙인다. Border 는 안쪽 내용의 폭을 스스로
-// 재는데 강조 escape 가 이미 섞여 있어서 그 계산을 믿을 수 없다. sidebar 가 `│` 를 손으로
+// 재는데 강조 escape 가 이미 섞여 있어서 그 계산을 믿을 수 없다. sidebar 가 구분선을 손으로
 // 붙이는 것과 같은 이유다.
 func (m viewPalette) box() string {
 	width := m.paletteWidth()
 	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
 
+	chars := m.boxChars()
+	line := strings.Repeat(chars.horizontal, width-2)
+
 	rows := []string{
-		"┌" + strings.Repeat("─", width-2) + "┐",
+		chars.topLeft + line + chars.topRight,
 		m.inputRow(inner),
-		"├" + strings.Repeat("─", width-2) + "┤",
+		chars.leftTee + line + chars.rightTee,
 	}
 	rows = append(rows, m.listRows(inner)...)
-	rows = append(rows, "└"+strings.Repeat("─", width-2)+"┘")
+	rows = append(rows, chars.bottomLeft+line+chars.bottomRight)
 
 	return strings.Join(rows, "\n")
 }
 
 // inputRow 는 치고 있는 것을 보여주는 줄이다. 비어 있으면 무엇을 치면 되는지 흐리게 알려준다.
 func (m viewPalette) inputRow(inner int) string {
+	side := m.boxChars().vertical
+
 	if m.input == "" {
-		return "│ " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 로 명령", inner), inner)) + " │"
+		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 로 명령", inner), inner)) + " " + side
 	}
 
-	return "│ " + padTo(truncateToWidth(m.input, inner), inner) + " │"
+	return side + " " + padTo(truncateToWidth(m.input, inner), inner) + " " + side
 }
 
 // listRows 는 목록 행들이다. 걸린 것이 없으면 그 사실을 한 줄로 알린다.
 func (m viewPalette) listRows(inner int) []string {
+	side := m.boxChars().vertical
+
 	if len(m.hits) == 0 {
-		return []string{"│ " + styleDetail.Render(padTo("일치하는 것이 없습니다", inner)) + " │"}
+		return []string{side + " " + styleDetail.Render(padTo("일치하는 것이 없습니다", inner)) + " " + side}
 	}
 
 	_, isCommand := m.commandInput()
@@ -350,7 +357,7 @@ func (m viewPalette) listRows(inner int) []string {
 			row.left = m.files[hit.index]
 		}
 
-		rows = append(rows, "│ "+row.cell(inner)+" │")
+		rows = append(rows, side+" "+row.cell(inner)+" "+side)
 	}
 
 	return rows
