@@ -75,10 +75,35 @@ func (e *editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
 	return viewSidebar{editor: e}.enter()
 }
 
-// clickTabline 은 tabline 좌표의 tab 으로 옮겨간다. tab 이 없는 칸이면 아무것도 하지 않는다.
+// clickTabline 은 tabline 좌표의 tab 으로 옮겨간다.
+// 구분선과 오른쪽 빈 칸처럼 tab 이 없는 칸이면 아무것도 하지 않는다.
+//
+// 양끝의 가려짐 표시를 누르면 보고 있는 tab 은 그대로 두고 그 방향으로 한 칸 민다(ADR-0029).
+// 지금 편집하는 것을 놓지 않고 가려진 쪽에 무엇이 있는지 훑을 수 있어야 한다.
 func (e *editor) clickTabline(x int) {
-	index, ok := e.tabAt(x)
-	if !ok {
+	row := e.tabline(e.textWidth())
+
+	col := x - e.sidebarLeft()
+	switch {
+	case inSpan(row.left, col):
+		e.tabScroll = max(e.tabScroll-1, 0)
+
+		return
+	case inSpan(row.right, col):
+		e.tabScroll = min(e.tabScroll+1, len(e.buffers)-1)
+
+		return
+	}
+
+	index := -1
+	for i, span := range row.tabs {
+		if inSpan(span, col) {
+			index = i
+
+			break
+		}
+	}
+	if index < 0 {
 		return
 	}
 

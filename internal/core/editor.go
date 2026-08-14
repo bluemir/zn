@@ -22,6 +22,10 @@ type editor struct {
 	buffers []Buffer
 	active  int
 
+	// tabScroll 은 tabline 에 처음으로 그리는 tab 의 index 다. tab 이 편집 영역 너비보다
+	// 많아지면 활성 tab 이 보이도록 여기가 밀린다. 가려진 것은 양끝 표시가 알린다(ADR-0029).
+	tabScroll int
+
 	sidebar sidebar
 
 	// search 는 마지막 검색이다. `n` 은 tab 을 옮겨서도 같은 것을 찾으므로 Buffer 가 아니라 여기 있다.
@@ -83,15 +87,18 @@ func (e *editor) resize(msg tea.WindowSizeMsg) {
 	e.width = msg.Width
 	e.height = msg.Height
 	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollTabsTo()
 }
 
 // nextTab, prevTab 은 활성 tab 을 옮긴다. 양끝에서 둘러 간다. vim 의 gt/gT 와 같다.
 func (e *editor) nextTab() {
 	e.active = (e.active + 1) % len(e.buffers)
+	e.scrollTabsTo()
 	e.revealInSidebar(e.buffer().path)
 }
 func (e *editor) prevTab() {
 	e.active = (e.active - 1 + len(e.buffers)) % len(e.buffers)
+	e.scrollTabsTo()
 	e.revealInSidebar(e.buffer().path)
 }
 
@@ -133,6 +140,7 @@ func (e *editor) revealInSidebar(path string) {
 func (e *editor) newTab() {
 	e.buffers = slices.Insert(e.buffers, e.active+1, newEmptyBuffer(""))
 	e.active++
+	e.scrollTabsTo()
 }
 
 // openTab 은 파일을 tab 으로 연다. 이미 열려 있으면 새로 열지 않고 그 tab 으로 옮긴다.
@@ -156,6 +164,7 @@ func (e *editor) openTab(path string) error {
 		e.active++
 	}
 
+	e.scrollTabsTo()
 	e.revealInSidebar(path)
 
 	return nil
@@ -172,6 +181,7 @@ func (e *editor) openTab(path string) error {
 func (e *editor) replaceTab(path string) error {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
+		e.scrollTabsTo()
 		e.revealInSidebar(path)
 
 		return nil
@@ -236,6 +246,8 @@ func (e *editor) closeTab() bool {
 	e.buffers = slices.Delete(e.buffers, e.active, e.active+1)
 	// 마지막 tab 을 닫았으면 왼쪽으로 간다.
 	e.active = min(e.active, len(e.buffers)-1)
+	// 닫은 자리만큼 오른쪽이 비므로 왼쪽에 가려둔 것이 도로 보일 수 있다.
+	e.scrollTabsTo()
 
 	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다.
 	e.revealInSidebar(e.buffer().path)
@@ -277,6 +289,8 @@ func (e *editor) toggleTree() error {
 	}
 
 	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	// 편집 영역 너비가 32 칸 달라져서 tabline 에 들어가는 tab 수도 달라진다.
+	e.scrollTabsTo()
 
 	return nil
 }
@@ -508,10 +522,8 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 	height := e.sidebarHeight()
 
 	// sidebar 오른쪽에 쌓이는 것들이다. 맨 위가 tabline 이고 그 아래가 편집 내용이다.
-	tabline, _ := e.tabline(e.textWidth())
-
 	right := make([]string, 0, height)
-	right = append(right, tabline)
+	right = append(right, e.tabline(e.textWidth()).line)
 	right = append(right, textRows...)
 	for len(right) < height {
 		right = append(right, "")
@@ -534,57 +546,190 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 // 밝은 테마든 어두운 테마든 알아서 맞고 팔레트를 정할 필요가 없다(ADR-0004).
 var reverse = lipgloss.NewStyle().Reverse(true)
 
+// tablineRow 는 tabline 한 줄과 그 줄의 어디에 무엇이 그려졌는지다.
+//
+// 자리표를 그리는 자리에서 같이 내는 것은 클릭 때문이다. 배치 계산을 두 벌 두면
+// `+`(dirty) 하나로 칸이 밀렸을 때 클릭이 옆 tab 으로 간다.
+type tablineRow struct {
+	line string
+
+	// tabs 는 tab 마다 그려진 칸 범위 [start, end) 다. 밀려나서 안 그려진 tab 은 빈 범위다.
+	tabs [][2]int
+
+	// left, right 는 가려짐 표시가 그려진 칸 범위다. 가린 것이 없으면 빈 범위다.
+	left, right [2]int
+}
+
+// inSpan 은 칸 col 이 그 범위 안인지다. 빈 범위는 어느 칸도 품지 않는다.
+func inSpan(span [2]int, col int) bool {
+	return col >= span[0] && col < span[1]
+}
+
+// tabLabel 은 tabline 에 그리는 tab 한 칸의 글자다. `번호 파일이름` 이고 경로는 쓰지 않는다.
+func (e editor) tabLabel(index int) string {
+	buf := e.buffers[index]
+
+	name := filepath.Base(buf.path)
+	if buf.path == "" {
+		name = "[No Name]"
+	}
+	if buf.dirty {
+		name += "+"
+	}
+
+	return fmt.Sprintf(" %d %s ", index+1, name)
+}
+
+// tabWindow 는 tabline 에 그릴 것들이다. scroll 자리부터 count 개의 tab 을 그리고
+// 양끝에 가려짐 표시를 붙인다.
+//
+// 표시보다 tab 이 먼저다. 좁아서 하나를 버려야 하면 표시가 빠져 빈 문자열이 된다 —
+// 지금 보고 있는 파일 이름이 몇 개가 가려졌는지보다 중요하다.
+type tabWindow struct {
+	count       int
+	left, right string
+}
+
+// layoutTabs 는 scroll 자리부터 width 칸에 들어가는 만큼을 배치한다.
+//
+// 반쯤 걸친 tab 은 넣지 않는다. 잘린 이름은 어느 파일인지 알려주지도 못하면서
+// 가려진 개수에서도 빠져 `n>` 의 숫자를 틀리게 만든다.
+//
+// 오른쪽 표시의 폭이 가려진 개수의 자릿수를 타므로 한 번에 셀 수 없다. 표시가 없다고 보고
+// 채운 뒤, 그 자리가 모자라면 tab 을 하나씩 물린다. 물릴 때마다 개수가 늘어 표시가
+// 길어질 수 있으므로 다시 본다.
+func (e editor) layoutTabs(scroll, width int) tabWindow {
+	window := tabWindow{}
+	if scroll > 0 {
+		window.left = fmt.Sprintf("<%d", scroll)
+	}
+
+	// cost 는 그 tab 이 먹는 칸이다. 앞에 이미 그린 것이 있으면 구분선 한 칸이 붙는다.
+	cost := func(index, drawn int, left string) int {
+		cells := screenWidthOf(e.tabLabel(index))
+		if drawn > 0 || left != "" {
+			cells++
+		}
+
+		return cells
+	}
+
+	fill := func(left string) (count, used int) {
+		rest := width
+		if left != "" {
+			rest -= screenWidthOf(left) + 1 // 표시와 그 뒤 구분선
+		}
+
+		for i := scroll; i < len(e.buffers); i++ {
+			next := cost(i, count, left)
+			if used+next > rest {
+				break
+			}
+
+			used += next
+			count++
+		}
+
+		// 오른쪽 표시 자리를 만드느라 tab 을 물린다. 마지막 하나는 물리지 않는다.
+		for count > 1 && scroll+count < len(e.buffers) {
+			hidden := len(e.buffers) - scroll - count
+			if used+1+screenWidthOf(fmt.Sprintf("%d>", hidden)) <= rest {
+				break
+			}
+
+			count--
+			used -= cost(scroll+count, count, left)
+		}
+
+		return count, used
+	}
+
+	count, used := fill(window.left)
+
+	// tab 이 하나도 안 들어가면 왼쪽 표시를 떼고 그 자리를 tab 에 준다.
+	if count == 0 && window.left != "" {
+		window.left = ""
+		count, used = fill("")
+	}
+
+	// 그래도 안 들어갈 만큼 좁으면 잘려도 하나는 그린다. 활성 tab 이 아예 사라지는 것보다 낫다.
+	if count == 0 {
+		count = 1
+	}
+
+	window.count = count
+
+	if hidden := len(e.buffers) - scroll - count; hidden > 0 {
+		right := fmt.Sprintf("%d>", hidden)
+		rest := width - used
+		if window.left != "" {
+			rest -= screenWidthOf(window.left) + 1
+		}
+
+		if 1+screenWidthOf(right) <= rest {
+			window.right = right
+		}
+	}
+
+	return window
+}
+
 // tabline 은 편집 영역 맨 위 한 줄이다. 열린 파일과 지금 보고 있는 것을 보여준다.
 //
 // 보고 있는 tab 만 편집 내용과 같은 색이고 나머지는 반전이다. vim 의 TabLine/TabLineSel 과 같다.
 // 활성 tab 이 아래 내용과 이어져 보이는 것이 tab 이라는 비유 자체다.
 //
 // width 는 화면 너비가 아니라 편집 영역 너비다. sidebar 가 열려 있으면 그만큼 좁다.
-//
-// spans 는 tab 마다 실제로 그려진 칸 범위 [start, end) 다. 넘쳐서 잘린 tab 은 빈 범위다.
-// 클릭이 어느 tab 인지 여기서 같이 내준다 — 배치 계산을 두 벌 두면 `+`(dirty) 하나로
-// 칸이 밀렸을 때 클릭이 옆 tab 으로 간다.
-func (e editor) tabline(width int) (string, [][2]int) {
+// 다 그릴 수 없으면 tabScroll 자리부터 그리고 남은 것은 양끝의 `<n`·`n>` 이 알린다(ADR-0029).
+func (e editor) tabline(width int) tablineRow {
+	row := tablineRow{tabs: make([][2]int, len(e.buffers))}
+
 	line := strings.Builder{}
 	col := 0
 
-	// put 은 남은 칸만큼만 쓴다. 넘치는 부분은 버린다.
+	// put 은 남은 칸만큼만 쓰고 그린 자리를 돌려준다. 넘치는 부분은 버린다.
 	// 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없으므로 자르는 것이 먼저다.
-	put := func(text string, active bool) {
+	put := func(text string, active bool) [2]int {
 		if width > 0 {
 			text = text[:offsetAtScreenCol([]byte(text), width-col)]
 		}
 		if text == "" {
-			return
+			return [2]int{}
 		}
 
+		start := col
 		if active {
 			line.WriteString(text)
 		} else {
 			line.WriteString(reverse.Render(text))
 		}
 		col += screenColAt([]byte(text), len(text))
+
+		return [2]int{start, col}
 	}
 
-	// 넘치면 잘린다. 활성 tab 이 오른쪽 끝에 있으면 안 보이게 되는데 아직 다루지 않는다.
-	spans := make([][2]int, 0, len(e.buffers))
-	for i, buf := range e.buffers {
-		name := filepath.Base(buf.path)
-		if buf.path == "" {
-			name = "[No Name]"
-		}
-		if buf.dirty {
-			name += "+"
-		}
+	scroll := min(max(e.tabScroll, 0), len(e.buffers)-1)
+	window := e.layoutTabs(scroll, width)
 
-		if i > 0 {
+	if window.left != "" {
+		row.left = put(window.left, false)
+	}
+
+	for i := scroll; i < scroll+window.count; i++ {
+		// 이미 그린 것이 있으면 그 사이를 가른다. 가려짐 표시와 tab 사이도 같다.
+		if col > 0 {
 			put(e.boxChars().vertical, false)
 		}
 
-		// put 이 쓴 만큼만 그 tab 의 자리다. 잘렸으면 start 와 end 가 같아진다.
-		start := col
-		put(fmt.Sprintf(" %d %s ", i+1, name), i == e.active)
-		spans = append(spans, [2]int{start, col})
+		row.tabs[i] = put(e.tabLabel(i), i == e.active)
+	}
+
+	if window.right != "" {
+		if col > 0 {
+			put(e.boxChars().vertical, false)
+		}
+
+		row.right = put(window.right, false)
 	}
 
 	// 남은 칸도 채워야 줄 전체가 한 덩어리로 보인다.
@@ -592,22 +737,34 @@ func (e editor) tabline(width int) (string, [][2]int) {
 		put(strings.Repeat(" ", width-col), false)
 	}
 
-	return line.String(), spans
+	row.line = line.String()
+
+	return row
 }
 
-// tabAt 은 편집 영역 기준이 아니라 화면 칸 x 에 그려진 tab 번호다.
-// 구분선과 오른쪽 빈 칸, 잘려서 안 보이는 tab 자리는 ok 가 false 다.
-func (e editor) tabAt(x int) (int, bool) {
-	_, spans := e.tabline(e.textWidth())
+// scrollTabsTo 는 활성 tab 이 tabline 에 온전히 보이도록 tabScroll 을 맞춘다.
+// 보고 있는 tab 이 바뀌거나 편집 영역 너비가 바뀌는 자리가 부른다. buffer 의 scrollTo 와 같다.
+//
+// 최소한만 민다. 화면 밖으로 나간 만큼만 따라가야 tabline 이 덜 흔들린다.
+// 뒤쪽이 남아 도는 것도 당긴다 — tab 을 닫거나 화면이 넓어져 오른쪽에 빈 칸이 생기면
+// 왼쪽에 가려둔 것을 도로 보여준다.
+func (e *editor) scrollTabsTo() {
+	width := e.textWidth()
 
-	col := x - e.sidebarLeft()
-	for i, span := range spans {
-		if col >= span[0] && col < span[1] {
-			return i, true
-		}
+	e.tabScroll = min(max(e.tabScroll, 0), len(e.buffers)-1)
+
+	if e.tabScroll > e.active {
+		e.tabScroll = e.active
 	}
 
-	return 0, false
+	// 한 칸씩 미는 것은 tab 마다 폭이 달라서다. 몇 개를 밀면 되는지 셈으로 알 수 없다.
+	for e.tabScroll < e.active && e.active >= e.tabScroll+e.layoutTabs(e.tabScroll, width).count {
+		e.tabScroll++
+	}
+
+	for e.tabScroll > 0 && e.tabScroll-1+e.layoutTabs(e.tabScroll-1, width).count >= len(e.buffers) {
+		e.tabScroll--
+	}
 }
 
 // statusBar 는 화면 아래 두 줄이다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.

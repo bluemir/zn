@@ -65,7 +65,7 @@ func TestASCIITabline(t *testing.T) {
 	m.buffers = append(m.buffers, Buffer{path: "b.txt"})
 	m.asciiBox = true
 
-	line, _ := m.tabline(m.textWidth())
+	line := m.tabline(m.textWidth()).line
 
 	assert.Contains(t, ansi.Strip(line), "|")
 	assert.NotContains(t, ansi.Strip(line), "│")

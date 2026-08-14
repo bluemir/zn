@@ -194,6 +194,11 @@ func screenColAt(line []byte, offset int) int {
 	return col
 }
 
+// screenWidthOf 는 그 글자가 통째로 차지하는 화면 칸 수다.
+func screenWidthOf(text string) int {
+	return screenColAt([]byte(text), len(text))
+}
+
 // offsetAtScreenCol 은 화면 칸 col 에 해당하는 byte offset 을 찾는다.
 // col 이 여러 칸을 쓰는 글자의 중간이면 그 글자의 시작으로 맞춘다.
 func offsetAtScreenCol(line []byte, col int) int {

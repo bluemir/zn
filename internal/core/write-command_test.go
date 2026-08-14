@@ -115,7 +115,7 @@ func TestWriteNamesUnnamedBuffer(t *testing.T) {
 	assert.Equal(t, path, buf.path, "이름이 붙는다")
 	assert.False(t, buf.dirty, "이제 이 파일의 buffer 라 변경 표시가 사라진다")
 
-	tabline, _ := model.(viewEditorNormal).tabline(60)
+	tabline := model.(viewEditorNormal).tabline(60).line
 	assert.Contains(t, tabline, "notes.txt", "tabline 도 [No Name] 이 아니라 새 이름이다")
 }
 

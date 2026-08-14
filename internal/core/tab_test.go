@@ -211,6 +211,91 @@ func TestTablineTruncatesToWidth(t *testing.T) {
 	assert.LessOrEqual(t, screenColAt([]byte(line), len(line)), 12)
 }
 
+// 넘치는 tab 은 양끝 표시가 알린다. `<n` 은 왼쪽으로, `n>` 는 오른쪽으로 그만큼 더 있다는 뜻이다.
+func TestTablineShowsHiddenCount(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+	m.width = 30
+
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.View()))
+}
+
+// 활성 tab 이 오른쪽 끝에 있으면 안 보이던 것을 민다.
+// 한 번에 한 tab 씩만 밀어야 tabline 이 덜 흔들린다.
+func TestTablineScrollsToActiveTab(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+	m.(viewEditorNormal).editor.width = 30
+
+	m = send(m, "g", "t")
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.(viewEditorNormal).View()),
+		"보이는 자리로 옮겼으면 밀지 않는다")
+
+	m = send(m, "g", "t")
+	assert.Equal(t, "<1│ 2 b.txt │ 3 c.txt │2>", tablineOf(t, m.(viewEditorNormal).View()),
+		"화면 밖으로 나간 만큼만 민다")
+
+	m = send(m, "g", "t")
+	assert.Equal(t, "<2│ 3 c.txt │ 4 d.txt │1>", tablineOf(t, m.(viewEditorNormal).View()))
+
+	m = send(m, "g", "t")
+	assert.Equal(t, "<3│ 4 d.txt │ 5 e.txt", tablineOf(t, m.(viewEditorNormal).View()),
+		"마지막 tab 까지 왔으면 오른쪽 표시가 없다")
+
+	// 처음으로 둘러 가면 스크롤도 처음으로 돌아온다.
+	m = send(m, "g", "t")
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.(viewEditorNormal).View()))
+}
+
+// 반쯤 걸친 tab 은 그리지 않는다. 잘린 이름은 어느 파일인지 알려주지 못한다.
+func TestTablineDoesNotDrawPartialTab(t *testing.T) {
+	for width := 10; width <= 40; width++ {
+		m := newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+		m.width = width
+		m.active = 2
+		m.scrollTabsTo()
+
+		line := tablineOf(t, m.View())
+
+		assert.LessOrEqual(t, screenWidthOf(line), width, "width=%d", width)
+		assert.Contains(t, line, " 3 c.txt", "활성 tab 은 온전히 보인다: width=%d", width)
+
+		// 줄 끝 빈 칸은 tablineOf 가 떼므로 마지막 tab 은 뒷 칸이 없다.
+		for _, piece := range strings.Split(line, "│") {
+			if strings.HasPrefix(piece, " ") {
+				assert.Regexp(t, `^ \d [a-e]\.txt ?$`, piece, "이름이 잘린 tab 이 있다: %q", line)
+			}
+		}
+	}
+}
+
+// tab 을 닫아 오른쪽에 자리가 남으면 왼쪽에 가려둔 것을 도로 보여준다.
+func TestTablineScrollsBackWhenRoomAppears(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+	m.(viewEditorNormal).editor.width = 30
+
+	m = send(m, "g", "t", "g", "t", "g", "t")
+	require.Equal(t, "<2│ 3 c.txt │ 4 d.txt │1>", tablineOf(t, m.(viewEditorNormal).View()))
+
+	m = send(m, ":", "q", "enter") // 4 d.txt 를 닫는다
+	m = send(m, ":", "q", "enter") // 그 자리에 드러난 5 e.txt 를 닫는다
+
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │ 3 c.txt", tablineOf(t, m.(viewEditorNormal).View()),
+		"셋만 남아 다 들어가므로 가려짐 표시도 없다")
+}
+
+// 화면이 넓어지면 밀어둔 것이 도로 보인다.
+func TestTablineScrollsBackOnResize(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+	m.(viewEditorNormal).editor.width = 30
+
+	m = send(m, "g", "t", "g", "t", "g", "t")
+	require.Equal(t, "<2│ 3 c.txt │ 4 d.txt │1>", tablineOf(t, m.(viewEditorNormal).View()))
+
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 60, Height: 10})
+
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │ 3 c.txt │ 4 d.txt │ 5 e.txt",
+		tablineOf(t, m.(viewEditorNormal).View()))
+}
+
 // 화면이 tabline 과 statusBar 를 합친 것보다 작아도 죽지 않아야 한다.
 func TestTinyScreenWithTablineDoesNotPanic(t *testing.T) {
 	for _, height := range []int{0, 1, 2, 3, 4} {
