@@ -14,7 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/bluemir/be/internal/util/retry"
+	"github.com/bluemir/zn/internal/util/retry"
 )
 
 const HttpHeaderAuthorization = "Authorization"

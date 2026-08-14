@@ -68,7 +68,7 @@ func printTargets(categories []parser.Category) {
 		}
 	}
 	fmt.Println("#")
-	fmt.Println("# This project used https://github.com/bluemir/be as template.")
+	fmt.Println("# This project used https://github.com/bluemir/zn as template.")
 }
 
 // findProjectRoot walks up from cwd looking for a Makefile

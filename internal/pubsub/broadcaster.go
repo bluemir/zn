@@ -1,7 +1,7 @@
 package pubsub
 
 import (
-	"github.com/bluemir/be/internal/datastruct"
+	"github.com/bluemir/zn/internal/datastruct"
 )
 
 type Broadcaster[T any] struct {

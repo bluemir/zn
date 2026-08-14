@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bluemir/be/internal/util"
+	"github.com/bluemir/zn/internal/util"
 	"github.com/stretchr/testify/assert"
 )
 

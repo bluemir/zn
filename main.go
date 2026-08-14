@@ -5,7 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/bluemir/be/cmd"
+	"github.com/bluemir/zn/cmd"
 )
 
 func main() {

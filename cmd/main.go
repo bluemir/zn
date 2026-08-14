@@ -12,8 +12,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/bluemir/be/internal/buildinfo"
-	"github.com/bluemir/be/internal/core"
+	"github.com/bluemir/zn/internal/buildinfo"
+	"github.com/bluemir/zn/internal/core"
 )
 
 const (

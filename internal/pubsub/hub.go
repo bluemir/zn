@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/bluemir/be/internal/datastruct"
+	"github.com/bluemir/zn/internal/datastruct"
 	"github.com/rs/xid"
 	"github.com/sirupsen/logrus"
 )

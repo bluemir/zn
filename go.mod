@@ -1,4 +1,4 @@
-module github.com/bluemir/be
+module github.com/bluemir/zn
 
 go 1.26.4
 

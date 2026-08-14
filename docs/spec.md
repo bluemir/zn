@@ -111,7 +111,7 @@ sidebar 는 화면 맨 윗줄부터 statusBar 앞줄까지다. tabline 은 그 �
 statusBar 는 sidebar 아래를 지나 화면을 가로지르고, 그 아래 칸에는 mode 가 온다.
 
 ```
-▾ be/                         │ 1 main.go
+▾ zn/                         │ 1 main.go
   ▸ docs/                     │  1  0 package main
   ▾ internal/                 │  2  1
       main.go                 │  3  2 func main() {
@@ -201,7 +201,7 @@ mode 는 sidebar 아래 칸에, 파일 경로는 편집 영역 아래에 놓는�
 편집 중인 파일에 딸린 것이기 때문이다.
 
 ```
-▾ be/                         │ 1 editor.go
+▾ zn/                         │ 1 editor.go
   ▸ docs/                     │  1  0 package core
 NORMAL                          internal/core/editor.go    master(f6cacbd*)
                                 1:1  (550 줄)                            3g
@@ -531,7 +531,7 @@ mouse 를 켜 두는 동안 터미널 자체의 드래그 복사가 막힌다. �
 편집 화면과 sidebar 위에 겹친다. 기본은 파일 찾기이고, 입력이 `>` 로 시작하면 명령 목록이 된다.
 
 ```
-▾ be/                    │ 1 editor.go
+▾ zn/                    │ 1 editor.go
   ▸ docs/     ┌──────────────────────────────────┐
   ▸ internal/ │ edit                             │
     README.md ├──────────────────────────────────┤

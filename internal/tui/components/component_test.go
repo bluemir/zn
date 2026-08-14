@@ -3,7 +3,7 @@ package components_test
 import (
 	"testing"
 
-	component "github.com/bluemir/be/internal/tui/components"
+	component "github.com/bluemir/zn/internal/tui/components"
 )
 
 func TestSelectWraps(t *testing.T) {

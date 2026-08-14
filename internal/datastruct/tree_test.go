@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/bluemir/be/internal/datastruct"
+	"github.com/bluemir/zn/internal/datastruct"
 )
 
 func TestTree(t *testing.T) {

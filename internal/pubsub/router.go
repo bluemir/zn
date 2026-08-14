@@ -8,7 +8,7 @@ import (
 	"github.com/rs/xid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/bluemir/be/internal/datastruct"
+	"github.com/bluemir/zn/internal/datastruct"
 )
 
 type IRouter[T any] interface {

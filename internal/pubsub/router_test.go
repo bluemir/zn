@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluemir/be/internal/pubsub"
+	"github.com/bluemir/zn/internal/pubsub"
 )
 
 func TestRouter_BasicFlow(t *testing.T) {
