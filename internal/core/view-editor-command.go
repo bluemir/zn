@@ -128,6 +128,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		m.search.highlight = false
 
 		return normalMode(m.editor)
+	case "jobs":
+		// `!` 는 이 명령에서 뜻이 없다. 목록을 열기만 한다.
+		return jobsMode(m.editor)
 	case "tree":
 		// `!` 는 이 명령에서 뜻이 없다. 그냥 여닫는다.
 		if err := m.toggleTree(); err != nil {

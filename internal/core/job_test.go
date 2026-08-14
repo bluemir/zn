@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -179,7 +180,7 @@ func TestStartJobKeepsOneOfEachName(t *testing.T) {
 	e := editor{}
 
 	started := 0
-	start := func() <-chan jobProgress {
+	start := func(context.Context) <-chan jobProgress {
 		started++
 		ch := make(chan jobProgress)
 		close(ch)
@@ -194,7 +195,7 @@ func TestStartJobKeepsOneOfEachName(t *testing.T) {
 	assert.Len(t, e.jobs, 1)
 }
 
-// 목록에 없는 이름의 진행이 와도 끼워 넣는다. 어긋난 복사본으로 돌아왔을 때 다시 맞는 길이다.
+// 목록에 없는 이름의 진행이 와도 끼워 넣는다. 시작한 자리를 지나온 msg 여도 자리를 잡는다.
 func TestJobProgressAddsUnknownName(t *testing.T) {
 	e := editor{}
 

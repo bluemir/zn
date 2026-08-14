@@ -1,10 +1,13 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -24,15 +27,52 @@ import (
 type jobProgress struct {
 	done, total int // total 이 0 이면 전체를 아직 모른다
 	apply       func(*editor)
+
+	// summary 는 끝나며 남기는 한 줄이고 err 은 실패한 이유다. 마지막 조각만 채운다.
+	// 무엇이 결과인지는 여기서도 작업이 정한다 — 실행기는 목록에 옮겨 적기만 한다.
+	summary string
+	err     error
 }
 
-// job 은 statusBar 에 진행을 찍기 위한 것이다. 채널은 여기 두지 않는다 — msg 가 들고 다닌다.
+// job 은 도는 작업 하나이자 끝난 작업 하나다. statusBar 와 `:jobs` 목록이 이것을 읽는다.
+// 채널은 여기 두지 않는다 — msg 가 들고 다닌다.
 //
-// name 은 statusBar 에 찍히는 이름이자 신원이다. 같은 이름은 한 번에 하나만 돈다 —
+// name 은 화면에 찍히는 이름이자 신원이다. 같은 이름은 한 번에 하나만 돈다 —
 // 두 번째 요청은 새로 시작하지 않고 돌고 있는 것에 붙는다.
 type job struct {
 	name        string
 	done, total int
+	started     time.Time
+
+	// cancel 은 이 작업의 ctx 를 끊는다. 끝난 작업은 nil 이다.
+	cancel context.CancelFunc
+
+	// 아래 셋은 끝난 뒤에만 찬다. 상태를 따로 두지 않는 것은 "끝난 목록에 있는가" 와
+	// "err 이 무엇인가" 로 이미 갈리기 때문이다.
+	finished time.Time
+	summary  string // 작업이 남긴 한 줄. "151,933 개" 처럼 무엇을 했는지다
+	err      error  // context.Canceled 면 취소, 그 밖이면 실패
+}
+
+// label 은 끝난 작업의 상태와 요약이다. `:jobs` 목록이 진행 막대 자리에 대신 넣는다.
+func (j job) label() string {
+	switch {
+	case j.err == nil:
+		return "끝남  " + j.summary
+	case errors.Is(j.err, context.Canceled):
+		return "취소됨"
+	default:
+		return "실패  " + j.err.Error()
+	}
+}
+
+// elapsed 는 걸린 시간이다. 도는 중이면 지금까지, 끝났으면 끝날 때까지다.
+func (j job) elapsed(now time.Time) time.Duration {
+	if !j.finished.IsZero() {
+		return j.finished.Sub(j.started)
+	}
+
+	return now.Sub(j.started)
 }
 
 // jobProgressMsg 는 다음 조각을 받을 채널을 같이 들고 다닌다.
@@ -69,14 +109,47 @@ func waitJob(name string, ch <-chan jobProgress) tea.Cmd {
 //
 // 채널이 아니라 채널을 만드는 함수를 받는다. 채널을 먼저 만들면 이미 돌고 있을 때
 // 갈 곳 없는 goroutine 이 하나 뜬다.
-func (e *editor) startJob(name string, start func() <-chan jobProgress) tea.Cmd {
+//
+// 작업마다 ctx 를 나눠 준다. 취소는 그것을 끊는 것이고, 편집기를 끝내면 루트가 끊겨 전부 정리된다.
+func (e *editor) startJob(name string, start func(context.Context) <-chan jobProgress) tea.Cmd {
 	if e.jobRunning(name) {
 		return nil
 	}
 
-	e.putJob(job{name: name})
+	ctx, cancel := context.WithCancel(e.rootContext())
+	e.putJob(job{name: name, started: time.Now(), cancel: cancel})
 
-	return waitJob(name, start())
+	return waitJob(name, start(ctx))
+}
+
+// rootContext 는 작업들이 갈라져 나오는 뿌리다.
+//
+// core.Run 이 받은 것을 editor 가 들고 있다. 테스트는 editor 를 직접 만들어서 비어 있으므로
+// 그때는 Background 다 — 취소가 프로세스 종료까지 이어지지 않을 뿐이고 동작은 같다.
+func (e editor) rootContext() context.Context {
+	if e.ctx == nil {
+		return context.Background()
+	}
+
+	return e.ctx
+}
+
+// cancelJob 은 그 작업에게 그만하라고 말한다. 목록에서 바로 빼지 않는다 —
+// 언제 진짜 끝났는지는 작업이 알고, 채널을 닫으면 jobDoneMsg 가 와서 나머지는 같은 길로 흐른다.
+//
+// 취소했다는 것은 여기서 적는다. 작업이 알려주기를 기다리면, 조각을 보내다 끊긴 작업은
+// 아무 말 없이 채널만 닫아서 목록에 「끝남」으로 남는다.
+func (e *editor) cancelJob(name string) {
+	for i := range e.jobs {
+		if e.jobs[i].name != name || e.jobs[i].cancel == nil {
+			continue
+		}
+
+		e.jobs[i].err = context.Canceled
+		e.jobs[i].cancel()
+
+		return
+	}
 }
 
 // handleJob 은 mode 가 공유하는 작업 msg 처리다. 다음 조각을 받을 Cmd 를 준다.
@@ -89,7 +162,7 @@ func (e *editor) startJob(name string, start func() <-chan jobProgress) tea.Cmd 
 func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case jobProgressMsg:
-		e.putJob(job{name: msg.name, done: msg.done, total: msg.total})
+		e.updateJob(msg)
 
 		if msg.apply != nil {
 			msg.apply(e)
@@ -97,12 +170,42 @@ func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 
 		return waitJob(msg.name, msg.ch)
 	case jobDoneMsg:
-		e.removeJob(msg.name)
+		e.finishJob(msg.name)
 
 		return nil
 	default:
 		return nil
 	}
+}
+
+// updateJob 은 진행을 목록에 옮겨 적는다. 마지막 조각의 summary·err 도 여기서 받아 둔다 —
+// 채널이 닫히는 것은 그 다음이라 finishJob 은 이미 적힌 것을 쓴다.
+func (e *editor) updateJob(msg jobProgressMsg) {
+	for i := range e.jobs {
+		if e.jobs[i].name != msg.name {
+			continue
+		}
+
+		e.jobs[i].done, e.jobs[i].total = msg.done, msg.total
+		if msg.summary != "" {
+			e.jobs[i].summary = msg.summary
+		}
+		if msg.err != nil {
+			e.jobs[i].err = msg.err
+		}
+
+		return
+	}
+
+	// 목록에 없는 이름이면 끼워 넣는다. 시작한 자리를 지나온 msg 여도 여기서 자리를 잡는다.
+	e.jobs = append(e.jobs, job{
+		name:    msg.name,
+		done:    msg.done,
+		total:   msg.total,
+		started: time.Now(),
+		summary: msg.summary,
+		err:     msg.err,
+	})
 }
 
 // jobRunning 은 그 이름의 작업이 돌고 있는지다.
@@ -116,8 +219,7 @@ func (e editor) jobRunning(name string) bool {
 	return false
 }
 
-// putJob 은 진행을 갱신한다. 목록에 없으면 맨 뒤에 붙는다 —
-// 시작한 자리를 지나온 msg 여도 여기서 목록에 자리를 잡는다.
+// putJob 은 작업을 목록에 넣는다. 같은 이름이 있으면 갈아끼운다.
 func (e *editor) putJob(next job) {
 	for i := range e.jobs {
 		if e.jobs[i].name == next.name {
@@ -130,11 +232,35 @@ func (e *editor) putJob(next job) {
 	e.jobs = append(e.jobs, next)
 }
 
-// removeJob 은 끝난 작업을 목록에서 뺀다.
-func (e *editor) removeJob(name string) {
-	e.jobs = slices.DeleteFunc(e.jobs, func(running job) bool {
-		return running.name == name
-	})
+// finishedJobs 는 `:jobs` 목록에 남기는 끝난 작업 수다.
+// 조용히 실패한 것을 나중에 찾을 수 있을 만큼이면 되고, 그보다 오래된 것은 볼 일이 없다.
+const finishedJobs = 20
+
+// finishJob 은 끝난 작업을 도는 목록에서 끝난 목록으로 옮긴다.
+//
+// 실패는 statusBar 아래 줄로도 알린다 — 목록을 열어 보기 전에는 아무 일도 없던 것처럼 보이기
+// 때문이다. 취소는 알리지 않는다. 그만하라고 한 사람이 결과를 이미 안다.
+func (e *editor) finishJob(name string) {
+	for i, running := range e.jobs {
+		if running.name != name {
+			continue
+		}
+
+		running.cancel = nil
+		running.finished = time.Now()
+
+		e.jobs = slices.Delete(e.jobs, i, i+1)
+		e.finished = append([]job{running}, e.finished...)
+		if len(e.finished) > finishedJobs {
+			e.finished = e.finished[:finishedJobs]
+		}
+
+		if running.err != nil && !errors.Is(running.err, context.Canceled) {
+			e.message = running.name + " 실패: " + running.err.Error()
+		}
+
+		return
+	}
 }
 
 // 막대 크기다. 칸 하나가 여섯 단계라 열 칸이면 예순 단계다.

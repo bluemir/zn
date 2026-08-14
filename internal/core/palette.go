@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/fs"
 	"os/exec"
@@ -76,18 +77,35 @@ const indexChunk = 1024
 // 뒤에 뒤집히기 때문이다. 정렬을 끝낸 배열은 다시 고치지 않으므로 조각이 그 앞부분을 그대로
 // 가리켜도 된다 — 보내는 쪽도 받는 쪽도 복사하지 않는다.
 //
-// 편집기를 끝낼 때 보내다 막힌 goroutine 은 프로세스가 끝나면서 사라진다. 취소는 아직 없다.
-func indexFiles(root string) <-chan jobProgress {
+// ctx 가 끊기면 그만둔다. git 프로세스도 같이 죽고, 보내다 막히는 자리마다 빠져나온다 —
+// 취소한 뒤 아무도 받지 않는 채널에 goroutine 이 남지 않는다(ADR-0027).
+func indexFiles(ctx context.Context, root string) <-chan jobProgress {
 	ch := make(chan jobProgress)
+
+	// send 는 조각 하나를 보낸다. 취소됐으면 false 를 주고 부르는 쪽이 그만둔다.
+	send := func(progress jobProgress) bool {
+		select {
+		case ch <- progress:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
 
 	go func() {
 		defer close(ch)
 
-		files, ok := gitFiles(root)
+		files, ok := gitFiles(ctx, root)
 		if !ok {
-			files = walkFiles(root, func(done int) {
-				ch <- jobProgress{done: done}
+			files = walkFiles(ctx, root, func(done int) bool {
+				return send(jobProgress{done: done})
 			})
+		}
+
+		// 훑는 도중에 끊겼다. 모은 것은 반쪽이라 목록에 붓지 않고 그냥 물러난다.
+		// 취소했다는 것은 실행기가 이미 적어 두었다(job.go).
+		if ctx.Err() != nil {
+			return
 		}
 
 		// git 은 추적 중인 것과 아직 추가하지 않은 것을 따로 모아서 주므로 섞어 정렬한다.
@@ -96,7 +114,7 @@ func indexFiles(root string) <-chan jobProgress {
 
 		// 조각이 하나도 없으면 앞서 보던 목록이 그대로 남는다. 빈 것도 결과이므로 한 번은 보낸다.
 		if len(files) == 0 {
-			ch <- jobProgress{apply: func(e *editor) { e.files = nil }}
+			send(jobProgress{apply: func(e *editor) { e.files = nil }, summary: "0 개"})
 
 			return
 		}
@@ -104,10 +122,18 @@ func indexFiles(root string) <-chan jobProgress {
 		for sent := 0; sent < len(files); sent += indexChunk {
 			done := min(sent+indexChunk, len(files))
 
-			ch <- jobProgress{
+			progress := jobProgress{
 				done:  done,
 				total: len(files),
 				apply: func(e *editor) { e.files = files[:done] },
+			}
+			// 마지막 조각이 이 작업이 무엇을 했는지 남긴다.
+			if done == len(files) {
+				progress.summary = formatCount(len(files)) + " 개"
+			}
+
+			if !send(progress) {
+				return
 			}
 		}
 	}()
@@ -117,9 +143,11 @@ func indexFiles(root string) <-chan jobProgress {
 
 // gitFiles 는 git 이 아는 파일 목록이다. 추적 중인 것과 아직 추가하지 않은 것을 모두 주되
 // 무시된 것은 빼준다. 저장소가 아니거나 git 이 없으면 false 다.
-func gitFiles(root string) ([]string, bool) {
+//
+// CommandContext 라 취소하면 프로세스가 죽는다. 큰 저장소에서 여기가 가장 오래 걸리는 자리다.
+func gitFiles(ctx context.Context, root string) ([]string, bool) {
 	// `-z` 로 받는다. 이름에 줄바꿈이 든 파일이 있으면 줄 단위로 끊을 수 없다.
-	cmd := exec.Command("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+	cmd := exec.CommandContext(ctx, "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard")
 	cmd.Dir = root
 
 	out, err := cmd.Output()
@@ -145,10 +173,14 @@ func gitFiles(root string) ([]string, bool) {
 //
 // report 는 지금까지 센 개수를 알린다. 훑는 것이 가장 오래 걸리는데 그동안 진행 표시가 0 에
 // 멈춰 있으면 멎은 것으로 보인다. 조각마다 부르지 않고 indexChunk 마다 부른다.
-func walkFiles(root string, report func(done int)) []string {
+// report 가 false 를 주면 취소된 것이라 훑기를 그만둔다.
+func walkFiles(ctx context.Context, root string, report func(done int) bool) []string {
 	files := []string{}
 
 	filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return nil
 		}
@@ -167,8 +199,8 @@ func walkFiles(root string, report func(done int)) []string {
 
 		files = append(files, filepath.ToSlash(rel))
 
-		if len(files)%indexChunk == 0 {
-			report(len(files))
+		if len(files)%indexChunk == 0 && !report(len(files)) {
+			return ctx.Err()
 		}
 
 		return nil
@@ -201,6 +233,7 @@ var paletteCommands = []paletteCommand{
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
+	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 }
 
 // label 은 화면에 보이는 것 전부를 이어 붙인 것이다. 매칭이 이것을 본다.

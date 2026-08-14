@@ -29,6 +29,9 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
+		// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
+		m.message = ""
+
 		buf := m.buffer()
 
 		switch msg.String() {
@@ -97,5 +100,5 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m viewEditorInsert) View() tea.View {
 	// 커서가 글자 사이에 있으므로 막대다.
-	return m.render(tea.CursorBar, "INSERT", m.position())
+	return m.render(tea.CursorBar, "INSERT", m.messageOr(m.position()))
 }

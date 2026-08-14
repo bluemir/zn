@@ -92,6 +92,9 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // press 는 키 하나를 먹는다.
 func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
+	// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
+	m.message = ""
+
 	// 접두 키를 기다리고 있었으면 이 키가 그 뒤에 붙는 키다.
 	// esc 와 ctrl+c 보다 먼저 봐야 `ctrl+w esc` 가 sidebar 를 나가버리지 않는다.
 	if m.pending != "" {
@@ -176,7 +179,8 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 func (m viewSidebar) View() tea.View {
 	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
 	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
-	view := m.render(tea.CursorBlock, "TREE", m.withShowcmd(m.sidebar.selectedLabel(), m.pending))
+	view := m.render(tea.CursorBlock, "TREE",
+		m.withShowcmd(m.messageOr(m.sidebar.selectedLabel()), m.pending))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 명령줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.

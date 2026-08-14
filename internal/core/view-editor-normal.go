@@ -13,15 +13,15 @@ func normalMode(e *editor) (tea.Model, tea.Cmd) {
 }
 
 // normalModeMessage 는 명령 결과를 아래 줄에 띄운 채로 normal 로 돌아간다.
+// 알림은 mode 밖(editor)에 있다 — 백그라운드 작업의 실패가 어느 mode 에서든 도착한다.
 func normalModeMessage(e *editor, message string) (tea.Model, tea.Cmd) {
-	return viewEditorNormal{editor: e, message: message}, nil
+	e.message = message
+
+	return viewEditorNormal{editor: e}, nil
 }
 
 type viewEditorNormal struct {
 	*editor
-
-	// message 는 명령 결과나 오류다. 다음 키를 누르면 사라진다.
-	message string
 
 	// state 는 키 나열을 명령 하나로 만드는 상태다. 숫자 접두와 `g` 같은 접두 키가 여기 산다.
 	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
@@ -348,11 +348,7 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 }
 
 func (m viewEditorNormal) View() tea.View {
-	bottom := m.position()
-	if m.message != "" {
-		bottom = m.message
-	}
-
 	// 커서가 글자 위에 있으므로 블록이다.
-	return m.render(tea.CursorBlock, "NORMAL", m.withShowcmd(bottom, m.keyState().showcmd()))
+	return m.render(tea.CursorBlock, "NORMAL",
+		m.withShowcmd(m.messageOr(m.position()), m.keyState().showcmd()))
 }

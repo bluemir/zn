@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,9 +35,21 @@ type editor struct {
 	// 여기에 들고 있다가 파일을 열거나 저장할 때만 다시 읽는다(ADR-0009).
 	git gitStatus
 
-	// jobs 는 백그라운드에서 도는 작업들이다. statusBar 에 진행을 찍는 데만 쓴다.
+	// ctx 는 편집기의 수명이다. core.Run 이 받은 것을 그대로 든다.
+	// 백그라운드 작업이 여기서 갈라져 나오므로 편집기를 끝내면 도는 것이 전부 정리된다(ADR-0027).
+	ctx context.Context
+
+	// jobs 는 백그라운드에서 도는 작업들이고 finished 는 최근에 끝난 것들이다.
+	// statusBar 는 도는 것만 보고 `:jobs` 목록이 둘 다 본다.
 	// 결과는 여기가 아니라 종류마다 자기 자리에 쌓인다(job.go).
-	jobs []job
+	jobs     []job
+	finished []job
+
+	// message 는 명령 결과나 오류다. 다음 키를 누르면 사라진다.
+	//
+	// mode 가 아니라 여기 있는 것은 백그라운드 작업의 실패가 어느 mode 에서든 도착하기 때문이다.
+	// 아래 줄에 그리는 것은 normal·insert·트리뿐이다 — 명령줄과 검색은 그 줄을 자기가 쓴다.
+	message string
 
 	// files 는 팔레트가 고르는 파일 목록이다. 인덱싱 작업이 채운다.
 	// 팔레트를 닫아도 남는다 — 인덱싱은 팔레트보다 오래 살고, 다시 열면 모아둔 것부터 보인다.
@@ -424,8 +437,29 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 			e.lineNumber(buf.cursorLine, row)+highlightRow(buf.lines[row.line], row, matches, cursorCol))
 	}
 
-	rows := e.screenRows(textRows, mode, bottom)
+	view := e.viewRows(textRows, mode, bottom)
 
+	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
+		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
+		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)
+		view.Cursor.Shape = shape
+	}
+
+	return view
+}
+
+// viewRows 는 편집 영역에 그릴 행들을 받아 편집기 틀에 얹은 화면을 만든다.
+// tabline 과 sidebar 가 따라온다.
+func (e editor) viewRows(textRows []string, mode, bottom string) tea.View {
+	return e.screenView(e.screenRows(textRows, mode, bottom))
+}
+
+// screenView 는 화면 전체 행을 받아 tea.View 를 만든다.
+//
+// 터미널 설정이 여기 한 곳에 있다. 편집 화면과 달리 tabline·sidebar 를 쓰지 않는 화면
+// (`:jobs`) 도 같은 설정을 그대로 받아야 대체 화면과 키 확장이 어긋나지 않는다.
+// 커서는 부르는 쪽이 얹는다 — 어디에 둘지가 화면마다 다르다.
+func (e editor) screenView(rows []string) tea.View {
 	view := tea.NewView(strings.Join(rows, "\n"))
 
 	view.MouseMode = tea.MouseModeCellMotion
@@ -434,12 +468,6 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 	// 터미널에 PC-101 자리의 키를 같이 달라고 한다. 한글 입력 상태에서 `ctrl+p` 가
 	// `ctrl+ㅔ` 로 오는 것을 터미널이 되돌려 준다(ADR-0014).
 	view.KeyboardEnhancements.ReportAlternateKeys = true
-
-	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
-		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
-		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)
-		view.Cursor.Shape = shape
-	}
 
 	return view
 }
@@ -646,6 +674,17 @@ func (e editor) withStatus(top string) string {
 	}
 
 	return top
+}
+
+// messageOr 는 statusBar 아래 줄에 무엇을 쓸지다. 알림이 있으면 그것이 먼저다.
+//
+// 명령줄·검색은 그 줄을 자기 입력에 쓰므로 이것을 부르지 않는다.
+func (e editor) messageOr(fallback string) string {
+	if e.message != "" {
+		return e.message
+	}
+
+	return fallback
 }
 
 // position 은 커서 위치와 전체 줄 수다. normal/insert 의 statusBar 아래 줄이다.

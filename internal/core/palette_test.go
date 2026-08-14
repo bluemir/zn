@@ -32,7 +32,7 @@ func indexedFiles(t *testing.T, root string) []string {
 	t.Helper()
 
 	e := editor{}
-	for progress := range indexFiles(root) {
+	for progress := range indexFiles(t.Context(), root) {
 		if progress.apply != nil {
 			progress.apply(&e)
 		}
