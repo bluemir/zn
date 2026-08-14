@@ -345,6 +345,10 @@ func (e editor) contentLeft() int {
 }
 
 // 줄번호 칸의 최소 자릿수다. 파일이 짧아도 이만큼은 잡아서 줄을 오갈 때 본문이 흔들리지 않는다.
+//
+// minAbsoluteDigits 3 은 vim 의 `numberwidth` 기본값 4 와 같은 자리다. vim 은 뒤 공백까지
+// 포함한 총 폭이고 여기서는 자릿수라 하나 작다. 그래서 vim 과 같이 999 줄까지는 안 흔들리고
+// 1000 줄에서 한 칸 늘어난다(ADR-0007). 이 값을 올리면 그 지점이 vim 과 갈린다.
 const (
 	minAbsoluteDigits = 3
 	minRelativeDigits = 2
