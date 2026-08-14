@@ -254,10 +254,39 @@ func (e *editor) closeTab() bool {
 	return true
 }
 
+// closeOtherTabs 는 활성 tab 만 남기고 나머지를 닫는다. 닫은 수를 준다.
+//
+// 남는 것이 보고 있던 tab 이라 편집 중인 파일도 sidebar 표시도 그대로다 —
+// closeTab 과 달리 자리에 새로 드러나는 파일이 없어서 reveal 을 다시 하지 않는다.
+func (e *editor) closeOtherTabs() int {
+	closed := len(e.buffers) - 1
+
+	e.buffers = []Buffer{e.buffers[e.active]}
+	e.active = 0
+	e.scrollTabsTo()
+
+	return closed
+}
+
 // anyDirty 는 저장하지 않은 변경이 있는 buffer 가 하나라도 있는지다.
 // 전체 종료는 보고 있지 않은 tab 의 변경도 잃게 하므로 활성 buffer 만 봐서는 안 된다.
 func (e editor) anyDirty() bool {
 	for _, buf := range e.buffers {
+		if buf.dirty {
+			return true
+		}
+	}
+
+	return false
+}
+
+// otherDirty 는 보고 있지 않은 tab 에 저장하지 않은 변경이 있는지다.
+// 다른 tab 을 모두 닫는 것은 활성 buffer 는 건드리지 않으므로 그것만 빼고 본다.
+func (e editor) otherDirty() bool {
+	for i, buf := range e.buffers {
+		if i == e.active {
+			continue
+		}
 		if buf.dirty {
 			return true
 		}

@@ -488,6 +488,94 @@ func TestForceCloseTabKeepsOtherTabs(t *testing.T) {
 	assert.Len(t, m.(viewEditorNormal).buffers, 1)
 }
 
+// pickCloseOtherTabs 는 팔레트에서 「다른 tab 모두 닫기」를 골라 실행한다.
+// 팔레트를 여는 길은 view-palette_test.go 가 보고, 여기는 고른 뒤에 tab 이 어떻게 되는지만 본다.
+func pickCloseOtherTabs(t *testing.T, m tea.Model) tea.Model {
+	t.Helper()
+
+	v, ok := m.(viewEditorNormal)
+	require.True(t, ok, "normal mode 가 아니다: %T", m)
+
+	palette := viewPalette{editor: v.editor, input: "> close other"}
+	palette.filter()
+
+	require.Equal(t, "다른 tab 모두 닫기", paletteCommands[palette.hits[palette.selected].index].name)
+
+	return send(palette, "enter")
+}
+
+// 「다른 tab 모두 닫기」는 보고 있는 tab 만 남긴다.
+func TestCloseOtherTabsKeepsActiveTab(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt")
+
+	m = send(m, "g", "t")
+	m = pickCloseOtherTabs(t, m)
+
+	require.IsType(t, viewEditorNormal{}, m)
+	v := m.(viewEditorNormal)
+	assert.Equal(t, 0, v.active)
+	assert.Equal(t, " 1 b.txt", tablineOf(t, v.View()), "보고 있던 tab 이 남는다")
+	assert.Equal(t, "2 개의 tab 을 닫았습니다", v.message)
+}
+
+// tab 이 하나뿐이면 닫을 것이 없다. 확인창도 뜨지 않는다.
+func TestCloseOtherTabsWithSingleTab(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt")
+
+	m = pickCloseOtherTabs(t, m)
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Len(t, m.(viewEditorNormal).buffers, 1)
+	assert.Equal(t, "닫을 다른 tab 이 없습니다", m.(viewEditorNormal).message)
+}
+
+// 보고 있지 않은 tab 의 변경을 잃게 되므로 묻는다.
+func TestCloseOtherTabsConfirmsWhenAnotherTabIsDirty(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt")
+
+	m = send(m, "i", "X", "esc")
+	m = send(m, "g", "t")
+	require.False(t, bufferOf(t, m).dirty, "지금 보고 있는 tab 은 깨끗하다")
+
+	m = pickCloseOtherTabs(t, m)
+
+	require.IsType(t, viewConfirmDiscard{}, m)
+	assert.Contains(t, m.View().Content, "다른 tab 을 모두 닫으시겠습니까?")
+
+	m, _ = m.Update(key("enter"))
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Len(t, m.(viewEditorNormal).buffers, 1)
+	assert.Equal(t, "b.txt", bufferOf(t, m).path)
+}
+
+// 확인창에서 취소하면 tab 이 그대로 남는다. 팔레트가 아니라 normal 로 돌아간다.
+func TestCloseOtherTabsCancelKeepsTabs(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt")
+
+	m = send(m, "i", "X", "esc")
+	m = send(m, "g", "t")
+	m = pickCloseOtherTabs(t, m)
+	require.IsType(t, viewConfirmDiscard{}, m)
+
+	m, _ = m.Update(key("esc"))
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Len(t, m.(viewEditorNormal).buffers, 2)
+}
+
+// 보고 있는 tab 의 변경은 잃지 않으므로 묻지 않는다.
+func TestCloseOtherTabsDoesNotConfirmForActiveDirty(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt")
+
+	m = send(m, "i", "X", "esc")
+	m = pickCloseOtherTabs(t, m)
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Len(t, m.(viewEditorNormal).buffers, 1)
+	assert.True(t, bufferOf(t, m).dirty, "편집 중인 내용은 그대로다")
+}
+
 // Ctrl+C 는 :qa 다. 보고 있지 않은 tab 의 변경도 같이 잃으므로 그것까지 봐야 한다.
 func TestCtrlCConfirmsWhenAnotherTabIsDirty(t *testing.T) {
 	var m tea.Model = newTabsEditor("a.txt", "b.txt")

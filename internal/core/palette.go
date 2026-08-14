@@ -231,6 +231,7 @@ type paletteCommand struct {
 var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace},
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile},
+	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
@@ -298,6 +299,36 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 	buf.scrollTo(e.contentWidth(), e.textHeight())
 
 	return normalModeMessage(e, "다시 읽음: "+buf.path)
+}
+
+// runCloseOtherTabs 는 지금 보고 있는 tab 만 남기고 나머지를 닫는다.
+//
+// 다른 tab 에 저장하지 않은 변경이 있으면 한 번 더 묻는다. 그 tab 을 보고 있지 않으니 무엇을
+// 잃는지 화면에 드러나지 않아서다. 팔레트 항목에는 `:q!` 의 `!` 처럼 강제를 붙일 자리가 없어서
+// 확인창을 쓴다 — '파일 다시 읽기' 와 같다(ADR-0016).
+func runCloseOtherTabs(e *editor) (tea.Model, tea.Cmd) {
+	// tab 이 하나뿐이면 닫을 것이 없다. 확인창도 띄우지 않고 여기서 끝낸다.
+	if len(e.buffers) < 2 {
+		return normalModeMessage(e, "닫을 다른 tab 이 없습니다")
+	}
+
+	if !e.otherDirty() {
+		return closeOtherTabs(e)
+	}
+
+	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
+	back, _ := normalMode(e)
+
+	return ConfirmDiscard(back, e, "다른 tab 을 모두 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return closeOtherTabs(e)
+	}), nil
+}
+
+// closeOtherTabs 는 묻지 않고 닫는다. 확인창의 Yes 와 잃을 것이 없을 때가 쓴다.
+func closeOtherTabs(e *editor) (tea.Model, tea.Cmd) {
+	closed := e.closeOtherTabs()
+
+	return normalModeMessage(e, fmt.Sprintf("%d 개의 tab 을 닫았습니다", closed))
 }
 
 // runDisableHighlight 는 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. `:noh` 와 같다.
