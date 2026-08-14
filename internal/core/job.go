@@ -154,13 +154,16 @@ func (e *editor) cancelJob(name string) {
 
 // handleJob 은 mode 가 공유하는 작업 msg 처리다. 다음 조각을 받을 Cmd 를 준다.
 //
-// mode 마다 `case jobProgressMsg, jobDoneMsg:` 한 자리를 두고 여기로 넘긴다. 하는 일은 여기 하나로
-// 모여 있고(ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 적어둔 자리다) mode 쪽에는 어떤 msg 를
-// 받는지가 남는다. default 에 숨기면 그 mode 가 작업 msg 를 받는다는 것이 보이지 않는다.
+// mode 마다 `case jobProgressMsg, jobDoneMsg, gitTickMsg:` 한 자리를 두고 여기로 넘긴다. 하는 일은
+// 여기 하나로 모여 있고(ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 적어둔 자리다) mode 쪽에는 어떤
+// msg 를 받는지가 남는다. default 에 숨기면 그 mode 가 작업 msg 를 받는다는 것이 보이지 않는다.
 //
-// 결과가 무엇인지는 여기서 알지 못한다 — 이름으로 가르는 곳이 없다.
+// 결과가 무엇인지는 여기서 알지 못한다 — 이름으로 가르는 곳이 없다. git tick 만 예외로,
+// 주기를 잇는 자리가 여기 하나여야 mode 를 오갈 때 고리가 갈라지지 않는다(ADR-0030).
 func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
+	case gitTickMsg:
+		return tea.Batch(e.refreshGit(), tickGit())
 	case jobProgressMsg:
 		e.updateJob(msg)
 
@@ -232,11 +235,11 @@ func (e *editor) putJob(next job) {
 	e.jobs = append(e.jobs, next)
 }
 
-// finishedJobs 는 `:jobs` 목록에 남기는 끝난 작업 수다.
-// 조용히 실패한 것을 나중에 찾을 수 있을 만큼이면 되고, 그보다 오래된 것은 볼 일이 없다.
-const finishedJobs = 20
-
 // finishJob 은 끝난 작업을 도는 목록에서 끝난 목록으로 옮긴다.
+//
+// 끝난 목록은 이름당 마지막 결과 하나다. 개수 상한은 두지 않는다 — 이름은 코드에 있는 종류만큼만
+// 있다. 끝난 순서대로 쌓으면 주기적으로 도는 git 갱신이 목록을 자기 이름으로 뒤덮어서, 조용히
+// 실패한 다른 작업을 찾으라고 남겨둔 자리가 그것으로 다 찬다(ADR-0030).
 //
 // 실패는 statusBar 아래 줄로도 알린다 — 목록을 열어 보기 전에는 아무 일도 없던 것처럼 보이기
 // 때문이다. 취소는 알리지 않는다. 그만하라고 한 사람이 결과를 이미 안다.
@@ -250,10 +253,9 @@ func (e *editor) finishJob(name string) {
 		running.finished = time.Now()
 
 		e.jobs = slices.Delete(e.jobs, i, i+1)
-		e.finished = append([]job{running}, e.finished...)
-		if len(e.finished) > finishedJobs {
-			e.finished = e.finished[:finishedJobs]
-		}
+		e.finished = append([]job{running}, slices.DeleteFunc(e.finished, func(old job) bool {
+			return old.name == name
+		})...)
 
 		if running.err != nil && !errors.Is(running.err, context.Canceled) {
 			e.message = running.name + " 실패: " + running.err.Error()

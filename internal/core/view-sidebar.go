@@ -40,11 +40,13 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sidebar.scrollTo(m.sidebarHeight())
 
 		return m, nil
-	case tea.ResumeMsg:
-		// 내려가 있는 동안의 commit·checkout 을 statusBar 에 반영한다. git 표시는 mode 와
-		// 무관하게 보이고 알림을 띄울 자리가 필요하지 않아서 편집 화면과 같이 읽는다.
-		// 파일이 밖에서 바뀌었는지는 여기서도 보지 않는다 (ADR-0009, ADR-0023).
-		m.git = readGitStatus()
+	case tea.FocusMsg:
+		// 트리에 포커스가 있어도 본다. ADR-0023 이 셸 복귀에서 이것을 뺀 것은 알림을 놓을
+		// 자리가 마땅치 않아서였는데, 이제 statusBar 의 `[!]` 가 mode 와 무관하게 그 자리다
+		// (ADR-0023, ADR-0031).
+		if message := m.noteOutsideChange(); message != "" {
+			m.message = message
+		}
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -82,7 +84,7 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg:
 		//background job 을 처리한다.
 		return m, m.handleJob(msg)
 	default:
@@ -173,7 +175,10 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
 
 	// 연 파일을 보러 왔으므로 포커스도 편집 영역으로 간다. 돌아올 때는 ctrl+w ctrl+w 다.
-	return normalMode(m.editor)
+	model, cmd := normalMode(m.editor)
+
+	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
+	return model, tea.Batch(cmd, m.refreshGit())
 }
 
 func (m viewSidebar) View() tea.View {

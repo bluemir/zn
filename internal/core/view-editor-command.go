@@ -57,9 +57,9 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg:
-		// 백그라운드 작업의 진행은 mode 와 무관하다. 공용 처리가 statusBar 에 반영하고
-		// 다음 조각을 받을 Cmd 를 준다(job.go).
+	case jobProgressMsg, jobDoneMsg, gitTickMsg:
+		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
+		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		return m, m.handleJob(msg)
 	default:
 		return m, nil
@@ -104,9 +104,12 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		if err != nil {
 			return m.fail(err)
 		}
-		m.git = readGitStatus()
 
-		return forceCloseTab(m.editor)
+		// 저장은 dirty 를 바꾸는 유일한 편집기 안의 동작이라 주기 갱신을 기다리지 않는다(ADR-0030).
+		// 마지막 tab 이었으면 여기서 편집기가 끝나고, 시작한 갱신은 ctx 가 끊겨 같이 정리된다.
+		model, quit := forceCloseTab(m.editor)
+
+		return model, tea.Batch(quit, m.refreshGit())
 	case "e":
 		return m.edit(cmd)
 	case "tabnew":
@@ -122,7 +125,10 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 			return m.fail(err)
 		}
 
-		return normalMode(m.editor)
+		model, next := normalMode(m.editor)
+
+		// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
+		return model, tea.Batch(next, m.refreshGit())
 	case "noh", "nohlsearch":
 		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
 		m.search.highlight = false
@@ -203,19 +209,23 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m.fail(err)
 	}
-	// 저장하면 저장소가 dirty 가 된다. statusBar 의 git 표시를 여기서 맞춘다(ADR-0009).
-	m.git = readGitStatus()
+	// 저장하면 저장소가 dirty 가 된다. 주기 갱신을 기다리지 않고 여기서 맞춘다(ADR-0009, ADR-0030).
+	refresh := m.refreshGit()
 
 	if !naming {
 		// 보고 있는 파일이 아니라 다른 파일에 썼다. 문구를 나눠야 tabline 의 이름이
 		// 그대로인 것이 실패로 읽히지 않는다.
-		return normalModeMessage(m.editor, "사본을 씀: "+path)
+		model, next := normalModeMessage(m.editor, "사본을 씀: "+path)
+
+		return model, tea.Batch(next, refresh)
 	}
 
 	// 이름이 붙어서 이제 이 파일을 보고 있는 것이다. 트리도 그 자리를 가리켜야 한다(ADR-0019).
 	m.revealInSidebar(path)
 
-	return normalModeMessage(m.editor, "저장함: "+path)
+	model, next := normalModeMessage(m.editor, "저장함: "+path)
+
+	return model, tea.Batch(next, refresh)
 }
 
 // save 는 보고 있는 파일에 쓴다. 인자 없는 `:w` 와 `:w <보고 있는 파일>` 이 쓴다.
@@ -232,9 +242,13 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m.fail(err)
 	}
-	m.git = readGitStatus()
 
-	return normalModeMessage(m.editor, "저장함: "+buf.path)
+	// 저장은 dirty 를 바꾸므로 주기 갱신을 기다리지 않는다(ADR-0030).
+	refresh := m.refreshGit()
+
+	model, next := normalModeMessage(m.editor, "저장함: "+buf.path)
+
+	return model, tea.Batch(next, refresh)
 }
 
 // edit 은 `:e` 다. 인자가 있으면 파일을 열고, 없으면 보고 있는 파일을 다시 읽는다(ADR-0021).
@@ -281,7 +295,10 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 	// 어느 쪽이든 지금 폭에 맞춰 둔다 — sidebar 를 여닫은 뒤라면 폭이 달라져 있다.
 	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
 
-	return normalMode(e)
+	model, cmd := normalMode(e)
+
+	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
+	return model, tea.Batch(cmd, e.refreshGit())
 }
 
 // fail 은 명령이 실패했음을 아래 줄에 알리고 normal 로 돌아간다.

@@ -138,7 +138,7 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg:
 		// 다른 mode 와 같이 공용 처리에 넘기고, 여기서만 목록을 다시 거른다.
 		// 인덱싱이 도는 동안 목록이 길어지므로 새로 온 파일도 치고 있는 패턴에 걸려야 한다.
 		cmd := m.handleJob(msg)
@@ -252,7 +252,10 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 	}
 	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
 
-	return normalMode(m.editor)
+	model, cmd := normalMode(m.editor)
+
+	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
+	return model, tea.Batch(cmd, m.refreshGit())
 }
 
 // paletteWidth 는 박스 전체 너비다. 테두리를 포함한다.

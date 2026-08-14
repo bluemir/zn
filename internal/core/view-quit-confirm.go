@@ -57,9 +57,9 @@ func (m viewConfirmDiscard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
-	case jobProgressMsg, jobDoneMsg:
-		// 백그라운드 작업의 진행은 mode 와 무관하다. 공용 처리가 statusBar 에 반영하고
-		// 다음 조각을 받을 Cmd 를 준다(job.go).
+	case jobProgressMsg, jobDoneMsg, gitTickMsg:
+		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
+		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		//
 		// 이 창은 statusBar 를 그리지 않지만 그래도 받아야 한다. 흘려보내면 다음 조각을 받을
 		// Cmd 를 아무도 발행하지 않아 작업이 영영 멈춘다.

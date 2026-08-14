@@ -21,6 +21,14 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize(msg)
 
 		return m, nil
+	case tea.FocusMsg:
+		// 치던 중에 다른 창을 만지고 돌아오는 것이 흔하다. 여기서 알려야 남의 변경 위에
+		// 계속 치다가 저장할 때에야 막히는 일이 준다 (ADR-0015, ADR-0031).
+		if message := m.noteOutsideChange(); message != "" {
+			m.message = message
+		}
+
+		return m, nil
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
 		buf := m.buffer()
@@ -89,9 +97,9 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg:
-		// 백그라운드 작업의 진행은 mode 와 무관하다. 공용 처리가 statusBar 에 반영하고
-		// 다음 조각을 받을 Cmd 를 준다(job.go).
+	case jobProgressMsg, jobDoneMsg, gitTickMsg:
+		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
+		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		return m, m.handleJob(msg)
 	default:
 		return m, nil

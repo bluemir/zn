@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cockroachdb/errors"
 )
 
 // viewEditorNormal 은 normal mode 다. 커서가 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
@@ -37,7 +36,14 @@ func (m viewEditorNormal) keyState() normalState {
 	return m.state
 }
 
-func (m viewEditorNormal) Init() tea.Cmd { return nil }
+// Init 은 프로그램이 시작할 때 처음 model 에게만 불린다(bubbletea). mode 를 오가며 model 이
+// 바뀌어도 다시 불리지 않으므로, git 갱신 고리를 거는 자리가 여기 하나다(ADR-0030).
+//
+// 첫 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
+// `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
+func (m viewEditorNormal) Init() tea.Cmd {
+	return tea.Batch(m.refreshGit(), tickGit())
+}
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -45,14 +51,19 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize(msg)
 
 		return m, nil
-	case tea.ResumeMsg:
-		// `ctrl+z` 로 셸에 내려가 있는 동안 밖에서 commit 이나 checkout 이 있었을 수 있다.
-		// 파일을 열 때와 같은 이유다 (ADR-0009, ADR-0023).
-		m.git = readGitStatus()
-
-		// 보고 있는 파일도 밖에서 바뀌었을 수 있다.
-		// 알리기만 하고 buffer 는 건드리지 않는다 — 가져오는 것은 `:e` 다 (ADR-0023).
-		m.message = outsideChangeMessage(*m.buffer())
+	case tea.ResumeMsg, tea.FocusMsg:
+		// 내려가 있는 동안의 commit·checkout 은 여기서 읽지 않는다. 주기 갱신이 5 초 안에
+		// 따라온다 (ADR-0023, ADR-0030).
+		//
+		// 보고 있는 파일은 밖에서 바뀌었을 수 있다. 셸에서 올라오는 길과 다른 창에서 돌아오는
+		// 길이 같은 자리다 — 둘 다 "바깥을 만지고 왔다" 는 뜻이다 (ADR-0023, ADR-0031).
+		// 알리기만 하고 buffer 는 건드리지 않는다 — 가져오는 것은 `:e` 다.
+		//
+		// 알릴 것이 있을 때만 덮어쓴다. 창을 오갈 때마다 아래 줄이 비면 방금 친 명령의 결과가
+		// 창을 한 번 바꿨다는 이유로 사라진다.
+		if message := m.noteOutsideChange(); message != "" {
+			m.message = message
+		}
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -103,36 +114,13 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg:
-		// 백그라운드 작업의 진행은 mode 와 무관하다. 공용 처리가 statusBar 에 반영하고
-		// 다음 조각을 받을 Cmd 를 준다(job.go).
+	case jobProgressMsg, jobDoneMsg, gitTickMsg:
+		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
+		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		return m, m.handleJob(msg)
 	default:
 		return m, nil
 	}
-}
-
-// outsideChangeMessage 는 셸에서 돌아왔을 때 알릴 문구다. 달라진 것이 없으면 빈 문자열이다.
-//
-// 저장할 때의 문구(checkNotChangedOutside) 와 판정은 같고 다음 걸음이 다르다. 여기서는 아직
-// 아무것도 쓰려 하지 않았으므로 덮어쓰는 길이 아니라 가져오는 길을 알린다. 사라진 파일은
-// 가져올 것이 없어서 사실만 알린다 — 손에 든 것이 마지막 사본이다 (ADR-0016, ADR-0023).
-func outsideChangeMessage(buf Buffer) string {
-	change, err := buf.checkOutside()
-	if err != nil {
-		return errors.Cause(err).Error()
-	}
-
-	switch change {
-	case outsideRemoved:
-		return "파일이 밖에서 사라졌습니다"
-	case outsideCreated:
-		return "파일이 밖에서 새로 생겼습니다. 다시 읽으려면 `:e` 입니다"
-	case outsideModified:
-		return "파일이 밖에서 바뀌었습니다. 다시 읽으려면 `:e` 입니다"
-	}
-
-	return ""
 }
 
 // press 는 키 하나를 먹는다. 명령이 완성되면 실행한다.

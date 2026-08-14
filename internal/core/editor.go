@@ -35,8 +35,8 @@ type editor struct {
 	// vim 의 register 도 buffer 밖이다. 아직 읽는 곳이 없다 — `p` 를 넣을 때 쓴다.
 	register register
 
-	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고
-	// 여기에 들고 있다가 파일을 열거나 저장할 때만 다시 읽는다(ADR-0009).
+	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고 여기에 들고 있다가
+	// 5 초마다 도는 갱신 작업과 저장·파일 열기 직후에 다시 읽는다(ADR-0009, ADR-0030).
 	git gitStatus
 
 	// ctx 는 편집기의 수명이다. core.Run 이 받은 것을 그대로 든다.
@@ -148,6 +148,9 @@ func (e *editor) newTab() {
 // 같은 파일을 두 tab 에 열면 각각 독립된 Buffer 가 되어, 한쪽에서 저장하는 순간 다른 쪽의
 // 편집이 사라진다. 나중 저장은 바깥 변경으로 잡혀 막히지만(ADR-0015) 두 편집을 합칠 길은
 // 없다. 그래서 여는 것보다 찾는 것이 먼저다.
+//
+// git 갱신은 여기서 하지 않는다. 언제 다시 읽을지는 정책이라 부르는 쪽이 `refreshGit` 을
+// 같이 발행한다(ADR-0030).
 func (e *editor) openTab(path string) error {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
@@ -156,9 +159,6 @@ func (e *editor) openTab(path string) error {
 		if err != nil {
 			return err
 		}
-
-		// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다.
-		e.git = readGitStatus()
 
 		e.buffers = slices.Insert(e.buffers, e.active+1, buf)
 		e.active++
@@ -178,6 +178,8 @@ func (e *editor) openTab(path string) error {
 //
 // 갈아끼우는 쪽은 지금 tab 의 저장하지 않은 변경을 잃는다. 물을지 말지는 부르는 쪽이 정한다 —
 // 여기까지 왔으면 이미 정해진 것이다. Reload 와 같은 나눔이다.
+//
+// git 갱신은 openTab 과 같이 부르는 쪽의 몫이다.
 func (e *editor) replaceTab(path string) error {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
@@ -191,9 +193,6 @@ func (e *editor) replaceTab(path string) error {
 	if err != nil {
 		return err
 	}
-
-	// 파일을 여는 동안 바깥에서 commit 이나 checkout 이 있었을 수 있다. openTab 과 같다.
-	e.git = readGitStatus()
 
 	e.buffers[e.active] = buf
 
@@ -501,6 +500,10 @@ func (e editor) screenView(rows []string) tea.View {
 	// `ctrl+ㅔ` 로 오는 것을 터미널이 되돌려 준다(ADR-0014).
 	view.KeyboardEnhancements.ReportAlternateKeys = true
 
+	// 창을 오갈 때 알려달라고 한다. 다른 창에서 파일을 고치고 돌아오는 순간이 여기다(ADR-0031).
+	// 터미널이 보고하지 않으면 msg 가 오지 않을 뿐이고 나머지는 그대로다.
+	view.ReportFocus = true
+
 	return view
 }
 
@@ -791,6 +794,12 @@ func (e editor) statusBar(mode, bottom string) []string {
 	}
 	if buf.dirty {
 		path += " [+]"
+	}
+
+	// `[!]` 는 마지막으로 맞춰 봤을 때 바깥이 달라져 있었다는 것이다. `[+]` 가 내 손의 미저장
+	// 변경이고 이것은 남의 변경이라, 둘이 같이 붙으면 양쪽에 잃을 것이 있다는 뜻이다(ADR-0031).
+	if buf.outside != outsideSame {
+		path += " [!]"
 	}
 
 	// 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.

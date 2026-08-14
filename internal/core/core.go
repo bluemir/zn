@@ -14,7 +14,8 @@ func Run(ctx context.Context, files []string) error {
 		return err
 	}
 
-	e := &editor{ctx: ctx, buffers: buffers, git: readGitStatus()}
+	// git 표시는 여기서 읽지 않는다. 첫 화면이 뜬 뒤 갱신 작업이 채운다(ADR-0030).
+	e := &editor{ctx: ctx, buffers: buffers}
 
 	// 박스 그리기 문자는 East Asian Width 가 Ambiguous 라 터미널마다 폭이 다르다.
 	// 한 칸으로 확인된 터미널에서만 쓰고, 두 칸이거나 재지 못했으면 ASCII 로 내린다(ADR-0028).

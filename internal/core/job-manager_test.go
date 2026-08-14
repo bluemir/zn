@@ -72,18 +72,31 @@ func TestFailedJobMessageClearsOnNextKey(t *testing.T) {
 	assert.NotContains(t, barOf(t, send(m, "j"))[1], "실패")
 }
 
-// 끝난 목록은 최근 것부터 쌓이고 스무 개를 넘지 않는다.
-func TestFinishedJobsKeepRecentOnly(t *testing.T) {
+// 끝난 목록은 이름당 마지막 결과 하나다. 주기적으로 도는 갱신이 목록을 뒤덮지 않는다(ADR-0030).
+func TestFinishedJobsKeepLastPerName(t *testing.T) {
 	e := editor{}
 
-	for i := range finishedJobs + 5 {
-		e.jobs = append(e.jobs, job{name: "작업", done: i, started: time.Now()})
-		e.finishJob("작업")
+	for i := range 25 {
+		e.jobs = append(e.jobs, job{name: gitJobName, done: i, started: time.Now()})
+		e.finishJob(gitJobName)
 	}
 
-	require.Len(t, e.finished, finishedJobs)
-	assert.Equal(t, finishedJobs+4, e.finished[0].done, "가장 최근 것이 맨 위다")
-	assert.Equal(t, 5, e.finished[finishedJobs-1].done, "오래된 것부터 빠진다")
+	require.Len(t, e.finished, 1)
+	assert.Equal(t, 24, e.finished[0].done, "마지막 것만 남는다")
+}
+
+// 이름이 다르면 각각 남는다. 최근에 끝난 것이 맨 위다.
+func TestFinishedJobsKeepEveryName(t *testing.T) {
+	e := editor{}
+
+	for _, name := range []string{"파일 인덱싱", gitJobName, "파일 인덱싱"} {
+		e.jobs = append(e.jobs, job{name: name, started: time.Now()})
+		e.finishJob(name)
+	}
+
+	require.Len(t, e.finished, 2)
+	assert.Equal(t, "파일 인덱싱", e.finished[0].name)
+	assert.Equal(t, gitJobName, e.finished[1].name)
 }
 
 // cancelJob 은 그 작업의 ctx 만 끊는다. 다른 작업은 그대로 돈다.

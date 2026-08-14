@@ -59,30 +59,16 @@ func TestResumeReportsOutsideChange(t *testing.T) {
 	assert.Equal(t, "abc", string(bufferOf(t, model).lines[0]), "다시 읽지는 않는다")
 }
 
-// 올라올 때 git 표시도 다시 읽는다. 내려가 있는 동안 commit·checkout 을 하는 것이 흔하다.
-func TestResumeRereadsGitStatus(t *testing.T) {
+// 올라오는 자리에서는 git 을 읽지 않는다. 주기 갱신이 5 초 안에 따라온다(ADR-0030).
+// 여기서 읽으면 셸에서 돌아오는 길에 프로세스 세 개가 동기로 붙는다.
+func TestResumeDoesNotReadGitStatus(t *testing.T) {
 	m, _ := newFileEditor(t, "abc\n")
 	m.git = gitStatus{branch: "낡은-branch", commit: "0000000"}
 
 	model, _ := m.Update(tea.ResumeMsg{})
 
 	require.IsType(t, viewEditorNormal{}, model)
-	assert.Equal(t, readGitStatus(), model.(viewEditorNormal).git)
-}
-
-// 트리에 포커스가 있어도 git 표시는 다시 읽는다. statusBar 는 mode 와 무관하게 보인다.
-func TestResumeRereadsGitStatusInSidebar(t *testing.T) {
-	var model tea.Model = newTreeEditor(t, 80, 6)
-	model = send(model, "ctrl+w", "ctrl+w")
-
-	tree, ok := model.(viewSidebar)
-	require.True(t, ok)
-	tree.git = gitStatus{branch: "낡은-branch", commit: "0000000"}
-
-	model, _ = tree.Update(tea.ResumeMsg{})
-
-	require.IsType(t, viewSidebar{}, model)
-	assert.Equal(t, readGitStatus(), model.(viewSidebar).git)
+	assert.Equal(t, "낡은-branch(0000000)", model.(viewEditorNormal).git.label())
 }
 
 // 밖에서 지워진 파일은 가져올 것이 없어서 사실만 알린다.

@@ -297,9 +297,6 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 	buf.clampToNormal(e.contentWidth())
 	buf.scrollTo(e.contentWidth(), e.textHeight())
 
-	// 밖에서 checkout 이나 commit 이 있었을 자리다. 파일을 열 때·저장할 때와 같이 여기서 맞춘다(ADR-0009).
-	e.git = readGitStatus()
-
 	return normalModeMessage(e, "다시 읽음: "+buf.path)
 }
 
