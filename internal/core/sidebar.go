@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,6 +37,13 @@ type sidebar struct {
 	// selected 는 보이는 행 중 몇 번째인지다. top 은 그중 화면 맨 위에 그릴 행이다.
 	selected int
 	top      int
+
+	// pendingReveal 은 아직 자리를 잡지 못한 reveal 대상의 절대 경로다.
+	//
+	// 디렉터리 읽기가 비동기라 reveal 이 한 번에 끝나지 않는다. 도중에 아직 읽지 않은
+	// 디렉터리를 만나면 그것을 읽는 작업을 시작하고 여기에 남겨 둔 뒤, 자식이 도착하면
+	// 다음 층으로 나아간다(ADR-0032). 자리를 잡거나 못 찾으면 비워진다.
+	pendingReveal string
 }
 
 // treeNode 는 트리의 항목 하나다.
@@ -57,43 +65,27 @@ type treeNode struct {
 
 	expanded bool
 	children []*treeNode
+
+	// loading 은 자식을 읽는 작업이 도는 중인지다. 도는 동안 자식 자리에 `… 읽는 중` 이 선다.
+	loading bool
+
+	// placeholder 는 `… 읽는 중` 처럼 파일이 아닌 안내 행인지다.
+	// rows() 가 그릴 때마다 만들고 트리에는 남지 않는다 — children 은 실제 항목만 든다.
+	placeholder bool
 }
 
-// openSidebar 는 root 를 뿌리로 트리를 열고 뿌리를 펼친 상태로 준다.
+// openSidebar 는 root 를 뿌리로 트리를 만든다. 읽지는 않는다 —
+// 뿌리를 펼치는 것도 백그라운드 작업이고, 그 Cmd 는 부르는 쪽이 발행한다(ADR-0032).
 func openSidebar(root string) sidebar {
-	s := sidebar{open: true, root: root}
-	s.tree = &treeNode{
-		name:  filepath.Base(root),
-		path:  root,
-		isDir: true,
+	return sidebar{
+		open: true,
+		root: root,
+		tree: &treeNode{
+			name:  filepath.Base(root),
+			path:  root,
+			isDir: true,
+		},
 	}
-	s.tree.expand()
-
-	return s
-}
-
-// expand 는 디렉터리를 펼친다. 펼칠 때마다 다시 읽으므로 접었다 펴는 것이 곧 새로고침이다.
-// watcher 없이 이 정도면 충분하고, 화면을 그릴 때마다 syscall 을 하지 않아도 된다.
-func (n *treeNode) expand() {
-	if !n.isDir || n.symlink {
-		return
-	}
-
-	n.children = readDir(n.path)
-	markIgnored(n.path, n.children)
-	n.expanded = true
-}
-
-// toggle 은 디렉터리를 펼치거나 접는다.
-func (n *treeNode) toggle() {
-	if n.expanded {
-		n.expanded = false
-		n.children = nil
-
-		return
-	}
-
-	n.expand()
 }
 
 // child 는 이름이 name 인 자식이다. 없으면 nil 이다.
@@ -112,6 +104,10 @@ func (n *treeNode) child(name string) *treeNode {
 // os.ReadDir 이 이미 이름순으로 주므로 디렉터리와 파일로 한 번 가르기만 하면 된다.
 // 읽다가 실패해도 읽은 만큼은 쓴다. 권한이 없는 디렉터리는 빈 것으로 보이는데,
 // 펼침 표시(▾)가 있으므로 정말 빈 디렉터리와 구분된다.
+//
+// 항목 수에 상한을 두지 않는다. 십만 개짜리 디렉터리도 끝까지 항목으로 만든다 —
+// 이 함수가 화면 밖(작업 goroutine) 에서 돌고, 행이 많아도 그리는 값이 사람이 느낄 값이 아니다
+// (자식 5 만 개에서 키 한 번이 1.2ms 다, ADR-0032).
 func readDir(dir string) []*treeNode {
 	entries, _ := os.ReadDir(dir)
 
@@ -148,7 +144,9 @@ func readDir(dir string) []*treeNode {
 // 디렉터리를 펼칠 때 그 디렉터리 항목을 한꺼번에 넘기므로 호출은 펼침당 한 번이다.
 //
 // git 이 없거나 저장소 밖이면 아무것도 표시하지 않는다. 흐린 것이 없을 뿐 틀리지는 않는다.
-func markIgnored(dir string, nodes []*treeNode) {
+//
+// CommandContext 라 펼치기를 취소하면 프로세스도 죽는다. gitFiles 와 같은 이유다(palette.go).
+func markIgnored(ctx context.Context, dir string, nodes []*treeNode) {
 	if len(nodes) == 0 {
 		return
 	}
@@ -159,7 +157,7 @@ func markIgnored(dir string, nodes []*treeNode) {
 		input.WriteByte(0)
 	}
 
-	cmd := exec.Command("git", "check-ignore", "-z", "--stdin")
+	cmd := exec.CommandContext(ctx, "git", "check-ignore", "-z", "--stdin")
 	cmd.Dir = dir
 	cmd.Stdin = strings.NewReader(input.String())
 
@@ -194,13 +192,23 @@ func (s sidebar) rows() []treeRow {
 	return appendRows(nil, s.tree, 0)
 }
 
+// 읽는 중인 디렉터리는 자식 자리에 안내 행이 한 줄 선다. 그것이 없으면 빈 디렉터리로 읽힌다(ADR-0032).
 func appendRows(rows []treeRow, node *treeNode, depth int) []treeRow {
 	rows = append(rows, treeRow{depth: depth, node: node})
 
-	if node.expanded {
-		for _, child := range node.children {
-			rows = appendRows(rows, child, depth+1)
-		}
+	if !node.expanded {
+		return rows
+	}
+
+	for _, child := range node.children {
+		rows = appendRows(rows, child, depth+1)
+	}
+
+	if node.loading {
+		rows = append(rows, treeRow{depth: depth + 1, node: &treeNode{
+			name:        "… 읽는 중",
+			placeholder: true,
+		}})
 	}
 
 	return rows
@@ -216,57 +224,6 @@ func (s sidebar) selectedNode() *treeNode {
 	return rows[s.selected].node
 }
 
-// reveal 은 그 파일이 있는 자리까지 디렉터리를 펼치고 그 항목을 고른다.
-// 팔레트나 tab 으로 보는 파일을 옮겨도 트리가 따라오게 하는 길이다(ADR-0019).
-//
-// 이미 펼쳐진 디렉터리는 다시 읽지 않는다. expand 는 자식을 새로 만들므로 다시 읽으면
-// 그 아래 펼쳐 둔 것이 통째로 접힌다. 새로고침은 접었다 펴는 것이고 파일을 여는 것이 아니다.
-//
-// 뿌리 밖의 파일이거나(트리는 cwd 가 뿌리다) 도중에 항목을 찾지 못하면 고르지 않고 false 다.
-// symlink 디렉터리 안쪽이 그렇다 — 따라가지 않으므로 펼칠 자식이 없다.
-// 그때까지 펼친 것은 되돌리지 않는다. 펼친 것 자체는 틀린 상태가 아니다.
-func (s *sidebar) reveal(path string) bool {
-	if s.tree == nil || path == "" {
-		return false
-	}
-
-	// CLI 로 연 파일은 상대 경로이고 트리는 절대 경로다. tabOf 와 같은 이유로 맞춰 본다.
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-
-	rel, err := filepath.Rel(s.root, abs)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return false
-	}
-
-	node := s.tree
-	for _, name := range strings.Split(rel, string(filepath.Separator)) {
-		if !node.expanded {
-			node.expand()
-		}
-
-		child := node.child(name)
-		if child == nil {
-			return false
-		}
-
-		node = child
-	}
-
-	// 고른 자리는 보이는 행 중 몇 번째인지로 들고 있으므로 펼친 뒤에 다시 센다.
-	for i, row := range s.rows() {
-		if row.node == node {
-			s.selected = i
-
-			return true
-		}
-	}
-
-	return false
-}
-
 // selectedLabel 은 고른 항목을 statusBar 아래 줄에 보일 형태로 준다.
 //
 // 뿌리 기준 상대 경로다. 절대 경로는 조금만 깊어도 statusBar 너비를 다 먹고 잘린다.
@@ -274,6 +231,11 @@ func (s sidebar) selectedLabel() string {
 	node := s.selectedNode()
 	if node == nil {
 		return ""
+	}
+
+	// 안내 행은 파일이 아니라 문구 자체가 뜻이다. 경로로 바꿀 것이 없다.
+	if node.placeholder {
+		return node.name
 	}
 
 	rel, err := filepath.Rel(s.root, node.path)
@@ -378,7 +340,10 @@ func (s sidebar) cells(height int, activePath string, box boxSet) []string {
 			continue
 		}
 
-		cells = append(cells, rows[index].cell(rows[index].node.path == activePath, box))
+		// `… 읽는 중` 은 어느 파일도 아니다. 이름 없는 buffer 는 activePath 가 빈 문자열이라
+		// 그냥 두면 그 행이 "보고 있는 파일" 로 굵게 그려진다.
+		node := rows[index].node
+		cells = append(cells, rows[index].cell(!node.placeholder && node.path == activePath, box))
 	}
 
 	return cells
@@ -435,6 +400,11 @@ func (r treeRow) indent() string {
 
 // name 은 트리에 찍히는 이름이다.
 func (r treeRow) name() string {
+	// 안내 행은 파일 이름이 아니라 문구다. `/`·`@` 를 붙이지 않는다.
+	if r.node.placeholder {
+		return r.node.name
+	}
+
 	name := sanitizeName(r.node.name)
 	switch {
 	case r.node.symlink:
@@ -449,6 +419,9 @@ func (r treeRow) name() string {
 // style 은 파일 종류별 글자색이다. gitignore 된 것은 종류와 무관하게 흐리다.
 func (r treeRow) style() lipgloss.Style {
 	switch {
+	case r.node.placeholder:
+		// 안내 행은 파일 목록이 아니므로 gitignore 된 것과 같이 뒤로 물러나 있어야 한다.
+		return styleTreeIgnored
 	case r.node.ignored:
 		return styleTreeIgnored
 	case r.node.isDir:

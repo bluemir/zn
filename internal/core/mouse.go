@@ -80,7 +80,7 @@ func (e *editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
 //
 // 양끝의 가려짐 표시를 누르면 보고 있는 tab 은 그대로 두고 그 방향으로 한 칸 민다(ADR-0029).
 // 지금 편집하는 것을 놓지 않고 가려진 쪽에 무엇이 있는지 훑을 수 있어야 한다.
-func (e *editor) clickTabline(x int) {
+func (e *editor) clickTabline(x int) tea.Cmd {
 	row := e.tabline(e.textWidth())
 
 	col := x - e.sidebarLeft()
@@ -88,11 +88,11 @@ func (e *editor) clickTabline(x int) {
 	case inSpan(row.left, col):
 		e.tabScroll = max(e.tabScroll-1, 0)
 
-		return
+		return nil
 	case inSpan(row.right, col):
 		e.tabScroll = min(e.tabScroll+1, len(e.buffers)-1)
 
-		return
+		return nil
 	}
 
 	index := -1
@@ -104,14 +104,15 @@ func (e *editor) clickTabline(x int) {
 		}
 	}
 	if index < 0 {
-		return
+		return nil
 	}
 
 	e.active = index
 
 	// 그 buffer 는 이 창 크기를 본 적이 없을 수 있다. gt 와 같은 처리다.
 	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
-	e.revealInSidebar(e.buffer().path)
+
+	return e.revealInSidebar(e.buffer().path)
 }
 
 // wheelRows 는 휠 한 번에 굴리는 화면 행 수다.
@@ -149,7 +150,8 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
-		m.clickTabline(mouse.X)
+		// 옮겨간 tab 의 파일 자리를 트리가 아직 안 읽었으면 읽는 작업이 시작된다(ADR-0032).
+		return m, m.clickTabline(mouse.X)
 	case regionText:
 		m.clickText(mouse.X, mouse.Y)
 
@@ -168,7 +170,8 @@ func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
 		m.buffer().endEdit()
-		m.clickTabline(mouse.X)
+
+		return m, m.clickTabline(mouse.X)
 	case regionText:
 		// 커서를 옮기면 undo 구간이 끊긴다. 화살표 이동과 같다. vim 과 같다.
 		m.buffer().endEdit()
@@ -184,10 +187,12 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
-		m.clickTabline(mouse.X)
+		reveal := m.clickTabline(mouse.X)
 
 		// 편집 영역을 누른 것이므로 포커스도 그리로 간다.
-		return normalMode(m.editor)
+		model, cmd := normalMode(m.editor)
+
+		return model, tea.Batch(cmd, reveal)
 	case regionText:
 		m.clickText(mouse.X, mouse.Y)
 		m.buffer().clampToNormal(m.contentWidth())

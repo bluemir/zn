@@ -341,9 +341,13 @@ func runDisableHighlight(e *editor) (tea.Model, tea.Cmd) {
 }
 
 func runToggleTree(e *editor) (tea.Model, tea.Cmd) {
-	if err := e.toggleTree(); err != nil {
+	// 여는 쪽은 뿌리를 읽는 작업을 시작한다. 그 Cmd 를 흘리면 트리가 영영 `… 읽는 중` 이다.
+	load, err := e.toggleTree()
+	if err != nil {
 		return normalModeMessage(e, errors.Cause(err).Error())
 	}
 
-	return normalMode(e)
+	model, next := normalMode(e)
+
+	return model, tea.Batch(next, load)
 }

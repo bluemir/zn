@@ -119,7 +119,8 @@ func TestOpenPathsEmitGitRefresh(t *testing.T) {
 // 트리에서 Enter 로 여는 길도 같다. 트리는 fixture 가 있어야 해서 따로 본다.
 func TestTreeEnterEmitsGitRefresh(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
-	require.True(t, m.sidebar.reveal(filepath.Join(m.sidebar.root, "main.go")))
+	revealSyncIn(t, m.editor, filepath.Join(m.sidebar.root, "main.go"))
+	require.Equal(t, "main.go", m.sidebar.selectedNode().name)
 
 	_, cmd := viewSidebar{editor: m.editor}.enter()
 

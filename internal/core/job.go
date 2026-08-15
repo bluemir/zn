@@ -171,7 +171,10 @@ func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 			msg.apply(e)
 		}
 
-		return waitJob(msg.name, msg.ch)
+		// 트리가 자식을 기다리며 멈춰 있었으면 여기서 다음 층으로 나아간다.
+		// apply 는 `func(*editor)` 라 Cmd 를 낼 수 없어서 이 자리가 그것을 대신한다(ADR-0032).
+		// 기다리는 것이 없으면 곧바로 nil 이라 다른 작업의 조각에는 얹히지 않는다.
+		return tea.Batch(waitJob(msg.name, msg.ch), e.continueReveal())
 	case jobDoneMsg:
 		e.finishJob(msg.name)
 

@@ -149,11 +149,18 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// `… 읽는 중` 은 파일이 아니라 안내다. 열 것이 없다 —
+	// 그냥 두면 아래에서 `os.Stat("")` 이 실패해서 오류 문구가 뜬다.
+	if node.placeholder {
+		return m, nil
+	}
+
 	if node.isDir && !node.symlink {
-		node.toggle()
+		// 펼치는 쪽은 읽는 작업을 시작한다. 자식은 그 결과가 도착할 때 찬다(ADR-0032).
+		load := m.toggleNode(node)
 		m.sidebar.scrollTo(m.sidebarHeight())
 
-		return m, nil
+		return m, load
 	}
 
 	// 열기 전에 지금 무엇인지 다시 본다. 트리는 펼칠 때 읽은 것이라 그 사이에 지워졌을 수 있다.
@@ -169,7 +176,8 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 		return normalModeMessage(m.editor, "일반 파일이 아닙니다: "+node.name)
 	}
 
-	if err := m.openTab(node.path); err != nil {
+	reveal, err := m.openTab(node.path)
+	if err != nil {
 		return normalModeMessage(m.editor, errors.Cause(err).Error())
 	}
 	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
@@ -178,7 +186,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	model, cmd := normalMode(m.editor)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, m.refreshGit())
+	return model, tea.Batch(cmd, m.refreshGit(), reveal)
 }
 
 func (m viewSidebar) View() tea.View {

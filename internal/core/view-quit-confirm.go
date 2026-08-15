@@ -179,5 +179,11 @@ func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 		return Exit()
 	}
 
-	return normalMode(e)
+	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를
+	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032).
+	reveal := e.revealInSidebar(e.buffer().path)
+
+	model, cmd := normalMode(e)
+
+	return model, tea.Batch(cmd, reveal)
 }

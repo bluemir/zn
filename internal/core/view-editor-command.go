@@ -121,14 +121,15 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		// 이미 열려 있으면 새 tab 을 만들지 않고 그 tab 으로 옮겨간다(ADR-0021).
-		if err := m.openTab(cmd.args[0]); err != nil {
+		reveal, err := m.openTab(cmd.args[0])
+		if err != nil {
 			return m.fail(err)
 		}
 
 		model, next := normalMode(m.editor)
 
 		// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-		return model, tea.Batch(next, m.refreshGit())
+		return model, tea.Batch(next, m.refreshGit(), reveal)
 	case "noh", "nohlsearch":
 		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
 		m.search.highlight = false
@@ -139,11 +140,14 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return jobsMode(m.editor)
 	case "tree":
 		// `!` 는 이 명령에서 뜻이 없다. 그냥 여닫는다.
-		if err := m.toggleTree(); err != nil {
+		load, err := m.toggleTree()
+		if err != nil {
 			return m.fail(err)
 		}
 
-		return normalMode(m.editor)
+		model, next := normalMode(m.editor)
+
+		return model, tea.Batch(next, load)
 	case "q":
 		// 지금 보고 있는 tab 만 닫는다. 마지막 tab 이면 종료가 된다.
 		// `!` 는 묻지 않고 닫는다. 그냥 `:q` 는 저장하지 않은 변경이 있으면 확인창을 띄우고,
@@ -221,11 +225,11 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	// 이름이 붙어서 이제 이 파일을 보고 있는 것이다. 트리도 그 자리를 가리켜야 한다(ADR-0019).
-	m.revealInSidebar(path)
+	reveal := m.revealInSidebar(path)
 
 	model, next := normalModeMessage(m.editor, "저장함: "+path)
 
-	return model, tea.Batch(next, refresh)
+	return model, tea.Batch(next, refresh, reveal)
 }
 
 // save 는 보고 있는 파일에 쓴다. 인자 없는 `:w` 와 `:w <보고 있는 파일>` 이 쓴다.
@@ -287,7 +291,8 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 // editFile 은 묻지 않고 연다. 확인창의 Yes 와 잃을 것이 없을 때가 쓴다.
 // reloadFile 과 같은 짝이다.
 func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
-	if err := e.replaceTab(path); err != nil {
+	reveal, err := e.replaceTab(path)
+	if err != nil {
 		return normalModeMessage(e, errors.Cause(err).Error())
 	}
 
@@ -298,7 +303,7 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 	model, cmd := normalMode(e)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, e.refreshGit())
+	return model, tea.Batch(cmd, e.refreshGit(), reveal)
 }
 
 // fail 은 명령이 실패했음을 아래 줄에 알리고 normal 로 돌아간다.

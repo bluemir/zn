@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,6 +41,118 @@ func newTreeFixture(t *testing.T) string {
 	return root
 }
 
+// openSidebarSync 는 뿌리를 다 읽어 둔 트리다.
+//
+// 편집기는 디렉터리 읽기를 백그라운드 작업으로 돌리지만(ADR-0032) 트리 자체를 보는 시험이
+// 작업 실행기를 거칠 이유는 없다. 작업이 부르는 것과 같은 함수를 그 자리에서 부른다.
+func openSidebarSync(t *testing.T, root string) sidebar {
+	t.Helper()
+
+	s := openSidebar(root)
+	loadNodeSync(t, s.tree)
+
+	return s
+}
+
+// loadNodeSync 는 디렉터리 하나를 그 자리에서 읽어 채운다.
+func loadNodeSync(t *testing.T, node *treeNode) {
+	t.Helper()
+
+	require.True(t, node.isDir, "%s 는 디렉터리가 아니다", node.name)
+
+	node.children = readDir(node.path)
+	markIgnored(context.Background(), node.path, node.children)
+	node.expanded = true
+	node.loading = false
+}
+
+// settle 은 Cmd 가 낸 msg 를 model 에 다시 먹이는 것을 더 나올 것이 없을 때까지 되풀이한다.
+// 백그라운드 작업이 끝나고 그 결과가 화면 상태에 들어온 뒤를 보는 시험이 쓴다.
+//
+// `tea.Batch` 는 msg 하나에 Cmd 여럿을 실어 오므로 풀어서 차례로 돌린다.
+// Init 은 넘기지 않는다 — 5 초짜리 git tick 을 물고 있어서 그 자리에서 멈춘다.
+func settle(t *testing.T, model tea.Model, cmd tea.Cmd) tea.Model {
+	t.Helper()
+
+	queue := []tea.Cmd{cmd}
+	for step := 0; len(queue) > 0; step++ {
+		require.Less(t, step, 100, "작업이 끝나지 않는다")
+
+		next := queue[0]
+		queue = queue[1:]
+		if next == nil {
+			continue
+		}
+
+		switch msg := next().(type) {
+		case nil:
+			// msg 를 내지 않는 Cmd 다.
+		case tea.BatchMsg:
+			queue = append(queue, msg...)
+		default:
+			var cmd tea.Cmd
+			model, cmd = model.Update(msg)
+			queue = append(queue, cmd)
+		}
+	}
+
+	return model
+}
+
+// toggleSync 는 디렉터리를 그 자리에서 여닫는다. expandNode·collapseNode 와 같은 일이다.
+func toggleSync(t *testing.T, node *treeNode) {
+	t.Helper()
+
+	if node.expanded {
+		node.expanded = false
+		node.children = nil
+
+		return
+	}
+
+	// 파일과 symlink 는 펼치지 않는다. 편집기의 expandNode 와 같다.
+	if !node.isDir || node.symlink {
+		return
+	}
+
+	loadNodeSync(t, node)
+}
+
+// revealSyncIn 은 편집기 안의 트리를 그 파일 자리로 데려가고 가는 길의 읽기가 끝나기를 기다린다.
+// 실제 경로(revealInSidebar → 작업 → handleJob → 다음 층) 를 그대로 지나간다(ADR-0032).
+func revealSyncIn(t *testing.T, e *editor, path string) {
+	t.Helper()
+
+	settle(t, viewEditorNormal{editor: e}, e.revealInSidebar(path))
+}
+
+// revealSync 는 편집기 없이 트리만 든 시험용이다. 트리 하나를 임시 편집기에 얹어 데려간다.
+func revealSync(t *testing.T, s sidebar, path string) sidebar {
+	t.Helper()
+
+	e := &editor{
+		buffers: []Buffer{newEmptyBuffer("")},
+		sidebar: s,
+		width:   80,
+		height:  10 + tablineHeight + statusBarHeight,
+	}
+	revealSyncIn(t, e, path)
+
+	return e.sidebar
+}
+
+// sendSync 는 키를 먹이고 그 키가 낸 작업까지 돌린다. send 는 Cmd 를 버린다.
+func sendSync(t *testing.T, m tea.Model, keys ...string) tea.Model {
+	t.Helper()
+
+	for _, k := range keys {
+		next, cmd := m.Update(key(k))
+		m = settle(t, next, cmd)
+	}
+
+	return m
+}
+
 // names 는 행 목록을 "깊이:이름" 으로 펴서 비교하기 쉽게 만든다.
 func names(rows []treeRow) []string {
 	out := make([]string, 0, len(rows))
@@ -53,7 +166,7 @@ func names(rows []treeRow) []string {
 func TestSidebarOpensWithRootExpanded(t *testing.T) {
 	root := newTreeFixture(t)
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	require.True(t, s.open)
 	require.NotNil(t, s.tree)
@@ -63,7 +176,7 @@ func TestSidebarOpensWithRootExpanded(t *testing.T) {
 
 // 디렉터리가 먼저, 그 안은 이름순이다. os.ReadDir 이 이미 이름순으로 준다.
 func TestSidebarSortsDirsFirst(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	assert.Equal(t, []string{
 		"1:build", "1:docs",
@@ -73,7 +186,7 @@ func TestSidebarSortsDirsFirst(t *testing.T) {
 
 // .git 은 감추고 나머지 숨김 파일은 보인다.
 func TestSidebarHidesOnlyDotGit(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	shown := names(s.rows())
 	assert.NotContains(t, shown, "1:.git")
@@ -86,23 +199,23 @@ func TestSidebarHidesDotGitFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".git"), []byte("gitdir: ../\n"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "main.go"), []byte("x\n"), 0644))
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	assert.Equal(t, []string{"1:main.go"}, names(s.rows())[1:])
 }
 
 func TestSidebarExpandAndCollapse(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	docs := s.rows()[2].node
 	require.Equal(t, "docs", docs.name)
 	require.False(t, docs.expanded)
 
-	docs.toggle()
+	toggleSync(t, docs)
 
 	assert.Contains(t, names(s.rows()), "2:spec.md", "펼치면 자식이 목록에 들어온다")
 
-	docs.toggle()
+	toggleSync(t, docs)
 
 	assert.NotContains(t, names(s.rows()), "2:spec.md")
 }
@@ -110,15 +223,15 @@ func TestSidebarExpandAndCollapse(t *testing.T) {
 // 접었다 펴는 것이 곧 새로고침이다. watcher 없이 이걸로 충분하다.
 func TestSidebarRereadsOnExpand(t *testing.T) {
 	root := newTreeFixture(t)
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	docs := s.rows()[2].node
-	docs.toggle()
+	toggleSync(t, docs)
 	require.Contains(t, names(s.rows()), "2:spec.md")
 
 	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "new.md"), []byte("x\n"), 0644))
-	docs.toggle()
-	docs.toggle()
+	toggleSync(t, docs)
+	toggleSync(t, docs)
 
 	assert.Contains(t, names(s.rows()), "2:new.md", "다시 펼치면 새 파일이 보인다")
 }
@@ -128,7 +241,7 @@ func TestSidebarDoesNotFollowSymlink(t *testing.T) {
 	root := newTreeFixture(t)
 	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	var link *treeNode
 	for _, row := range s.rows() {
@@ -141,7 +254,7 @@ func TestSidebarDoesNotFollowSymlink(t *testing.T) {
 	assert.True(t, link.symlink)
 	assert.False(t, link.isDir, "디렉터리를 가리켜도 잎으로 둔다")
 
-	link.toggle()
+	toggleSync(t, link)
 	assert.False(t, link.expanded, "펼쳐지지 않는다")
 }
 
@@ -151,7 +264,7 @@ func TestSidebarHandlesBrokenSymlink(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(root, "nope"), filepath.Join(root, "dangling")))
 
 	assert.NotPanics(t, func() {
-		s := openSidebar(root)
+		s := openSidebarSync(t, root)
 		assert.Len(t, s.rows(), 2)
 	})
 }
@@ -165,24 +278,24 @@ func TestSidebarUnreadableDirIsEmpty(t *testing.T) {
 	require.NoError(t, os.Chmod(locked, 0000))
 	t.Cleanup(func() { _ = os.Chmod(locked, 0755) })
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 	node := s.rows()[1].node
 	require.Equal(t, "locked", node.name)
 
-	assert.NotPanics(t, func() { node.toggle() })
+	assert.NotPanics(t, func() { toggleSync(t, node) })
 	assert.True(t, node.expanded)
 	assert.Empty(t, node.children)
 }
 
 func TestSidebarEmptyDir(t *testing.T) {
-	s := openSidebar(t.TempDir())
+	s := openSidebarSync(t, t.TempDir())
 
 	assert.Len(t, s.rows(), 1, "뿌리 한 줄만")
 	assert.Equal(t, s.tree, s.selectedNode())
 }
 
 func TestSidebarSelectedNode(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	assert.Equal(t, s.tree, s.selectedNode(), "처음에는 뿌리")
 
@@ -205,7 +318,7 @@ func TestSidebarMarksGitIgnored(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte("build/\n"), 0644))
 	require.NoError(t, exec.Command("git", "-C", root, "init").Run())
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	byName := map[string]*treeNode{}
 	for _, row := range s.rows() {
@@ -219,7 +332,7 @@ func TestSidebarMarksGitIgnored(t *testing.T) {
 
 // 저장소가 아니면 아무것도 흐리게 하지 않는다. 흐린 것이 없을 뿐 틀리지 않는다.
 func TestSidebarNoRepoMarksNothing(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	for _, row := range s.rows() {
 		assert.False(t, row.node.ignored, "%s", row.node.name)
@@ -237,7 +350,7 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 			height:  height + tablineHeight + statusBarHeight,
 		},
 	}
-	m.sidebar = openSidebar(newTreeFixture(t))
+	m.sidebar = openSidebarSync(t, newTreeFixture(t))
 	m.sidebar.scrollTo(m.sidebarHeight())
 
 	return m
@@ -262,7 +375,7 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 
 // sidebar 는 한 행이 정확히 sidebarWidth 칸이어야 한다. 어긋나면 편집 내용이 통째로 밀린다.
 func TestSidebarCellsAreExactlyWide(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	for i, cell := range s.cells(10, "", boxUnicode) {
 		plain := ansi.Strip(cell)
@@ -272,7 +385,7 @@ func TestSidebarCellsAreExactlyWide(t *testing.T) {
 
 // 트리가 화면보다 짧아도 구분선은 화면 아래까지 이어져야 한다.
 func TestSidebarCellsFillHeight(t *testing.T) {
-	s := openSidebar(t.TempDir())
+	s := openSidebarSync(t, t.TempDir())
 
 	cells := s.cells(6, "", boxUnicode)
 
@@ -288,7 +401,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "아주아주긴한글파일이름입니다.md"), []byte("x\n"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "이모지🇰🇷파일.txt"), []byte("x\n"), 0644))
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	for i, cell := range s.cells(4, "", boxUnicode) {
 		plain := ansi.Strip(cell)
@@ -308,8 +421,8 @@ func TestSidebarLabels(t *testing.T) {
 	root := newTreeFixture(t)
 	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
 
-	s := openSidebar(root)
-	s.rows()[1].node.toggle() // build/ 를 펼친다
+	s := openSidebarSync(t, root)
+	toggleSync(t, s.rows()[1].node) // build/ 를 펼친다
 
 	labels := []string{}
 	for _, row := range s.rows() {
@@ -330,7 +443,7 @@ func TestSidebarScrollKeepsSelectionVisible(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("x\n"), 0644))
 	}
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 	require.Len(t, s.rows(), 8)
 
 	s.selected = 7
@@ -347,14 +460,14 @@ func TestSidebarScrollKeepsSelectionVisible(t *testing.T) {
 
 // 트리가 줄어들면 selected 와 top 을 범위 안으로 당긴다.
 func TestSidebarScrollClampsAfterCollapse(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 	docs := s.rows()[2].node
-	docs.toggle()
+	toggleSync(t, docs)
 
 	s.selected = len(s.rows()) - 1
 	s.scrollTo(10)
 
-	docs.toggle()
+	toggleSync(t, docs)
 	s.scrollTo(10)
 
 	assert.Less(t, s.selected, len(s.rows()))
@@ -529,10 +642,11 @@ func TestSidebarEnterTogglesDirectory(t *testing.T) {
 	m = send(m, "ctrl+w", "ctrl+w", "down", "down")
 	require.Equal(t, "docs", m.(viewSidebar).sidebar.selectedNode().name)
 
-	m = send(m, "enter")
+	// 펼치기는 작업이라 그것이 끝난 뒤에 자식이 찬다.
+	m = sendSync(t, m, "enter")
 	assert.Contains(t, names(m.(viewSidebar).sidebar.rows()), "2:spec.md")
 
-	m = send(m, "enter")
+	m = sendSync(t, m, "enter")
 	assert.NotContains(t, names(m.(viewSidebar).sidebar.rows()), "2:spec.md")
 }
 
@@ -689,7 +803,7 @@ func TestSidebarEnterMatchesRelativePath(t *testing.T) {
 			height:  10 + tablineHeight + statusBarHeight,
 		},
 	}
-	m.sidebar = openSidebar(root)
+	m.sidebar = openSidebarSync(t, root)
 
 	model := selectTree(t, tea.Model(m), "README.md")
 	model = send(model, "enter")
@@ -710,7 +824,7 @@ func TestSidebarEnterRefusesNonRegularFile(t *testing.T) {
 			height:  10 + tablineHeight + statusBarHeight,
 		},
 	}
-	m.sidebar = openSidebar(root)
+	m.sidebar = openSidebarSync(t, root)
 
 	model := selectTree(t, tea.Model(m), "pipe")
 	model = send(model, "enter")
@@ -726,7 +840,7 @@ func TestSidebarEnterRefusesSymlinkToDir(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
 
 	m := newTreeEditor(t, 80, 10)
-	m.sidebar = openSidebar(root)
+	m.sidebar = openSidebarSync(t, root)
 
 	model := selectTree(t, tea.Model(m), "link")
 	model = send(model, "enter")
@@ -752,9 +866,9 @@ func TestSidebarEnterRefusesDeletedFile(t *testing.T) {
 // reveal 은 파일이 있는 자리까지 펼치고 그 항목을 고른다(ADR-0019).
 func TestSidebarRevealExpandsAndSelects(t *testing.T) {
 	root := newTreeFixture(t)
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
-	require.True(t, s.reveal(filepath.Join(root, "docs", "spec.md")))
+	s = revealSync(t, s, filepath.Join(root, "docs", "spec.md"))
 
 	assert.Contains(t, names(s.rows()), "2:spec.md", "가는 길의 디렉터리가 펼쳐진다")
 	require.NotNil(t, s.selectedNode())
@@ -764,9 +878,9 @@ func TestSidebarRevealExpandsAndSelects(t *testing.T) {
 // 뿌리 바로 아래의 파일도 고른다. 펼칠 것이 없는 짧은 경로다.
 func TestSidebarRevealSelectsFileAtRoot(t *testing.T) {
 	root := newTreeFixture(t)
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
-	require.True(t, s.reveal(filepath.Join(root, "README.md")))
+	s = revealSync(t, s, filepath.Join(root, "README.md"))
 
 	assert.Equal(t, "README.md", s.selectedNode().name)
 }
@@ -776,9 +890,9 @@ func TestSidebarRevealMatchesRelativePath(t *testing.T) {
 	root := newTreeFixture(t)
 	t.Chdir(root)
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
-	require.True(t, s.reveal(filepath.Join("docs", "spec.md")))
+	s = revealSync(t, s, filepath.Join("docs", "spec.md"))
 	assert.Equal(t, "spec.md", s.selectedNode().name)
 }
 
@@ -786,16 +900,16 @@ func TestSidebarRevealMatchesRelativePath(t *testing.T) {
 // 그 아래 펼쳐 둔 것이 통째로 접힌다.
 func TestSidebarRevealDoesNotRereadExpandedDir(t *testing.T) {
 	root := newTreeFixture(t)
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	docs := s.rows()[2].node
 	require.Equal(t, "docs", docs.name)
-	docs.toggle()
+	toggleSync(t, docs)
 
 	before := docs.children[0]
 	require.Equal(t, "spec.md", before.name)
 
-	require.True(t, s.reveal(filepath.Join(root, "docs", "spec.md")))
+	s = revealSync(t, s, filepath.Join(root, "docs", "spec.md"))
 
 	assert.Same(t, before, s.selectedNode(), "자식을 새로 만들지 않는다")
 }
@@ -806,19 +920,19 @@ func TestSidebarRevealIgnoresOutsideRoot(t *testing.T) {
 	outside := filepath.Join(t.TempDir(), "other.go")
 	require.NoError(t, os.WriteFile(outside, []byte("x\n"), 0644))
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 	s.selected = 2
 
-	assert.False(t, s.reveal(outside))
+	s = revealSync(t, s, outside)
 	assert.Equal(t, 2, s.selected, "고른 자리가 그대로다")
 }
 
 // 이름 없는 buffer 는 경로가 빈 문자열이다.
 func TestSidebarRevealIgnoresEmptyPath(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 	s.selected = 2
 
-	assert.False(t, s.reveal(""))
+	s = revealSync(t, s, "")
 	assert.Equal(t, 2, s.selected)
 }
 
@@ -827,10 +941,10 @@ func TestSidebarRevealStopsAtSymlinkDir(t *testing.T) {
 	root := newTreeFixture(t)
 	require.NoError(t, os.Symlink(filepath.Join(root, "docs"), filepath.Join(root, "link")))
 
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 	s.selected = 1
 
-	assert.False(t, s.reveal(filepath.Join(root, "link", "spec.md")))
+	s = revealSync(t, s, filepath.Join(root, "link", "spec.md"))
 	assert.Equal(t, 1, s.selected)
 }
 
@@ -839,7 +953,9 @@ func TestOpenTabRevealsInSidebar(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
 
-	require.NoError(t, m.openTab(filepath.Join(root, "docs", "spec.md")))
+	reveal, err := m.openTab(filepath.Join(root, "docs", "spec.md"))
+	require.NoError(t, err)
+	settle(t, m, reveal)
 
 	assert.Contains(t, names(m.sidebar.rows()), "2:spec.md")
 	assert.Equal(t, "spec.md", m.sidebar.selectedNode().name)
@@ -857,13 +973,13 @@ func TestTabSwitchRevealsInSidebar(t *testing.T) {
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 
-	model := send(tea.Model(m), "g", "t")
+	model := sendSync(t, tea.Model(m), "g", "t")
 
 	v := model.(viewEditorNormal)
 	require.Equal(t, "spec.md", filepath.Base(v.buffer().path))
 	assert.Equal(t, "spec.md", v.sidebar.selectedNode().name)
 
-	model = send(model, "g", "T")
+	model = sendSync(t, model, "g", "T")
 
 	v = model.(viewEditorNormal)
 	assert.Equal(t, "main.go", v.sidebar.selectedNode().name)
@@ -877,9 +993,9 @@ func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newEmptyBuffer(""),
 	}
-	m.revealInSidebar(m.buffer().path)
+	revealSyncIn(t, m.editor, m.buffer().path)
 
-	model := send(tea.Model(m), "g", "t")
+	model := sendSync(t, tea.Model(m), "g", "t")
 
 	v := model.(viewEditorNormal)
 	assert.Equal(t, "main.go", v.sidebar.selectedNode().name, "이름이 없으면 트리는 움직이지 않는다")
@@ -895,12 +1011,16 @@ func TestToggleTreeRevealsCurrentFile(t *testing.T) {
 		width:   80,
 		height:  10 + tablineHeight + statusBarHeight,
 	}
-	e.sidebar = openSidebar(root)
+	e.sidebar = openSidebarSync(t, root)
 
-	require.NoError(t, e.toggleTree())
+	_, err := e.toggleTree()
+	require.NoError(t, err)
 	require.False(t, e.sidebar.open)
 
-	require.NoError(t, e.toggleTree())
+	// 다시 여는 쪽은 뿌리부터 읽는 작업이라 그것이 끝나기를 기다린다.
+	load, err := e.toggleTree()
+	require.NoError(t, err)
+	settle(t, viewEditorNormal{editor: &e}, load)
 
 	require.NotNil(t, e.sidebar.selectedNode())
 	assert.Equal(t, "spec.md", e.sidebar.selectedNode().name)
@@ -915,10 +1035,11 @@ func TestCloseTabRevealsRemainingFile(t *testing.T) {
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 	m.active = 1
-	m.revealInSidebar(m.buffer().path)
+	revealSyncIn(t, m.editor, m.buffer().path)
 	require.Equal(t, "spec.md", m.sidebar.selectedNode().name)
 
-	require.True(t, m.closeTab())
+	model, _ := forceCloseTab(m.editor)
+	require.IsType(t, viewEditorNormal{}, model)
 
 	require.Equal(t, "main.go", filepath.Base(m.buffer().path))
 	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
@@ -966,7 +1087,7 @@ func activeNames(cells []string) []string {
 // 편집 중에 트리가 지금 자리를 나타내는 것은 이 표시뿐이다 (ADR-0022).
 func TestSidebarMarksActiveFile(t *testing.T) {
 	root := newTreeFixture(t)
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	cells := s.cells(10, filepath.Join(root, "main.go"), boxUnicode)
 
@@ -976,11 +1097,11 @@ func TestSidebarMarksActiveFile(t *testing.T) {
 // 표시는 이름에만 걸린다. 들여쓰기까지 이으면 깊은 자리의 파일에서 밑줄이 이름 앞 빈 칸을 끌고 온다.
 func TestSidebarMarksNameWithoutIndent(t *testing.T) {
 	root := newTreeFixture(t)
-	s := openSidebar(root)
+	s := openSidebarSync(t, root)
 
 	// 한 칸 들여쓰인 자리라야 밑줄이 앞 빈 칸을 끌고 오는지가 드러난다.
 	spec := filepath.Join(root, "docs", "spec.md")
-	require.True(t, s.reveal(spec))
+	s = revealSync(t, s, spec)
 
 	for _, cell := range s.cells(10, spec, boxUnicode) {
 		if text := activeText(cell); text != "" {
@@ -995,7 +1116,7 @@ func TestSidebarMarksNameWithoutIndent(t *testing.T) {
 // 디렉터리는 표시가 없다. 굵기가 뜻 둘을 가지면 읽는 규칙이 흐려진다 (ADR-0022).
 // 디렉터리는 색과 `▸`/`▾` 표시와 `/` 접미로 이미 갈린다.
 func TestSidebarDirIsNotMarked(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	assert.Empty(t, activeNames(s.cells(10, "", boxUnicode)))
 }
@@ -1018,7 +1139,7 @@ func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 	}
 	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
 
-	next := send(tea.Model(m), "g", "t").(viewEditorNormal)
+	next := sendSync(t, tea.Model(m), "g", "t").(viewEditorNormal)
 
 	assert.Equal(t, []string{"spec.md"},
 		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath(), next.boxChars())))

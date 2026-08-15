@@ -42,7 +42,9 @@ func (m viewEditorNormal) keyState() normalState {
 // 첫 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
 // `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
 func (m viewEditorNormal) Init() tea.Cmd {
-	return tea.Batch(m.refreshGit(), tickGit())
+	// 트리의 첫 읽기도 여기서 시작한다. core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가
+	// 없어서, git 첫 갱신과 같이 이 자리가 낸다(ADR-0030, ADR-0032).
+	return tea.Batch(m.refreshGit(), tickGit(), m.startTree())
 }
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -152,6 +154,10 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 	buf := m.buffer()
 	width := m.contentWidth()
+
+	// tab 을 옮기면 트리가 그 파일 자리를 따라간다. 아직 읽지 않은 디렉터리가 있으면 읽는
+	// 작업이 시작되므로 그 Cmd 를 아래 끝까지 들고 나간다(ADR-0032).
+	var reveal tea.Cmd
 
 	// count 를 받지 않는 명령은 파서가 0 을 준다.
 	n := max(key.count, 1)
@@ -318,9 +324,9 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		buf.moveRight(1, width)
 		buf.clampToNormal(width)
 	case "g t":
-		m.nextTab()
+		reveal = m.nextTab()
 	case "g T":
-		m.prevTab()
+		reveal = m.prevTab()
 	case "ctrl+w ctrl+w", "ctrl+w w":
 		// pane 이 둘뿐이라 순환이 곧 왕래다. vim 의 ctrl+w ctrl+w / ctrl+w w 와 같다.
 		return sidebarMode(m.editor)
@@ -332,7 +338,7 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 	// 옮겨 간 tab 은 이 크기의 화면을 처음 볼 수도 있다.
 	m.buffer().scrollTo(width, m.textHeight())
 
-	return m, nil
+	return m, reveal
 }
 
 func (m viewEditorNormal) View() tea.View {

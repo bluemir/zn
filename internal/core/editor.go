@@ -91,15 +91,19 @@ func (e *editor) resize(msg tea.WindowSizeMsg) {
 }
 
 // nextTab, prevTab 은 활성 tab 을 옮긴다. 양끝에서 둘러 간다. vim 의 gt/gT 와 같다.
-func (e *editor) nextTab() {
+//
+// 트리가 그 파일 자리를 아직 읽지 않았으면 읽는 작업이 시작되므로 Cmd 가 나온다(ADR-0032).
+func (e *editor) nextTab() tea.Cmd {
 	e.active = (e.active + 1) % len(e.buffers)
 	e.scrollTabsTo()
-	e.revealInSidebar(e.buffer().path)
+
+	return e.revealInSidebar(e.buffer().path)
 }
-func (e *editor) prevTab() {
+func (e *editor) prevTab() tea.Cmd {
 	e.active = (e.active - 1 + len(e.buffers)) % len(e.buffers)
 	e.scrollTabsTo()
-	e.revealInSidebar(e.buffer().path)
+
+	return e.revealInSidebar(e.buffer().path)
 }
 
 // activePath 는 지금 보고 있는 파일의 절대 경로다. sidebar 가 그 행을 굵게 그린다(ADR-0022).
@@ -126,13 +130,27 @@ func (e editor) activePath() string {
 // sidebar 를 열지는 않는다. `:tree` 로 닫혀 있으면 트리가 아예 없어서 아무 일도 하지 않고,
 // 좁은 화면이라 감춰진 상태면 트리만 펼쳐 둔다 — 화면이 넓어지면 그 자리가 보인다.
 //
-// 이름 없는 buffer 는 경로가 빈 문자열이라 reveal 이 false 를 주고 고른 자리가 그대로 남는다.
-func (e *editor) revealInSidebar(path string) {
-	if !e.sidebar.reveal(path) {
-		return
+// 이름 없는 buffer 는 경로가 빈 문자열이라 갈 자리를 세우지 못하고 고른 자리가 그대로 남는다.
+//
+// 자리까지 걸어가는 도중에 아직 읽지 않은 디렉터리를 만나면 그것을 읽는 작업이 시작된다.
+// 그 Cmd 를 흘리면 트리가 따라오지 못하므로 부르는 쪽이 끝까지 들고 나가야 한다(ADR-0032).
+func (e *editor) revealInSidebar(path string) tea.Cmd {
+	if !e.sidebar.setRevealTarget(path) {
+		return nil
 	}
 
-	e.sidebar.scrollTo(e.sidebarHeight())
+	return e.continueReveal()
+}
+
+// scrollSidebar 는 고른 항목을 화면 안으로 데려온다.
+//
+// 화면 크기를 아직 모르는 동안에는(시작 직후, WindowSizeMsg 앞) 아무것도 하지 않는다.
+// scrollTo 는 height 가 0 이면 고른 자리를 0 으로 되돌리므로, 그대로 부르면 CLI 로 연 파일
+// 자리를 펼쳐 두고도 뿌리를 고른 채로 시작한다. 데려오는 것은 sidebar 로 포커스가 올 때다.
+func (e *editor) scrollSidebar() {
+	if height := e.sidebarHeight(); height >= 1 {
+		e.sidebar.scrollTo(height)
+	}
 }
 
 // newTab 은 이름 없는 빈 tab 을 활성 tab 바로 뒤에 끼우고 그리로 옮긴다.
@@ -151,13 +169,14 @@ func (e *editor) newTab() {
 //
 // git 갱신은 여기서 하지 않는다. 언제 다시 읽을지는 정책이라 부르는 쪽이 `refreshGit` 을
 // 같이 발행한다(ADR-0030).
-func (e *editor) openTab(path string) error {
+// 트리를 그 파일 자리로 데려가는 작업이 시작되면 Cmd 가 나온다(ADR-0032).
+func (e *editor) openTab(path string) (tea.Cmd, error) {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
 	} else {
 		buf, err := OpenBuffer(path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		e.buffers = slices.Insert(e.buffers, e.active+1, buf)
@@ -165,9 +184,8 @@ func (e *editor) openTab(path string) error {
 	}
 
 	e.scrollTabsTo()
-	e.revealInSidebar(path)
 
-	return nil
+	return e.revealInSidebar(path), nil
 }
 
 // replaceTab 은 활성 tab 의 내용을 그 파일로 갈아끼운다. tab 수는 그대로다. `:e <파일>` 이 쓴다.
@@ -180,25 +198,22 @@ func (e *editor) openTab(path string) error {
 // 여기까지 왔으면 이미 정해진 것이다. Reload 와 같은 나눔이다.
 //
 // git 갱신은 openTab 과 같이 부르는 쪽의 몫이다.
-func (e *editor) replaceTab(path string) error {
+func (e *editor) replaceTab(path string) (tea.Cmd, error) {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
 		e.scrollTabsTo()
-		e.revealInSidebar(path)
 
-		return nil
+		return e.revealInSidebar(path), nil
 	}
 
 	buf, err := OpenBuffer(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	e.buffers[e.active] = buf
 
-	e.revealInSidebar(path)
-
-	return nil
+	return e.revealInSidebar(path), nil
 }
 
 // tabOf 는 그 파일을 이미 열어둔 tab 을 찾는다.
@@ -248,9 +263,8 @@ func (e *editor) closeTab() bool {
 	// 닫은 자리만큼 오른쪽이 비므로 왼쪽에 가려둔 것이 도로 보일 수 있다.
 	e.scrollTabsTo()
 
-	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다.
-	e.revealInSidebar(e.buffer().path)
-
+	// 드러난 파일 자리로 트리를 데려가는 것은 forceCloseTab 이 한다 — 그쪽이 Cmd 를
+	// 돌려주는 자리다(ADR-0032).
 	return true
 }
 
@@ -298,29 +312,34 @@ func (e editor) otherDirty() bool {
 // toggleTree 는 sidebar 를 여닫는다. `:tree` 가 쓴다.
 //
 // 닫을 때 트리를 버린다. 다시 열면 뿌리부터 새로 읽으므로 여닫는 것이 곧 새로고침이다.
+// 그 읽기가 백그라운드 작업이라 여는 쪽에서 Cmd 가 나온다(ADR-0032).
+//
 // 여닫으면 편집 영역 너비가 달라져서 줄바꿈이 바뀌므로 활성 buffer 를 다시 맞춘다.
 // 보고 있지 않은 tab 은 gt 로 갈 때 scrollTo 를 지나면서 알아서 맞는다.
-func (e *editor) toggleTree() error {
+func (e *editor) toggleTree() (tea.Cmd, error) {
+	var cmd tea.Cmd
+
 	if e.sidebar.open {
 		e.sidebar = sidebar{}
 	} else {
 		root, err := os.Getwd()
 		if err != nil {
-			return errors.Wrap(err, "cannot find current directory")
+			return nil, errors.Wrap(err, "cannot find current directory")
 		}
 
 		e.sidebar = openSidebar(root)
 
 		// 닫을 때 트리를 버렸으므로 여는 이 자리에서 보고 있는 파일 자리를 다시 펼친다.
-		e.revealInSidebar(e.buffer().path)
-		e.sidebar.scrollTo(e.sidebarHeight())
+		// 이름 없는 buffer 면 갈 자리가 없어서 뿌리만 읽는다.
+		e.sidebar.setRevealTarget(e.buffer().path)
+		cmd = e.startTree()
 	}
 
 	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
 	// 편집 영역 너비가 32 칸 달라져서 tabline 에 들어가는 tab 수도 달라진다.
 	e.scrollTabsTo()
 
-	return nil
+	return cmd, nil
 }
 
 // tablineHeight 는 편집 영역 위 tabline 이 차지하는 줄 수다(docs/spec.md).

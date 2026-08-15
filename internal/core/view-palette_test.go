@@ -90,7 +90,7 @@ func TestPaletteDoesNotGrowScreen(t *testing.T) {
 func TestPaletteBoxIsCenteredOnScreen(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "main.go")
 	tree := newPaletteView(t, 80, 20, "main.go")
-	tree.sidebar = openSidebar(newTreeFixture(t))
+	tree.sidebar = openSidebarSync(t, newTreeFixture(t))
 
 	for _, view := range []viewPalette{m, tree} {
 		rows := boxRowsOf(t, view)

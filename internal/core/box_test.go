@@ -49,7 +49,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 
 // sidebar 구분선도 같이 내려간다. 한 행이 sidebarWidth 칸이라는 것은 그대로다.
 func TestASCIISidebarCells(t *testing.T) {
-	s := openSidebar(newTreeFixture(t))
+	s := openSidebarSync(t, newTreeFixture(t))
 
 	for i, cell := range s.cells(10, "", boxASCII) {
 		plain := ansi.Strip(cell)

@@ -109,7 +109,7 @@ func TestFocusFindsOutsideChangeInInsertMode(t *testing.T) {
 // 트리에 포커스가 있어도 본다. 마커가 mode 와 무관한 자리라 알릴 곳이 있다(ADR-0031).
 func TestFocusFindsOutsideChangeInSidebar(t *testing.T) {
 	m, path := newWideFileEditor(t, "abc\n")
-	m.sidebar = openSidebar(newTreeFixture(t))
+	m.sidebar = openSidebarSync(t, newTreeFixture(t))
 
 	var model tea.Model = send(m, "ctrl+w", "ctrl+w")
 	require.IsType(t, viewSidebar{}, model)

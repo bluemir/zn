@@ -247,7 +247,8 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 		return normalModeMessage(m.editor, "일반 파일이 아닙니다: "+path)
 	}
 
-	if err := m.openTab(path); err != nil {
+	reveal, err := m.openTab(path)
+	if err != nil {
 		return normalModeMessage(m.editor, errors.Cause(err).Error())
 	}
 	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
@@ -255,7 +256,8 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 	model, cmd := normalMode(m.editor)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, m.refreshGit())
+	// reveal 은 트리가 아직 그 자리를 읽지 않았으면 읽는 작업을 시작한다(ADR-0032).
+	return model, tea.Batch(cmd, m.refreshGit(), reveal)
 }
 
 // paletteWidth 는 박스 전체 너비다. 테두리를 포함한다.
