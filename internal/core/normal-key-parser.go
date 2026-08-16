@@ -45,8 +45,8 @@ func (s normalStart) press(key string) (normalKey, normalState) {
 	case "g", "ctrl+w":
 		// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
 		return normalKey{}, normalPending{prefix: key}
-	case "d", "y":
-		// 뒤에 motion 이 붙어서 지우거나 복사할 범위를 정한다.
+	case "d", "y", "c":
+		// 뒤에 motion 이 붙어서 지우거나 복사하거나 바꿀 범위를 정한다.
 		return normalKey{}, normalOperator{op: key}
 	case "r":
 		// 뒤에 바꿔 넣을 글자 한 개가 붙는다.
@@ -76,7 +76,7 @@ func (s normalCount) press(key string) (normalKey, normalState) {
 	case "g":
 		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
 		return normalKey{}, normalPending{prefix: key, count: s.count}
-	case "d", "y":
+	case "d", "y", "c":
 		// operator 도 숫자를 들고 간다. `3dd` 는 세 줄이다.
 		return normalKey{}, normalOperator{op: key, count: s.count}
 	case "r":

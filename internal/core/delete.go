@@ -86,8 +86,8 @@ func (buf Buffer) lineMotionTarget(motion string, count, width int) (line, col i
 	n := max(count, 1)
 
 	switch motion {
-	case "d", "y":
-		// operator 를 두 번 친 것이다(`dd` `yy`). 커서 줄부터 n 줄이고 커서는 움직이지 않는다.
+	case "d", "y", "c":
+		// operator 를 두 번 친 것이다(`dd` `yy` `cc`). 커서 줄부터 n 줄이고 커서는 움직이지 않는다.
 		// 줄이 모자라면 있는 만큼만이다.
 		//
 		// 짝이 다른 `dy` 는 여기 오지 않는다. 파서에서 뒤의 `y` 가 operator 를 새로 열어

@@ -188,6 +188,25 @@ func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// `c` 는 지우고 insert mode 로 들어간다. 모르는 motion 이면 mode 도 바뀌지 않는다 —
+	// 손이 미끄러진 `c` 가 글자를 파일에 넣기 시작하면 무를 길이 없다.
+	if motion, found := strings.CutPrefix(key.name, "c "); found {
+		removed, ok := buf.changeByMotion(motion, key.count, width)
+		if !ok {
+			return m, nil
+		}
+
+		// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
+		if len(removed.lines) > 0 {
+			m.register = removed
+		}
+
+		next, cmd := insertMode(m.editor)
+		buf.scrollTo(width, m.textHeight())
+
+		return next, cmd
+	}
+
 	// `y` 도 같은 모양이다. 범위 계산은 `d` 와 같은 것을 쓰고 파일은 건드리지 않는다(ADR-0017).
 	if motion, found := strings.CutPrefix(key.name, "y "); found {
 		if yanked, ok := buf.yankByMotion(motion, key.count, width); ok {
