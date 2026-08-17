@@ -10,6 +10,4 @@ func (m final) View() tea.View                          { return tea.NewView("")
 
 type finalExit struct {
 	final
-
-	err error
 }

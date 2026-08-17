@@ -317,7 +317,7 @@ func (m viewEditorCommand) View() tea.View {
 
 	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다.
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
-	view.Cursor = tea.NewCursor(screenColAt([]byte(line), len(line))+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
 
 	return view
 }

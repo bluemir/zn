@@ -295,7 +295,7 @@ func (m viewPalette) View() tea.View {
 	).Render()
 
 	// 커서는 편집 내용이 아니라 박스 안 입력줄에 있어야 한다.
-	view.Cursor = tea.NewCursor(left+2+screenColAt([]byte(m.input), len(m.input)), paletteTop+1)
+	view.Cursor = tea.NewCursor(left+2+screenWidthOf(m.input), paletteTop+1)
 	view.Cursor.Shape = tea.CursorBar
 
 	return view
@@ -384,13 +384,13 @@ type paletteRow struct {
 // 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없다.
 func (r paletteRow) cell(inner int) string {
 	left := truncateToWidth(sanitizeName(r.left), inner)
-	leftWidth := screenColAt([]byte(left), len(left))
+	leftWidth := screenWidthOf(left)
 
 	// 오른쪽은 붙일 칸이 있을 때만 넣는다. 이름이 먼저다 — statusBar 의 git 표시와 같은 규칙이다.
 	right, rightWidth := "", 0
 	if r.right != "" {
 		right = sanitizeName(r.right)
-		rightWidth = screenColAt([]byte(right), len(right))
+		rightWidth = screenWidthOf(right)
 
 		if leftWidth+2+rightWidth > inner {
 			right, rightWidth = "", 0
@@ -469,5 +469,5 @@ func highlightMatches(text string, positions []int, base, match lipgloss.Style) 
 
 // padTo 는 화면 칸을 채운다.
 func padTo(text string, width int) string {
-	return text + strings.Repeat(" ", max(width-screenColAt([]byte(text), len(text)), 0))
+	return text + strings.Repeat(" ", max(width-screenWidthOf(text), 0))
 }

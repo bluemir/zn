@@ -28,6 +28,19 @@ type viewJobs struct {
 
 	selected int // rows 안의 자리
 	top      int // 화면 첫 행
+
+	// state 는 키 나열을 명령 하나로 만드는 상태다.
+	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
+	state jobsState
+}
+
+// keyState 는 지금 키 상태다. zero value(nil) 는 아무것도 먹지 않은 처음이다.
+func (m viewJobs) keyState() jobsState {
+	if m.state == nil {
+		return jobsStart{}
+	}
+
+	return m.state
 }
 
 func (m viewJobs) Init() tea.Cmd { return nil }
@@ -55,7 +68,15 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 
-			model, _ = jobs.press(key)
+			next, cmd := jobs.press(key)
+
+			// cmd 를 내는 명령(종료) 에서 멈춘다. 뒤에 올 키가 그 결과를 뒤집으면 안 된다.
+			// normal·트리·확인창의 되먹임 loop 과 같다.
+			if cmd != nil {
+				return next, cmd
+			}
+
+			model = next
 		}
 
 		return model, nil
@@ -80,11 +101,25 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹는다.
+// press 는 키 하나를 먹는다. 명령이 완성되면 실행한다. normal·트리와 같은 나눔이다.
 func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 	m.message = ""
 
-	switch key {
+	name, state := m.keyState().press(key)
+	m.state = state
+
+	// 아직 다음 키를 기다리는 중이다. 화면은 showcmd 만 바뀐다.
+	// 지금은 기다리는 상태가 없어서 여기로 오지 않는다(jobs-key-parser.go).
+	if name == "" {
+		return m, nil
+	}
+
+	return m.run(name)
+}
+
+// run 은 완성된 명령 하나를 실행한다. 모르는 이름이면 아무 일도 하지 않는다.
+func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
+	switch name {
 	case "ctrl+c":
 		return quitAll(m, m.editor)
 	case "q", "esc":
@@ -225,7 +260,10 @@ func (m viewJobs) bareStatusBar() []string {
 	bare := *m.editor
 	bare.sidebar = sidebar{}
 
-	return bare.statusBar("JOBS", m.message)
+	// 접두 키를 기다리는 동안 먹은 키는 normal·트리와 같이 아래 줄 오른쪽 끝에 붙는다.
+	// 기다리는 상태가 아직 없어서 지금은 늘 빈 문자열이고 아래 줄이 그대로 나간다.
+	// 폭은 트리를 지운 bare 기준이다 — 이 화면은 트리를 덮는다.
+	return bare.statusBar("JOBS", bare.withShowcmd(m.message, m.keyState().showcmd()))
 }
 
 // jobsTitleHeight 는 제목줄이 차지하는 줄 수다. tabline 과 같은 자리를 쓴다.

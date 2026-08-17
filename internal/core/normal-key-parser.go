@@ -26,6 +26,13 @@ type normalState interface {
 
 	// showcmd 는 지금까지 먹은 키다. statusBar 아래 줄 오른쪽에 그대로 보인다.
 	showcmd() string
+
+	// literalNext 는 다음 키가 명령이 아니라 파일에 들어갈 글자인지다.
+	//
+	// 한글 되돌림은 파서보다 앞(`Update`) 에서 일어나므로, 건너뛸 자리를 파서가 알려야 한다.
+	// 표시가 없으면 `Update` 가 파서의 구체 상태를 형 단정으로 들여다보게 된다(ADR-0018).
+	// `r한` 이 한글을 넣는 것이 이 표시 하나에 달려 있다(ADR-0008, ADR-0018).
+	literalNext() bool
 }
 
 // maxCount 는 count 가 커지는 한계다. 넘으면 더 치는 자리를 버린다.
@@ -57,6 +64,8 @@ func (s normalStart) press(key string) (normalKey, normalState) {
 }
 
 func (s normalStart) showcmd() string { return "" }
+
+func (s normalStart) literalNext() bool { return false }
 
 // normalCount 는 숫자를 모으는 중이다.
 type normalCount struct {
@@ -92,6 +101,8 @@ func (s normalCount) press(key string) (normalKey, normalState) {
 
 func (s normalCount) showcmd() string { return strconv.Itoa(s.count) }
 
+func (s normalCount) literalNext() bool { return false }
+
 // normalPending 은 `g` 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
 //
 // 다음 키가 무엇이든 이름이 완성된다. 짝이 없는 조합은 실행하는 쪽이 모르는 이름이라
@@ -110,6 +121,9 @@ func (s normalPending) showcmd() string {
 	return countString(s.count) + s.prefix
 }
 
+// 접두 키 뒤에 오는 것은 명령의 뒷자리이지 글자가 아니다. `gt` 의 `t` 가 그렇다.
+func (s normalPending) literalNext() bool { return false }
+
 // normalReplace 는 `r` 을 먹고 바꿔 넣을 글자 한 개를 기다리는 상태다.
 //
 // 다음 키는 명령이 아니라 파일에 들어갈 글자다. 그래서 접두 키(normalPending) 와 따로 있다 —
@@ -126,6 +140,9 @@ func (s normalReplace) press(key string) (normalKey, normalState) {
 func (s normalReplace) showcmd() string {
 	return countString(s.count) + "r"
 }
+
+// `r` 뒤의 한 키는 파일에 들어갈 글자다. 이 상태 하나만 참이다.
+func (s normalReplace) literalNext() bool { return true }
 
 // normalOperator 는 `d` 처럼 뒤에 motion 이 붙어 범위를 정하는 키를 먹은 뒤다.
 // vim 의 operator-pending 이다.
@@ -162,6 +179,10 @@ func (s normalOperator) press(key string) (normalKey, normalState) {
 func (s normalOperator) showcmd() string {
 	return countString(s.count) + s.op + s.motionState().showcmd()
 }
+
+// motion 쪽 상태가 답한다. motion 쪽 키는 inner 가 처음부터 다시 먹으므로
+// 글자를 기다리는지도 그쪽이 안다 — `dr` 뒤의 한 키가 그렇다.
+func (s normalOperator) literalNext() bool { return s.motionState().literalNext() }
 
 func (s normalOperator) motionState() normalState {
 	if s.inner == nil {

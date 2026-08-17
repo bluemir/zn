@@ -174,7 +174,7 @@ func (m viewEditorSearch) View() tea.View {
 	view := m.render(tea.CursorBlock, "SEARCH", line)
 
 	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다. command mode 와 같은 자리다.
-	view.Cursor = tea.NewCursor(screenColAt([]byte(line), len(line))+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
 
 	return view
 }

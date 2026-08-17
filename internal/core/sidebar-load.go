@@ -29,7 +29,7 @@ func dirJobName(root, path string) string {
 // 펼칠 때마다 다시 읽으므로 접었다 펴는 것이 곧 새로고침이다. watcher 없이 이 정도면 충분하고,
 // 화면을 그릴 때마다 syscall 을 하지 않아도 된다.
 func (e *editor) expandNode(node *treeNode) tea.Cmd {
-	if !node.isDir || node.symlink || node.loading {
+	if !node.isDir || node.isSymlink || node.loading {
 		return nil
 	}
 

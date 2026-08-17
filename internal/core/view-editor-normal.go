@@ -69,9 +69,10 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// `r` 뒤의 한 키는 명령이 아니라 파일에 들어갈 글자다. 두벌식 자리로 되돌리면
-		// `한` 이 `g` `k` `s` 세 키로 풀려서 한글을 넣을 수 없다. 이 한 키만 그대로 받는다(ADR-0018).
-		if _, waiting := m.state.(normalReplace); waiting {
+		// 파서가 글자를 기다리는 중이면 그 한 키는 명령이 아니라 파일에 들어갈 글자다.
+		// 두벌식 자리로 되돌리면 `한` 이 `g` `k` `s` 세 키로 풀려서 한글을 넣을 수 없다.
+		// 어느 상태가 그런지는 파서가 안다 — 여기서 상태 型 을 알아보지 않는다(ADR-0018).
+		if m.keyState().literalNext() {
 			return m.press(msg.String())
 		}
 

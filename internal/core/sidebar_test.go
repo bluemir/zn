@@ -111,7 +111,7 @@ func toggleSync(t *testing.T, node *treeNode) {
 	}
 
 	// 파일과 symlink 는 펼치지 않는다. 편집기의 expandNode 와 같다.
-	if !node.isDir || node.symlink {
+	if !node.isDir || node.isSymlink {
 		return
 	}
 
@@ -251,7 +251,7 @@ func TestSidebarDoesNotFollowSymlink(t *testing.T) {
 	}
 	require.NotNil(t, link)
 
-	assert.True(t, link.symlink)
+	assert.True(t, link.isSymlink)
 	assert.False(t, link.isDir, "디렉터리를 가리켜도 잎으로 둔다")
 
 	toggleSync(t, link)
@@ -325,9 +325,9 @@ func TestSidebarMarksGitIgnored(t *testing.T) {
 		byName[row.node.name] = row.node
 	}
 
-	assert.True(t, byName["build"].ignored, "gitignore 된 디렉터리")
-	assert.False(t, byName["main.go"].ignored)
-	assert.False(t, byName["README.md"].ignored)
+	assert.True(t, byName["build"].isGitIgnored, "gitignore 된 디렉터리")
+	assert.False(t, byName["main.go"].isGitIgnored)
+	assert.False(t, byName["README.md"].isGitIgnored)
 }
 
 // 저장소가 아니면 아무것도 흐리게 하지 않는다. 흐린 것이 없을 뿐 틀리지 않는다.
@@ -335,7 +335,7 @@ func TestSidebarNoRepoMarksNothing(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
 	for _, row := range s.rows() {
-		assert.False(t, row.node.ignored, "%s", row.node.name)
+		assert.False(t, row.node.isGitIgnored, "%s", row.node.name)
 	}
 }
 

@@ -121,6 +121,10 @@ macOS 는 [Karabiner-Elements](https://karabiner-elements.pqrs.org/) 로 `esc` �
 같이 걸고, Linux 는 쓰는 입력기에서 같은 것을 건다.
 입력기는 zn 이 도는 곳이 아니라 키를 치는 쪽에 있으므로 ssh 로 붙어 쓸 때도 **로컬**에 건다.
 
+## License
+
+MIT. [LICENSE](LICENSE) 를 보십시오.
+
 ## FAQ
 
 Q1. A 기능이 필요합니다.

@@ -3,7 +3,6 @@ package core
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/cockroachdb/errors"
 )
 
 // ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
@@ -83,14 +82,12 @@ func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 	case "esc":
 		return m.parent, nil
 	case "enter":
-		switch m.cursor {
-		case 0:
+		// 고른 자리는 left/right 로만 움직여서 0(Yes) 아니면 1(No) 이다.
+		if m.cursor == 0 {
 			return m.confirm()
-		case 1:
-			return m.parent, nil
-		default:
-			return ExitWithError(errors.Errorf("Invalid state"))
 		}
+
+		return m.parent, nil
 	default:
 		return m, nil
 	}
@@ -129,9 +126,6 @@ func (m viewConfirmDiscard) View() tea.View {
 
 func Exit() (tea.Model, tea.Cmd) {
 	return finalExit{}, tea.Quit
-}
-func ExitWithError(err error) (tea.Model, tea.Cmd) {
-	return finalExit{err: err}, tea.Quit
 }
 
 func cursor(cond bool, str string) string {
