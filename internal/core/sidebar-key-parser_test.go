@@ -13,7 +13,14 @@ func pressAllSidebar(keys ...string) (string, sidebarState) {
 
 	name := ""
 	for _, k := range keys {
-		name, state = state.step(k)
+		var names []string
+		names, state = state.press(k)
+
+		// 그 키가 명령을 완성하지 못했으면 빈 것으로 되돌린다.
+		name = ""
+		if len(names) > 0 {
+			name = names[len(names)-1]
+		}
 	}
 
 	return name, state

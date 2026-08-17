@@ -16,51 +16,39 @@ type normalKey struct {
 // normalState 는 normal mode 가 키를 받아가며 옮겨 다니는 상태다.
 //
 // 글자를 먹어 토큰을 뱉는 tokenizerState 와 같은 모양이다(command-parser.go).
-// 명령이 완성되지 않았으면 빈 이름을 준다.
 //
-// 숫자 접두, `g` 같은 접두 키, 앞으로 들어올 operator-pending(`d` `c` `y`) 과
-// 인자를 한 글자 더 받는 키(`f` `t`) 가 모두 "다음 키를 기다리는 상태" 다.
-// 필드를 하나씩 늘리는 대신 상태를 하나씩 늘린다(ADR-0006).
+// 숫자 접두, `g` 같은 접두 키, operator-pending(`d` `c` `y`) 과 인자를 한 글자 더 받는 키(`r`)
+// 가 모두 "다음 키를 기다리는 상태" 다. 필드를 하나씩 늘리는 대신 상태를 하나씩 늘린다(ADR-0006).
+//
+// 계약은 이 둘뿐이다. 풀린 키 하나를 먹이는 자리는 밖으로 내지 않는다 — 그것이 계약에 있으면
+// `state.???("한")` 처럼 풀리지 않은 키를 먹여 조용히 모르는 명령이 되는 길이 생긴다.
 type normalState interface {
-	// press 는 키 하나를 먹여 완성된 명령들을 준다. 밖에서 쓰는 것은 이것과 showcmd 뿐이다.
+	// press 는 키 하나를 먹여 완성된 명령들을 준다.
 	//
 	// **한글로 온 키를 그대로 받는다.** 두벌식 자리의 영문 키로 푸는 것이 이 안에서 일어나므로
 	// 키 하나가 명령 여럿이 될 수 있다 — `ㅘ` 는 `h` `k` 라 왼쪽·위 두 번이다(ADR-0008).
 	// 아직 명령이 되지 않았으면 빈 목록이다.
+	//
+	// **푸는지 마는지는 상태마다 다르다.** 명령을 기다리는 상태는 풀고, 글자를 기다리는
+	// 상태(normalReplace) 는 그대로 받는다 — `r` 뒤의 한 키를 풀면 `한` 이 `g` `k` `s` 가
+	// 되어 한글을 넣을 수 없다(ADR-0018).
 	press(key string) ([]normalKey, normalState)
 
 	// showcmd 는 지금까지 먹은 키다. statusBar 아래 줄 오른쪽에 그대로 보인다.
 	showcmd() string
-
-	// expand 와 step 은 상태끼리 쓰는 것이다. press 가 이 둘로 이루어진다.
-
-	// expand 는 키 하나를 이 상태가 읽을 키 나열로 편다.
-	//
-	// **한글을 풀지 말지를 상태가 정하는 자리다.** 명령을 기다리는 상태는 풀고, 글자를
-	// 기다리는 상태는 그대로 둔다 — `r` 뒤의 한 키는 파일에 들어갈 글자라 풀면 `한` 이
-	// `g` `k` `s` 가 되어 한글을 넣을 수 없다(ADR-0018).
-	expand(key string) []string
-
-	// step 은 이미 풀린 키 하나를 먹는다. 상태 전이의 알맹이다.
-	step(key string) (normalKey, normalState)
 }
 
-// pressExpanded 는 상태가 편 키들을 차례로 step 에 먹여 완성된 명령들을 모은다.
-// 상태들의 press 가 전부 이것 한 줄이다 — 푸는 일이 상태 기계 안 한 곳에 있다.
-func pressExpanded(state normalState, key string) ([]normalKey, normalState) {
-	keys := state.expand(key)
-
+// pressExpanded 는 풀린 키들을 차례로 먹여 완성된 명령들을 모은다.
+//
+// 되먹이는 것은 press 다. 조각은 전부 ASCII 라 각자의 press 첫머리에서 곧바로 빠져나오므로
+// (expandHangul 의 주석) 여기서 다시 풀리지 않고 재귀가 한 겹에서 끝난다.
+func pressExpanded(state normalState, keys []string) ([]normalKey, normalState) {
 	commands := make([]normalKey, 0, len(keys))
 	for _, k := range keys {
-		command, next := state.step(k)
-		state = next
+		next, state2 := state.press(k)
+		state = state2
 
-		// 아직 다음 키를 기다리는 중이다.
-		if command.name == "" {
-			continue
-		}
-
-		commands = append(commands, command)
+		commands = append(commands, next...)
 	}
 
 	return commands, state
@@ -70,77 +58,88 @@ func pressExpanded(state normalState, key string) ([]normalKey, normalState) {
 // 줄 수보다 훨씬 크면 어차피 양끝에서 멈추므로, 숫자가 int 를 넘치지 않게 막기만 하면 된다.
 const maxCount = 1_000_000
 
+// one 은 명령 하나짜리 목록이다. 이름이 비면(아직 기다리는 중) 빈 목록이다.
+func one(command normalKey, next normalState) ([]normalKey, normalState) {
+	if command.name == "" {
+		return nil, next
+	}
+
+	return []normalKey{command}, next
+}
+
 // normalStart 는 아무것도 먹지 않은 처음이다.
 type normalStart struct{}
 
-func (s normalStart) step(key string) (normalKey, normalState) {
+func (s normalStart) press(key string) ([]normalKey, normalState) {
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		return pressExpanded(s, keys)
+	}
+	// 자모 하나는 영문 키 하나로 바뀐다 — `ㅁ` 이 `a` 다. 개수가 같아도 글자가 다르다.
+	key = keys[0]
+
 	// `0` 은 count 의 첫 자리가 될 수 없다. vim 에서 줄 시작으로 가는 키라 자리를 비워둔다.
 	if n, ok := keyDigit(key); ok && n > 0 {
-		return normalKey{}, normalCount{count: n}
+		return nil, normalCount{count: n}
 	}
 
 	switch key {
 	case "g", "ctrl+w":
 		// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
-		return normalKey{}, normalPending{prefix: key}
+		return nil, normalPending{prefix: key}
 	case "d", "y", "c":
 		// 뒤에 motion 이 붙어서 지우거나 복사하거나 바꿀 범위를 정한다.
-		return normalKey{}, normalOperator{op: key}
+		return nil, normalOperator{op: key}
 	case "r":
 		// 뒤에 바꿔 넣을 글자 한 개가 붙는다.
-		return normalKey{}, normalReplace{}
+		return nil, normalReplace{}
 	}
 
-	return normalKey{name: key}, normalStart{}
-}
-
-func (s normalStart) press(key string) ([]normalKey, normalState) {
-	return pressExpanded(s, key)
+	return one(normalKey{name: key}, normalStart{})
 }
 
 func (s normalStart) showcmd() string { return "" }
-
-func (s normalStart) expand(key string) []string { return expandHangul(key) }
 
 // normalCount 는 숫자를 모으는 중이다.
 type normalCount struct {
 	count int
 }
 
-func (s normalCount) step(key string) (normalKey, normalState) {
+func (s normalCount) press(key string) ([]normalKey, normalState) {
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		return pressExpanded(s, keys)
+	}
+	key = keys[0]
+
 	if n, ok := keyDigit(key); ok {
 		if s.count >= maxCount {
-			return normalKey{}, s
+			return nil, s
 		}
 
-		return normalKey{}, normalCount{count: s.count*10 + n}
+		return nil, normalCount{count: s.count*10 + n}
 	}
 
 	switch key {
 	case "g":
 		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
-		return normalKey{}, normalPending{prefix: key, count: s.count}
+		return nil, normalPending{prefix: key, count: s.count}
 	case "d", "y", "c":
 		// operator 도 숫자를 들고 간다. `3dd` 는 세 줄이다.
-		return normalKey{}, normalOperator{op: key, count: s.count}
+		return nil, normalOperator{op: key, count: s.count}
 	case "r":
 		// `3rx` 는 세 글자를 바꾼다.
-		return normalKey{}, normalReplace{count: s.count}
+		return nil, normalReplace{count: s.count}
 	case "h", "j", "k", "l", "w", "W", "e", "E", "b", "B", "$", "G", "n", "N", "*", "#", "x", "p", "P":
-		return normalKey{name: key, count: s.count}, normalStart{}
+		return one(normalKey{name: key, count: s.count}, normalStart{})
 	}
 
 	// 숫자를 쓰지 않는 키다. 모으던 숫자를 버리고 그 키만 친 것으로 본다.
-	return normalStart{}.step(key)
-}
-
-func (s normalCount) press(key string) ([]normalKey, normalState) {
-	return pressExpanded(s, key)
+	// 이미 풀린 키라 normalStart 의 press 도 첫머리에서 그대로 빠져나온다.
+	return normalStart{}.press(key)
 }
 
 func (s normalCount) showcmd() string { return strconv.Itoa(s.count) }
-
-func (s normalCount) expand(key string) []string { return expandHangul(key) }
 
 // normalPending 은 `g` 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
 //
@@ -152,20 +151,19 @@ type normalPending struct {
 	count  int // 접두 키 앞에 숫자가 있었으면 그것도 같이 들고 간다
 }
 
-func (s normalPending) step(key string) (normalKey, normalState) {
-	return normalKey{name: s.prefix + " " + key, count: s.count}, normalStart{}
-}
-
 func (s normalPending) press(key string) ([]normalKey, normalState) {
-	return pressExpanded(s, key)
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		return pressExpanded(s, keys)
+	}
+	key = keys[0]
+
+	return one(normalKey{name: s.prefix + " " + key, count: s.count}, normalStart{})
 }
 
 func (s normalPending) showcmd() string {
 	return countString(s.count) + s.prefix
 }
-
-// 접두 키 뒤에 오는 것도 명령의 뒷자리이지 글자가 아니다. `gt` 의 `t` 가 그렇다.
-func (s normalPending) expand(key string) []string { return expandHangul(key) }
 
 // normalReplace 는 `r` 을 먹고 바꿔 넣을 글자 한 개를 기다리는 상태다.
 //
@@ -176,20 +174,14 @@ type normalReplace struct {
 	count int
 }
 
-func (s normalReplace) step(key string) (normalKey, normalState) {
-	return normalKey{name: "r " + key, count: s.count}, normalStart{}
-}
-
+// 풀지 않는 상태는 이것 하나뿐이다. 그래서 다른 상태들이 첫머리에 두는 expandHangul 이 없다.
 func (s normalReplace) press(key string) ([]normalKey, normalState) {
-	return pressExpanded(s, key)
+	return one(normalKey{name: "r " + key, count: s.count}, normalStart{})
 }
 
 func (s normalReplace) showcmd() string {
 	return countString(s.count) + "r"
 }
-
-// `r` 뒤의 한 키는 파일에 들어갈 글자다. 풀지 않는 상태는 이것 하나뿐이다.
-func (s normalReplace) expand(key string) []string { return []string{key} }
 
 // normalOperator 는 `d` 처럼 뒤에 motion 이 붙어 범위를 정하는 키를 먹은 뒤다.
 // vim 의 operator-pending 이다.
@@ -206,34 +198,38 @@ type normalOperator struct {
 	inner normalState
 }
 
-func (s normalOperator) step(key string) (normalKey, normalState) {
+// motion 을 기다리는 중이라 푼다. `dr` 처럼 inner 가 글자를 기다리게 된 자리는 보지 않는다 —
+// `d r <글자>` 는 어차피 모르는 이름이라 아무 일도 하지 않는다. `f`·`t` 를 넣어 operator 뒤에
+// 인자를 받는 것이 뜻을 가지면 그때 inner 에 묻는 자리가 생긴다(docs/tasks.md).
+func (s normalOperator) press(key string) ([]normalKey, normalState) {
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		return pressExpanded(s, keys)
+	}
+	key = keys[0]
+
 	inner := s.motionState()
 
 	// operator 를 두 번 치면 줄 단위다(`dd`). inner 에 넘기면 operator 를 하나 더 여는 셈이 된다.
 	// 그 앞에 모아둔 숫자는 줄 수다 — `d3d` 는 `3dd` 와 같다.
 	if key == s.op {
-		return normalKey{name: s.op + " " + s.op, count: operatorCount(s.count, motionCount(inner))}, normalStart{}
+		return one(normalKey{name: s.op + " " + s.op, count: operatorCount(s.count, motionCount(inner))}, normalStart{})
 	}
 
-	motion, next := inner.step(key)
-	if motion.name == "" {
-		return normalKey{}, normalOperator{op: s.op, count: s.count, inner: next}
+	// 이미 풀린 키라 inner 의 press 도 첫머리에서 그대로 빠져나와 명령이 하나 이하다.
+	motions, next := inner.press(key)
+	if len(motions) == 0 {
+		return nil, normalOperator{op: s.op, count: s.count, inner: next}
 	}
 
-	return normalKey{name: s.op + " " + motion.name, count: operatorCount(s.count, motion.count)}, normalStart{}
-}
+	motion := motions[0]
 
-func (s normalOperator) press(key string) ([]normalKey, normalState) {
-	return pressExpanded(s, key)
+	return one(normalKey{name: s.op + " " + motion.name, count: operatorCount(s.count, motion.count)}, normalStart{})
 }
 
 func (s normalOperator) showcmd() string {
 	return countString(s.count) + s.op + s.motionState().showcmd()
 }
-
-// motion 쪽 상태가 편다. motion 쪽 키는 inner 가 처음부터 다시 먹으므로
-// 어떻게 읽을지도 그쪽이 안다 — `dr` 뒤의 한 키가 그렇다.
-func (s normalOperator) expand(key string) []string { return s.motionState().expand(key) }
 
 func (s normalOperator) motionState() normalState {
 	if s.inner == nil {

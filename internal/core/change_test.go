@@ -209,7 +209,13 @@ func TestChangeKeyParser(t *testing.T) {
 
 			var command normalKey
 			for _, k := range test.keys {
-				command, state = state.step(k)
+				var commands []normalKey
+				commands, state = state.press(k)
+
+				command = normalKey{}
+				if len(commands) > 0 {
+					command = commands[len(commands)-1]
+				}
 			}
 
 			require.Equal(t, test.wantName, command.name)

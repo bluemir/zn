@@ -10,14 +10,21 @@ import (
 // pressAll 은 이미 풀린 키를 차례로 먹이고 마지막에 완성된 명령과 남은 상태를 돌려준다.
 // 중간에 명령이 완성되면 뒤 키는 새 명령을 만든다. 마지막 것만 본다.
 //
-// press 가 아니라 step 을 쓴다. 여기서 보는 것은 키 하나하나의 상태 전이라 명령 목록이
-// 아니라 그 키가 만든 명령 하나가 필요하다. 한글을 풀어 목록이 되는 쪽은 press 를 쓴다.
+// 이미 풀린 키만 먹이므로 press 가 돌려주는 목록은 길이가 0 아니면 1 이다.
+// 한글을 풀어 목록이 여럿이 되는 쪽은 따로 본다(TestNormalKeyParserHangul).
 func pressAll(keys ...string) (normalKey, normalState) {
 	var state normalState = normalStart{}
 
 	key := normalKey{}
 	for _, k := range keys {
-		key, state = state.step(k)
+		var commands []normalKey
+		commands, state = state.press(k)
+
+		// 그 키가 명령을 완성하지 못했으면 빈 것으로 되돌린다. press 가 목록이 되기 전과 같은 뜻이다.
+		key = normalKey{}
+		if len(commands) > 0 {
+			key = commands[len(commands)-1]
+		}
 	}
 
 	return key, state
@@ -146,4 +153,65 @@ func TestNormalKeyParserCapsCount(t *testing.T) {
 	require.Equal(t, "j", got.name)
 	assert.Positive(t, got.count)
 	assert.LessOrEqual(t, got.count, maxCount*10, "한계를 넘어서면 더 커지지 않는다")
+}
+
+// 한글로 온 키는 파서가 받아서 푼다. 키 하나가 명령 여럿이 된다(ADR-0008).
+//
+// 계약은 `press` 와 `showcmd` 둘뿐이라 밖에서 풀린 키를 따로 먹일 길이 없다.
+// 풀지 말지는 상태가 정한다 — `normalReplace` 만 그대로 받는다(ADR-0018).
+func TestNormalKeyParserHangul(t *testing.T) {
+	names := func(commands []normalKey) []string {
+		out := []string{}
+		for _, c := range commands {
+			out = append(out, c.name)
+		}
+
+		return out
+	}
+
+	t.Run("겹모음은 명령 둘이다", func(t *testing.T) {
+		// 두벌식에서 hjkl 이 모두 모음 자리라 이동 키를 이어 누르면 한 음절로 합쳐진다.
+		commands, state := normalStart{}.press("ㅘ")
+
+		assert.Equal(t, []string{"h", "k"}, names(commands))
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	t.Run("음절은 초성·중성·종성으로 풀린다", func(t *testing.T) {
+		// `한` 은 g k s 이고 앞의 둘이 접두 키 조합 `g k` 로 묶인다.
+		commands, _ := normalStart{}.press("한")
+
+		assert.Equal(t, []string{"g k", "s"}, names(commands))
+	})
+
+	t.Run("자모 하나는 영문 키 하나다", func(t *testing.T) {
+		// 풀어도 개수가 1 이라 「여럿이면 되먹인다」 로만 걸러지지 않는다. 글자가 바뀌는 것이 요점이다.
+		commands, _ := normalStart{}.press("ㅁ")
+
+		assert.Equal(t, []string{"a"}, names(commands))
+	})
+
+	t.Run("기다리는 중이면 빈 목록이다", func(t *testing.T) {
+		// `ㅎ` 은 `g` 라 접두 키가 된다.
+		commands, state := normalStart{}.press("ㅎ")
+
+		assert.Empty(t, commands)
+		assert.Equal(t, normalPending{prefix: "g"}, state)
+	})
+
+	t.Run("r 뒤의 한 키는 풀지 않는다", func(t *testing.T) {
+		commands, state := normalReplace{}.press("한")
+
+		assert.Equal(t, []string{"r 한"}, names(commands))
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	t.Run("풀린 조각은 다시 풀리지 않는다", func(t *testing.T) {
+		// pressExpanded 가 조각을 press 로 되먹이면서도 한 겹에서 끝나는 근거다(expandHangul).
+		for _, key := range []string{"한", "값", "ctrl+ㅔ"} {
+			for _, piece := range expandHangul(key) {
+				assert.Equal(t, []string{piece}, expandHangul(piece), "%q 의 조각 %q", key, piece)
+			}
+		}
+	})
 }

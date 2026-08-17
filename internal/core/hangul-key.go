@@ -38,8 +38,12 @@ func hangulKeys(key string) []string {
 
 // expandHangul 은 키 하나를 두벌식 자리의 영문 키 나열로 편다. 한글이 아니면 그대로 하나다.
 //
-// 명령을 기다리는 상태들이 자기 expand 에서 이것을 부른다. 글자를 기다리는 상태는 부르지
-// 않는다 — 어느 쪽인지는 상태가 안다(normal-key-parser.go).
+// 명령을 기다리는 상태들이 자기 press 에서 이것을 거쳐 넘긴다. 글자를 기다리는 상태는
+// 거치지 않고 키 하나를 그대로 넘긴다 — 어느 쪽인지는 상태가 안다(normal-key-parser.go).
+//
+// **편 조각은 다시 펴지지 않는다.** 조각은 jamoKeys 의 값(ASCII 글자) 이거나 한글이 아니라서
+// 그대로 지나간 글자뿐이라, 어느 쪽이든 hangulKeys 가 nil 을 준다. 상태들의 press 가 조각을
+// 자기에게 되먹이면서도 한 겹에서 끝나는 것이 이 성질에 달려 있다(pressExpanded).
 func expandHangul(key string) []string {
 	if keys := hangulKeys(key); keys != nil {
 		return keys
