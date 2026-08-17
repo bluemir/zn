@@ -69,40 +69,8 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 파서가 글자를 기다리는 중이면 그 한 키는 명령이 아니라 파일에 들어갈 글자다.
-		// 두벌식 자리로 되돌리면 `한` 이 `g` `k` `s` 세 키로 풀려서 한글을 넣을 수 없다.
-		// 어느 상태가 그런지는 파서가 안다 — 여기서 상태 型 을 알아보지 않는다(ADR-0018).
-		if m.keyState().literalNext() {
-			return m.press(msg.String())
-		}
-
-		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
-		keys := hangulKeys(msg.String())
-		if keys == nil {
-			return m.press(msg.String())
-		}
-
-		// 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
-		var model tea.Model = m
-		for _, key := range keys {
-			normal, ok := model.(viewEditorNormal)
-			if !ok {
-				// 앞의 키에서 mode 가 바뀌었다. 남은 키는 버린다 — 한글 상태로 잘못 들어온
-				// 입력인데 남은 자모가 insert mode 로 흘러가 글자로 꽂히면 안 된다.
-				return model, nil
-			}
-
-			next, cmd := normal.press(key)
-
-			// cmd 를 내는 명령(종료, 확인창) 에서 멈춘다. 뒤에 올 키가 그 결과를 뒤집으면 안 된다.
-			if cmd != nil {
-				return next, cmd
-			}
-
-			model = next
-		}
-
-		return model, nil
+		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
+		return m.press(msg.String())
 	case tea.MouseClickMsg:
 		// 왼쪽 버튼만 본다. 가운데·오른쪽에 붙일 동작은 아직 정하지 않았다.
 		//
@@ -126,7 +94,14 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹는다. 명령이 완성되면 실행한다.
+// press 는 키 하나를 먹고 그것으로 완성된 명령을 차례로 실행한다.
+//
+// 명령이 여럿인 것은 한글 때문이다. 파서가 `ㅘ` 를 `h` `k` 로 풀어 왼쪽·위 두 명령을 준다
+// (normal-key-parser.go). 명령이 하나도 완성되지 않았으면 화면은 showcmd 만 바뀐다.
+//
+// **도중에 mode 가 바뀌면 남은 명령은 버린다.** `마` 는 `a` `k` 인데 `a` 에서 insert mode 로
+// 들어가므로, 버리지 않으면 남은 `k` 가 파일에 글자로 꽂힌다. 한글 상태로 normal mode 에 온 것
+// 자체가 사고이므로 사고가 편집을 일으키는 것보다 아무 일도 안 나는 것이 낫다(ADR-0008).
 func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다.
 	m.message = ""
@@ -138,15 +113,28 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	command, state := m.keyState().press(key)
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 명령을 실행하기만 한다.
+	commands, state := m.keyState().press(key)
 	m.state = state
 
-	// 아직 다음 키를 기다리는 중이다. 화면은 showcmd 만 바뀐다.
-	if command.name == "" {
-		return m, nil
+	var model tea.Model = m
+	for _, command := range commands {
+		normal, ok := model.(viewEditorNormal)
+		if !ok {
+			return model, nil
+		}
+
+		next, cmd := normal.run(command)
+
+		// cmd 를 내는 명령(종료, 확인창) 에서 멈춘다. 뒤에 올 것이 그 결과를 뒤집으면 안 된다.
+		if cmd != nil {
+			return next, cmd
+		}
+
+		model = next
 	}
 
-	return m.run(command)
+	return model, nil
 }
 
 // run 은 완성된 명령 하나를 실행한다.

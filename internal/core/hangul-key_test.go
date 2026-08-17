@@ -94,15 +94,21 @@ func TestNormalHangulPrefixKey(t *testing.T) {
 	assert.Equal(t, 0, bufferOf(t, m).cursorLine, "ㅎㅎ 는 gg 로 첫 줄로 간다")
 }
 
-// mode 가 바뀌면 남은 키는 버린다. `얌` 은 `d` `i` `a` 인데 `i` 에서 insert 로 들어가므로
-// 남은 `a` 가 글자로 꽂히면 안 된다.
+// mode 가 바뀌면 남은 키는 버린다.
+//
+// `마` 는 `a` `k` 다. `a` 에서 insert mode 로 들어가므로 남은 `k` 가 글자로 꽂히면 안 된다.
+// 버리지 않으면 `okne` 가 된다 — 한글 상태로 normal mode 에 온 사고가 파일을 고치는 것이라
+// ADR-0008 이 "남은 키를 버리는 쪽이 안전하다" 고 정한 자리다.
+//
+// `얌`(`d` `i` `a`) 으로는 이것을 재지 못한다. `d`+`i` 가 모르는 motion `d i` 가 되어 아무 일도
+// 하지 않고, mode 를 바꾸는 `a` 가 마지막 키라 버릴 것이 남지 않는다.
 func TestNormalHangulDropsKeysAfterModeChange(t *testing.T) {
 	var m tea.Model = newTestEditor("one\n", 40, 5)
 
-	m = send(m, "얌")
+	m = send(m, "마")
 
-	require.IsType(t, viewEditorInsert{}, m, "i 에서 insert mode 로 들어간다")
-	assert.Equal(t, "one", string(bufferOf(t, m).lines[0]), "남은 자모는 버려진다")
+	require.IsType(t, viewEditorInsert{}, m, "a 에서 insert mode 로 들어간다")
+	assert.Equal(t, "one", string(bufferOf(t, m).lines[0]), "남은 k 는 버려진다")
 }
 
 // insert mode 는 한글을 글자로 받아야 한다. 여기서 자모를 키로 바꾸면 한글을 쓸 수 없다.

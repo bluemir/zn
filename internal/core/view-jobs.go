@@ -53,33 +53,9 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
+		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		// `x`(취소)·`q`(닫기)·`j`·`k` 가 전부 글자 키라 되돌리지 않으면 아무것도 먹지 않는다.
-		keys := hangulKeys(msg.String())
-		if keys == nil {
-			return m.press(msg.String())
-		}
-
-		var model tea.Model = m
-		for _, key := range keys {
-			jobs, ok := model.(viewJobs)
-			if !ok {
-				// 앞의 키에서 목록을 벗어났다. 남은 키는 버린다.
-				return model, nil
-			}
-
-			next, cmd := jobs.press(key)
-
-			// cmd 를 내는 명령(종료) 에서 멈춘다. 뒤에 올 키가 그 결과를 뒤집으면 안 된다.
-			// normal·트리·확인창의 되먹임 loop 과 같다.
-			if cmd != nil {
-				return next, cmd
-			}
-
-			model = next
-		}
-
-		return model, nil
+		return m.press(msg.String())
 	case tea.MouseWheelMsg:
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -101,20 +77,31 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹는다. 명령이 완성되면 실행한다. normal·트리와 같은 나눔이다.
+// press 는 키 하나를 먹고 그것으로 완성된 명령을 차례로 실행한다.
+// normal·트리와 같은 나눔이고, 도중에 목록을 벗어나면 남은 명령은 버린다(ADR-0008).
 func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 	m.message = ""
 
-	name, state := m.keyState().press(key)
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 명령을 실행하기만 한다.
+	names, state := m.keyState().press(key)
 	m.state = state
 
-	// 아직 다음 키를 기다리는 중이다. 화면은 showcmd 만 바뀐다.
-	// 지금은 기다리는 상태가 없어서 여기로 오지 않는다(jobs-key-parser.go).
-	if name == "" {
-		return m, nil
+	var model tea.Model = m
+	for _, name := range names {
+		jobs, ok := model.(viewJobs)
+		if !ok {
+			return model, nil
+		}
+
+		next, cmd := jobs.run(name)
+		if cmd != nil {
+			return next, cmd
+		}
+
+		model = next
 	}
 
-	return m.run(name)
+	return model, nil
 }
 
 // run 은 완성된 명령 하나를 실행한다. 모르는 이름이면 아무 일도 하지 않는다.

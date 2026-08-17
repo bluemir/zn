@@ -60,30 +60,8 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
-		// 편집 화면과 같은 방식이다 — 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
-		keys := hangulKeys(msg.String())
-		if keys == nil {
-			return m.press(msg.String())
-		}
-
-		var model tea.Model = m
-		for _, key := range keys {
-			tree, ok := model.(viewSidebar)
-			if !ok {
-				// 앞의 키에서 포커스가 옮겨갔다. 남은 키는 버린다.
-				return model, nil
-			}
-
-			next, cmd := tree.press(key)
-			if cmd != nil {
-				return next, cmd
-			}
-
-			model = next
-		}
-
-		return model, nil
+		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
+		return m.press(msg.String())
 	case tea.MouseClickMsg:
 		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
 			return m.click(mouse)
@@ -103,20 +81,32 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹는다. 명령이 완성되면 실행한다. normal mode 와 같은 나눔이다.
+// press 는 키 하나를 먹고 그것으로 완성된 명령을 차례로 실행한다.
+// normal mode 와 같은 나눔이고, 도중에 포커스가 옮겨가면 남은 명령은 버린다(ADR-0008).
 func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
 	m.message = ""
 
-	name, state := m.keyState().press(key)
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 명령을 실행하기만 한다.
+	names, state := m.keyState().press(key)
 	m.state = state
 
-	// 아직 다음 키를 기다리는 중이다. 화면은 showcmd 만 바뀐다.
-	if name == "" {
-		return m, nil
+	var model tea.Model = m
+	for _, name := range names {
+		tree, ok := model.(viewSidebar)
+		if !ok {
+			return model, nil
+		}
+
+		next, cmd := tree.run(name)
+		if cmd != nil {
+			return next, cmd
+		}
+
+		model = next
 	}
 
-	return m.run(name)
+	return model, nil
 }
 
 // run 은 완성된 명령 하나를 실행한다.

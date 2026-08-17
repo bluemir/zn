@@ -7,14 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// pressAll 은 키를 차례로 먹이고 마지막에 완성된 명령과 남은 상태를 돌려준다.
+// pressAll 은 이미 풀린 키를 차례로 먹이고 마지막에 완성된 명령과 남은 상태를 돌려준다.
 // 중간에 명령이 완성되면 뒤 키는 새 명령을 만든다. 마지막 것만 본다.
+//
+// press 가 아니라 step 을 쓴다. 여기서 보는 것은 키 하나하나의 상태 전이라 명령 목록이
+// 아니라 그 키가 만든 명령 하나가 필요하다. 한글을 풀어 목록이 되는 쪽은 press 를 쓴다.
 func pressAll(keys ...string) (normalKey, normalState) {
 	var state normalState = normalStart{}
 
 	key := normalKey{}
 	for _, k := range keys {
-		key, state = state.press(k)
+		key, state = state.step(k)
 	}
 
 	return key, state

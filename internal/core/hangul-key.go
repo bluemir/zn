@@ -36,6 +36,18 @@ func hangulKeys(key string) []string {
 	return keys
 }
 
+// expandHangul 은 키 하나를 두벌식 자리의 영문 키 나열로 편다. 한글이 아니면 그대로 하나다.
+//
+// 명령을 기다리는 상태들이 자기 expand 에서 이것을 부른다. 글자를 기다리는 상태는 부르지
+// 않는다 — 어느 쪽인지는 상태가 안다(normal-key-parser.go).
+func expandHangul(key string) []string {
+	if keys := hangulKeys(key); keys != nil {
+		return keys
+	}
+
+	return []string{key}
+}
+
 // jamoKeys 는 자모 하나가 두벌식 자리에서 어느 키인지다.
 // 겹자모는 그것을 만드는 키 둘이다 — `ㅘ` 는 `h` 와 `k` 를 이어 누른 것이다.
 //

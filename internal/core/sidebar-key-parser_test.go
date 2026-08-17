@@ -6,14 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// pressAllSidebar 는 키를 차례로 먹이고 마지막에 완성된 이름과 남은 상태를 돌려준다.
+// pressAllSidebar 는 이미 풀린 키를 차례로 먹이고 마지막에 완성된 이름과 남은 상태를 돌려준다.
 // normal 쪽 pressAll 과 같은 모양이다.
 func pressAllSidebar(keys ...string) (string, sidebarState) {
 	var state sidebarState = sidebarStart{}
 
 	name := ""
 	for _, k := range keys {
-		name, state = state.press(k)
+		name, state = state.step(k)
 	}
 
 	return name, state
