@@ -144,7 +144,7 @@ func TestChangeCursor(t *testing.T) {
 	}
 }
 
-// `c` 는 지우기와 이어 친 글자가 한 명령이라 `u` 한 번에 함께 돌아간다. vim 과 같다.
+// `c` 는 지우기와 이어 친 글자가 한 동작이라 `u` 한 번에 함께 돌아간다. vim 과 같다.
 func TestChangeUndoIsOneStep(t *testing.T) {
 	tests := []struct {
 		name string
@@ -191,23 +191,23 @@ func TestChangeKeyParser(t *testing.T) {
 	tests := []struct {
 		name string
 		keys []string
-		want normalCommand
+		want action
 	}{
 		{name: "cw 는 motion 이 갈린다", keys: []string{"c", "w"},
-			want: changeCommand{motion: motionChangeWord{kind: smallWord}}},
+			want: actionChange{motion: motionChangeWord{kind: smallWord}}},
 		{name: "cW 도 같다", keys: []string{"c", "W"},
-			want: changeCommand{motion: motionChangeWord{kind: bigWord}}},
+			want: actionChange{motion: motionChangeWord{kind: bigWord}}},
 		{name: "dw 는 그대로다", keys: []string{"d", "w"},
-			want: deleteCommand{motion: motionWordForward{kind: smallWord}}},
-		{name: "cc", keys: []string{"c", "c"}, want: changeCommand{motion: motionWholeLines{}}},
-		{name: "3cc", keys: []string{"3", "c", "c"}, want: changeCommand{motion: motionWholeLines{}, count: 3}},
+			want: actionDelete{motion: motionWordForward{kind: smallWord}}},
+		{name: "cc", keys: []string{"c", "c"}, want: actionChange{motion: motionWholeLines{}}},
+		{name: "3cc", keys: []string{"3", "c", "c"}, want: actionChange{motion: motionWholeLines{}, count: 3}},
 		{name: "c3w", keys: []string{"c", "3", "w"},
-			want: changeCommand{motion: motionChangeWord{kind: smallWord}, count: 3}},
+			want: actionChange{motion: motionChangeWord{kind: smallWord}, count: 3}},
 		{name: "3c2w", keys: []string{"3", "c", "2", "w"},
-			want: changeCommand{motion: motionChangeWord{kind: smallWord}, count: 6}},
-		{name: "cgg", keys: []string{"c", "g", "g"}, want: changeCommand{motion: motionToFirstLine{}}},
+			want: actionChange{motion: motionChangeWord{kind: smallWord}, count: 6}},
+		{name: "cgg", keys: []string{"c", "g", "g"}, want: actionChange{motion: motionToFirstLine{}}},
 		{name: "c3c 는 3cc 와 같다", keys: []string{"c", "3", "c"},
-			want: changeCommand{motion: motionWholeLines{}, count: 3}},
+			want: actionChange{motion: motionWholeLines{}, count: 3}},
 	}
 
 	for _, test := range tests {

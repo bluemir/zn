@@ -90,7 +90,7 @@ func TestReplaceCharFromHangulKeys(t *testing.T) {
 	buf = pressFrom(t, "abcdef", 0, 0, "ㄱ", "한")
 	assert.Equal(t, []string{"한bcdef"}, linesOf(buf), "다음 키는 자모로 풀지 않는다")
 
-	// 되돌림을 건너뛰는 것은 그 한 키뿐이다. 뒤에 오는 키는 다시 명령이다.
+	// 되돌림을 건너뛰는 것은 그 한 키뿐이다. 뒤에 오는 키는 다시 동작이다.
 	buf = pressFrom(t, "abcdef", 0, 0, "ㄱ", "한", "ㅌ")
 	assert.Equal(t, []string{"bcdef"}, linesOf(buf), "ㅌ 은 x 라서 커서가 선 글자를 지운다")
 }

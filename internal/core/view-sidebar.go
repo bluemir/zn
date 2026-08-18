@@ -21,7 +21,7 @@ func sidebarMode(e *editor) (tea.Model, tea.Cmd) {
 type viewSidebar struct {
 	*editor
 
-	// state 는 키 나열을 명령 하나로 만드는 상태다. `ctrl+w` 같은 접두 키가 여기 산다.
+	// state 는 키 나열을 동작 하나로 만드는 상태다. `ctrl+w` 같은 접두 키가 여기 산다.
 	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
 	state sidebarState
 }
@@ -81,13 +81,13 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹고 그것으로 완성된 명령을 차례로 실행한다.
-// normal mode 와 같은 나눔이고, 도중에 포커스가 옮겨가면 남은 명령은 버린다(ADR-0008).
+// press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
+// normal mode 와 같은 나눔이고, 도중에 포커스가 옮겨가면 남은 동작은 버린다(ADR-0008).
 func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
 	m.message = ""
 
-	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 명령을 실행하기만 한다.
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
 	names, state := m.keyState().press(key)
 	m.state = state
 
@@ -109,7 +109,7 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
-// run 은 완성된 명령 하나를 실행한다.
+// run 은 완성된 동작 하나를 실행한다.
 //
 // 짝이 없는 접두 키 조합(`ctrl+w esc`) 은 여기서 모르는 이름이 되어 아무 일도 하지 않는다.
 // 접두 키가 `esc`·`ctrl+c` 를 삼키는 것이 이 규칙이다 — 잘못 누른 `ctrl+w` 를 무르는 것이지
@@ -200,7 +200,7 @@ func (m viewSidebar) View() tea.View {
 		m.withShowcmd(m.messageOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
-	// 명령줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.
+	// 동작줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.
 	//
 	// sidebar 는 화면 맨 윗줄부터 시작하므로 트리 행 번호가 곧 화면 행이다.
 	if row, ok := m.sidebar.selectedRow(m.sidebarHeight()); ok {

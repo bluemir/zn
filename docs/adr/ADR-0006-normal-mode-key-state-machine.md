@@ -23,11 +23,11 @@
 ## 결정
 
 **normal mode 의 키 입력을 상태 기계로 받는다.** `internal/core/normal-key-parser.go` 의
-`normalState` 가 키를 하나씩 먹고 다음 상태를 준다. 명령이 완성되면 `normalKey{name, count}` 를
+`normalState` 가 키를 하나씩 먹고 다음 상태를 준다. 동작이 완성되면 `normalKey{name, count}` 를
 주고, 아직이면 빈 이름을 준다. `command-parser.go` 의 `tokenizerState` 와 같은 모양이다.
 
 상태는 셋이다 — `normalStart`(처음), `normalCount`(숫자를 모으는 중),
-`normalPending`(`g`·`ctrl+w` 뒤). 접두 키가 붙은 명령은 `g t` 처럼 공백으로 이어 붙인 이름
+`normalPending`(`g`·`ctrl+w` 뒤). 접두 키가 붙은 동작은 `g t` 처럼 공백으로 이어 붙인 이름
 하나가 되고, `viewEditorNormal.run` 이 그것을 평평한 `switch` 로 받는다.
 
 **count 는 이동 키에만 붙는다.** `h` `j` `k` `l` `w` `W` `e` `E` `b` `B` `$` `G` 와 접두 키
@@ -118,7 +118,7 @@ vim 과 맞추는 것이고, subword 는 별도 키로 나중에 볼 여지를 �
 좋은 점
 
 - `10j`, `20k`, `5l` 이 동작한다. `hjkl` 이 화살표와 같은 자리에 붙었다.
-- `Update` 가 짧아졌다. "어떤 키 나열이 명령인가" 는 상태 기계가, "그 명령이 무엇을 하는가" 는
+- `Update` 가 짧아졌다. "어떤 키 나열이 동작인가" 는 상태 기계가, "그 동작이 무엇을 하는가" 는
   `run` 의 평평한 `switch` 가 맡는다. `runPending` 이 없어졌다.
 - 상태 기계만 model 없이 테스트할 수 있다. 키 나열 규칙은 화면과 무관하다.
 - `g` 와 `ctrl+w` 를 누른 동안 화면에 표시가 생겼다. ADR-0003 이 감수하기로 한 것을 갚았다.
@@ -152,7 +152,7 @@ mode 는 화면과 커서 모양이 달라지지만 count 를 모으는 중에�
 **`hjkl` 만 넣고 count 는 나중에** — 이동 키를 넣는 이유의 절반이 count 라 나눌 이유가 없다.
 접두 상태를 다시 손대야 해서 두 번 일하는 쪽이기도 하다.
 
-**`run` 의 switch 도 표(map)나 command type 으로** — 이름별로 `normalCommand{count, run}` 표를
+**`run` 의 switch 도 표(map)나 command type 으로** — 이름별로 `action{count, run}` 표를
 두거나 동작마다 type 을 하나씩 만들면, 키맵이 코드 흐름이 아니라 데이터가 된다. 상태 기계와
 idiom 도 맞는다. 두 가지가 걸려서 두지 않았다. 하나는 20 개 중 5 개(`ctrl+c` `:` `i` `a`
 `ctrl+w w`) 가 다른 model 을 돌려주는 mode 전환이라, type 을 하나로 두면 나머지 15 개가 전부

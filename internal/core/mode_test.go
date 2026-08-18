@@ -379,7 +379,7 @@ func TestNormalModeCountedMoveStopsAtEdges(t *testing.T) {
 	assert.Equal(t, 2, cursorColOf(t, m), "마지막 글자 위")
 }
 
-// count 는 명령 하나에만 붙는다. 다음 키에 남으면 안 된다.
+// count 는 동작 하나에만 붙는다. 다음 키에 남으면 안 된다.
 func TestNormalModeCountResets(t *testing.T) {
 	var m tea.Model = newTestEditor(strings.Repeat("abc\n", 10), 40, 10)
 

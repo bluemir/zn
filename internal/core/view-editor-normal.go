@@ -20,7 +20,7 @@ func normalModeMessage(e *editor, message string) (tea.Model, tea.Cmd) {
 type viewEditorNormal struct {
 	*editor
 
-	// state 는 키 나열을 명령 하나로 만드는 상태다. 숫자 접두와 `g` 같은 접두 키가 여기 산다.
+	// state 는 키 나열을 동작 하나로 만드는 상태다. 숫자 접두와 `g` 같은 접두 키가 여기 산다.
 	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
 	state normalState
 }
@@ -92,12 +92,12 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹고 그것으로 완성된 명령을 차례로 실행한다.
+// press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
 //
-// 명령이 여럿인 것은 한글 때문이다. 파서가 `ㅘ` 를 `h` `k` 로 풀어 왼쪽·위 두 명령을 준다
-// (normal-key-parser.go). 명령이 하나도 완성되지 않았으면 화면은 showcmd 만 바뀐다.
+// 동작이 여럿인 것은 한글 때문이다. 파서가 `ㅘ` 를 `h` `k` 로 풀어 왼쪽·위 두 동작을 준다
+// (normal-key-parser.go). 동작이 하나도 완성되지 않았으면 화면은 showcmd 만 바뀐다.
 //
-// **도중에 mode 가 바뀌면 남은 명령은 버린다.** `마` 는 `a` `k` 인데 `a` 에서 insert mode 로
+// **도중에 mode 가 바뀌면 남은 동작은 버린다.** `마` 는 `a` `k` 인데 `a` 에서 insert mode 로
 // 들어가므로, 버리지 않으면 남은 `k` 가 파일에 글자로 꽂힌다. 한글 상태로 normal mode 에 온 것
 // 자체가 사고이므로 사고가 편집을 일으키는 것보다 아무 일도 안 나는 것이 낫다(ADR-0008).
 func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
@@ -111,24 +111,24 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 명령을 실행하기만 한다.
-	commands, state := m.keyState().press(key)
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
+	actions, state := m.keyState().press(key)
 	m.state = state
 
 	var model tea.Model = m
-	for _, command := range commands {
+	for _, act := range actions {
 		normal, ok := model.(viewEditorNormal)
 		if !ok {
 			return model, nil
 		}
 
-		// 명령은 editor 만 받는다. mode 를 바꾸지 않으면 nil 을 주므로 지금 mode 를 그대로 쓴다.
-		next, cmd := command.run(normal.editor)
+		// 동작은 editor 만 받는다. mode 를 바꾸지 않으면 nil 을 주므로 지금 mode 를 그대로 쓴다.
+		next, cmd := act.run(normal.editor)
 		if next == nil {
 			next = normal
 		}
 
-		// cmd 를 내는 명령(종료, 확인창) 에서 멈춘다. 뒤에 올 것이 그 결과를 뒤집으면 안 된다.
+		// cmd 를 내는 동작(종료, 확인창) 에서 멈춘다. 뒤에 올 것이 그 결과를 뒤집으면 안 된다.
 		if cmd != nil {
 			return next, cmd
 		}

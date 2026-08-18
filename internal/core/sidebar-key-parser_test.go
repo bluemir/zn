@@ -16,7 +16,7 @@ func pressAllSidebar(keys ...string) (string, sidebarState) {
 		var names []string
 		names, state = state.press(k)
 
-		// 그 키가 명령을 완성하지 못했으면 빈 것으로 되돌린다.
+		// 그 키가 동작을 완성하지 못했으면 빈 것으로 되돌린다.
 		name = ""
 		if len(names) > 0 {
 			name = names[len(names)-1]
@@ -44,7 +44,7 @@ func TestSidebarKeyParser(t *testing.T) {
 		{name: "접두 키가 ctrl+c 도 삼킨다", keys: []string{"ctrl+w", "ctrl+c"}, want: "ctrl+w ctrl+c"},
 
 		// 삼키는 것은 그 한 키뿐이다. 그 뒤는 다시 처음이다.
-		{name: "접두 키를 무른 뒤는 다시 명령이다", keys: []string{"ctrl+w", "esc", "esc"}, want: "esc"},
+		{name: "접두 키를 무른 뒤는 다시 동작이다", keys: []string{"ctrl+w", "esc", "esc"}, want: "esc"},
 
 		// normalStart 와 달리 `d`·`y`·`c` 는 operator 가 아니고 숫자는 count 가 아니다.
 		// 트리에서 이것들이 다음 키를 삼키면 안 된다(ADR-0005, ADR-0006).

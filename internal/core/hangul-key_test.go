@@ -49,7 +49,7 @@ func TestNormalHangulJamoMoves(t *testing.T) {
 	assert.Equal(t, 1, bufferOf(t, m).cursorLine, "ㅓ 가 j 로 동작한다")
 }
 
-// 겹모음은 키 둘이 합쳐진 것이라 명령 둘이 된다. `ㅘ` 는 `h` 와 `k` 를 이어 누른 것이다.
+// 겹모음은 키 둘이 합쳐진 것이라 동작 둘이 된다. `ㅘ` 는 `h` 와 `k` 를 이어 누른 것이다.
 func TestNormalHangulCompoundVowelRunsBothKeys(t *testing.T) {
 	var m tea.Model = newTestEditor("one\ntwo\nthree\n", 40, 5)
 	m = send(m, "j", "l", "l")

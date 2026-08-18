@@ -10,10 +10,10 @@ package core
 // 만들고 지우고 이름을 바꾸는 것이 들어올 자리이기 때문이다 — 이름을 Enter 까지 모으는 상태와
 // 지우기 확인이 붙으면 필드 하나로는 버티지 못한다(docs/tasks.md).
 type sidebarState interface {
-	// press 는 키 하나를 먹여 완성된 명령들을 준다. 한글로 온 키를 그대로 받는다.
+	// press 는 키 하나를 먹여 완성된 동작들을 준다. 한글로 온 키를 그대로 받는다.
 	// normalState 의 것과 같은 자리이고 계약도 이 둘뿐이다(normal-key-parser.go).
 	//
-	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 명령 type 을 두지 않고 string 이다.
+	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 동작 type 을 두지 않고 string 이다.
 	// 트리에는 아직 숫자 접두가 없다 — `5j` 를 넣을 때 struct 가 된다.
 	press(key string) ([]string, sidebarState)
 

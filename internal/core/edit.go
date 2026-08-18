@@ -75,7 +75,7 @@ func (buf *Buffer) endEdit() {
 // resumeEdit 는 방금 닫은 구간을 다시 연다. 이어지는 타이핑이 그 구간에 들어가서
 // 지운 것과 새로 친 글자가 한 번의 `u` 로 함께 돌아간다.
 //
-// `c` 가 쓴다 — 지우기와 insert 가 한 명령이라 되돌리기도 하나여야 한다. vim 과 같다.
+// `c` 가 쓴다 — 지우기와 insert 가 한 동작이라 되돌리기도 하나여야 한다. vim 과 같다.
 // 되돌릴 것이 하나도 없으면(지운 것이 없었으면) 열 구간도 없다.
 func (buf *Buffer) resumeEdit() {
 	buf.editing = len(buf.undo) > 0

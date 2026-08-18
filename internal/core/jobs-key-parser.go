@@ -12,10 +12,10 @@ package core
 // 끝난 작업의 산출물로 들어가기, 여러 파일 검색의 적중 목록(quickfix) 이 그렇다
 // (docs/tasks.md, ADR-0027). 그때 상태를 여기 더하면 viewJobs 쪽은 `run` 의 이름 하나만 늘면 된다.
 type jobsState interface {
-	// press 는 키 하나를 먹여 완성된 명령들을 준다. 한글로 온 키를 그대로 받는다.
+	// press 는 키 하나를 먹여 완성된 동작들을 준다. 한글로 온 키를 그대로 받는다.
 	// normalState 의 것과 같은 자리이고 계약도 이 둘뿐이다(normal-key-parser.go).
 	//
-	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 명령 type 을 두지 않고 string 이다.
+	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 동작 type 을 두지 않고 string 이다.
 	// sidebarState 와 같은 자리이고, 숫자 접두를 넣을 때 struct 가 된다.
 	press(key string) ([]string, jobsState)
 

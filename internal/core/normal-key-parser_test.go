@@ -8,92 +8,92 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// pressAll 은 이미 풀린 키를 차례로 먹이고 마지막에 완성된 명령과 남은 상태를 돌려준다.
-// 중간에 명령이 완성되면 뒤 키는 새 명령을 만든다. 마지막 것만 본다.
+// pressAll 은 이미 풀린 키를 차례로 먹이고 마지막에 완성된 동작과 남은 상태를 돌려준다.
+// 중간에 동작이 완성되면 뒤 키는 새 동작을 만든다. 마지막 것만 본다.
 //
 // 이미 풀린 키만 먹이므로 press 가 돌려주는 목록은 길이가 0 아니면 1 이다.
 // 한글을 풀어 목록이 여럿이 되는 쪽은 따로 본다(TestNormalKeyParserHangul).
-func pressAll(keys ...string) (normalCommand, normalState) {
+func pressAll(keys ...string) (action, normalState) {
 	var state normalState = normalStart{}
 
-	var command normalCommand
+	var built action
 	for _, k := range keys {
-		var commands []normalCommand
-		commands, state = state.press(k)
+		var actions []action
+		actions, state = state.press(k)
 
-		// 그 키가 명령을 완성하지 못했으면 nil 이다.
-		command = nil
-		if len(commands) > 0 {
-			command = commands[len(commands)-1]
+		// 그 키가 동작을 완성하지 못했으면 nil 이다.
+		built = nil
+		if len(actions) > 0 {
+			built = actions[len(actions)-1]
 		}
 	}
 
-	return command, state
+	return built, state
 }
 
-// 파서는 이름이 아니라 명령을 만든다. 명령이 자기가 어떻게 실행되는지 안다(ADR-0034).
+// 파서는 이름이 아니라 동작을 만든다. 동작이 자기가 어떻게 실행되는지 안다(ADR-0034).
 func TestNormalKeyParser(t *testing.T) {
 	tests := []struct {
 		name string
 		keys []string
-		want normalCommand
+		want action
 	}{
-		{name: "키 하나", keys: []string{"h"}, want: moveCommand{motion: motionLeft{}}},
-		{name: "count 한 자리", keys: []string{"3", "j"}, want: moveCommand{motion: motionLineDown{}, count: 3}},
-		{name: "count 두 자리", keys: []string{"1", "0", "j"}, want: moveCommand{motion: motionLineDown{}, count: 10}},
-		{name: "count 세 자리", keys: []string{"1", "2", "3", "k"}, want: moveCommand{motion: motionLineUp{}, count: 123}},
-		{name: "hjkl 넷 다 count 를 받는다", keys: []string{"5", "l"}, want: moveCommand{motion: motionRight{}, count: 5}},
-		{name: "단어 이동도 count 를 받는다", keys: []string{"3", "w"}, want: moveCommand{motion: motionWordForward{kind: smallWord}, count: 3}},
-		{name: "큰 단어 이동도 마찬가지", keys: []string{"2", "B"}, want: moveCommand{motion: motionWordBack{kind: bigWord}, count: 2}},
-		{name: "$ 는 줄 수를 받는다", keys: []string{"3", "$"}, want: moveCommand{motion: motionLineEnd{}, count: 3}},
-		{name: "G 는 줄 번호를 받는다", keys: []string{"4", "2", "G"}, want: moveCommand{motion: motionToLastLine{}, count: 42}},
+		{name: "키 하나", keys: []string{"h"}, want: actionMove{motion: motionLeft{}}},
+		{name: "count 한 자리", keys: []string{"3", "j"}, want: actionMove{motion: motionLineDown{}, count: 3}},
+		{name: "count 두 자리", keys: []string{"1", "0", "j"}, want: actionMove{motion: motionLineDown{}, count: 10}},
+		{name: "count 세 자리", keys: []string{"1", "2", "3", "k"}, want: actionMove{motion: motionLineUp{}, count: 123}},
+		{name: "hjkl 넷 다 count 를 받는다", keys: []string{"5", "l"}, want: actionMove{motion: motionRight{}, count: 5}},
+		{name: "단어 이동도 count 를 받는다", keys: []string{"3", "w"}, want: actionMove{motion: motionWordForward{kind: smallWord}, count: 3}},
+		{name: "큰 단어 이동도 마찬가지", keys: []string{"2", "B"}, want: actionMove{motion: motionWordBack{kind: bigWord}, count: 2}},
+		{name: "$ 는 줄 수를 받는다", keys: []string{"3", "$"}, want: actionMove{motion: motionLineEnd{}, count: 3}},
+		{name: "G 는 줄 번호를 받는다", keys: []string{"4", "2", "G"}, want: actionMove{motion: motionToLastLine{}, count: 42}},
 
 		// `0` 은 vim 에서 줄 시작으로 가는 키라 count 의 첫 자리가 될 수 없다.
-		{name: "`0` 하나는 count 가 아니다", keys: []string{"0"}, want: moveCommand{motion: motionLineStart{}}},
-		{name: "`0` 뒤의 이동 키는 count 없이 움직인다", keys: []string{"0", "j"}, want: moveCommand{motion: motionLineDown{}}},
-		{name: "`0` 은 둘째 자리부터 숫자다", keys: []string{"2", "0", "k"}, want: moveCommand{motion: motionLineUp{}, count: 20}},
+		{name: "`0` 하나는 count 가 아니다", keys: []string{"0"}, want: actionMove{motion: motionLineStart{}}},
+		{name: "`0` 뒤의 이동 키는 count 없이 움직인다", keys: []string{"0", "j"}, want: actionMove{motion: motionLineDown{}}},
+		{name: "`0` 은 둘째 자리부터 숫자다", keys: []string{"2", "0", "k"}, want: actionMove{motion: motionLineUp{}, count: 20}},
 
-		{name: "접두 키", keys: []string{"g", "t"}, want: nextTabCommand{}},
-		{name: "접두 키 대문자", keys: []string{"g", "T"}, want: prevTabCommand{}},
-		{name: "window 접두 키", keys: []string{"ctrl+w", "ctrl+w"}, want: focusTreeCommand{}},
-		{name: "ctrl+w w 도 같다", keys: []string{"ctrl+w", "w"}, want: focusTreeCommand{}},
+		{name: "접두 키", keys: []string{"g", "t"}, want: actionNextTab{}},
+		{name: "접두 키 대문자", keys: []string{"g", "T"}, want: actionPrevTab{}},
+		{name: "window 접두 키", keys: []string{"ctrl+w", "ctrl+w"}, want: actionFocusTree{}},
+		{name: "ctrl+w w 도 같다", keys: []string{"ctrl+w", "w"}, want: actionFocusTree{}},
 
-		// 짝이 없는 조합은 명령이 되지 않는다. 예전에는 이름만 만들어 두고 실행하는 쪽이 버렸다.
+		// 짝이 없는 조합은 동작이 되지 않는다. 예전에는 이름만 만들어 두고 실행하는 쪽이 버렸다.
 		{name: "짝 없는 조합", keys: []string{"g", "x"}, want: nil},
 		{name: "접두 키가 esc 를 삼킨다", keys: []string{"g", "esc"}, want: nil},
 		{name: "접두 키가 ctrl+c 를 삼킨다", keys: []string{"g", "ctrl+c"}, want: nil},
 
-		// 숫자를 쓰지 않는 명령은 그냥 무시한다. 걸러낼 표가 따로 없다.
-		{name: "count 를 받지 않는 키", keys: []string{"3", "i"}, want: insertCommand{}},
+		// 숫자를 쓰지 않는 동작은 그냥 무시한다. 걸러낼 표가 따로 없다.
+		{name: "count 를 받지 않는 키", keys: []string{"3", "i"}, want: actionInsert{}},
 		// 접두 키는 숫자를 들고 간다. `10gg` 가 10 번째 줄이라 접두 키 앞의 숫자가 살아 있어야 한다.
-		{name: "접두 키가 숫자를 들고 간다", keys: []string{"1", "0", "g", "g"}, want: moveCommand{motion: motionToFirstLine{}, count: 10}},
-		{name: "숫자를 쓰지 않는 조합은 그냥 무시한다", keys: []string{"3", "g", "t"}, want: nextTabCommand{}},
+		{name: "접두 키가 숫자를 들고 간다", keys: []string{"1", "0", "g", "g"}, want: actionMove{motion: motionToFirstLine{}, count: 10}},
+		{name: "숫자를 쓰지 않는 조합은 그냥 무시한다", keys: []string{"3", "g", "t"}, want: actionNextTab{}},
 		{name: "count 뒤의 esc 는 아무것도 아니다", keys: []string{"3", "esc"}, want: nil},
 
-		// 명령이 끝나면 처음 상태로 돌아간다. 앞의 count 가 다음 키에 남으면 안 된다.
-		{name: "count 는 명령 하나에만 붙는다", keys: []string{"3", "j", "j"}, want: moveCommand{motion: motionLineDown{}}},
+		// 동작이 끝나면 처음 상태로 돌아간다. 앞의 count 가 다음 키에 남으면 안 된다.
+		{name: "count 는 동작 하나에만 붙는다", keys: []string{"3", "j", "j"}, want: actionMove{motion: motionLineDown{}}},
 
-		// operator 는 motion 을 감싼 명령이 된다.
-		{name: "operator 를 두 번 치면 줄 단위", keys: []string{"d", "d"}, want: deleteCommand{motion: motionWholeLines{}}},
-		{name: "operator 와 motion", keys: []string{"d", "w"}, want: deleteCommand{motion: motionWordForward{kind: smallWord}}},
-		{name: "operator 와 접두 키 motion", keys: []string{"d", "g", "g"}, want: deleteCommand{motion: motionToFirstLine{}}},
-		{name: "operator 앞의 숫자", keys: []string{"3", "d", "d"}, want: deleteCommand{motion: motionWholeLines{}, count: 3}},
-		{name: "motion 앞의 숫자", keys: []string{"d", "3", "w"}, want: deleteCommand{motion: motionWordForward{kind: smallWord}, count: 3}},
-		{name: "숫자 뒤에 operator 를 되풀이", keys: []string{"d", "3", "d"}, want: deleteCommand{motion: motionWholeLines{}, count: 3}},
-		{name: "숫자 둘은 곱한다", keys: []string{"3", "d", "2", "w"}, want: deleteCommand{motion: motionWordForward{kind: smallWord}, count: 6}},
-		{name: "숫자가 접두 키 motion 까지 실려 간다", keys: []string{"1", "0", "d", "g", "g"}, want: deleteCommand{motion: motionToFirstLine{}, count: 10}},
-		{name: "operator 뒤 숫자 없는 G", keys: []string{"d", "G"}, want: deleteCommand{motion: motionToLastLine{}}},
-		{name: "operator 뒤 G 의 숫자는 줄 번호", keys: []string{"d", "2", "G"}, want: deleteCommand{motion: motionToLastLine{}, count: 2}},
-		{name: "yank 도 같은 자리를 쓴다", keys: []string{"y", "w"}, want: yankCommand{motion: motionWordForward{kind: smallWord}}},
+		// operator 는 motion 을 감싼 동작이 된다.
+		{name: "operator 를 두 번 치면 줄 단위", keys: []string{"d", "d"}, want: actionDelete{motion: motionWholeLines{}}},
+		{name: "operator 와 motion", keys: []string{"d", "w"}, want: actionDelete{motion: motionWordForward{kind: smallWord}}},
+		{name: "operator 와 접두 키 motion", keys: []string{"d", "g", "g"}, want: actionDelete{motion: motionToFirstLine{}}},
+		{name: "operator 앞의 숫자", keys: []string{"3", "d", "d"}, want: actionDelete{motion: motionWholeLines{}, count: 3}},
+		{name: "motion 앞의 숫자", keys: []string{"d", "3", "w"}, want: actionDelete{motion: motionWordForward{kind: smallWord}, count: 3}},
+		{name: "숫자 뒤에 operator 를 되풀이", keys: []string{"d", "3", "d"}, want: actionDelete{motion: motionWholeLines{}, count: 3}},
+		{name: "숫자 둘은 곱한다", keys: []string{"3", "d", "2", "w"}, want: actionDelete{motion: motionWordForward{kind: smallWord}, count: 6}},
+		{name: "숫자가 접두 키 motion 까지 실려 간다", keys: []string{"1", "0", "d", "g", "g"}, want: actionDelete{motion: motionToFirstLine{}, count: 10}},
+		{name: "operator 뒤 숫자 없는 G", keys: []string{"d", "G"}, want: actionDelete{motion: motionToLastLine{}}},
+		{name: "operator 뒤 G 의 숫자는 줄 번호", keys: []string{"d", "2", "G"}, want: actionDelete{motion: motionToLastLine{}, count: 2}},
+		{name: "yank 도 같은 자리를 쓴다", keys: []string{"y", "w"}, want: actionYank{motion: motionWordForward{kind: smallWord}}},
 
 		// motion 이 아닌 키는 operator 뒤에 올 수 없다.
-		{name: "operator 뒤의 홀로 서는 명령", keys: []string{"d", "i"}, want: nil},
+		{name: "operator 뒤의 홀로 서는 동작", keys: []string{"d", "i"}, want: nil},
 		{name: "operator 가 esc 를 삼킨다", keys: []string{"d", "esc"}, want: nil},
-		{name: "operator 뒤의 접두 키 명령", keys: []string{"d", "g", "t"}, want: nil},
+		{name: "operator 뒤의 접두 키 동작", keys: []string{"d", "g", "t"}, want: nil},
 		{name: "operator 뒤의 r", keys: []string{"d", "r", "x"}, want: nil},
 
-		{name: "x 는 count 를 받는다", keys: []string{"3", "x"}, want: deleteCommand{motion: motionRight{}, count: 3}},
-		{name: "r 은 글자를 들고 온다", keys: []string{"3", "r", "z"}, want: replaceCharCommand{key: "z", count: 3}},
+		{name: "x 는 count 를 받는다", keys: []string{"3", "x"}, want: actionDelete{motion: motionRight{}, count: 3}},
+		{name: "r 은 글자를 들고 온다", keys: []string{"3", "r", "z"}, want: actionReplaceChar{key: "z", count: 3}},
 	}
 
 	for _, test := range tests {
@@ -101,7 +101,7 @@ func TestNormalKeyParser(t *testing.T) {
 			got, state := pressAll(test.keys...)
 
 			assert.Equal(t, test.want, got)
-			assert.IsType(t, normalStart{}, state, "명령이 끝나면 처음 상태로 돌아간다")
+			assert.IsType(t, normalStart{}, state, "동작이 끝나면 처음 상태로 돌아간다")
 		})
 	}
 }
@@ -124,7 +124,7 @@ func TestNormalKeyParserWaits(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got, _ := pressAll(test.keys...)
 
-			assert.Nil(t, got, "아직 명령이 완성되지 않았다")
+			assert.Nil(t, got, "아직 동작이 완성되지 않았다")
 		})
 	}
 }
@@ -140,7 +140,7 @@ func TestNormalKeyParserShowcmd(t *testing.T) {
 		{name: "숫자 여럿", keys: []string{"1", "0"}, want: "10"},
 		{name: "접두 키", keys: []string{"g"}, want: "g"},
 		{name: "window 접두 키", keys: []string{"ctrl+w"}, want: "ctrl+w"},
-		{name: "명령이 끝나면 사라진다", keys: []string{"3", "j"}, want: ""},
+		{name: "동작이 끝나면 사라진다", keys: []string{"3", "j"}, want: ""},
 		{name: "operator", keys: []string{"d"}, want: "d"},
 		{name: "operator 앞뒤의 숫자", keys: []string{"3", "d", "2"}, want: "3d2"},
 		{name: "operator 뒤 접두 키", keys: []string{"d", "g"}, want: "dg"},
@@ -161,56 +161,56 @@ func TestNormalKeyParserCapsCount(t *testing.T) {
 
 	got, _ := pressAll(keys...)
 
-	move, ok := got.(moveCommand)
-	require.True(t, ok, "이동 명령이다")
+	move, ok := got.(actionMove)
+	require.True(t, ok, "이동 동작이다")
 	assert.Equal(t, motionLineDown{}, move.motion)
 	assert.Positive(t, move.count)
 	assert.LessOrEqual(t, move.count, maxCount*10, "한계를 넘어서면 더 커지지 않는다")
 }
 
-// 한글로 온 키는 파서가 받아서 푼다. 키 하나가 명령 여럿이 된다(ADR-0008).
+// 한글로 온 키는 파서가 받아서 푼다. 키 하나가 동작 여럿이 된다(ADR-0008).
 //
 // 계약은 `press` 와 `showcmd` 둘뿐이라 밖에서 풀린 키를 따로 먹일 길이 없다.
 // 풀지 말지는 상태가 정한다 — `normalReplace` 만 그대로 받는다(ADR-0018).
 func TestNormalKeyParserHangul(t *testing.T) {
-	t.Run("겹모음은 명령 둘이다", func(t *testing.T) {
+	t.Run("겹모음은 동작 둘이다", func(t *testing.T) {
 		// 두벌식에서 hjkl 이 모두 모음 자리라 이동 키를 이어 누르면 한 음절로 합쳐진다.
-		commands, state := normalStart{}.press("ㅘ")
+		actions, state := normalStart{}.press("ㅘ")
 
-		assert.Equal(t, []normalCommand{
-			moveCommand{motion: motionLeft{}},
-			moveCommand{motion: motionLineUp{}},
-		}, commands)
+		assert.Equal(t, []action{
+			actionMove{motion: motionLeft{}},
+			actionMove{motion: motionLineUp{}},
+		}, actions)
 		assert.Equal(t, normalStart{}, state)
 	})
 
 	t.Run("자모 하나는 영문 키 하나다", func(t *testing.T) {
 		// 풀어도 개수가 1 이라 「여럿이면 되먹인다」 로만 걸러지지 않는다. 글자가 바뀌는 것이 요점이다.
-		commands, _ := normalStart{}.press("ㅁ")
+		actions, _ := normalStart{}.press("ㅁ")
 
-		assert.Equal(t, []normalCommand{appendCommand{}}, commands)
+		assert.Equal(t, []action{actionAppend{}}, actions)
 	})
 
-	t.Run("짝이 없으면 명령이 하나도 안 나온다", func(t *testing.T) {
+	t.Run("짝이 없으면 동작이 하나도 안 나온다", func(t *testing.T) {
 		// `한` 은 g k s 다. `g k` 도 `s` 도 짝이 없어서 아무것도 되지 않는다.
-		commands, state := normalStart{}.press("한")
+		actions, state := normalStart{}.press("한")
 
-		assert.Empty(t, commands)
+		assert.Empty(t, actions)
 		assert.Equal(t, normalStart{}, state)
 	})
 
 	t.Run("기다리는 중이면 빈 목록이다", func(t *testing.T) {
 		// `ㅎ` 은 `g` 라 접두 키가 된다.
-		commands, state := normalStart{}.press("ㅎ")
+		actions, state := normalStart{}.press("ㅎ")
 
-		assert.Empty(t, commands)
+		assert.Empty(t, actions)
 		assert.Equal(t, normalPending{prefix: "g"}, state)
 	})
 
 	t.Run("r 뒤의 한 키는 풀지 않는다", func(t *testing.T) {
-		commands, state := normalReplace{}.press("한")
+		actions, state := normalReplace{}.press("한")
 
-		assert.Equal(t, []normalCommand{replaceCharCommand{key: "한"}}, commands)
+		assert.Equal(t, []action{actionReplaceChar{key: "한"}}, actions)
 		assert.Equal(t, normalStart{}, state)
 	})
 
@@ -232,7 +232,7 @@ func TestNormalKeyParserOperatorEdges(t *testing.T) {
 	tests := []struct {
 		name string
 		keys []string
-		want normalCommand
+		want action
 	}{
 		// 접두 키가 기다리는 키를 operator 가 가로채지 않는다.
 		// 중첩으로 들던 때는 `key == op` 를 먼저 봐서 `dgd` 가 `dd` 가 됐다.
@@ -242,9 +242,9 @@ func TestNormalKeyParserOperatorEdges(t *testing.T) {
 		// 다른 operator 를 이어 치면 앞의 것을 무르고 새로 연다. vim 과 같다 —
 		// 중첩으로 들던 때는 `d y w` 라는 짝 없는 이름이 되어 아무 일도 하지 않았다.
 		{name: "dy 는 앞의 d 를 무른다", keys: []string{"d", "y", "w"},
-			want: yankCommand{motion: motionWordForward{kind: smallWord}}},
+			want: actionYank{motion: motionWordForward{kind: smallWord}}},
 		{name: "무르면 앞의 숫자도 버린다", keys: []string{"3", "d", "y", "w"},
-			want: yankCommand{motion: motionWordForward{kind: smallWord}}},
+			want: actionYank{motion: motionWordForward{kind: smallWord}}},
 
 		// 숫자를 안 받는 키는 motion 쪽 숫자를 버린다.
 		{name: "d3esc", keys: []string{"d", "3", "esc"}, want: nil},

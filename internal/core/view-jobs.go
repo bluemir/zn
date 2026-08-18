@@ -29,7 +29,7 @@ type viewJobs struct {
 	selected int // rows 안의 자리
 	top      int // 화면 첫 행
 
-	// state 는 키 나열을 명령 하나로 만드는 상태다.
+	// state 는 키 나열을 동작 하나로 만드는 상태다.
 	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
 	state jobsState
 }
@@ -77,12 +77,12 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹고 그것으로 완성된 명령을 차례로 실행한다.
-// normal·트리와 같은 나눔이고, 도중에 목록을 벗어나면 남은 명령은 버린다(ADR-0008).
+// press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
+// normal·트리와 같은 나눔이고, 도중에 목록을 벗어나면 남은 동작은 버린다(ADR-0008).
 func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 	m.message = ""
 
-	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 명령을 실행하기만 한다.
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
 	names, state := m.keyState().press(key)
 	m.state = state
 
@@ -104,7 +104,7 @@ func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
-// run 은 완성된 명령 하나를 실행한다. 모르는 이름이면 아무 일도 하지 않는다.
+// run 은 완성된 동작 하나를 실행한다. 모르는 이름이면 아무 일도 하지 않는다.
 func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 	switch name {
 	case "ctrl+c":

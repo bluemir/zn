@@ -16,7 +16,7 @@ func pressAllJobs(keys ...string) (string, jobsState) {
 		var names []string
 		names, state = state.press(k)
 
-		// 그 키가 명령을 완성하지 못했으면 빈 것으로 되돌린다.
+		// 그 키가 동작을 완성하지 못했으면 빈 것으로 되돌린다.
 		name = ""
 		if len(names) > 0 {
 			name = names[len(names)-1]

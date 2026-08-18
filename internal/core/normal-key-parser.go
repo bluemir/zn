@@ -4,7 +4,7 @@ import (
 	"strconv"
 )
 
-// partial 은 짓는 중인 명령에서 이미 정해진 부분이다. 모든 상태가 이것을 들고 다닌다.
+// partial 은 짓는 중인 동작에서 이미 정해진 부분이다. 모든 상태가 이것을 들고 다닌다.
 //
 // **operator 를 중첩 상태로 들지 않는 이유가 여기 있다.** `d` 를 먹으면 여기에 적어 두고
 // 상태는 처음(normalStart) 으로 돌아간다. 그러면 motion 자리의 키가 최상위와 똑같은 상태들을
@@ -16,11 +16,11 @@ type partial struct {
 	opCount int    // 그 앞에 붙은 숫자
 }
 
-// resolve 는 키 하나로 명령을 짓는다. 지을 수 없으면 nil 이다.
+// resolve 는 키 하나로 동작을 짓는다. 지을 수 없으면 nil 이다.
 //
 // motion 이면 operator 를 얹고(`dw`) operator 가 없으면 이동이다(`w`).
-// motion 이 아니면 홀로 서는 명령인데, 그것은 operator 뒤에 올 수 없다 — `di` 는 아무것도 아니다.
-func (p partial) resolve(key string, count int) normalCommand {
+// motion 이 아니면 홀로 서는 동작인데, 그것은 operator 뒤에 올 수 없다 — `di` 는 아무것도 아니다.
+func (p partial) resolve(key string, count int) action {
 	if mo, ok := motionFor(p.op, key); ok {
 		return p.apply(mo, count)
 	}
@@ -29,29 +29,29 @@ func (p partial) resolve(key string, count int) normalCommand {
 		return nil
 	}
 
-	return standaloneCommand(key, count)
+	return standaloneAction(key, count)
 }
 
-// apply 는 motion 에 operator 를 얹는다. operator 가 없으면 이동 명령이다.
-func (p partial) apply(mo moveMotion, count int) normalCommand {
+// apply 는 motion 에 operator 를 얹는다. operator 가 없으면 이동 동작이다.
+func (p partial) apply(mo moveMotion, count int) action {
 	if p.op == "" {
-		return moveCommand{motion: mo, count: count}
+		return actionMove{motion: mo, count: count}
 	}
 
 	return p.operate(mo, count)
 }
 
 // operate 는 범위 하나에 operator 를 얹는다. `dd` 처럼 이동이 아닌 범위도 여기로 온다.
-func (p partial) operate(mo motion, count int) normalCommand {
+func (p partial) operate(mo motion, count int) action {
 	n := operatorCount(p.opCount, count)
 
 	switch p.op {
 	case "d":
-		return deleteCommand{motion: mo, count: n}
+		return actionDelete{motion: mo, count: n}
 	case "y":
-		return yankCommand{motion: mo, count: n}
+		return actionYank{motion: mo, count: n}
 	case "c":
-		return changeCommand{motion: mo, count: n}
+		return actionChange{motion: mo, count: n}
 	}
 
 	return nil
@@ -65,8 +65,8 @@ func (p partial) showcmd() string {
 // startOperator 는 operator 키를 먹었을 때의 다음 상태다. count 는 그 앞에 모아둔 숫자다.
 //
 // 이미 operator 가 있는데 다른 것을 또 치면(`dy`) 앞의 것을 무르고 새로 연다. vim 이 그렇다 —
-// 잘못된 motion 에서 바로 무르고 다음 키를 명령으로 받는다(tmux 로 vim 9.1 확인).
-// 무르는 것이므로 모아둔 숫자도 앞 명령의 것이라 같이 버린다.
+// 잘못된 motion 에서 바로 무르고 다음 키를 동작으로 받는다(tmux 로 vim 9.1 확인).
+// 무르는 것이므로 모아둔 숫자도 앞 동작의 것이라 같이 버린다.
 func (p partial) startOperator(op string, count int) normalState {
 	if p.op != "" {
 		return normalStart{building: partial{op: op}}
@@ -126,51 +126,51 @@ func motionFor(op, key string) (moveMotion, bool) {
 	return nil, false
 }
 
-// standaloneCommand 는 motion 이 아닌, 홀로 서는 명령이다. 없으면 nil 이다.
+// standaloneAction 는 motion 이 아닌, 홀로 서는 동작이다. 없으면 nil 이다.
 //
-// 숫자를 쓰지 않는 명령은 count 를 그냥 무시한다 — `3i` 가 `i` 인 것이 그래서다.
-// 예전에는 숫자를 받는 키 목록을 따로 두어 걸러야 했는데, 명령이 type 이 되면서 그 표가 없어졌다.
-func standaloneCommand(key string, count int) normalCommand {
+// 숫자를 쓰지 않는 동작은 count 를 그냥 무시한다 — `3i` 가 `i` 인 것이 그래서다.
+// 예전에는 숫자를 받는 키 목록을 따로 두어 걸러야 했는데, 동작이 type 이 되면서 그 표가 없어졌다.
+func standaloneAction(key string, count int) action {
 	switch key {
 	case "ctrl+c":
-		return quitCommand{}
+		return actionQuit{}
 	case "ctrl+z":
-		return suspendCommand{}
+		return actionSuspend{}
 	case ":":
-		return commandLineCommand{}
+		return actionOpenCommandLine{}
 	case "ctrl+p":
-		return openPaletteCommand{}
+		return actionOpenPalette{}
 	case "/":
-		return searchCommand{direction: searchForward}
+		return actionSearch{direction: searchForward}
 	case "?":
-		return searchCommand{direction: searchBackward}
+		return actionSearch{direction: searchBackward}
 	case "n":
-		return nextMatchCommand{count: count}
+		return actionNextMatch{count: count}
 	case "N":
-		return prevMatchCommand{count: count}
+		return actionPrevMatch{count: count}
 	case "*":
-		return searchWordCommand{direction: searchForward, count: count}
+		return actionSearchWord{direction: searchForward, count: count}
 	case "#":
-		return searchWordCommand{direction: searchBackward, count: count}
+		return actionSearchWord{direction: searchBackward, count: count}
 	case "i":
-		return insertCommand{}
+		return actionInsert{}
 	case "a":
-		return appendCommand{}
+		return actionAppend{}
 	case "o":
-		return openBelowCommand{}
+		return actionOpenBelow{}
 	case "O":
-		return openAboveCommand{}
+		return actionOpenAbove{}
 	case "x":
 		// `dl` 과 같다. 줄 끝을 넘지 않으므로 다음 줄이 끌려 올라오지 않는다. vim 과 같다.
-		return deleteCommand{motion: motionRight{}, count: count}
+		return actionDelete{motion: motionRight{}, count: count}
 	case "p":
-		return pasteAfterCommand{count: count}
+		return actionPasteAfter{count: count}
 	case "P":
-		return pasteBeforeCommand{count: count}
+		return actionPasteBefore{count: count}
 	case "u":
-		return undoCommand{}
+		return actionUndo{}
 	case "ctrl+r":
-		return redoCommand{}
+		return actionRedo{}
 	}
 
 	return nil
@@ -185,21 +185,21 @@ func prefixMotion(prefix, key string) (moveMotion, bool) {
 	return nil, false
 }
 
-// prefixCommand 는 접두 키 조합이 가리키는, motion 이 아닌 명령이다.
+// prefixAction 는 접두 키 조합이 가리키는, motion 이 아닌 동작이다.
 // operator 뒤에는 올 수 없다 — `dgt` 는 아무것도 아니다.
-func prefixCommand(prefix, key string) normalCommand {
+func prefixAction(prefix, key string) action {
 	switch prefix {
 	case "g":
 		switch key {
 		case "t":
-			return nextTabCommand{}
+			return actionNextTab{}
 		case "T":
-			return prevTabCommand{}
+			return actionPrevTab{}
 		}
 	case "ctrl+w":
 		switch key {
 		case "ctrl+w", "w":
-			return focusTreeCommand{}
+			return actionFocusTree{}
 		}
 	}
 
@@ -216,51 +216,51 @@ func prefixCommand(prefix, key string) normalCommand {
 // 계약은 이 둘뿐이다. 풀린 키 하나를 먹이는 자리는 밖으로 내지 않는다 — 그것이 계약에 있으면
 // 풀리지 않은 키를 먹여 조용히 아무 일도 안 하게 되는 길이 생긴다.
 type normalState interface {
-	// press 는 키 하나를 먹여 완성된 명령들을 준다.
+	// press 는 키 하나를 먹여 완성된 동작들을 준다.
 	//
 	// **한글로 온 키를 그대로 받는다.** 두벌식 자리의 영문 키로 푸는 것이 이 안에서 일어나므로
-	// 키 하나가 명령 여럿이 될 수 있다 — `ㅘ` 는 `h` `k` 라 왼쪽·위 두 번이다(ADR-0008).
-	// 아직 명령이 되지 않았으면 빈 목록이다.
+	// 키 하나가 동작 여럿이 될 수 있다 — `ㅘ` 는 `h` `k` 라 왼쪽·위 두 번이다(ADR-0008).
+	// 아직 동작이 되지 않았으면 빈 목록이다.
 	//
-	// **푸는지 마는지는 상태마다 다르다.** 명령을 기다리는 상태는 풀고, 글자를 기다리는
+	// **푸는지 마는지는 상태마다 다르다.** 동작을 기다리는 상태는 풀고, 글자를 기다리는
 	// 상태(normalReplace) 는 그대로 받는다 — `r` 뒤의 한 키를 풀면 `한` 이 `g` `k` `s` 가
 	// 되어 한글을 넣을 수 없다(ADR-0018).
-	press(key string) ([]normalCommand, normalState)
+	press(key string) ([]action, normalState)
 
 	// showcmd 는 지금까지 먹은 키다. statusBar 아래 줄 오른쪽에 그대로 보인다.
 	showcmd() string
 }
 
-// pressExpanded 는 풀린 키들을 차례로 먹여 완성된 명령들을 모은다.
+// pressExpanded 는 풀린 키들을 차례로 먹여 완성된 동작들을 모은다.
 //
 // 되먹이는 것은 press 다. 조각은 전부 ASCII 라 각자의 press 첫머리에서 곧바로 빠져나오므로
 // (expandHangul 의 주석) 여기서 다시 풀리지 않고 재귀가 한 겹에서 끝난다.
-func pressExpanded(state normalState, keys []string) ([]normalCommand, normalState) {
-	commands := make([]normalCommand, 0, len(keys))
+func pressExpanded(state normalState, keys []string) ([]action, normalState) {
+	actions := make([]action, 0, len(keys))
 	for _, k := range keys {
 		next, state2 := state.press(k)
 		state = state2
 
-		commands = append(commands, next...)
+		actions = append(actions, next...)
 	}
 
-	return commands, state
+	return actions, state
 }
 
 // maxCount 는 count 가 커지는 한계다. 넘으면 더 치는 자리를 버린다.
 // 줄 수보다 훨씬 크면 어차피 양끝에서 멈추므로, 숫자가 int 를 넘치지 않게 막기만 하면 된다.
 const maxCount = 1_000_000
 
-// one 은 명령 하나짜리 목록이다. 지을 수 없었으면 빈 목록이다.
-func one(command normalCommand) []normalCommand {
-	if command == nil {
+// one 은 동작 하나짜리 목록이다. 지을 수 없었으면 빈 목록이다.
+func one(built action) []action {
+	if built == nil {
 		return nil
 	}
 
-	return []normalCommand{command}
+	return []action{built}
 }
 
-// normalStart 는 다음 키를 명령의 시작으로 받는 상태다.
+// normalStart 는 다음 키를 동작의 시작으로 받는 상태다.
 //
 // operator 를 먹은 직후도 여기다 — building 에 그것이 적혀 있고, 뒤따르는 motion 은
 // 이동 키를 그냥 친 것과 똑같은 길을 지난다.
@@ -268,7 +268,7 @@ type normalStart struct {
 	building partial
 }
 
-func (s normalStart) press(key string) ([]normalCommand, normalState) {
+func (s normalStart) press(key string) ([]action, normalState) {
 	keys := expandHangul(key)
 	if len(keys) > 1 {
 		return pressExpanded(s, keys)
@@ -308,7 +308,7 @@ type normalCount struct {
 	count    int
 }
 
-func (s normalCount) press(key string) ([]normalCommand, normalState) {
+func (s normalCount) press(key string) ([]action, normalState) {
 	keys := expandHangul(key)
 	if len(keys) > 1 {
 		return pressExpanded(s, keys)
@@ -326,7 +326,7 @@ func (s normalCount) press(key string) ([]normalCommand, normalState) {
 	switch key {
 	case "g":
 		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
-		// `ctrl+w` 는 여기 없다 — 창 명령에 숫자는 뜻이 없어서 아래에서 버려진다.
+		// `ctrl+w` 는 여기 없다 — 창 동작에 숫자는 뜻이 없어서 아래에서 버려진다.
 		return nil, normalPending{building: s.building, prefix: key, count: s.count}
 	case "r":
 		// `3rx` 는 세 글자를 바꾼다.
@@ -340,11 +340,11 @@ func (s normalCount) press(key string) ([]normalCommand, normalState) {
 		return nil, s.building.startOperator(key, s.count)
 	}
 
-	if command := s.building.resolve(key, s.count); command != nil {
-		return one(command), normalStart{}
+	if built := s.building.resolve(key, s.count); built != nil {
+		return one(built), normalStart{}
 	}
 
-	// 명령이 되지 않는 키다. 모으던 숫자를 버리고 그 키만 친 것으로 본다.
+	// 동작이 되지 않는 키다. 모으던 숫자를 버리고 그 키만 친 것으로 본다.
 	// 이미 풀린 키라 normalStart 의 press 도 첫머리에서 그대로 빠져나온다.
 	return normalStart{building: s.building}.press(key)
 }
@@ -366,7 +366,7 @@ type normalPending struct {
 	count    int
 }
 
-func (s normalPending) press(key string) ([]normalCommand, normalState) {
+func (s normalPending) press(key string) ([]action, normalState) {
 	keys := expandHangul(key)
 	if len(keys) > 1 {
 		return pressExpanded(s, keys)
@@ -382,7 +382,7 @@ func (s normalPending) press(key string) ([]normalCommand, normalState) {
 		return nil, normalStart{}
 	}
 
-	return one(prefixCommand(s.prefix, key)), normalStart{}
+	return one(prefixAction(s.prefix, key)), normalStart{}
 }
 
 func (s normalPending) showcmd() string {
@@ -391,7 +391,7 @@ func (s normalPending) showcmd() string {
 
 // normalReplace 는 `r` 을 먹고 바꿔 넣을 글자 한 개를 기다리는 상태다.
 //
-// 다음 키는 명령이 아니라 파일에 들어갈 글자다. 그래서 접두 키(normalPending) 와 따로 있다 —
+// 다음 키는 동작이 아니라 파일에 들어갈 글자다. 그래서 접두 키(normalPending) 와 따로 있다 —
 // 한글 되돌림(ADR-0008) 을 이 한 키만 건너뛰어야 `r한` 이 한글을 넣는다(ADR-0018).
 // 글자가 아닌 키는 실행하는 쪽이 무른다.
 type normalReplace struct {
@@ -402,12 +402,12 @@ type normalReplace struct {
 // 풀지 않는 상태는 이것 하나뿐이다. 그래서 다른 상태들이 첫머리에 두는 expandHangul 이 없다.
 //
 // operator 뒤의 `r` 은 짝이 없다 — `dr<글자>` 는 아무 일도 하지 않는다.
-func (s normalReplace) press(key string) ([]normalCommand, normalState) {
+func (s normalReplace) press(key string) ([]action, normalState) {
 	if s.building.op != "" {
 		return nil, normalStart{}
 	}
 
-	return one(replaceCharCommand{key: key, count: s.count}), normalStart{}
+	return one(actionReplaceChar{key: key, count: s.count}), normalStart{}
 }
 
 func (s normalReplace) showcmd() string {
