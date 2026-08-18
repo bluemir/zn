@@ -13,7 +13,7 @@ type sidebarState interface {
 	// press 는 키 하나를 먹여 완성된 명령들을 준다. 한글로 온 키를 그대로 받는다.
 	// normalState 의 것과 같은 자리이고 계약도 이 둘뿐이다(normal-key-parser.go).
 	//
-	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 명령 型 을 두지 않고 string 이다.
+	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 명령 type 을 두지 않고 string 이다.
 	// 트리에는 아직 숫자 접두가 없다 — `5j` 를 넣을 때 struct 가 된다.
 	press(key string) ([]string, sidebarState)
 

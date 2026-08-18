@@ -39,7 +39,7 @@ func key(s string) tea.KeyPressMsg {
 }
 
 // send 는 키를 차례로 넣고 마지막 model 을 돌려준다.
-// mode 가 model 교체로 나타나므로 중간에 型 이 바뀐다.
+// mode 가 model 교체로 나타나므로 중간에 type 이 바뀐다.
 func send(m tea.Model, keys ...string) tea.Model {
 	for _, k := range keys {
 		m, _ = m.Update(key(k))

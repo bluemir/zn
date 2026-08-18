@@ -21,7 +21,7 @@ const minTextWidth = 20
 //
 // mode 가 바뀌어도 유지되어야 하므로 editor 가 들고 있다.
 // tea.Model 이 아니라 평범한 struct 다 — 중첩 model 로 만들면 키가 어디서 처리되는지가
-// 한 겹 숨는다. ADR-0002 가 型 교체를 고른 것은 pane 이 아니라 mode 에 대해서였다.
+// 한 겹 숨는다. ADR-0002 가 type 교체를 고른 것은 pane 이 아니라 mode 에 대해서였다.
 // 포커스가 여기 있는 상태만 mode(viewSidebar) 로 나타낸다.
 //
 // tree 는 포인터로 이은 항목들이다. editor 하나를 mode 마다 나눠 쓰므로 펼친 상태가 mode 를 넘어 남는다.

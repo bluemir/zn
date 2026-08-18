@@ -142,7 +142,7 @@ case 한 줄이다.
 "어디까지 지우는가" 가 코드에 그대로 적힌다. 규칙이 두 벌이 되는 값을 치른다. 부류 판정과
 wrap 계산이 걸린 `w`/`e`/`b` 에서 특히 비싸다.
 
-**operator 를 型 으로 두고 표로 갈라놓기(`operator{name, apply}`)** — `c` 와 `y` 가 들어오면
+**operator 를 type 으로 두고 표로 갈라놓기(`operator{name, apply}`)** — `c` 와 `y` 가 들어오면
 셋의 공통점이 "범위를 잡는다" 하나뿐이라 표가 될 만하다. 지금은 `d` 뿐이라 이름 하나를
 `strings.CutPrefix` 로 떼는 것으로 끝난다. `config 는 compile 됨` 의 형태를 정할 때 같이 본다
 (ADR-0006 의 대안과 같은 자리다).

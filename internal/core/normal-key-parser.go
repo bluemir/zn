@@ -10,7 +10,7 @@ import (
 // 상태는 처음(normalStart) 으로 돌아간다. 그러면 motion 자리의 키가 최상위와 똑같은 상태들을
 // 그대로 지나가므로, 숫자 접두(`d3w`) 와 접두 키(`dgg`) 의 규칙이 한 벌로 유지된다(ADR-0013).
 //
-// "무엇을 기다리는가" 는 型 이 나타내고 "무엇이 정해졌는가" 는 이 값이 나타낸다.
+// "무엇을 기다리는가" 는 type 이 나타내고 "무엇이 정해졌는가" 는 이 값이 나타낸다.
 type partial struct {
 	op      string // 이미 먹은 operator(`d` `y` `c`). "" 면 없음
 	opCount int    // 그 앞에 붙은 숫자
@@ -77,7 +77,7 @@ func (p partial) startOperator(op string, count int) normalState {
 
 // motionFor 는 키가 가리키는 motion 이다. motion 이 아니면 false 다.
 //
-// **operator 에 따라 갈리는 자리가 하나 있다.** `cw` 는 `ce` 라서 `c` 뒤의 `w` 만 다른 型 이다
+// **operator 에 따라 갈리는 자리가 하나 있다.** `cw` 는 `ce` 라서 `c` 뒤의 `w` 만 다른 type 이다
 // (ADR-0033). 나머지는 operator 를 보지 않는다.
 func motionFor(op, key string) (moveMotion, bool) {
 	switch key {
@@ -129,7 +129,7 @@ func motionFor(op, key string) (moveMotion, bool) {
 // standaloneCommand 는 motion 이 아닌, 홀로 서는 명령이다. 없으면 nil 이다.
 //
 // 숫자를 쓰지 않는 명령은 count 를 그냥 무시한다 — `3i` 가 `i` 인 것이 그래서다.
-// 예전에는 숫자를 받는 키 목록을 따로 두어 걸러야 했는데, 명령이 型 이 되면서 그 표가 없어졌다.
+// 예전에는 숫자를 받는 키 목록을 따로 두어 걸러야 했는데, 명령이 type 이 되면서 그 표가 없어졌다.
 func standaloneCommand(key string, count int) normalCommand {
 	switch key {
 	case "ctrl+c":
@@ -210,8 +210,8 @@ func prefixCommand(prefix, key string) normalCommand {
 //
 // 글자를 먹어 토큰을 뱉는 tokenizerState 와 같은 모양이다(command-parser.go).
 //
-// 型 은 "다음에 무엇을 기다리는가" 만 나타낸다 — 숫자를 모으는 중, 접두 키 뒤, 글자 하나 뒤.
-// 이미 정해진 것(operator 와 그 앞 숫자) 은 型 이 아니라 building 이 든다(ADR-0006, ADR-0013).
+// type 은 "다음에 무엇을 기다리는가" 만 나타낸다 — 숫자를 모으는 중, 접두 키 뒤, 글자 하나 뒤.
+// 이미 정해진 것(operator 와 그 앞 숫자) 은 type 이 아니라 building 이 든다(ADR-0006, ADR-0013).
 //
 // 계약은 이 둘뿐이다. 풀린 키 하나를 먹이는 자리는 밖으로 내지 않는다 — 그것이 계약에 있으면
 // 풀리지 않은 키를 먹여 조용히 아무 일도 안 하게 되는 길이 생긴다.

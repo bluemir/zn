@@ -73,7 +73,7 @@
 		- `normalOperator` 는 inner 에 묻지 않고 늘 푼다. 물으려면 상태마다 「글자를 기다리는가」를 답하는 메서드가 하나 더 필요한데, 그것이 지키는 자리가 `dr` 뿐이고 **`dr` 은 유효한 명령이 아니다** — `r` 은 motion 이 아니라서 `d r <글자>` 는 vim 에서도 zn 에서도 아무 일도 하지 않는다. 대신 `dr` 뒤의 한글이 풀려서 커서가 한 번 움직인다(`dr한` 이 `d r g`·`k`·`s`). `f`·`t` 를 넣어 operator 뒤의 인자가 뜻을 가지면 그때 묻는 자리를 만든다 (ADR-0013, ADR-0018)
 - [x] sidebar 의 키 처리를 상태 기계로 올린다. `pending string` 필드 하나가 `ctrl+w` 의 한 키 앞보기를 대신하고 있었다. `sidebarState`(`sidebarStart`·`sidebarPending`) 로 내고 `press`(파서) 와 `run`(실행) 을 normal mode 와 같은 모양으로 나눴다. `normalState` 를 그대로 쓰지 않은 것은 `normalStart` 가 `d`·`y`·`c` 를 operator 로, 숫자를 count 로 먹어서 트리에서 `d` 가 다음 키를 삼키기 때문이다 — 그것을 테스트로 박아 뒀다. `press` 가 이름만 주므로 `normalKey` 같은 struct 가 아니라 string 이다 (ADR-0005, ADR-0006)
 - [x] `:jobs` 목록의 키 처리도 같은 모양(`jobsState`) 으로 올린다. 받는 키가 전부 한 개짜리라 상태는 `jobsStart` 하나뿐이고 파서는 키를 이름으로 넘기기만 한다 — **지금은 빈 껍데기이고, 끝난 작업의 산출물로 들어가기·quickfix 가 접두 키와 숫자를 데려올 때 채워질 자리다**. 키는 하나도 늘리지 않았다. showcmd 는 `bareStatusBar` 에 이어 두어서 상태가 생기면 저절로 보인다(지금은 늘 빈 문자열이라 화면이 같다). 표를 normal 과 나눠 갖는 이유(`3x` 가 취소를 놓치면 안 된다) 는 테스트로 박았다 (ADR-0006, ADR-0027)
-- [x] 파싱 결과가 곧 명령이 되게 한다. 파서가 이름 문자열(`"d w"`) 로 정규화하고 실행하는 쪽이 `CutPrefix` 로 다시 뜯던 것을 걷었다 — 파싱이 세 겹이었다(파서가 이어 붙임 → `run` 이 뜯음 → motion 문자열을 또 switch). 이제 `normalCommand` 가 `run` 을 갖고 motion 도 型 이다. 계약이 문자열이 아니라 型 이라 어긋나면 런타임 무동작이 아니라 컴파일 오류다 (ADR-0034)
+- [x] 파싱 결과가 곧 명령이 되게 한다. 파서가 이름 문자열(`"d w"`) 로 정규화하고 실행하는 쪽이 `CutPrefix` 로 다시 뜯던 것을 걷었다 — 파싱이 세 겹이었다(파서가 이어 붙임 → `run` 이 뜯음 → motion 문자열을 또 switch). 이제 `normalCommand` 가 `run` 을 갖고 motion 도 type 이다. 계약이 문자열이 아니라 type 이라 어긋나면 런타임 무동작이 아니라 컴파일 오류다 (ADR-0034)
 	- [x] `motion` 과 `moveMotion` 으로 가른다. `dd` 의 「줄 전체」는 operator 뒤에서만 생겨 갈 자리가 없으므로 `move` 가 없다. count 해석도 motion 이 한다 — `3w` 는 되풀이이고 `3G` 는 줄 번호다
 	- [x] `cw` 가 `ce` 인 예외가 실행 쪽에 숨어 있던 것을 파서의 표 한 줄로 올렸다. operator 에 따라 motion 이 갈리는 자리가 이것 하나임이 드러난다 (ADR-0033)
 	- [x] 숫자를 받는 키 목록(`case "h", "j", "k", …`) 이 없어졌다. 숫자를 쓰지 않는 명령이 그냥 무시한다 — `insertCommand` 에 count 필드가 없다. 동작은 같다(`3i` 는 `i`)
@@ -136,7 +136,7 @@
 - [ ] `Delete`(커서 자리 글자 지우기) 를 넣는다. 지금은 `Backspace` 만 있다
 - [x] vim 의 command-line mode(`:`) 를 둘지 정한다. 두기로 했다. fzf·command palette 는 별개다
 - [ ] `Esc` 의 커서 왼쪽 이동을 유지할지 정한다. vim 과 같게 맞췄지만 `i<Esc>` 로 커서가 밀리는 것은 vim 에서 가장 흔한 불만 중 하나라, "vim 대비 개선점" 결정에서 다시 볼 만하다
-- [ ] `config 는 compile 됨` 의 실제 형태를 정하고 ADR 로 남긴다. `run` 의 평평한 switch 는 ADR-0034 로 명령 型 이 되어 없어졌다 — 남은 것은 **키에서 명령으로 가는 네 표(`motionFor`·`standaloneCommand`·`prefixMotion`·`prefixCommand`) 를 선언적인 데이터로 둘지**다. 키맵을 Go 코드 어디에 어떤 타입으로 쓸지가 곧 코드 구조다. 근거는 "철저히 개인용이라 런타임 설정이 불필요" 와 "배포가 단일 바이너리 하나" (ADR-0006, ADR-0034)
+- [ ] `config 는 compile 됨` 의 실제 형태를 정하고 ADR 로 남긴다. `run` 의 평평한 switch 는 ADR-0034 로 명령 type 이 되어 없어졌다 — 남은 것은 **키에서 명령으로 가는 네 표(`motionFor`·`standaloneCommand`·`prefixMotion`·`prefixCommand`) 를 선언적인 데이터로 둘지**다. 키맵을 Go 코드 어디에 어떤 타입으로 쓸지가 곧 코드 구조다. 근거는 "철저히 개인용이라 런타임 설정이 불필요" 와 "배포가 단일 바이너리 하나" (ADR-0006, ADR-0034)
 - [ ] wrap 된 줄의 둘째 행 이후에서 `j`/`k` 가 유지하는 칸이 vim 과 다르다. `desiredCol` 이 화면 행 안에서 센 칸이라 그렇다. 줄 기준으로 둘지 행 기준으로 둘지 다시 본다
 - [ ] 숫자 접두를 `hjkl` 밖으로 넓힐지 정한다. 지금은 이동 키와 `x`·`d` 에만 붙는다. `3i`·`3u` 는 되풀이 기록(`.`) 을 정할 때 같이 본다
 - [x] `dd` `dw` `x` 를 넣는다. `d` 는 이미 있는 이동 키를 전부 motion 으로 받고(`d$` `dG` `dgg` `d3w`), 지울 범위는 그 이동을 실제로 실행해서 얻는다. 숫자는 앞뒤에 붙어 곱해진다(`3d2w` 는 여섯 단어). `dw` 의 마지막 걸음은 줄을 넘지 않아서 줄 끝 단어를 지워도 다음 줄이 올라오지 않는다 (ADR-0013)

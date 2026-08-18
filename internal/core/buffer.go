@@ -80,7 +80,7 @@ type Buffer struct {
 // before 는 그 자리에 원래 있던 줄들을 참조로만 담는다. 갈아끼우기 방식이라 옛 줄이 그대로
 // 살아있어서 내용 복사가 일어나지 않는다(ADR-0001).
 //
-// undo 할 때 지금 내용으로 역방향 edit 을 만들어 redo 에 넣는다. 그래서 한 型 으로 양방향을 다룬다.
+// undo 할 때 지금 내용으로 역방향 edit 을 만들어 redo 에 넣는다. 그래서 한 type 으로 양방향을 다룬다.
 type edit struct {
 	at     int      // lines 의 시작 index
 	before [][]byte // 그 자리에 원래 있던 줄들

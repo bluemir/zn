@@ -4,12 +4,12 @@
 
 Accepted
 
-ADR-0002 의 "mode 별 model 이 editor 를 값으로 embed 한다" 를 고친다. mode 를 型 으로 나눈 결정
+ADR-0002 의 "mode 별 model 이 editor 를 값으로 embed 한다" 를 고친다. mode 를 type 으로 나눈 결정
 자체는 그대로다. ADR-0025 의 "값으로 복사되는 editor 를 그대로 둔다" 도 이 결정으로 뒤집힌다.
 
 ## Context
 
-ADR-0002 는 mode 를 model 型 교체로 나타내기로 하면서 `editor` 를 값으로 embed 했다. 값이냐
+ADR-0002 는 mode 를 model type 교체로 나타내기로 하면서 `editor` 를 값으로 embed 했다. 값이냐
 포인터냐는 그 ADR 이 따로 다루지 않았고, bubbletea 의 model 이 값이라는 관례를 따른 결과였다.
 
 그런데 실제로는 처음부터 반은 공유였다.

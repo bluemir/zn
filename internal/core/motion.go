@@ -3,7 +3,7 @@ package core
 // motion 은 커서가 갈 자리를 정하는 것이다.
 //
 // 이동 키로 그냥 칠 수도 있고(`w`) operator 뒤에 붙어 범위를 정할 수도 있다(`dw`).
-// 파서가 키에서 곧바로 이 型 을 만들고, 명령은 이름이 아니라 이것을 들고 다닌다 —
+// 파서가 키에서 곧바로 이 type 을 만들고, 명령은 이름이 아니라 이것을 들고 다닌다 —
 // 실행하는 쪽이 `"d w"` 같은 문자열을 다시 뜯지 않는다(ADR-0034).
 //
 // 메서드가 둘인 것은 이동과 범위가 갈리는 자리가 있어서다. `dw` 는 줄을 넘지 않고
@@ -234,7 +234,7 @@ func (motionRowDown) span(Buffer, int, int) (motionRange, bool) {
 // 커서가 공백 아닌 글자 위면 단어 뒤 공백을 남기고 단어 끝까지만 바꾼다. 단어 하나를 갈아
 // 끼우고 나면 뒷 공백이 그대로 있어야 하기 때문이다. vim 과 같다(ADR-0033).
 //
-// 파서가 operator 를 보고 이 型 을 고른다 — `dw` 는 motionWordForward 이고 `cw` 만 이것이다.
+// 파서가 operator 를 보고 이 type 을 고른다 — `dw` 는 motionWordForward 이고 `cw` 만 이것이다.
 // operator 에 따라 motion 이 갈리는 자리는 지금 여기 하나뿐이다.
 type motionChangeWord struct{ kind wordKind }
 

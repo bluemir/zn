@@ -40,8 +40,8 @@
 insert mode 와 명령줄 mode 는 건드리지 않는다. 거기서는 한글이 글자다.
 
 **풀린 키를 먹이는 도중 mode 가 바뀌면 남은 키는 버린다.** `얌` 은 `d` `i` `a` 인데 `i` 에서
-insert mode 로 들어가므로 `a` 는 버려진다. 각 mode 의 `Update` 가 자기 型 으로 형 단정을 해서
-같은 型 이 아니면 멈춘다. `cmd` 를 내는 명령(종료, 확인창) 에서도 멈춘다.
+insert mode 로 들어가므로 `a` 는 버려진다. 각 mode 의 `Update` 가 자기 type 으로 형 단정을 해서
+같은 type 이 아니면 멈춘다. `cmd` 를 내는 명령(종료, 확인창) 에서도 멈춘다.
 
 ## 근거
 
@@ -58,7 +58,7 @@ insert mode 로 들어가므로 `a` 는 버려진다. 각 mode 의 `Update` 가 
 
 **형 단정으로 mode 변경을 알아낸다.** `press` 메서드를 가진 interface 를 만들면 sidebar 에서
 normal 로 바뀐 것을 "같은 mode" 로 잘못 보고 남은 키를 새 mode 에 먹인다. `tea.Model` 값 비교는
-slice 를 담은 型 이라 panic 이 난다. 그래서 mode 마다 자기 型 으로 단정하는 짧은 loop 를
+slice 를 담은 type 이라 panic 이 난다. 그래서 mode 마다 자기 type 으로 단정하는 짧은 loop 를
 셋으로 두었다. 같은 모양이 세 번 나오지만 공통 함수로 묶으면 규칙이 표현되지 않는다.
 
 ## 결과

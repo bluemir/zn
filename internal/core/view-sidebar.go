@@ -10,7 +10,7 @@ import (
 // viewSidebar 는 포커스가 좌측 파일 트리에 있는 상태다.
 //
 // 키 해석이 통째로 다르다 — 위아래가 커서 이동이 아니라 트리 이동이다.
-// 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 型 을 따로 뒀다(ADR-0002).
+// 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 type 을 따로 뒀다(ADR-0002).
 // 트리 자체(펼친 상태, 고른 항목)는 mode 를 넘어 살아야 하므로 editor.sidebar 에 있다.
 func sidebarMode(e *editor) (tea.Model, tea.Cmd) {
 	e.sidebar.scrollTo(e.sidebarHeight())
