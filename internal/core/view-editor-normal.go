@@ -42,7 +42,7 @@ func (m viewEditorNormal) keyState() normalState {
 func (m viewEditorNormal) Init() tea.Cmd {
 	// 트리의 첫 읽기도 여기서 시작한다. core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가
 	// 없어서, git 첫 갱신과 같이 이 자리가 낸다(ADR-0030, ADR-0032).
-	return tea.Batch(m.refreshGit(), tickGit(), m.startTree())
+	return tea.Batch(m.startGitRefresh(), tickGit(), m.startTree())
 }
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

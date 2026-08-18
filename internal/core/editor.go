@@ -156,7 +156,7 @@ func (e *editor) newTab() {
 // 편집이 사라진다. 나중 저장은 바깥 변경으로 잡혀 막히지만(ADR-0015) 두 편집을 합칠 길은
 // 없다. 그래서 여는 것보다 찾는 것이 먼저다.
 //
-// git 갱신은 여기서 하지 않는다. 언제 다시 읽을지는 정책이라 부르는 쪽이 `refreshGit` 을
+// git 갱신은 여기서 하지 않는다. 언제 다시 읽을지는 정책이라 부르는 쪽이 `startGitRefresh` 을
 // 같이 발행한다(ADR-0030).
 // 트리를 그 파일 자리로 데려가는 작업이 시작되면 Cmd 가 나온다(ADR-0032).
 func (e *editor) openTab(path string) (tea.Cmd, error) {

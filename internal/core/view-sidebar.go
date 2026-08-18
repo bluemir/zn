@@ -190,7 +190,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	model, cmd := normalMode(m.editor)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, m.refreshGit(), reveal)
+	return model, tea.Batch(cmd, m.startGitRefresh(), reveal)
 }
 
 func (m viewSidebar) View() tea.View {

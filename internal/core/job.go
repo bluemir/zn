@@ -107,6 +107,11 @@ func waitJob(name string, ch <-chan jobProgress) tea.Cmd {
 
 // startJob 은 작업을 시작한다. 같은 이름이 이미 돌고 있으면 시작하지 않고 nil 을 준다.
 //
+// **이름 규칙**: 작업을 여는 일만 하는 함수는 `start*` 다(`startJob`·`startTree`·`startGitRefresh`).
+// 역할이 다른 자리는 그 역할로 이름 짓고(`tickGit`·`waitJob`·`continueReveal`), 하는 일이 따로
+// 있으면서 곁들여 Cmd 가 나오는 함수는 이름을 건드리지 않고 왜 나오는지 doc 주석에 적는다
+// (`nextTab`·`toggleNode`·`clickTabline`).
+//
 // 채널이 아니라 채널을 만드는 함수를 받는다. 채널을 먼저 만들면 이미 돌고 있을 때
 // 갈 곳 없는 goroutine 이 하나 뜬다.
 //
@@ -163,7 +168,7 @@ func (e *editor) cancelJob(name string) {
 func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case gitTickMsg:
-		return tea.Batch(e.refreshGit(), tickGit())
+		return tea.Batch(e.startGitRefresh(), tickGit())
 	case jobProgressMsg:
 		e.updateJob(msg)
 

@@ -120,7 +120,9 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case "x":
-		return m, m.cancelSelected()
+		m.cancelSelected()
+
+		return m, nil
 	default:
 		return m, nil
 	}
@@ -129,22 +131,22 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 // cancelSelected 는 고른 작업에게 그만하라고 말한다.
 //
 // 끝난 작업을 고르고 눌렀으면 알리고 만다. 아무 일도 안 나면 키가 먹었는지 알 수 없다.
-func (m *viewJobs) cancelSelected() tea.Cmd {
+//
+// 끊는 것은 ctx 를 취소하는 일이라 그 자리에서 끝난다 — 시작되는 작업이 없어서 Cmd 가 없다.
+func (m *viewJobs) cancelSelected() {
 	rows := m.jobRows()
 	if m.selected >= len(rows) {
-		return nil
+		return
 	}
 
 	selected := rows[m.selected]
 	if selected.cancel == nil {
 		m.message = "이미 끝난 작업입니다"
 
-		return nil
+		return
 	}
 
 	m.cancelJob(selected.name)
-
-	return nil
 }
 
 // jobRows 는 목록에 그릴 작업들이다. 도는 것이 위, 끝난 것이 아래다.

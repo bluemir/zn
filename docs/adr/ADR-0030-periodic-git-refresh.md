@@ -39,7 +39,7 @@ gitTickMsg:` 가 여기로 넘긴다. 첫 고리는 `viewEditorNormal.Init` 이 
 그대로다.
 
 **갱신을 발행하는 것은 `openTab`·`replaceTab` 이 아니라 그것을 부르는 mode 쪽이다.** 여는 함수는
-지금까지처럼 `error` 만 돌려주고, 호출자가 `tea.Batch(cmd, e.refreshGit())` 로 같이 낸다.
+지금까지처럼 `error` 만 돌려주고, 호출자가 `tea.Batch(cmd, e.startGitRefresh())` 로 같이 낸다.
 
 **첫 읽기도 비동기다.** 편집기가 뜨는 길에는 git 이 없다. 첫 화면의 statusBar 오른쪽은 잠깐 비어
 있다가 채워진다.

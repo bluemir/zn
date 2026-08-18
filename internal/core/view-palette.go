@@ -257,7 +257,7 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
 	// reveal 은 트리가 아직 그 자리를 읽지 않았으면 읽는 작업을 시작한다(ADR-0032).
-	return model, tea.Batch(cmd, m.refreshGit(), reveal)
+	return model, tea.Batch(cmd, m.startGitRefresh(), reveal)
 }
 
 // paletteWidth 는 박스 전체 너비다. 테두리를 포함한다.

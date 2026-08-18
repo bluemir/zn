@@ -109,7 +109,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// 마지막 tab 이었으면 여기서 편집기가 끝나고, 시작한 갱신은 ctx 가 끊겨 같이 정리된다.
 		model, quit := forceCloseTab(m.editor)
 
-		return model, tea.Batch(quit, m.refreshGit())
+		return model, tea.Batch(quit, m.startGitRefresh())
 	case "e":
 		return m.edit(cmd)
 	case "tabnew":
@@ -129,7 +129,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		model, next := normalMode(m.editor)
 
 		// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-		return model, tea.Batch(next, m.refreshGit(), reveal)
+		return model, tea.Batch(next, m.startGitRefresh(), reveal)
 	case "noh", "nohlsearch":
 		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
 		m.search.highlight = false
@@ -214,7 +214,7 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 		return m.fail(err)
 	}
 	// 저장하면 저장소가 dirty 가 된다. 주기 갱신을 기다리지 않고 여기서 맞춘다(ADR-0009, ADR-0030).
-	refresh := m.refreshGit()
+	refresh := m.startGitRefresh()
 
 	if !naming {
 		// 보고 있는 파일이 아니라 다른 파일에 썼다. 문구를 나눠야 tabline 의 이름이
@@ -248,7 +248,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	// 저장은 dirty 를 바꾸므로 주기 갱신을 기다리지 않는다(ADR-0030).
-	refresh := m.refreshGit()
+	refresh := m.startGitRefresh()
 
 	model, next := normalModeMessage(m.editor, "저장함: "+buf.path)
 
@@ -303,7 +303,7 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 	model, cmd := normalMode(e)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, e.refreshGit(), reveal)
+	return model, tea.Batch(cmd, e.startGitRefresh(), reveal)
 }
 
 // fail 은 명령이 실패했음을 아래 줄에 알리고 normal 로 돌아간다.

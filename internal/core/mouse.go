@@ -80,6 +80,8 @@ func (e *editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
 //
 // 양끝의 가려짐 표시를 누르면 보고 있는 tab 은 그대로 두고 그 방향으로 한 칸 민다(ADR-0029).
 // 지금 편집하는 것을 놓지 않고 가려진 쪽에 무엇이 있는지 훑을 수 있어야 한다.
+//
+// 옮겨간 tab 자리를 트리가 아직 읽지 않았으면 읽는 작업이 시작되므로 Cmd 가 나온다. `gt` 와 같다.
 func (e *editor) clickTabline(x int) tea.Cmd {
 	row := e.tabline(e.textWidth())
 
