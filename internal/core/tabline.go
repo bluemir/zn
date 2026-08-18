@@ -178,7 +178,7 @@ func (e editor) tabline(width int) tablineRow {
 	for i := scroll; i < scroll+window.count; i++ {
 		// 이미 그린 것이 있으면 그 사이를 가른다. 가려짐 표시와 tab 사이도 같다.
 		if col > 0 {
-			put(e.boxChars().vertical, false)
+			put(e.boxChars.vertical, false)
 		}
 
 		row.tabs[i] = put(e.tabLabel(i), i == e.active)
@@ -186,7 +186,7 @@ func (e editor) tabline(width int) tablineRow {
 
 	if window.right != "" {
 		if col > 0 {
-			put(e.boxChars().vertical, false)
+			put(e.boxChars.vertical, false)
 		}
 
 		row.right = put(window.right, false)

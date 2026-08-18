@@ -345,9 +345,10 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
-			width:   width,
-			height:  height + tablineHeight + statusBarHeight,
+			boxChars: boxUnicode,
+			buffers:  []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
+			width:    width,
+			height:   height + tablineHeight + statusBarHeight,
 		},
 	}
 	m.sidebar = openSidebarSync(t, newTreeFixture(t))
@@ -1126,7 +1127,7 @@ func TestSidebarMarksNothingWithoutName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	m.buffers = []Buffer{newEmptyBuffer("")}
 
-	assert.Empty(t, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
+	assert.Empty(t, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars)))
 }
 
 // tab 을 옮기면 표시도 따라간다. 트리가 그 자리를 펼치는 것(reveal) 과 짝이다.
@@ -1137,10 +1138,10 @@ func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
-	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
+	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars)))
 
 	next := sendSync(t, tea.Model(m), "g", "t").(viewEditorNormal)
 
 	assert.Equal(t, []string{"spec.md"},
-		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath(), next.boxChars())))
+		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath(), next.boxChars)))
 }

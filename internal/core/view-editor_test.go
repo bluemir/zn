@@ -15,9 +15,10 @@ import (
 func newTestEditor(data string, width, height int) viewEditorNormal {
 	return viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newBuffer("test.txt", []byte(data))},
-			width:   width,
-			height:  height + tablineHeight + statusBarHeight,
+			boxChars: boxUnicode,
+			buffers:  []Buffer{newBuffer("test.txt", []byte(data))},
+			width:    width,
+			height:   height + tablineHeight + statusBarHeight,
 		},
 	}
 }

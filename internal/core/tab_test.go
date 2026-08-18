@@ -20,9 +20,10 @@ func newTabsEditor(paths ...string) viewEditorNormal {
 
 	return viewEditorNormal{
 		editor: &editor{
-			buffers: buffers,
-			width:   40,
-			height:  5 + tablineHeight + statusBarHeight,
+			boxChars: boxUnicode,
+			buffers:  buffers,
+			width:    40,
+			height:   5 + tablineHeight + statusBarHeight,
 		},
 	}
 }

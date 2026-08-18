@@ -315,7 +315,7 @@ func (m viewPalette) box() string {
 	width := m.paletteWidth()
 	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
 
-	chars := m.boxChars()
+	chars := m.boxChars
 	line := strings.Repeat(chars.horizontal, width-2)
 
 	rows := []string{
@@ -331,7 +331,7 @@ func (m viewPalette) box() string {
 
 // inputRow 는 치고 있는 것을 보여주는 줄이다. 비어 있으면 무엇을 치면 되는지 흐리게 알려준다.
 func (m viewPalette) inputRow(inner int) string {
-	side := m.boxChars().vertical
+	side := m.boxChars.vertical
 
 	if m.input == "" {
 		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 로 명령", inner), inner)) + " " + side
@@ -342,7 +342,7 @@ func (m viewPalette) inputRow(inner int) string {
 
 // listRows 는 목록 행들이다. 걸린 것이 없으면 그 사실을 한 줄로 알린다.
 func (m viewPalette) listRows(inner int) []string {
-	side := m.boxChars().vertical
+	side := m.boxChars.vertical
 
 	if len(m.hits) == 0 {
 		return []string{side + " " + styleDetail.Render(padTo("일치하는 것이 없습니다", inner)) + " " + side}
