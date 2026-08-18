@@ -76,16 +76,16 @@ func (e editor) boxChars() boxSet {
 	return boxUnicode
 }
 
-// buffer 는 활성 buffer 를 가리킨다.
+// activeBuffer 는 활성 activeBuffer 를 가리킨다.
 // 값이 아니라 slice 요소를 가리켜야 커서 이동과 편집이 제자리에 남는다.
-func (e *editor) buffer() *Buffer {
+func (e *editor) activeBuffer() *Buffer {
 	return &e.buffers[e.active]
 }
 
 func (e *editor) resize(msg tea.WindowSizeMsg) {
 	e.width = msg.Width
 	e.height = msg.Height
-	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
 	e.scrollTabsTo()
 }
 
@@ -96,13 +96,13 @@ func (e *editor) nextTab() tea.Cmd {
 	e.active = (e.active + 1) % len(e.buffers)
 	e.scrollTabsTo()
 
-	return e.revealInSidebar(e.buffer().path)
+	return e.revealInSidebar(e.activeBuffer().path)
 }
 func (e *editor) prevTab() tea.Cmd {
 	e.active = (e.active - 1 + len(e.buffers)) % len(e.buffers)
 	e.scrollTabsTo()
 
-	return e.revealInSidebar(e.buffer().path)
+	return e.revealInSidebar(e.activeBuffer().path)
 }
 
 // activePath 는 지금 보고 있는 파일의 절대 경로다. sidebar 가 그 행을 굵게 그린다(ADR-0022).
@@ -330,11 +330,11 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 
 		// 닫을 때 트리를 버렸으므로 여는 이 자리에서 보고 있는 파일 자리를 다시 펼친다.
 		// 이름 없는 buffer 면 갈 자리가 없어서 뿌리만 읽는다.
-		e.sidebar.setRevealTarget(e.buffer().path)
+		e.sidebar.setRevealTarget(e.activeBuffer().path)
 		cmd = e.startTree()
 	}
 
-	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
 	// 편집 영역 너비가 32 칸 달라져서 tabline 에 들어가는 tab 수도 달라진다.
 	e.scrollTabsTo()
 

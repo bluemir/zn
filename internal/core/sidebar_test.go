@@ -976,7 +976,7 @@ func TestTabSwitchRevealsInSidebar(t *testing.T) {
 	model := sendSync(t, tea.Model(m), "g", "t")
 
 	v := model.(viewEditorNormal)
-	require.Equal(t, "spec.md", filepath.Base(v.buffer().path))
+	require.Equal(t, "spec.md", filepath.Base(v.activeBuffer().path))
 	assert.Equal(t, "spec.md", v.sidebar.selectedNode().name)
 
 	model = sendSync(t, model, "g", "T")
@@ -993,7 +993,7 @@ func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newEmptyBuffer(""),
 	}
-	revealSyncIn(t, m.editor, m.buffer().path)
+	revealSyncIn(t, m.editor, m.activeBuffer().path)
 
 	model := sendSync(t, tea.Model(m), "g", "t")
 
@@ -1035,13 +1035,13 @@ func TestCloseTabRevealsRemainingFile(t *testing.T) {
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 	m.active = 1
-	revealSyncIn(t, m.editor, m.buffer().path)
+	revealSyncIn(t, m.editor, m.activeBuffer().path)
 	require.Equal(t, "spec.md", m.sidebar.selectedNode().name)
 
 	model, _ := forceCloseTab(m.editor)
 	require.IsType(t, viewEditorNormal{}, model)
 
-	require.Equal(t, "main.go", filepath.Base(m.buffer().path))
+	require.Equal(t, "main.go", filepath.Base(m.activeBuffer().path))
 	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
 }
 

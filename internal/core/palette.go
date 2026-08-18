@@ -249,7 +249,7 @@ func (c paletteCommand) detail() string {
 }
 
 func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 	width := e.contentWidth()
 
 	count := buf.trimTrailingSpace(width)
@@ -270,11 +270,11 @@ func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 func runReloadFile(e *editor) (tea.Model, tea.Cmd) {
 	// 이름이 없으면 다시 읽을 곳도 없다. 물어보기 전에 여기서 끝낸다 —
 	// Yes 를 눌러도 실패로 끝나는 확인창을 띄우지 않는다.
-	if e.buffer().path == "" {
+	if e.activeBuffer().path == "" {
 		return normalModeMessage(e, "파일 이름이 없습니다")
 	}
 
-	if !e.buffer().dirty {
+	if !e.activeBuffer().dirty {
 		return reloadFile(e)
 	}
 
@@ -288,7 +288,7 @@ func runReloadFile(e *editor) (tea.Model, tea.Cmd) {
 
 // reloadFile 은 묻지 않고 다시 읽는다. 확인창의 Yes 와 dirty 가 아닐 때가 쓴다.
 func reloadFile(e *editor) (tea.Model, tea.Cmd) {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 
 	if err := buf.Reload(); err != nil {
 		return normalModeMessage(e, errors.Cause(err).Error())

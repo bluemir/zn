@@ -184,7 +184,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return normalModeMessage(m.editor, errors.Cause(err).Error())
 	}
-	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
+	m.activeBuffer().scrollTo(m.contentWidth(), m.textHeight())
 
 	// 연 파일을 보러 왔으므로 포커스도 편집 영역으로 간다. 돌아올 때는 ctrl+w ctrl+w 다.
 	model, cmd := normalMode(m.editor)

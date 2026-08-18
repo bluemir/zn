@@ -158,7 +158,7 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return quitAll(parent, e)
 	}
 
-	if e.buffer().dirty {
+	if e.activeBuffer().dirty {
 		return ConfirmDiscard(parent, e, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return forceCloseTab(e)
 		}), nil
@@ -175,7 +175,7 @@ func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 
 	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를
 	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032).
-	reveal := e.revealInSidebar(e.buffer().path)
+	reveal := e.revealInSidebar(e.activeBuffer().path)
 
 	model, cmd := normalMode(e)
 

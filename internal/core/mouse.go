@@ -52,7 +52,7 @@ func (e editor) regionAt(x, y int) region {
 // scrollTo 는 부르지 않는다. 이미 보이는 자리를 눌렀으니 화면이 움직일 이유가 없고,
 // 부르면 wrap 된 줄 안에 스크롤해 둔 상태에서 화면이 튄다.
 func (e *editor) clickText(x, y int) {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 
 	line, col, ok := buf.positionAt(x-e.contentLeft(), y-tablineHeight, e.contentWidth(), e.textHeight())
 	if !ok {
@@ -110,9 +110,9 @@ func (e *editor) clickTabline(x int) tea.Cmd {
 	e.active = index
 
 	// 그 buffer 는 이 창 크기를 본 적이 없을 수 있다. gt 와 같은 처리다.
-	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
 
-	return e.revealInSidebar(e.buffer().path)
+	return e.revealInSidebar(e.activeBuffer().path)
 }
 
 // wheelRows 는 휠 한 번에 굴리는 화면 행 수다.
@@ -140,7 +140,7 @@ func (e *editor) wheel(mouse tea.Mouse) {
 	case regionSidebar:
 		e.sidebar.scrollBy(rows, e.sidebarHeight())
 	case regionText:
-		e.buffer().scrollBy(rows, e.contentWidth(), e.textHeight())
+		e.activeBuffer().scrollBy(rows, e.contentWidth(), e.textHeight())
 	}
 }
 
@@ -156,7 +156,7 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		m.clickText(mouse.X, mouse.Y)
 
 		// normal 의 커서는 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
-		m.buffer().clampToNormal(m.contentWidth())
+		m.activeBuffer().clampToNormal(m.contentWidth())
 	}
 
 	return m, nil
@@ -169,12 +169,12 @@ func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
-		m.buffer().endEdit()
+		m.activeBuffer().endEdit()
 
 		return m, m.clickTabline(mouse.X)
 	case regionText:
 		// 커서를 옮기면 undo 구간이 끊긴다. 화살표 이동과 같다. vim 과 같다.
-		m.buffer().endEdit()
+		m.activeBuffer().endEdit()
 		m.clickText(mouse.X, mouse.Y)
 	}
 
@@ -195,7 +195,7 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmd, reveal)
 	case regionText:
 		m.clickText(mouse.X, mouse.Y)
-		m.buffer().clampToNormal(m.contentWidth())
+		m.activeBuffer().clampToNormal(m.contentWidth())
 
 		return normalMode(m.editor)
 	}

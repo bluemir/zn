@@ -12,7 +12,7 @@ import (
 // 들어올 때의 검색을 들고 있다가 `Esc` 로 나가면 되돌린다 — 미리보기가 실제 이동으로 남으면
 // 검색을 무를 방법이 없다.
 func searchMode(e *editor, direction searchDirection) (tea.Model, tea.Cmd) {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 
 	return viewEditorSearch{
 		editor:    e,
@@ -119,7 +119,7 @@ func (m *viewEditorSearch) preview() {
 		return
 	}
 
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	result, ok := buf.find(pattern, m.direction, m.origin.cursorLine, m.origin.cursorCol)
 	if !ok {
@@ -136,7 +136,7 @@ func (m *viewEditorSearch) preview() {
 
 // restore 는 미리보기로 옮긴 커서와 화면을 시작 자리로 되돌린다.
 func (m *viewEditorSearch) restore() {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	buf.cursorLine, buf.cursorCol = m.origin.cursorLine, m.origin.cursorCol
 	buf.top, buf.topRow = m.origin.top, m.origin.topRow
@@ -195,7 +195,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.C
 		return normalModeMessage(e, "이전 검색이 없습니다")
 	}
 
-	buf := e.buffer()
+	buf := e.activeBuffer()
 	width := e.contentWidth()
 
 	line, col := buf.cursorLine, buf.cursorCol
@@ -234,7 +234,7 @@ func wrapMessage(direction searchDirection) string {
 
 // searchWord 는 커서 아래 단어를 그대로 찾는다. vim 의 `*` `#` 다.
 func (e *editor) searchWord(direction searchDirection, n int) (tea.Model, tea.Cmd) {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 
 	word, col, ok := buf.wordUnderCursor()
 	if !ok {

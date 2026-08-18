@@ -36,7 +36,7 @@ func Run(ctx context.Context, files []string) error {
 		// 읽기를 시작하지는 않는다. 여기는 Program 이 뜨기 전이라 Cmd 를 낼 자리가 없다 —
 		// 첫 읽기는 normal mode 의 Init 이 startTree 로 시작하고, 트리는 그때부터
 		// 이 자리를 향해 한 층씩 내려간다(ADR-0032).
-		e.sidebar.setRevealTarget(e.buffer().path)
+		e.sidebar.setRevealTarget(e.activeBuffer().path)
 	}
 
 	first, _ := normalMode(e)

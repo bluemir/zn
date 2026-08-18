@@ -31,7 +31,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
-		buf := m.buffer()
+		buf := m.activeBuffer()
 		buf.insert([]byte(msg.Content), m.contentWidth())
 		buf.scrollTo(m.contentWidth(), m.textHeight())
 
@@ -40,7 +40,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
 		m.message = ""
 
-		buf := m.buffer()
+		buf := m.activeBuffer()
 
 		switch msg.String() {
 		case "ctrl+c":

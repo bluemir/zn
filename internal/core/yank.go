@@ -6,8 +6,8 @@ package core
 // 규칙이 두 벌이 되면 `dw` 와 `yw` 가 갈린다(ADR-0017).
 //
 // 모르는 motion 이거나 복사할 것이 없으면 false 다.
-func (buf *Buffer) yankByMotion(motion string, count, width int) (register, bool) {
-	area, ok := buf.rangeByMotion(motion, count, width)
+func (buf *Buffer) yankByMotion(m motion, count, width int) (register, bool) {
+	area, ok := m.span(*buf, count, width)
 	if !ok {
 		return register{}, false
 	}

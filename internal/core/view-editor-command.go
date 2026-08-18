@@ -68,7 +68,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 명령을 실행한다.
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	cmd, err := parseCommand(m.input)
 	if err != nil {
@@ -181,7 +181,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 // 인자가 붙으면 사본을 쓰는 것이라 보고 있는 파일도 tab 도 그대로다. 이름 없는 buffer 만
 // 예외로 그 이름을 받는다 — `:tabnew` 로 만든 tab 을 저장하는 길이 이것뿐이다.
 func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	if len(cmd.args) == 0 {
 		return m.save(cmd)
@@ -234,7 +234,7 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 
 // save 는 보고 있는 파일에 쓴다. 인자 없는 `:w` 와 `:w <보고 있는 파일>` 이 쓴다.
 func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
 	var err error
@@ -276,7 +276,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 	// 지금 tab 의 편집이 사라지는 것은 갈아끼울 때뿐이다. 이미 다른 tab 에 열려 있으면
 	// replaceTab 이 그리로 옮겨가기만 하므로 잃을 것이 없다.
 	_, opened := m.tabOf(path)
-	if m.buffer().dirty && !cmd.force && !opened {
+	if m.activeBuffer().dirty && !cmd.force && !opened {
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 		back, _ := normalMode(m.editor)
 
@@ -298,7 +298,7 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 
 	// 갈아끼운 buffer 는 맨 위에서 시작하지만, 옮겨간 tab 은 보던 자리를 그대로 이어받는다.
 	// 어느 쪽이든 지금 폭에 맞춰 둔다 — sidebar 를 여닫은 뒤라면 폭이 달라져 있다.
-	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
 
 	model, cmd := normalMode(e)
 

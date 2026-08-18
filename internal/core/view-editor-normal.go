@@ -1,8 +1,6 @@
 package core
 
 import (
-	"strings"
-
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -124,7 +122,11 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 			return model, nil
 		}
 
-		next, cmd := normal.run(command)
+		// 명령은 editor 만 받는다. mode 를 바꾸지 않으면 nil 을 주므로 지금 mode 를 그대로 쓴다.
+		next, cmd := command.run(normal.editor)
+		if next == nil {
+			next = normal
+		}
 
 		// cmd 를 내는 명령(종료, 확인창) 에서 멈춘다. 뒤에 올 것이 그 결과를 뒤집으면 안 된다.
 		if cmd != nil {
@@ -135,218 +137,6 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 	}
 
 	return model, nil
-}
-
-// run 은 완성된 명령 하나를 실행한다.
-//
-// 짝이 없는 접두 키 조합(`g x`) 은 여기서 모르는 이름이 되어 아무 일도 하지 않는다. vim 과 같다.
-func (m viewEditorNormal) run(key normalKey) (tea.Model, tea.Cmd) {
-	buf := m.buffer()
-	width := m.contentWidth()
-
-	// tab 을 옮기면 트리가 그 파일 자리를 따라간다. 아직 읽지 않은 디렉터리가 있으면 읽는
-	// 작업이 시작되므로 그 Cmd 를 아래 끝까지 들고 나간다(ADR-0032).
-	var reveal tea.Cmd
-
-	// count 를 받지 않는 명령은 파서가 0 을 준다.
-	n := max(key.count, 1)
-
-	// `d` 는 뒤에 붙은 motion 이 지울 범위를 정한다. 이름이 `d w` 처럼 둘로 되어 있어서
-	// 아래 switch 의 평평한 이름으로는 받을 수 없다. 모르는 motion 은 아무 일도 하지 않는다.
-	if motion, found := strings.CutPrefix(key.name, "d "); found {
-		if deleted, ok := buf.deleteByMotion(motion, key.count, width); ok {
-			m.register = deleted
-		}
-
-		buf.scrollTo(width, m.textHeight())
-
-		return m, nil
-	}
-
-	// `r` 은 뒤에 바꿔 넣을 글자 한 개가 붙는다. 이것도 이름이 둘로 되어 있다.
-	// 글자가 아닌 키(`esc` 방향키 ...) 는 아무 일도 하지 않아서 잘못 누른 `r` 을 무르는 길이 된다.
-	if char, found := strings.CutPrefix(key.name, "r "); found {
-		if char == "enter" {
-			buf.replaceWithNewline(key.count, width)
-		} else if text, ok := replacementText(char); ok {
-			buf.replaceChar(text, key.count, width)
-		}
-
-		buf.scrollTo(width, m.textHeight())
-
-		return m, nil
-	}
-
-	// `c` 는 지우고 insert mode 로 들어간다. 모르는 motion 이면 mode 도 바뀌지 않는다 —
-	// 손이 미끄러진 `c` 가 글자를 파일에 넣기 시작하면 무를 길이 없다.
-	if motion, found := strings.CutPrefix(key.name, "c "); found {
-		removed, ok := buf.changeByMotion(motion, key.count, width)
-		if !ok {
-			return m, nil
-		}
-
-		// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
-		if len(removed.lines) > 0 {
-			m.register = removed
-		}
-
-		next, cmd := insertMode(m.editor)
-		buf.scrollTo(width, m.textHeight())
-
-		return next, cmd
-	}
-
-	// `y` 도 같은 모양이다. 범위 계산은 `d` 와 같은 것을 쓰고 파일은 건드리지 않는다(ADR-0017).
-	if motion, found := strings.CutPrefix(key.name, "y "); found {
-		if yanked, ok := buf.yankByMotion(motion, key.count, width); ok {
-			m.register = yanked
-		}
-
-		buf.scrollTo(width, m.textHeight())
-
-		return m, nil
-	}
-
-	switch key.name {
-	case "ctrl+c":
-		// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
-		return quitAll(m, m.editor)
-	case "ctrl+z":
-		// 셸로 내려간다. vim 과 같고 종료가 아니라 멈춤이라 저장하지 않은 변경을 묻지 않는다.
-		// `fg` 로 올라오면 ResumeMsg 가 이 mode 로 돌아온다 (ADR-0023).
-		return m, tea.Suspend
-	case ":":
-		return commandMode(m.editor)
-	case "ctrl+p":
-		return paletteMode(m.editor)
-	case "/":
-		return searchMode(m.editor, searchForward)
-	case "?":
-		return searchMode(m.editor, searchBackward)
-	case "n":
-		// 마지막 검색을 같은 방향으로 되풀이한다. `?` 로 찾았으면 `n` 도 위로 간다.
-		return m.jumpToMatch(m.search.direction, n)
-	case "N":
-		return m.jumpToMatch(m.search.direction.reverse(), n)
-	case "*":
-		return m.searchWord(searchForward, n)
-	case "#":
-		return m.searchWord(searchBackward, n)
-	case "i":
-		// 커서 앞에 넣는다. 커서는 그대로다.
-		return insertMode(m.editor)
-	case "a":
-		// 커서 글자 뒤에 넣는다.
-		// 줄 끝 다음 칸은 insert mode 에서만 갈 수 있어서 mode 를 먼저 바꾼다.
-		next, cmd := insertMode(m.editor)
-		buf.moveRight(1, width)
-		buf.scrollTo(width, m.textHeight())
-
-		return next, cmd
-	case "o":
-		// 아래에 빈 줄을 만들고 그 줄에서 넣는다. `a` 와 같은 이유로 mode 를 먼저 바꾼다.
-		next, cmd := insertMode(m.editor)
-		buf.openLineBelow(width)
-		buf.scrollTo(width, m.textHeight())
-
-		return next, cmd
-	case "O":
-		// 위에 빈 줄을 만들고 그 줄에서 넣는다.
-		next, cmd := insertMode(m.editor)
-		buf.openLineAbove(width)
-		buf.scrollTo(width, m.textHeight())
-
-		return next, cmd
-	case "x":
-		// `dl` 과 같다. 줄 끝을 넘지 않으므로 다음 줄이 끌려 올라오지 않는다. vim 과 같다.
-		if deleted, ok := buf.deleteByMotion("l", key.count, width); ok {
-			m.register = deleted
-		}
-	case "p":
-		// 지우거나 복사한 것을 커서 뒤에 붙인다. 비어 있으면 아무 일도 하지 않는다.
-		buf.pasteAfter(m.register, n, width)
-	case "P":
-		buf.pasteBefore(m.register, n, width)
-	case "u":
-		buf.applyUndo(width)
-		buf.clampToNormal(width)
-	case "ctrl+r":
-		buf.applyRedo(width)
-		buf.clampToNormal(width)
-	case "h":
-		buf.moveLeft(n, width)
-	case "l":
-		buf.moveRight(n, width)
-		buf.clampToNormal(width)
-	case "k":
-		buf.moveUpLine(n)
-		buf.clampToNormal(width)
-	case "j":
-		buf.moveDownLine(n)
-		buf.clampToNormal(width)
-	case "w":
-		buf.moveWordForward(n, smallWord, width)
-		buf.clampToNormal(width)
-	case "W":
-		buf.moveWordForward(n, bigWord, width)
-		buf.clampToNormal(width)
-	case "e":
-		buf.moveWordEnd(n, smallWord, width)
-		buf.clampToNormal(width)
-	case "E":
-		buf.moveWordEnd(n, bigWord, width)
-		buf.clampToNormal(width)
-	case "b":
-		buf.moveWordBackward(n, smallWord, width)
-	case "B":
-		buf.moveWordBackward(n, bigWord, width)
-	case "0":
-		buf.moveLineStart(width)
-	case "^":
-		buf.moveLineFirstNonBlank(width)
-		buf.clampToNormal(width)
-	case "$":
-		buf.moveLineEnd(n, width)
-		buf.clampToNormal(width)
-	case "g g":
-		// count 가 있으면 그 줄, 없으면 첫 줄이다.
-		buf.moveToLine(n-1, width)
-		buf.clampToNormal(width)
-	case "G":
-		// count 가 있으면 그 줄, 없으면 마지막 줄이다.
-		line := len(buf.lines) - 1
-		if key.count > 0 {
-			line = key.count - 1
-		}
-		buf.moveToLine(line, width)
-		buf.clampToNormal(width)
-	case "up":
-		buf.moveUp(1, width)
-		buf.clampToNormal(width)
-	case "down":
-		buf.moveDown(1, width)
-		buf.clampToNormal(width)
-	case "left":
-		buf.moveLeft(1, width)
-	case "right":
-		buf.moveRight(1, width)
-		buf.clampToNormal(width)
-	case "g t":
-		reveal = m.nextTab()
-	case "g T":
-		reveal = m.prevTab()
-	case "ctrl+w ctrl+w", "ctrl+w w":
-		// pane 이 둘뿐이라 순환이 곧 왕래다. vim 의 ctrl+w ctrl+w / ctrl+w w 와 같다.
-		return sidebarMode(m.editor)
-	default:
-		return m, nil
-	}
-
-	// tab 을 옮겼으면 buf 가 옛 buffer 를 가리키므로 다시 받는다.
-	// 옮겨 간 tab 은 이 크기의 화면을 처음 볼 수도 있다.
-	m.buffer().scrollTo(width, m.textHeight())
-
-	return m, reveal
 }
 
 func (m viewEditorNormal) View() tea.View {

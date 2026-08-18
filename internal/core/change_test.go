@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // 아래 기대값은 vim 9.1 에서 같은 키를 쳐서 확인한 것이다.
@@ -186,40 +185,36 @@ func TestChangeFillsRegister(t *testing.T) {
 	assert.Equal(t, []string{"abc", "", "abc", "x"}, linesOf(buf))
 }
 
-// `cw` 는 파서에서 `dw` `yw` 와 같은 자리를 쓴다. 이름이 제대로 만들어지는지 본다.
+// `cw` 는 파서에서 `dw` `yw` 와 같은 자리를 쓴다. 다만 motion 이 갈린다 —
+// `cw` 는 `ce` 라서 `c` 뒤의 `w` 만 motionChangeWord 다(ADR-0033).
 func TestChangeKeyParser(t *testing.T) {
 	tests := []struct {
-		name      string
-		keys      []string
-		wantName  string
-		wantCount int
+		name string
+		keys []string
+		want normalCommand
 	}{
-		{name: "cw", keys: []string{"c", "w"}, wantName: "c w"},
-		{name: "cc", keys: []string{"c", "c"}, wantName: "c c"},
-		{name: "3cc", keys: []string{"3", "c", "c"}, wantName: "c c", wantCount: 3},
-		{name: "c3w", keys: []string{"c", "3", "w"}, wantName: "c w", wantCount: 3},
-		{name: "3c2w", keys: []string{"3", "c", "2", "w"}, wantName: "c w", wantCount: 6},
-		{name: "cgg", keys: []string{"c", "g", "g"}, wantName: "c g g"},
-		{name: "c3d 는 3cc 와 같다", keys: []string{"c", "3", "c"}, wantName: "c c", wantCount: 3},
+		{name: "cw 는 motion 이 갈린다", keys: []string{"c", "w"},
+			want: changeCommand{motion: motionChangeWord{kind: smallWord}}},
+		{name: "cW 도 같다", keys: []string{"c", "W"},
+			want: changeCommand{motion: motionChangeWord{kind: bigWord}}},
+		{name: "dw 는 그대로다", keys: []string{"d", "w"},
+			want: deleteCommand{motion: motionWordForward{kind: smallWord}}},
+		{name: "cc", keys: []string{"c", "c"}, want: changeCommand{motion: motionWholeLines{}}},
+		{name: "3cc", keys: []string{"3", "c", "c"}, want: changeCommand{motion: motionWholeLines{}, count: 3}},
+		{name: "c3w", keys: []string{"c", "3", "w"},
+			want: changeCommand{motion: motionChangeWord{kind: smallWord}, count: 3}},
+		{name: "3c2w", keys: []string{"3", "c", "2", "w"},
+			want: changeCommand{motion: motionChangeWord{kind: smallWord}, count: 6}},
+		{name: "cgg", keys: []string{"c", "g", "g"}, want: changeCommand{motion: motionToFirstLine{}}},
+		{name: "c3c 는 3cc 와 같다", keys: []string{"c", "3", "c"},
+			want: changeCommand{motion: motionWholeLines{}, count: 3}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var state normalState = normalStart{}
+			got, _ := pressAll(test.keys...)
 
-			var command normalKey
-			for _, k := range test.keys {
-				var commands []normalKey
-				commands, state = state.press(k)
-
-				command = normalKey{}
-				if len(commands) > 0 {
-					command = commands[len(commands)-1]
-				}
-			}
-
-			require.Equal(t, test.wantName, command.name)
-			assert.Equal(t, test.wantCount, command.count)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
