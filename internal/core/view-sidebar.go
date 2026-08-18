@@ -13,6 +13,19 @@ import (
 // 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 type 을 따로 뒀다(ADR-0002).
 // 트리 자체(펼친 상태, 고른 항목)는 mode 를 넘어 살아야 하므로 editor.sidebar 에 있다.
 func sidebarMode(e *editor) (tea.Model, tea.Cmd) {
+	// **안 보이는 pane 에는 포커스를 놓지 않는다.** 화면이 좁아져 sidebar 가 숨을 때 여기서
+	// 튕겨내는 것(Update) 과 같은 규칙이고, 들어오는 자리에서도 그것을 지킨다.
+	// paletteMode 가 `paletteFits` 로 하는 것과 같은 종류의 방어다.
+	//
+	// 왜 못 갔는지 아래 줄에 알린다. 아무 일도 안 나면 키가 먹었는지 알 수 없다 — 트리가
+	// 없는 것과 `ctrl+w` 가 죽은 것을 화면만 보고 가릴 수 없다.
+	if !e.sidebar.open {
+		return normalModeMessage(e, "트리가 닫혀 있습니다")
+	}
+	if !e.sidebarVisible() {
+		return normalModeMessage(e, "화면이 좁아 트리를 열 수 없습니다")
+	}
+
 	e.sidebar.scrollTo(e.sidebarHeight())
 
 	return viewSidebar{editor: e}, nil

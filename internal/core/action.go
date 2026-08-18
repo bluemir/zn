@@ -233,14 +233,18 @@ func (c actionSearch) run(e *editor) (tea.Model, tea.Cmd) {
 type actionNextMatch struct{ count int }
 
 func (c actionNextMatch) run(e *editor) (tea.Model, tea.Cmd) {
-	return e.jumpToMatch(e.search.direction, max(c.count, 1))
+	e.jumpToMatch(e.search.direction, max(c.count, 1))
+
+	return nil, nil
 }
 
 // actionPrevMatch 는 `N` 이다. 마지막 검색을 거꾸로 되풀이한다.
 type actionPrevMatch struct{ count int }
 
 func (c actionPrevMatch) run(e *editor) (tea.Model, tea.Cmd) {
-	return e.jumpToMatch(e.search.direction.reverse(), max(c.count, 1))
+	e.jumpToMatch(e.search.direction.reverse(), max(c.count, 1))
+
+	return nil, nil
 }
 
 // actionSearchWord 는 `*` 와 `#` 이다. 커서가 선 단어를 찾는다.
@@ -250,7 +254,9 @@ type actionSearchWord struct {
 }
 
 func (c actionSearchWord) run(e *editor) (tea.Model, tea.Cmd) {
-	return e.searchWord(c.direction, max(c.count, 1))
+	e.searchWord(c.direction, max(c.count, 1))
+
+	return nil, nil
 }
 
 // ── mode 와 화면 ──

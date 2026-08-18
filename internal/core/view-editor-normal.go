@@ -104,39 +104,29 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다.
 	m.message = ""
 
-	// sidebar 가 안 보이면 ctrl+w 를 없는 키로 친다. 접두 키는 다음 키를 삼키는데
-	// (ctrl+c 까지) ctrl+w 는 셸에서 단어 지우기 근육기억이라, 갈 곳도 없는데
-	// 키를 먹으면 안 된다.
-	if key == "ctrl+w" && !m.sidebarVisible() {
-		return m, nil
-	}
-
 	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
 	actions, state := m.keyState().press(key)
 	m.state = state
 
-	var model tea.Model = m
 	for _, act := range actions {
-		normal, ok := model.(viewEditorNormal)
-		if !ok {
-			return model, nil
+		// 동작은 editor 만 받는다. editor 는 포인터라 여기서 고친 것이 다음 동작에도 보인다(ADR-0026).
+		next, cmd := act.run(m.editor)
+
+		// 둘 다 없으면 mode 도 그대로고 낼 것도 없다. 다음 동작으로 간다.
+		if next == nil && cmd == nil {
+			continue
 		}
 
-		// 동작은 editor 만 받는다. mode 를 바꾸지 않으면 nil 을 주므로 지금 mode 를 그대로 쓴다.
-		next, cmd := act.run(normal.editor)
-		if next == nil {
-			next = normal
+		// mode 를 바꾸는 동작이거나 cmd 를 내는 동작(종료, 확인창) 이다. 남은 동작은 버린다 —
+		// 뒤에 올 것이 그 결과를 뒤집으면 안 된다.
+		if next == nil { // 현재 모델 유지
+			return m, cmd
 		}
 
-		// cmd 를 내는 동작(종료, 확인창) 에서 멈춘다. 뒤에 올 것이 그 결과를 뒤집으면 안 된다.
-		if cmd != nil {
-			return next, cmd
-		}
-
-		model = next
+		return next, cmd
 	}
 
-	return model, nil
+	return m, nil
 }
 
 func (m viewEditorNormal) View() tea.View {

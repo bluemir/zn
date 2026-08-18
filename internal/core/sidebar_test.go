@@ -586,14 +586,27 @@ func TestSidebarEscapeLeaves(t *testing.T) {
 	assert.IsType(t, viewEditorNormal{}, m)
 }
 
-// sidebar 가 안 보이면 ctrl+w 가 접두 키를 세우지 않는다.
-// 접두 키는 다음 키를 삼키는데, 갈 곳도 없이 키를 먹으면 안 된다.
-func TestCtrlWDoesNotSwallowWhenSidebarHidden(t *testing.T) {
+// 트리가 닫혀 있으면 `ctrl+w w` 는 편집 영역에 머물면서 왜 못 갔는지 알린다.
+// 아무 일도 안 나면 키가 먹었는지 알 수 없다.
+func TestCtrlWTellsWhenTreeClosed(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 80, 5)
 
-	m = send(m, "ctrl+w", "i")
+	m = send(m, "ctrl+w", "w")
 
-	assert.IsType(t, viewEditorInsert{}, m, "ctrl+w 가 다음 키를 먹지 않는다")
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "트리가 닫혀 있습니다")
+}
+
+// 화면이 좁아 트리를 감춘 동안에도 같다. 알리는 문구만 다르다 —
+// 닫아 둔 것과 화면이 좁은 것은 사용자가 할 일이 다르다.
+func TestCtrlWTellsWhenSidebarHidden(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
+	m = send(m, "ctrl+w", "w")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "화면이 좁아")
 }
 
 // 접두 키를 기다리는 동안의 esc 는 접두 키만 무른다. sidebar 를 나가면 안 된다.

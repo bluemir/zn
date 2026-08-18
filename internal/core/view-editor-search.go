@@ -166,7 +166,11 @@ func (m viewEditorSearch) run() (tea.Model, tea.Cmd) {
 
 	m.search = searchState{input: input, pattern: pattern, direction: m.direction, highlight: true}
 
-	return m.jumpToMatch(m.direction, 1)
+	// 여기가 진짜 mode 전환이다 — SEARCH 를 끝내고 normal 로 나온다.
+	// 알림은 jumpToMatch 가 세워 두었으므로 그대로 들고 나간다.
+	m.jumpToMatch(m.direction, 1)
+
+	return normalMode(m.editor)
 }
 
 func (m viewEditorSearch) View() tea.View {
@@ -190,9 +194,15 @@ func (m viewEditorSearch) prompt() string {
 
 // jumpToMatch 는 지금 검색을 n 번 되풀이해 커서를 옮기고 결과를 아래 줄에 알린다.
 // `/` `?` `n` `N` `*` `#` 가 모두 이 길로 온다.
-func (e *editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.Cmd) {
+//
+// **mode 는 정하지 않는다.** 부르는 쪽이 둘이고 원하는 것이 다르다 — `/` 는 SEARCH 를 끝내고
+// normal 로 나오는 진짜 전환이지만, `n` 은 normal 에 머문다. 여기서 `normalMode(e)` 를
+// 돌려주면 그 둘이 같은 모양이 되어 `press` 가 mode 가 바뀌었는지 알 수 없다(ADR-0034).
+func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	if e.search.pattern == nil {
-		return normalModeMessage(e, "이전 검색이 없습니다")
+		e.message = "이전 검색이 없습니다"
+
+		return
 	}
 
 	buf := e.activeBuffer()
@@ -205,7 +215,9 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.C
 		result, ok := buf.find(e.search.pattern, direction, line, col)
 		if !ok {
 			// 하나도 못 찾았으면 커서를 두고 알리기만 한다. 도중까지 옮기면 어디로 갔는지 알 수 없다.
-			return normalModeMessage(e, "찾을 수 없음: "+e.search.input)
+			e.message = "찾을 수 없음: " + e.search.input
+
+			return
 		}
 
 		line, col = result.line, result.col
@@ -217,10 +229,8 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) (tea.Model, tea.C
 	buf.scrollTo(width, e.textHeight())
 
 	if wrapped {
-		return normalModeMessage(e, wrapMessage(direction))
+		e.message = wrapMessage(direction)
 	}
-
-	return normalMode(e)
 }
 
 // wrapMessage 는 파일 끝을 지나 감쌌음을 알리는 말이다.
@@ -233,12 +243,14 @@ func wrapMessage(direction searchDirection) string {
 }
 
 // searchWord 는 커서 아래 단어를 그대로 찾는다. vim 의 `*` `#` 다.
-func (e *editor) searchWord(direction searchDirection, n int) (tea.Model, tea.Cmd) {
+func (e *editor) searchWord(direction searchDirection, n int) {
 	buf := e.activeBuffer()
 
 	word, col, ok := buf.wordUnderCursor()
 	if !ok {
-		return normalModeMessage(e, "커서 아래에 단어가 없습니다")
+		e.message = "커서 아래에 단어가 없습니다"
+
+		return
 	}
 
 	// 커서를 단어 앞으로 옮기고 거기서 찾는다. 옮기지 않으면 커서 오른쪽에 있던 그 단어가
@@ -254,5 +266,5 @@ func (e *editor) searchWord(direction searchDirection, n int) (tea.Model, tea.Cm
 		highlight: true,
 	}
 
-	return e.jumpToMatch(direction, n)
+	e.jumpToMatch(direction, n)
 }
