@@ -10,9 +10,22 @@ import (
 // viewSidebar 는 포커스가 좌측 파일 트리에 있는 상태다.
 //
 // 키 해석이 통째로 다르다 — 위아래가 커서 이동이 아니라 트리 이동이다.
-// 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 型 을 따로 뒀다(ADR-0002).
+// 그래서 editor 에 focus 필드를 두고 mode 마다 분기하는 대신 type 을 따로 뒀다(ADR-0002).
 // 트리 자체(펼친 상태, 고른 항목)는 mode 를 넘어 살아야 하므로 editor.sidebar 에 있다.
 func sidebarMode(e *editor) (tea.Model, tea.Cmd) {
+	// **안 보이는 pane 에는 포커스를 놓지 않는다.** 화면이 좁아져 sidebar 가 숨을 때 여기서
+	// 튕겨내는 것(Update) 과 같은 규칙이고, 들어오는 자리에서도 그것을 지킨다.
+	// paletteMode 가 `paletteFits` 로 하는 것과 같은 종류의 방어다.
+	//
+	// 왜 못 갔는지 아래 줄에 알린다. 아무 일도 안 나면 키가 먹었는지 알 수 없다 — 트리가
+	// 없는 것과 `ctrl+w` 가 죽은 것을 화면만 보고 가릴 수 없다.
+	if !e.sidebar.open {
+		return normalModeMessage(e, "트리가 닫혀 있습니다")
+	}
+	if !e.sidebarVisible() {
+		return normalModeMessage(e, "화면이 좁아 트리를 열 수 없습니다")
+	}
+
 	e.sidebar.scrollTo(e.sidebarHeight())
 
 	return viewSidebar{editor: e}, nil
@@ -21,8 +34,18 @@ func sidebarMode(e *editor) (tea.Model, tea.Cmd) {
 type viewSidebar struct {
 	*editor
 
-	// pending 은 ctrl+w 처럼 뒤에 키가 하나 더 붙는 접두 키다.
-	pending string
+	// state 는 키 나열을 동작 하나로 만드는 상태다. `ctrl+w` 같은 접두 키가 여기 산다.
+	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
+	state sidebarState
+}
+
+// keyState 는 지금 키 상태다. zero value(nil) 는 아무것도 먹지 않은 처음이다.
+func (m viewSidebar) keyState() sidebarState {
+	if m.state == nil {
+		return sidebarStart{}
+	}
+
+	return m.state
 }
 
 func (m viewSidebar) Init() tea.Cmd { return nil }
@@ -50,30 +73,8 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
-		// 편집 화면과 같은 방식이다 — 음절 하나가 키 여럿으로 풀리므로 차례로 먹인다.
-		keys := hangulKeys(msg.String())
-		if keys == nil {
-			return m.press(msg.String())
-		}
-
-		var model tea.Model = m
-		for _, key := range keys {
-			tree, ok := model.(viewSidebar)
-			if !ok {
-				// 앞의 키에서 포커스가 옮겨갔다. 남은 키는 버린다.
-				return model, nil
-			}
-
-			next, cmd := tree.press(key)
-			if cmd != nil {
-				return next, cmd
-			}
-
-			model = next
-		}
-
-		return model, nil
+		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
+		return m.press(msg.String())
 	case tea.MouseClickMsg:
 		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
 			return m.click(mouse)
@@ -85,32 +86,49 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case jobProgressMsg, jobDoneMsg, gitTickMsg:
-		//background job 을 처리한다.
+		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
+		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		return m, m.handleJob(msg)
 	default:
 		return m, nil
 	}
 }
 
-// press 는 키 하나를 먹는다.
+// press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
+// normal mode 와 같은 나눔이고, 도중에 포커스가 옮겨가면 남은 동작은 버린다(ADR-0008).
 func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
 	m.message = ""
 
-	// 접두 키를 기다리고 있었으면 이 키가 그 뒤에 붙는 키다.
-	// esc 와 ctrl+c 보다 먼저 봐야 `ctrl+w esc` 가 sidebar 를 나가버리지 않는다.
-	if m.pending != "" {
-		pending := m.pending
-		m.pending = ""
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
+	names, state := m.keyState().press(key)
+	m.state = state
 
-		if pending == "ctrl+w" && (key == "ctrl+w" || key == "w") {
-			return normalMode(m.editor)
+	var model tea.Model = m
+	for _, name := range names {
+		tree, ok := model.(viewSidebar)
+		if !ok {
+			return model, nil
 		}
 
-		return m, nil
+		next, cmd := tree.run(name)
+		if cmd != nil {
+			return next, cmd
+		}
+
+		model = next
 	}
 
-	switch key {
+	return model, nil
+}
+
+// run 은 완성된 동작 하나를 실행한다.
+//
+// 짝이 없는 접두 키 조합(`ctrl+w esc`) 은 여기서 모르는 이름이 되어 아무 일도 하지 않는다.
+// 접두 키가 `esc`·`ctrl+c` 를 삼키는 것이 이 규칙이다 — 잘못 누른 `ctrl+w` 를 무르는 것이지
+// 트리를 나가거나 편집기를 끄는 것이 아니다. normal mode 의 `g` 와 같다.
+func (m viewSidebar) run(name string) (tea.Model, tea.Cmd) {
+	switch name {
 	case "ctrl+c":
 		// 다른 mode 와 같은 경로다. 확인창에서 취소하면 여기로 돌아온다.
 		return quitAll(m, m.editor)
@@ -118,14 +136,13 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 		// 편집 화면과 같이 셸로 내려간다. 포커스는 트리에 그대로 두고 올라온다.
 		// 파일이 밖에서 바뀌었는지는 보지 않는다 — 지금 보고 있는 것은 파일 내용이 아니다(ADR-0023).
 		return m, tea.Suspend
-	case "ctrl+w":
-		m.pending = "ctrl+w"
-
-		return m, nil
 	case "ctrl+p":
 		// 트리를 뒤지다 이름으로 건너뛰는 길이다. 팔레트가 끝나면 편집 영역으로 나온다.
 		return paletteMode(m.editor)
 	case "esc":
+		return normalMode(m.editor)
+	case "ctrl+w ctrl+w", "ctrl+w w":
+		// pane 이 둘뿐이라 순환이 곧 왕래다. normal 의 같은 키와 짝이다.
 		return normalMode(m.editor)
 	case "up", "k":
 		m.sidebar.selected--
@@ -155,7 +172,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if node.isDir && !node.symlink {
+	if node.isDir && !node.isSymlink {
 		// 펼치는 쪽은 읽는 작업을 시작한다. 자식은 그 결과가 도착할 때 찬다(ADR-0032).
 		load := m.toggleNode(node)
 		m.sidebar.scrollTo(m.sidebarHeight())
@@ -180,23 +197,23 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return normalModeMessage(m.editor, errors.Cause(err).Error())
 	}
-	m.buffer().scrollTo(m.contentWidth(), m.textHeight())
+	m.scrollToCursor()
 
 	// 연 파일을 보러 왔으므로 포커스도 편집 영역으로 간다. 돌아올 때는 ctrl+w ctrl+w 다.
 	model, cmd := normalMode(m.editor)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, m.refreshGit(), reveal)
+	return model, tea.Batch(cmd, m.startGitRefresh(), reveal)
 }
 
 func (m viewSidebar) View() tea.View {
 	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
 	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
-	view := m.render(tea.CursorBlock, "TREE",
-		m.withShowcmd(m.messageOr(m.sidebar.selectedLabel()), m.pending))
+	view := m.editorView(tea.CursorBlock, "TREE",
+		m.renderWithShowcmd(m.messageOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
-	// 명령줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.
+	// 동작줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.
 	//
 	// sidebar 는 화면 맨 윗줄부터 시작하므로 트리 행 번호가 곧 화면 행이다.
 	if row, ok := m.sidebar.selectedRow(m.sidebarHeight()); ok {

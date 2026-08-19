@@ -23,47 +23,12 @@ type motionRange struct {
 	linewise              bool
 }
 
-// rangeByMotion 은 motion 이 가리키는 범위다. `d` 뒤에 붙은 키가 motion 이다.
-//
-// 모르는 motion 이면 false 다. 그래야 operator 뒤에 손이 미끄러진 키가 아무 일도 하지 않는다.
-func (buf Buffer) rangeByMotion(motion string, count, width int) (motionRange, bool) {
-	if line, col, ok := buf.lineMotionTarget(motion, count, width); ok {
-		return motionRange{
-			startLine:  min(buf.cursorLine, line),
-			endLine:    max(buf.cursorLine, line),
-			targetLine: line,
-			targetCol:  col,
-			linewise:   true,
-		}, true
-	}
-
-	line, col, ok := buf.charMotionTarget(motion, count, width)
-	if !ok {
-		return motionRange{}, false
-	}
-
-	// 뒤로 가는 motion 은 커서가 범위의 끝이다.
-	if line < buf.cursorLine || (line == buf.cursorLine && col < buf.cursorCol) {
-		return motionRange{
-			startLine: line, startCol: col,
-			endLine: buf.cursorLine, endCol: buf.cursorCol,
-			targetLine: line, targetCol: col,
-		}, true
-	}
-
-	return motionRange{
-		startLine: buf.cursorLine, startCol: buf.cursorCol,
-		endLine: line, endCol: col,
-		targetLine: line, targetCol: col,
-	}, true
-}
-
 // deleteByMotion 은 motion 이 가리키는 범위를 지운다.
 //
-// 모르는 motion 이거나 지울 것이 없으면 아무것도 하지 않고 false 다. 그래야 `d` 뒤에
+// 잡을 것이 없거나 지울 것이 없으면 아무것도 하지 않고 false 다. 그래야 `d` 뒤에
 // 손이 미끄러진 키가 dirty 를 세우거나 되돌릴 앞날(redo) 을 날리지 않는다.
-func (buf *Buffer) deleteByMotion(motion string, count, width int) (register, bool) {
-	area, ok := buf.rangeByMotion(motion, count, width)
+func (buf *Buffer) deleteByMotion(m motion, count, width int) (register, bool) {
+	area, ok := m.span(*buf, count, width)
 	if !ok {
 		return register{}, false
 	}
@@ -73,97 +38,6 @@ func (buf *Buffer) deleteByMotion(motion string, count, width int) (register, bo
 	}
 
 	return buf.deleteText(area.startLine, area.startCol, area.endLine, area.endCol, width)
-}
-
-// lineMotionTarget 은 줄 단위 motion 이 닿는 줄과 커서를 두는 칸이다.
-//
-// `dd`/`yy` `j` `k` `G` `gg` 다. 범위는 커서 칸과 상관없이 줄 전체다. vim 과 같다.
-//
-// 칸은 복사가 쓴다. 이동을 복사한 Buffer 위에서 실제로 실행해서 얻으므로 `k` 는 칸을 지키고
-// `gg` 는 첫 비공백으로 간다 — 이동 키를 직접 쳤을 때와 같은 자리다. charMotionTarget 과 같은 방식이다.
-func (buf Buffer) lineMotionTarget(motion string, count, width int) (line, col int, ok bool) {
-	last := len(buf.lines) - 1
-	n := max(count, 1)
-
-	switch motion {
-	case "d", "y", "c":
-		// operator 를 두 번 친 것이다(`dd` `yy` `cc`). 커서 줄부터 n 줄이고 커서는 움직이지 않는다.
-		// 줄이 모자라면 있는 만큼만이다.
-		//
-		// 짝이 다른 `dy` 는 여기 오지 않는다. 파서에서 뒤의 `y` 가 operator 를 새로 열어
-		// 이름이 `d y w` 처럼 되고, 그것을 아는 곳이 없어서 아무 일도 하지 않는다(ADR-0017).
-		return min(buf.cursorLine+n-1, last), buf.cursorCol, true
-	case "j":
-		// 이미 마지막 줄이면 갈 곳이 없어서 아무 일도 하지 않는다.
-		// 줄이 모자라기만 한 것은 파일 끝까지다. vim 과 같다.
-		if buf.cursorLine == last {
-			return 0, 0, false
-		}
-
-		buf.moveDownLine(n)
-	case "k":
-		if buf.cursorLine == 0 {
-			return 0, 0, false
-		}
-
-		buf.moveUpLine(n)
-	case "G":
-		// 숫자는 되풀이가 아니라 줄 번호다. 없으면 마지막 줄이다. 이동 키와 같다.
-		if count > 0 {
-			buf.moveToLine(count-1, width)
-		} else {
-			buf.moveToLine(last, width)
-		}
-	case "g g":
-		buf.moveToLine(n-1, width)
-	default:
-		return 0, 0, false
-	}
-
-	return buf.cursorLine, buf.cursorCol, true
-}
-
-// charMotionTarget 은 글자 단위로 지우는 motion 이 닿는 자리다. 지울 범위의 끝은 이 자리 앞까지다.
-//
-// motion 을 Buffer 복사본 위에서 실제로 실행해서 구한다. 이동 코드가 하나뿐이라 `w` 가 가는
-// 자리와 `dw` 가 지우는 끝이 어긋날 수 없다. Buffer 는 slice header 뭉치라 복사가 싸고
-// 이동은 lines 를 건드리지 않는다.
-//
-// `e` `E` 는 커서가 단어의 마지막 글자에 서므로 한 글자 더 나아간 자리를 준다.
-// 그 글자까지 지워야 단어가 통째로 사라진다. vim 의 inclusive motion 이다.
-func (buf Buffer) charMotionTarget(motion string, count, width int) (line, col int, ok bool) {
-	n := max(count, 1)
-
-	switch motion {
-	case "h", "left":
-		buf.moveLeft(n, width)
-	case "l", "right":
-		buf.moveRight(n, width)
-	case "0":
-		buf.moveLineStart(width)
-	case "^":
-		buf.moveLineFirstNonBlank(width)
-	case "$":
-		buf.moveLineEnd(n, width)
-	case "b":
-		buf.moveWordBackward(n, smallWord, width)
-	case "B":
-		buf.moveWordBackward(n, bigWord, width)
-	case "e":
-		buf.moveWordEnd(n, smallWord, width)
-		buf.includeCursorCluster()
-	case "E":
-		buf.moveWordEnd(n, bigWord, width)
-		buf.includeCursorCluster()
-	case "w":
-		buf.wordForwardToDelete(n, smallWord, width)
-	case "W":
-		buf.wordForwardToDelete(n, bigWord, width)
-	default:
-		return 0, 0, false
-	}
-
-	return buf.cursorLine, buf.cursorCol, true
 }
 
 // includeCursorCluster 는 커서가 선 글자까지 범위에 넣는다. inclusive motion 이 쓴다.

@@ -68,7 +68,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 명령을 실행한다.
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	cmd, err := parseCommand(m.input)
 	if err != nil {
@@ -109,7 +109,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// 마지막 tab 이었으면 여기서 편집기가 끝나고, 시작한 갱신은 ctx 가 끊겨 같이 정리된다.
 		model, quit := forceCloseTab(m.editor)
 
-		return model, tea.Batch(quit, m.refreshGit())
+		return model, tea.Batch(quit, m.startGitRefresh())
 	case "e":
 		return m.edit(cmd)
 	case "tabnew":
@@ -129,7 +129,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		model, next := normalMode(m.editor)
 
 		// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-		return model, tea.Batch(next, m.refreshGit(), reveal)
+		return model, tea.Batch(next, m.startGitRefresh(), reveal)
 	case "noh", "nohlsearch":
 		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
 		m.search.highlight = false
@@ -181,7 +181,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 // 인자가 붙으면 사본을 쓰는 것이라 보고 있는 파일도 tab 도 그대로다. 이름 없는 buffer 만
 // 예외로 그 이름을 받는다 — `:tabnew` 로 만든 tab 을 저장하는 길이 이것뿐이다.
 func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	if len(cmd.args) == 0 {
 		return m.save(cmd)
@@ -214,7 +214,7 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 		return m.fail(err)
 	}
 	// 저장하면 저장소가 dirty 가 된다. 주기 갱신을 기다리지 않고 여기서 맞춘다(ADR-0009, ADR-0030).
-	refresh := m.refreshGit()
+	refresh := m.startGitRefresh()
 
 	if !naming {
 		// 보고 있는 파일이 아니라 다른 파일에 썼다. 문구를 나눠야 tabline 의 이름이
@@ -234,7 +234,7 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 
 // save 는 보고 있는 파일에 쓴다. 인자 없는 `:w` 와 `:w <보고 있는 파일>` 이 쓴다.
 func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
-	buf := m.buffer()
+	buf := m.activeBuffer()
 
 	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
 	var err error
@@ -248,7 +248,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	// 저장은 dirty 를 바꾸므로 주기 갱신을 기다리지 않는다(ADR-0030).
-	refresh := m.refreshGit()
+	refresh := m.startGitRefresh()
 
 	model, next := normalModeMessage(m.editor, "저장함: "+buf.path)
 
@@ -276,7 +276,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 	// 지금 tab 의 편집이 사라지는 것은 갈아끼울 때뿐이다. 이미 다른 tab 에 열려 있으면
 	// replaceTab 이 그리로 옮겨가기만 하므로 잃을 것이 없다.
 	_, opened := m.tabOf(path)
-	if m.buffer().dirty && !cmd.force && !opened {
+	if m.activeBuffer().dirty && !cmd.force && !opened {
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 		back, _ := normalMode(m.editor)
 
@@ -298,12 +298,12 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 
 	// 갈아끼운 buffer 는 맨 위에서 시작하지만, 옮겨간 tab 은 보던 자리를 그대로 이어받는다.
 	// 어느 쪽이든 지금 폭에 맞춰 둔다 — sidebar 를 여닫은 뒤라면 폭이 달라져 있다.
-	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 
 	model, cmd := normalMode(e)
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
-	return model, tea.Batch(cmd, e.refreshGit(), reveal)
+	return model, tea.Batch(cmd, e.startGitRefresh(), reveal)
 }
 
 // fail 은 명령이 실패했음을 아래 줄에 알리고 normal 로 돌아간다.
@@ -313,11 +313,11 @@ func (m viewEditorCommand) fail(err error) (tea.Model, tea.Cmd) {
 
 func (m viewEditorCommand) View() tea.View {
 	line := ":" + m.input
-	view := m.render(tea.CursorBlock, "COMMAND", line)
+	view := m.editorView(tea.CursorBlock, "COMMAND", line)
 
 	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다.
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
-	view.Cursor = tea.NewCursor(screenColAt([]byte(line), len(line))+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
 
 	return view
 }

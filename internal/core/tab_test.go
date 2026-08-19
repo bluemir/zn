@@ -20,9 +20,10 @@ func newTabsEditor(paths ...string) viewEditorNormal {
 
 	return viewEditorNormal{
 		editor: &editor{
-			buffers: buffers,
-			width:   40,
-			height:  5 + tablineHeight + statusBarHeight,
+			boxChars: boxUnicode,
+			buffers:  buffers,
+			width:    40,
+			height:   5 + tablineHeight + statusBarHeight,
 		},
 	}
 }
@@ -216,7 +217,27 @@ func TestTablineShowsHiddenCount(t *testing.T) {
 	m := newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
 	m.width = 30
 
-	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.View()))
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, m.View()))
+}
+
+// 오른쪽 표시는 줄 맨 끝에 붙는다. tab 이름 길이에 따라 자리가 옮겨 다니면 누를 때마다 겨눠야 한다.
+// 마지막 tab 과 표시 사이에 남는 칸은 통째로 못 들어간 tab 의 자리라 점으로 채운다(ADR-0029).
+func TestTablineRightHiddenCountSticksToEnd(t *testing.T) {
+	for width := 20; width <= 45; width++ {
+		m := newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+		m.width = width
+		m.scrollTabsTo()
+
+		row := m.renderTabline(m.textWidth())
+		if row.right == [2]int{} {
+			continue
+		}
+
+		assert.Equal(t, width, row.right[1], "오른쪽 표시가 줄 끝에 없다: width=%d", width)
+
+		line := tablineOf(t, m.View())
+		assert.Regexp(t, `\.*│\d+>$`, line, "width=%d", width)
+	}
 }
 
 // 활성 tab 이 오른쪽 끝에 있으면 안 보이던 것을 민다.
@@ -226,15 +247,15 @@ func TestTablineScrollsToActiveTab(t *testing.T) {
 	m.(viewEditorNormal).editor.width = 30
 
 	m = send(m, "g", "t")
-	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.(viewEditorNormal).View()),
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, m.(viewEditorNormal).View()),
 		"보이는 자리로 옮겼으면 밀지 않는다")
 
 	m = send(m, "g", "t")
-	assert.Equal(t, "<1│ 2 b.txt │ 3 c.txt │2>", tablineOf(t, m.(viewEditorNormal).View()),
+	assert.Equal(t, "<1│ 2 b.txt │ 3 c.txt │....│2>", tablineOf(t, m.(viewEditorNormal).View()),
 		"화면 밖으로 나간 만큼만 민다")
 
 	m = send(m, "g", "t")
-	assert.Equal(t, "<2│ 3 c.txt │ 4 d.txt │1>", tablineOf(t, m.(viewEditorNormal).View()))
+	assert.Equal(t, "<2│ 3 c.txt │ 4 d.txt │....│1>", tablineOf(t, m.(viewEditorNormal).View()))
 
 	m = send(m, "g", "t")
 	assert.Equal(t, "<3│ 4 d.txt │ 5 e.txt", tablineOf(t, m.(viewEditorNormal).View()),
@@ -242,7 +263,7 @@ func TestTablineScrollsToActiveTab(t *testing.T) {
 
 	// 처음으로 둘러 가면 스크롤도 처음으로 돌아온다.
 	m = send(m, "g", "t")
-	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.(viewEditorNormal).View()))
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, m.(viewEditorNormal).View()))
 }
 
 // 반쯤 걸친 tab 은 그리지 않는다. 잘린 이름은 어느 파일인지 알려주지 못한다.
@@ -258,10 +279,10 @@ func TestTablineDoesNotDrawPartialTab(t *testing.T) {
 		assert.LessOrEqual(t, screenWidthOf(line), width, "width=%d", width)
 		assert.Contains(t, line, " 3 c.txt", "활성 tab 은 온전히 보인다: width=%d", width)
 
-		// 줄 끝 빈 칸은 tablineOf 가 떼므로 마지막 tab 은 뒷 칸이 없다.
+		// 마지막 tab 뒤에는 채운 빈 칸이 붙을 수 있다. 잘린 이름은 뒤에 빈 칸이 없다.
 		for _, piece := range strings.Split(line, "│") {
 			if strings.HasPrefix(piece, " ") {
-				assert.Regexp(t, `^ \d [a-e]\.txt ?$`, piece, "이름이 잘린 tab 이 있다: %q", line)
+				assert.Regexp(t, `^ \d [a-e]\.txt *$`, piece, "이름이 잘린 tab 이 있다: %q", line)
 			}
 		}
 	}
@@ -273,7 +294,7 @@ func TestTablineScrollsBackWhenRoomAppears(t *testing.T) {
 	m.(viewEditorNormal).editor.width = 30
 
 	m = send(m, "g", "t", "g", "t", "g", "t")
-	require.Equal(t, "<2│ 3 c.txt │ 4 d.txt │1>", tablineOf(t, m.(viewEditorNormal).View()))
+	require.Equal(t, "<2│ 3 c.txt │ 4 d.txt │....│1>", tablineOf(t, m.(viewEditorNormal).View()))
 
 	m = send(m, ":", "q", "enter") // 4 d.txt 를 닫는다
 	m = send(m, ":", "q", "enter") // 그 자리에 드러난 5 e.txt 를 닫는다
@@ -288,7 +309,7 @@ func TestTablineScrollsBackOnResize(t *testing.T) {
 	m.(viewEditorNormal).editor.width = 30
 
 	m = send(m, "g", "t", "g", "t", "g", "t")
-	require.Equal(t, "<2│ 3 c.txt │ 4 d.txt │1>", tablineOf(t, m.(viewEditorNormal).View()))
+	require.Equal(t, "<2│ 3 c.txt │ 4 d.txt │....│1>", tablineOf(t, m.(viewEditorNormal).View()))
 
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 60, Height: 10})
 

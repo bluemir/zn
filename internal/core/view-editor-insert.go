@@ -31,16 +31,16 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
-		buf := m.buffer()
+		buf := m.activeBuffer()
 		buf.insert([]byte(msg.Content), m.contentWidth())
-		buf.scrollTo(m.contentWidth(), m.textHeight())
+		m.scrollToCursor()
 
 		return m, nil
 	case tea.KeyPressMsg:
 		// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
 		m.message = ""
 
-		buf := m.buffer()
+		buf := m.activeBuffer()
 
 		switch msg.String() {
 		case "ctrl+c":
@@ -52,7 +52,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
 			buf.endEdit()
 			buf.moveLeft(1, m.contentWidth())
-			buf.scrollTo(m.contentWidth(), m.textHeight())
+			m.scrollToCursor()
 
 			return normalMode(m.editor)
 		case "enter":
@@ -84,7 +84,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			buf.insert([]byte(msg.Text), m.contentWidth())
 		}
 
-		buf.scrollTo(m.contentWidth(), m.textHeight())
+		m.scrollToCursor()
 
 		return m, nil
 	case tea.MouseClickMsg:
@@ -108,5 +108,5 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m viewEditorInsert) View() tea.View {
 	// 커서가 글자 사이에 있으므로 막대다.
-	return m.render(tea.CursorBar, "INSERT", m.messageOr(m.position()))
+	return m.editorView(tea.CursorBar, "INSERT", m.messageOr(m.renderPosition()))
 }

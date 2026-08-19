@@ -39,7 +39,7 @@ gitTickMsg:` 가 여기로 넘긴다. 첫 고리는 `viewEditorNormal.Init` 이 
 그대로다.
 
 **갱신을 발행하는 것은 `openTab`·`replaceTab` 이 아니라 그것을 부르는 mode 쪽이다.** 여는 함수는
-지금까지처럼 `error` 만 돌려주고, 호출자가 `tea.Batch(cmd, e.refreshGit())` 로 같이 낸다.
+지금까지처럼 `error` 만 돌려주고, 호출자가 `tea.Batch(cmd, e.startGitRefresh())` 로 같이 낸다.
 
 **첫 읽기도 비동기다.** 편집기가 뜨는 길에는 git 이 없다. 첫 화면의 statusBar 오른쪽은 잠깐 비어
 있다가 채워진다.
@@ -75,7 +75,7 @@ gitTickMsg:` 가 여기로 넘긴다. 첫 고리는 `viewEditorNormal.Init` 이 
 **보이는 것이 정직하다.** 큰 저장소에서 5 초마다 `git status` 가 돈다는 사실은 감출 것이 아니라
 `:jobs` 에서 보이는 편이 낫다. 느리다고 느낄 때 어디를 볼지가 정해진다.
 
-**statusBar 진행 표시에 예외를 두지 않는다.** `jobText` 는 가장 먼저 시작한 작업을 찍으므로,
+**statusBar 진행 표시에 예외를 두지 않는다.** `renderJobText` 는 가장 먼저 시작한 작업을 찍으므로,
 파일 인덱싱이 도는 중에 낀 git 갱신은 `(+1)` 로만 세어지고 표시를 가로채지 않는다. 혼자 돌 때만
 잠깐 `git 상태` 가 뜬다 — 느린 저장소에서는 그것이 오히려 지금 무엇을 기다리는지 알려준다.
 예외를 만들면 "job 인데 진행 표시에는 안 나오는 것" 이라는 규칙이 하나 는다.

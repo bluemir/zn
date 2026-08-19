@@ -12,7 +12,7 @@ import "github.com/cockroachdb/errors"
 // 반대로 밖의 변경이 되돌아가 다시 같아지면 마커도 조용히 사라진다. 알리지 않는다 —
 // 볼 것이 없어졌다는 알림은 읽는 사람이 할 일이 없다.
 func (e *editor) noteOutsideChange() string {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 
 	change, err := buf.checkOutside()
 	if err != nil {

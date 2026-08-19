@@ -111,7 +111,7 @@ func toggleSync(t *testing.T, node *treeNode) {
 	}
 
 	// 파일과 symlink 는 펼치지 않는다. 편집기의 expandNode 와 같다.
-	if !node.isDir || node.symlink {
+	if !node.isDir || node.isSymlink {
 		return
 	}
 
@@ -251,7 +251,7 @@ func TestSidebarDoesNotFollowSymlink(t *testing.T) {
 	}
 	require.NotNil(t, link)
 
-	assert.True(t, link.symlink)
+	assert.True(t, link.isSymlink)
 	assert.False(t, link.isDir, "디렉터리를 가리켜도 잎으로 둔다")
 
 	toggleSync(t, link)
@@ -325,9 +325,9 @@ func TestSidebarMarksGitIgnored(t *testing.T) {
 		byName[row.node.name] = row.node
 	}
 
-	assert.True(t, byName["build"].ignored, "gitignore 된 디렉터리")
-	assert.False(t, byName["main.go"].ignored)
-	assert.False(t, byName["README.md"].ignored)
+	assert.True(t, byName["build"].isGitIgnored, "gitignore 된 디렉터리")
+	assert.False(t, byName["main.go"].isGitIgnored)
+	assert.False(t, byName["README.md"].isGitIgnored)
 }
 
 // 저장소가 아니면 아무것도 흐리게 하지 않는다. 흐린 것이 없을 뿐 틀리지 않는다.
@@ -335,7 +335,7 @@ func TestSidebarNoRepoMarksNothing(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
 	for _, row := range s.rows() {
-		assert.False(t, row.node.ignored, "%s", row.node.name)
+		assert.False(t, row.node.isGitIgnored, "%s", row.node.name)
 	}
 }
 
@@ -345,9 +345,10 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
-			width:   width,
-			height:  height + tablineHeight + statusBarHeight,
+			boxChars: boxUnicode,
+			buffers:  []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
+			width:    width,
+			height:   height + tablineHeight + statusBarHeight,
 		},
 	}
 	m.sidebar = openSidebarSync(t, newTreeFixture(t))
@@ -377,7 +378,7 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 func TestSidebarCellsAreExactlyWide(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
-	for i, cell := range s.cells(10, "", boxUnicode) {
+	for i, cell := range s.renderCells(10, "", boxUnicode) {
 		plain := ansi.Strip(cell)
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
 	}
@@ -387,7 +388,7 @@ func TestSidebarCellsAreExactlyWide(t *testing.T) {
 func TestSidebarCellsFillHeight(t *testing.T) {
 	s := openSidebarSync(t, t.TempDir())
 
-	cells := s.cells(6, "", boxUnicode)
+	cells := s.renderCells(6, "", boxUnicode)
 
 	require.Len(t, cells, 6)
 	for _, cell := range cells[1:] {
@@ -403,7 +404,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 
 	s := openSidebarSync(t, root)
 
-	for i, cell := range s.cells(4, "", boxUnicode) {
+	for i, cell := range s.renderCells(4, "", boxUnicode) {
 		plain := ansi.Strip(cell)
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
 	}
@@ -585,14 +586,27 @@ func TestSidebarEscapeLeaves(t *testing.T) {
 	assert.IsType(t, viewEditorNormal{}, m)
 }
 
-// sidebar 가 안 보이면 ctrl+w 가 접두 키를 세우지 않는다.
-// 접두 키는 다음 키를 삼키는데, 갈 곳도 없이 키를 먹으면 안 된다.
-func TestCtrlWDoesNotSwallowWhenSidebarHidden(t *testing.T) {
+// 트리가 닫혀 있으면 `ctrl+w w` 는 편집 영역에 머물면서 왜 못 갔는지 알린다.
+// 아무 일도 안 나면 키가 먹었는지 알 수 없다.
+func TestCtrlWTellsWhenTreeClosed(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 80, 5)
 
-	m = send(m, "ctrl+w", "i")
+	m = send(m, "ctrl+w", "w")
 
-	assert.IsType(t, viewEditorInsert{}, m, "ctrl+w 가 다음 키를 먹지 않는다")
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "트리가 닫혀 있습니다")
+}
+
+// 화면이 좁아 트리를 감춘 동안에도 같다. 알리는 문구만 다르다 —
+// 닫아 둔 것과 화면이 좁은 것은 사용자가 할 일이 다르다.
+func TestCtrlWTellsWhenSidebarHidden(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
+	m = send(m, "ctrl+w", "w")
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "화면이 좁아")
 }
 
 // 접두 키를 기다리는 동안의 esc 는 접두 키만 무른다. sidebar 를 나가면 안 된다.
@@ -976,7 +990,7 @@ func TestTabSwitchRevealsInSidebar(t *testing.T) {
 	model := sendSync(t, tea.Model(m), "g", "t")
 
 	v := model.(viewEditorNormal)
-	require.Equal(t, "spec.md", filepath.Base(v.buffer().path))
+	require.Equal(t, "spec.md", filepath.Base(v.activeBuffer().path))
 	assert.Equal(t, "spec.md", v.sidebar.selectedNode().name)
 
 	model = sendSync(t, model, "g", "T")
@@ -993,7 +1007,7 @@ func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newEmptyBuffer(""),
 	}
-	revealSyncIn(t, m.editor, m.buffer().path)
+	revealSyncIn(t, m.editor, m.activeBuffer().path)
 
 	model := sendSync(t, tea.Model(m), "g", "t")
 
@@ -1035,13 +1049,13 @@ func TestCloseTabRevealsRemainingFile(t *testing.T) {
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 	m.active = 1
-	revealSyncIn(t, m.editor, m.buffer().path)
+	revealSyncIn(t, m.editor, m.activeBuffer().path)
 	require.Equal(t, "spec.md", m.sidebar.selectedNode().name)
 
 	model, _ := forceCloseTab(m.editor)
 	require.IsType(t, viewEditorNormal{}, model)
 
-	require.Equal(t, "main.go", filepath.Base(m.buffer().path))
+	require.Equal(t, "main.go", filepath.Base(m.activeBuffer().path))
 	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
 }
 
@@ -1089,7 +1103,7 @@ func TestSidebarMarksActiveFile(t *testing.T) {
 	root := newTreeFixture(t)
 	s := openSidebarSync(t, root)
 
-	cells := s.cells(10, filepath.Join(root, "main.go"), boxUnicode)
+	cells := s.renderCells(10, filepath.Join(root, "main.go"), boxUnicode)
 
 	assert.Equal(t, []string{"main.go"}, activeNames(cells))
 }
@@ -1103,7 +1117,7 @@ func TestSidebarMarksNameWithoutIndent(t *testing.T) {
 	spec := filepath.Join(root, "docs", "spec.md")
 	s = revealSync(t, s, spec)
 
-	for _, cell := range s.cells(10, spec, boxUnicode) {
+	for _, cell := range s.renderCells(10, spec, boxUnicode) {
 		if text := activeText(cell); text != "" {
 			assert.Equal(t, "spec.md", text)
 			return
@@ -1118,7 +1132,7 @@ func TestSidebarMarksNameWithoutIndent(t *testing.T) {
 func TestSidebarDirIsNotMarked(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
-	assert.Empty(t, activeNames(s.cells(10, "", boxUnicode)))
+	assert.Empty(t, activeNames(s.renderCells(10, "", boxUnicode)))
 }
 
 // 이름 없는 buffer 는 어느 행과도 맞지 않는다. `:tabnew` 로 만든 tab 이 그렇다.
@@ -1126,7 +1140,7 @@ func TestSidebarMarksNothingWithoutName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	m.buffers = []Buffer{newEmptyBuffer("")}
 
-	assert.Empty(t, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
+	assert.Empty(t, activeNames(m.sidebar.renderCells(m.sidebarHeight(), m.activePath(), m.boxChars)))
 }
 
 // tab 을 옮기면 표시도 따라간다. 트리가 그 자리를 펼치는 것(reveal) 과 짝이다.
@@ -1137,10 +1151,10 @@ func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
-	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.cells(m.sidebarHeight(), m.activePath(), m.boxChars())))
+	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.renderCells(m.sidebarHeight(), m.activePath(), m.boxChars)))
 
 	next := sendSync(t, tea.Model(m), "g", "t").(viewEditorNormal)
 
 	assert.Equal(t, []string{"spec.md"},
-		activeNames(next.sidebar.cells(next.sidebarHeight(), next.activePath(), next.boxChars())))
+		activeNames(next.sidebar.renderCells(next.sidebarHeight(), next.activePath(), next.boxChars)))
 }

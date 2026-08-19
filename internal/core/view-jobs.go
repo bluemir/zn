@@ -28,6 +28,19 @@ type viewJobs struct {
 
 	selected int // rows 안의 자리
 	top      int // 화면 첫 행
+
+	// state 는 키 나열을 동작 하나로 만드는 상태다.
+	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
+	state jobsState
+}
+
+// keyState 는 지금 키 상태다. zero value(nil) 는 아무것도 먹지 않은 처음이다.
+func (m viewJobs) keyState() jobsState {
+	if m.state == nil {
+		return jobsStart{}
+	}
+
+	return m.state
 }
 
 func (m viewJobs) Init() tea.Cmd { return nil }
@@ -40,25 +53,9 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
+		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		// `x`(취소)·`q`(닫기)·`j`·`k` 가 전부 글자 키라 되돌리지 않으면 아무것도 먹지 않는다.
-		keys := hangulKeys(msg.String())
-		if keys == nil {
-			return m.press(msg.String())
-		}
-
-		var model tea.Model = m
-		for _, key := range keys {
-			jobs, ok := model.(viewJobs)
-			if !ok {
-				// 앞의 키에서 목록을 벗어났다. 남은 키는 버린다.
-				return model, nil
-			}
-
-			model, _ = jobs.press(key)
-		}
-
-		return model, nil
+		return m.press(msg.String())
 	case tea.MouseWheelMsg:
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -80,11 +77,36 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// press 는 키 하나를 먹는다.
+// press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
+// normal·트리와 같은 나눔이고, 도중에 목록을 벗어나면 남은 동작은 버린다(ADR-0008).
 func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 	m.message = ""
 
-	switch key {
+	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
+	names, state := m.keyState().press(key)
+	m.state = state
+
+	var model tea.Model = m
+	for _, name := range names {
+		jobs, ok := model.(viewJobs)
+		if !ok {
+			return model, nil
+		}
+
+		next, cmd := jobs.run(name)
+		if cmd != nil {
+			return next, cmd
+		}
+
+		model = next
+	}
+
+	return model, nil
+}
+
+// run 은 완성된 동작 하나를 실행한다. 모르는 이름이면 아무 일도 하지 않는다.
+func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
+	switch name {
 	case "ctrl+c":
 		return quitAll(m, m.editor)
 	case "q", "esc":
@@ -98,7 +120,9 @@ func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case "x":
-		return m, m.cancelSelected()
+		m.cancelSelected()
+
+		return m, nil
 	default:
 		return m, nil
 	}
@@ -107,22 +131,22 @@ func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
 // cancelSelected 는 고른 작업에게 그만하라고 말한다.
 //
 // 끝난 작업을 고르고 눌렀으면 알리고 만다. 아무 일도 안 나면 키가 먹었는지 알 수 없다.
-func (m *viewJobs) cancelSelected() tea.Cmd {
+//
+// 끊는 것은 ctx 를 취소하는 일이라 그 자리에서 끝난다 — 시작되는 작업이 없어서 Cmd 가 없다.
+func (m *viewJobs) cancelSelected() {
 	rows := m.jobRows()
 	if m.selected >= len(rows) {
-		return nil
+		return
 	}
 
 	selected := rows[m.selected]
 	if selected.cancel == nil {
 		m.message = "이미 끝난 작업입니다"
 
-		return nil
+		return
 	}
 
 	m.cancelJob(selected.name)
-
-	return nil
 }
 
 // jobRows 는 목록에 그릴 작업들이다. 도는 것이 위, 끝난 것이 아래다.
@@ -176,7 +200,7 @@ func (m viewJobs) View() tea.View {
 
 	body := make([]string, 0, height)
 	for i := m.top; i < len(rows) && len(body) < height; i++ {
-		body = append(body, m.jobRow(rows[i], i == m.selected, now))
+		body = append(body, m.renderJobRow(rows[i], i == m.selected, now))
 	}
 
 	// 도는 것도 끝난 것도 없을 때 빈 화면만 두면 목록을 못 연 것처럼 보인다.
@@ -188,11 +212,11 @@ func (m viewJobs) View() tea.View {
 		body = append(body, "")
 	}
 
-	screen := append([]string{m.title()}, body...)
+	screen := append([]string{m.renderTitle()}, body...)
 	screen = append(screen, styleDetail.Render(" j/k 이동  x 취소  q 닫기"))
-	screen = append(screen, m.bareStatusBar()...)
+	screen = append(screen, m.renderBareStatusBar()...)
 
-	view := m.screenView(screen)
+	view := newView(screen)
 
 	// 커서는 고른 행 왼쪽 끝에 둔다. 제목줄이 한 줄을 쓰므로 목록은 그 아래에서 시작한다.
 	if len(rows) > 0 {
@@ -216,39 +240,42 @@ func (e editor) listHeight() int {
 // jobsHintHeight 는 키 안내가 차지하는 줄 수다.
 const jobsHintHeight = 1
 
-// bareStatusBar 는 트리가 없는 것으로 치고 그린 statusBar 다.
+// renderBareStatusBar 는 트리가 없는 것으로 치고 그린 statusBar 다.
 //
 // statusBar 는 sidebar 가 열려 있으면 mode 를 그 아래 칸에 넣고 나머지를 32 칸 들여쓴다(ADR-0005).
 // 이 화면은 트리를 덮으므로 그대로 두면 목록은 왼쪽 끝에서 시작하는데 statusBar 만 밀려서
 // 화면이 반쪽만 바뀐 것처럼 보인다. editor 를 값으로 복사해서 트리만 지운 뒤 그린다.
-func (m viewJobs) bareStatusBar() []string {
+func (m viewJobs) renderBareStatusBar() []string {
 	bare := *m.editor
 	bare.sidebar = sidebar{}
 
-	return bare.statusBar("JOBS", m.message)
+	// 접두 키를 기다리는 동안 먹은 키는 normal·트리와 같이 아래 줄 오른쪽 끝에 붙는다.
+	// 기다리는 상태가 아직 없어서 지금은 늘 빈 문자열이고 아래 줄이 그대로 나간다.
+	// 폭은 트리를 지운 bare 기준이다 — 이 화면은 트리를 덮는다.
+	return bare.renderStatusBar("JOBS", bare.renderWithShowcmd(m.message, m.keyState().showcmd()))
 }
 
 // jobsTitleHeight 는 제목줄이 차지하는 줄 수다. tabline 과 같은 자리를 쓴다.
 const jobsTitleHeight = tablineHeight
 
-// title 은 맨 윗줄이다. 이 화면이 무엇인지와 몇 개가 도는지를 적는다.
+// renderTitle 은 맨 윗줄이다. 이 화면이 무엇인지와 몇 개가 도는지를 적는다.
 //
 // tabline 과 같이 반전이다 — 화면 맨 위를 가로지르는 띠라는 것이 편집 화면과 같은 문법이라야
 // 화면이 바뀐 것이 아니라 다른 화면으로 온 것으로 읽힌다.
-func (m viewJobs) title() string {
+func (m viewJobs) renderTitle() string {
 	label := fmt.Sprintf("작업  도는 중 %d · 끝난 것 %d", len(m.jobs), len(m.finished))
 
 	return reverse.Width(m.width).Render(truncateToWidth(label, m.width))
 }
 
-// jobRow 는 작업 한 줄이다.
+// renderJobRow 는 작업 한 줄이다.
 //
 //	▸ 파일 인덱싱      ⣿⣿⣿⣿⣄⣀⣀⣀⣀⣀  42%   0:03
 //	  파일 인덱싱      끝남  151,933 개         0:12
 //
 // 도는 것은 막대와 백분율, 끝난 것은 상태와 요약이 같은 칸에 온다. 전체를 모르는 동안에는
 // statusBar 와 같이 개수만 찍는다(job.go).
-func (m viewJobs) jobRow(running job, selected bool, now time.Time) string {
+func (m viewJobs) renderJobRow(running job, selected bool, now time.Time) string {
 	marker := "  "
 	if selected {
 		marker = "▸ "
@@ -257,7 +284,7 @@ func (m viewJobs) jobRow(running job, selected bool, now time.Time) string {
 	state := running.label()
 	if running.finished.IsZero() {
 		if running.total > 0 {
-			state = fmt.Sprintf("%s  %3d%%", drawBar(running.done, running.total), 100*running.done/running.total)
+			state = fmt.Sprintf("%s  %3d%%", renderBar(running.done, running.total), 100*running.done/running.total)
 		} else {
 			state = formatCount(running.done)
 		}

@@ -10,8 +10,8 @@ package core
 //
 // 모르는 motion 이면 false 다. 그래야 `c` 뒤에 손이 미끄러진 키가 insert mode 로 끌고 가지 않는다.
 // 바꿀 것이 없어도(빈 줄에서 친 `cw`) true 다 — vim 처럼 그 자리에서 넣기 시작한다.
-func (buf *Buffer) changeByMotion(motion string, count, width int) (register, bool) {
-	area, ok := buf.changeRange(motion, count, width)
+func (buf *Buffer) changeByMotion(m motion, count, width int) (register, bool) {
+	area, ok := m.span(*buf, count, width)
 	if !ok {
 		return register{}, false
 	}
@@ -36,55 +36,6 @@ func (buf *Buffer) changeByMotion(motion string, count, width int) (register, bo
 	buf.resumeEdit()
 
 	return removed, true
-}
-
-// changeRange 는 `c` 가 바꿀 범위다. `cw` 의 예외만 빼면 `d` 와 같은 계산이다.
-//
-// **`cw` 는 `ce` 다.** 커서가 공백 아닌 글자 위면 단어 뒤 공백을 남기고 단어 끝까지만 바꾼다.
-// 단어 하나를 갈아 끼우고 나면 뒷 공백이 그대로 있어야 하기 때문이다. vim 과 같다.
-// 커서가 공백 위면 예외가 아니라 `dw` 처럼 공백을 건너뛴다 — 바꿀 것이 그 공백이다.
-func (buf Buffer) changeRange(motion string, count, width int) (motionRange, bool) {
-	kind, isWordMotion := changeWordKind(motion)
-	if !isWordMotion {
-		return buf.rangeByMotion(motion, count, width)
-	}
-
-	// 빈 줄에서는 바꿀 것이 없다. `dw` 는 그 줄을 지우고 다음 줄을 끌어올리지만(ADR-0013),
-	// 빈 줄에 글을 쓰려고 `cw` 를 친 손에는 다음 줄이 딸려 올라오는 것이 사고다.
-	// vim 도 여기서는 줄을 합치지 않는다 — exclusive 보정 규칙이 이 자리를 줄 단위로 돌린다.
-	if len(buf.lines[buf.cursorLine]) == 0 {
-		return motionRange{
-			startLine: buf.cursorLine, endLine: buf.cursorLine,
-			targetLine: buf.cursorLine,
-		}, true
-	}
-
-	// 공백 위면 예외가 아니다. 바꿀 것이 그 공백이라 `dw` 와 같이 건너뛴다.
-	if buf.classAt(buf.cursorLine, buf.cursorCol, kind) == classBlank {
-		return buf.rangeByMotion(motion, count, width)
-	}
-
-	// 이동을 복사본 위에서 실제로 실행해서 끝 자리를 얻는다. charMotionTarget 과 같은 방식이다.
-	moved := buf
-	moved.wordEndToChange(max(count, 1), kind, width)
-
-	return motionRange{
-		startLine: buf.cursorLine, startCol: buf.cursorCol,
-		endLine: moved.cursorLine, endCol: moved.cursorCol,
-		targetLine: moved.cursorLine, targetCol: moved.cursorCol,
-	}, true
-}
-
-// changeWordKind 는 motion 이 `cw` 예외에 걸리는 단어 이동인지다.
-func changeWordKind(motion string) (wordKind, bool) {
-	switch motion {
-	case "w":
-		return smallWord, true
-	case "W":
-		return bigWord, true
-	}
-
-	return smallWord, false
 }
 
 // wordEndToChange 는 `cw` 가 바꿀 끝 자리로 간다. 커서가 선 글자까지 넣은 자리다.

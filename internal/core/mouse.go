@@ -7,7 +7,7 @@ import (
 // region 은 화면 좌표가 어느 영역인지다.
 //
 // mouse 는 키와 달리 "무엇을 눌렀는가" 가 좌표로만 오므로, 좌표를 뜻으로 바꾸는 단계가
-// 먼저 있어야 한다. 키의 상태 기계(ADR-0006) 가 키 나열을 명령으로 바꾸는 것과 같은 자리다.
+// 먼저 있어야 한다. 키의 상태 기계(ADR-0006) 가 키 나열을 동작으로 바꾸는 것과 같은 자리다.
 type region int
 
 const (
@@ -22,7 +22,7 @@ const (
 
 // regionAt 은 화면 좌표가 어느 영역인지 돌려준다.
 //
-// 그리는 쪽(screenRows) 과 판별하는 쪽이 어긋나면 한 칸 옆을 누른 것이 되므로
+// 그리는 쪽(renderScreen) 과 판별하는 쪽이 어긋나면 한 칸 옆을 누른 것이 되므로
 // 수치를 새로 두지 않고 render 가 쓰는 geometry 를 그대로 쓴다.
 func (e editor) regionAt(x, y int) region {
 	if x < 0 || y < 0 || x >= e.width || y >= e.height {
@@ -52,7 +52,7 @@ func (e editor) regionAt(x, y int) region {
 // scrollTo 는 부르지 않는다. 이미 보이는 자리를 눌렀으니 화면이 움직일 이유가 없고,
 // 부르면 wrap 된 줄 안에 스크롤해 둔 상태에서 화면이 튄다.
 func (e *editor) clickText(x, y int) {
-	buf := e.buffer()
+	buf := e.activeBuffer()
 
 	line, col, ok := buf.positionAt(x-e.contentLeft(), y-tablineHeight, e.contentWidth(), e.textHeight())
 	if !ok {
@@ -76,12 +76,14 @@ func (e *editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
 }
 
 // clickTabline 은 tabline 좌표의 tab 으로 옮겨간다.
-// 구분선과 오른쪽 빈 칸처럼 tab 이 없는 칸이면 아무것도 하지 않는다.
+// 구분선과 오른쪽 빈 칸, 잘린 tab 자리의 점처럼 tab 이 없는 칸이면 아무것도 하지 않는다.
 //
 // 양끝의 가려짐 표시를 누르면 보고 있는 tab 은 그대로 두고 그 방향으로 한 칸 민다(ADR-0029).
 // 지금 편집하는 것을 놓지 않고 가려진 쪽에 무엇이 있는지 훑을 수 있어야 한다.
+//
+// 옮겨간 tab 자리를 트리가 아직 읽지 않았으면 읽는 작업이 시작되므로 Cmd 가 나온다. `gt` 와 같다.
 func (e *editor) clickTabline(x int) tea.Cmd {
-	row := e.tabline(e.textWidth())
+	row := e.renderTabline(e.textWidth())
 
 	col := x - e.sidebarLeft()
 	switch {
@@ -110,9 +112,9 @@ func (e *editor) clickTabline(x int) tea.Cmd {
 	e.active = index
 
 	// 그 buffer 는 이 창 크기를 본 적이 없을 수 있다. gt 와 같은 처리다.
-	e.buffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 
-	return e.revealInSidebar(e.buffer().path)
+	return e.revealInSidebar(e.activeBuffer().path)
 }
 
 // wheelRows 는 휠 한 번에 굴리는 화면 행 수다.
@@ -140,7 +142,7 @@ func (e *editor) wheel(mouse tea.Mouse) {
 	case regionSidebar:
 		e.sidebar.scrollBy(rows, e.sidebarHeight())
 	case regionText:
-		e.buffer().scrollBy(rows, e.contentWidth(), e.textHeight())
+		e.activeBuffer().scrollBy(rows, e.contentWidth(), e.textHeight())
 	}
 }
 
@@ -156,7 +158,7 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		m.clickText(mouse.X, mouse.Y)
 
 		// normal 의 커서는 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
-		m.buffer().clampToNormal(m.contentWidth())
+		m.activeBuffer().clampToNormal(m.contentWidth())
 	}
 
 	return m, nil
@@ -169,12 +171,12 @@ func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
-		m.buffer().endEdit()
+		m.activeBuffer().endEdit()
 
 		return m, m.clickTabline(mouse.X)
 	case regionText:
 		// 커서를 옮기면 undo 구간이 끊긴다. 화살표 이동과 같다. vim 과 같다.
-		m.buffer().endEdit()
+		m.activeBuffer().endEdit()
 		m.clickText(mouse.X, mouse.Y)
 	}
 
@@ -195,7 +197,7 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmd, reveal)
 	case regionText:
 		m.clickText(mouse.X, mouse.Y)
-		m.buffer().clampToNormal(m.contentWidth())
+		m.activeBuffer().clampToNormal(m.contentWidth())
 
 		return normalMode(m.editor)
 	}

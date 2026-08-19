@@ -218,7 +218,7 @@ func TestTreeNoticeRowIsNotMarkedActive(t *testing.T) {
 	require.NotNil(t, m.startTree())
 
 	require.Equal(t, "", m.activePath())
-	cells := m.sidebar.cells(m.sidebarHeight(), m.activePath(), boxUnicode)
+	cells := m.sidebar.renderCells(m.sidebarHeight(), m.activePath(), boxUnicode)
 	require.Contains(t, cells[1], "읽는 중")
 	assert.Empty(t, activeNames(cells))
 }

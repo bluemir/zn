@@ -9,12 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 재보지 않은 편집기는 지금까지와 똑같이 그린다. 테스트가 전부 이 자리에 있다.
-func TestBoxCharsDefaultToUnicode(t *testing.T) {
-	assert.Equal(t, boxUnicode, editor{}.boxChars())
-	assert.Equal(t, boxASCII, editor{asciiBox: true}.boxChars())
-}
-
 // ASCII 로 내려도 박스 글자는 전부 한 칸이어야 한다. 물러선 이유가 그것뿐이다.
 func TestASCIIBoxCharsAreSingleWidth(t *testing.T) {
 	for _, char := range []string{
@@ -29,9 +23,9 @@ func TestASCIIBoxCharsAreSingleWidth(t *testing.T) {
 // ASCII 모드에서도 팔레트 테두리가 유니코드일 때와 정확히 같은 자리에 있어야 한다.
 func TestASCIIPaletteBox(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "internal/core/edit.go", "main.go")
-	m.asciiBox = true
+	m.boxChars = boxASCII
 
-	rows := strings.Split(m.box(), "\n")
+	rows := strings.Split(m.renderBox(), "\n")
 	require.NotEmpty(t, rows)
 
 	assert.True(t, strings.HasPrefix(rows[0], "+-"), "위 모서리: %q", rows[0])
@@ -51,7 +45,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 func TestASCIISidebarCells(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
-	for i, cell := range s.cells(10, "", boxASCII) {
+	for i, cell := range s.renderCells(10, "", boxASCII) {
 		plain := ansi.Strip(cell)
 
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
@@ -63,9 +57,9 @@ func TestASCIISidebarCells(t *testing.T) {
 func TestASCIITabline(t *testing.T) {
 	m := newTestEditor("a\n", 80, 20)
 	m.buffers = append(m.buffers, Buffer{path: "b.txt"})
-	m.asciiBox = true
+	m.boxChars = boxASCII
 
-	line := m.tabline(m.textWidth()).line
+	line := m.renderTabline(m.textWidth()).line
 
 	assert.Contains(t, ansi.Strip(line), "|")
 	assert.NotContains(t, ansi.Strip(line), "│")

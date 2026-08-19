@@ -21,7 +21,12 @@ func Run(ctx context.Context, files []string) error {
 	// 한 칸으로 확인된 터미널에서만 쓰고, 두 칸이거나 재지 못했으면 ASCII 로 내린다(ADR-0028).
 	//
 	// tea.NewProgram 보다 먼저다. bubbletea 가 stdin 을 읽기 시작하면 답을 그쪽이 가져간다.
-	e.asciiBox = probeAmbiguousWidth() != 1
+	switch {
+	case probeAmbiguousWidth() == 1:
+		e.boxChars = boxUnicode
+	default: // fallback option
+		e.boxChars = boxASCII
+	}
 
 	// filetree 는 기본으로 열어둔다. `:tree` 로 닫는다.
 	//
@@ -36,7 +41,7 @@ func Run(ctx context.Context, files []string) error {
 		// 읽기를 시작하지는 않는다. 여기는 Program 이 뜨기 전이라 Cmd 를 낼 자리가 없다 —
 		// 첫 읽기는 normal mode 의 Init 이 startTree 로 시작하고, 트리는 그때부터
 		// 이 자리를 향해 한 층씩 내려간다(ADR-0032).
-		e.sidebar.setRevealTarget(e.buffer().path)
+		e.sidebar.setRevealTarget(e.activeBuffer().path)
 	}
 
 	first, _ := normalMode(e)

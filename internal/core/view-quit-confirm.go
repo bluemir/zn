@@ -3,7 +3,6 @@ package core
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/cockroachdb/errors"
 )
 
 // ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
@@ -83,14 +82,12 @@ func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 	case "esc":
 		return m.parent, nil
 	case "enter":
-		switch m.cursor {
-		case 0:
+		// 고른 자리는 left/right 로만 움직여서 0(Yes) 아니면 1(No) 이다.
+		if m.cursor == 0 {
 			return m.confirm()
-		case 1:
-			return m.parent, nil
-		default:
-			return ExitWithError(errors.Errorf("Invalid state"))
 		}
+
+		return m.parent, nil
 	default:
 		return m, nil
 	}
@@ -130,9 +127,6 @@ func (m viewConfirmDiscard) View() tea.View {
 func Exit() (tea.Model, tea.Cmd) {
 	return finalExit{}, tea.Quit
 }
-func ExitWithError(err error) (tea.Model, tea.Cmd) {
-	return finalExit{err: err}, tea.Quit
-}
 
 func cursor(cond bool, str string) string {
 	if cond {
@@ -164,7 +158,7 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return quitAll(parent, e)
 	}
 
-	if e.buffer().dirty {
+	if e.activeBuffer().dirty {
 		return ConfirmDiscard(parent, e, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return forceCloseTab(e)
 		}), nil
@@ -181,7 +175,7 @@ func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 
 	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를
 	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032).
-	reveal := e.revealInSidebar(e.buffer().path)
+	reveal := e.revealInSidebar(e.activeBuffer().path)
 
 	model, cmd := normalMode(e)
 

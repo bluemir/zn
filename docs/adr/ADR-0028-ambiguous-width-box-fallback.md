@@ -48,12 +48,13 @@ alt screen 에 들어가기 전이라 이 글자는 셸이 쓰던 화면에 찍�
 
 **못 재면 ASCII 다.** tty 가 아니거나, 100ms 안에 답이 없거나, 답을 알아볼 수 없을 때다.
 
-**고른 글자는 `editor.asciiBox` 한 필드로 들고 `boxChars()` 가 `boxSet` 을 돌려준다.**
-`boxSet` 은 여덟 자리에 이름을 붙인 struct 값이다. `viewPalette` 는 `*editor` 를 들고 있어
-그대로 읽고, `sidebar.cells` 와 `treeRow.cell` 은 인자로 받는다.
+**고른 글자는 `editor.boxChars` 에 `boxSet` 값으로 들어간다.** `boxSet` 은 여덟 자리에 이름을
+붙인 struct 값이다. 어느 쪽을 쓸지는 `core.Run` 이 재본 뒤 한 번 넣어주므로 편집기 안에는
+"ASCII 인가" 를 되묻는 자리가 없다. `viewPalette` 는 `*editor` 를 들고 있어 그대로 읽고,
+`sidebar.cells` 와 `treeRow.cell` 은 인자로 받는다.
 
-**zero value 는 유니코드 박스다.** 재보지 않은 `editor{}` — 테스트가 전부 그렇다 — 는
-지금까지와 한 글자도 다르지 않게 그린다.
+**zero value 는 글자가 빈 `boxSet` 이다.** 그러므로 화면을 그리는 테스트는 편집기를 만드는
+자리(`newTestEditor`·`newTabsEditor`·`newTreeEditor`) 에서 `boxUnicode` 를 넣는다.
 
 **이번에 물러서는 것은 테두리·구분선뿐이다.** 파일 내용의 폭 계산(`clusterAt`) 은 건드리지
 않는다.

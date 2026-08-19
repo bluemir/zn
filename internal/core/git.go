@@ -93,10 +93,10 @@ func tickGit() tea.Cmd {
 	})
 }
 
-// refreshGit 은 저장소 상태를 백그라운드에서 읽는 작업을 시작한다.
+// startGitRefresh 는 저장소 상태를 백그라운드에서 읽는 작업을 시작한다.
 //
 // 결과는 apply 가 editor 에 넣는다 — Update 안에서 불리므로 잠금이 필요 없다(job.go).
-func (e *editor) refreshGit() tea.Cmd {
+func (e *editor) startGitRefresh() tea.Cmd {
 	return e.startJob(gitJobName, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress, 1)
 

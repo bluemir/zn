@@ -45,9 +45,9 @@ sidebar 에 한해 뒤집는다.
 
 bubbletea 답게 만들면 `sidebar` 가 `Init`/`Update`/`View` 를 갖고 부모가 메시지를 넘겨주는
 중첩 model 이 된다. 그러면 키가 어디서 처리되는지가 한 겹 숨고, 돌려받은 `tea.Model` 을
-다시 `sidebar` 로 型 단언해야 한다.
+다시 `sidebar` 로 type 단언해야 한다.
 
-ADR-0002 가 型 교체를 고른 것은 **mode** 에 대해서였고, 그 근거는 "bubbletea 가 이미
+ADR-0002 가 type 교체를 고른 것은 **mode** 에 대해서였고, 그 근거는 "bubbletea 가 이미
 `tea.Model` 을 갈아끼우고 있으니 그 결을 따른다" 였다. pane 은 그렇게 끌어당기는 것이 없다.
 `internal/tui/components` 가 그 방식이지만 `core` 는 지금 그것을 쓰지 않고 자기 화면을 직접 그린다.
 
@@ -59,7 +59,7 @@ ADR-0002 가 型 교체를 고른 것은 **mode** 에 대해서였고, 그 근�
 `Enter` 는 줄 나누기가 아니라 파일 열기다. `editor` 에 `focus bool` 을 두고 mode 마다 분기하면
 ADR-0002 가 없앤 "잘못된 상태" 가 돌아온다.
 
-`viewSidebar` 는 필드가 `pending` 하나뿐인 거의 빈 型 이다. 그래도 값을 한다 — **키 표를 소유한다.**
+`viewSidebar` 는 필드가 `pending` 하나뿐인 거의 빈 type 이다. 그래도 값을 한다 — **키 표를 소유한다.**
 
 ### 포커스 표시를 커서로 한 이유
 
@@ -157,7 +157,7 @@ statusBar 를 pane 마다 하나씩 두는 것은 보지 않았다. 두 벌이 �
 좋은 점
 
 - 트리 상태가 `sidebar` 하나에 모여서 `editor` 가 위젯 내부를 모른다.
-- 포커스가 型 이라 "sidebar 에 포커스가 있는데 편집 키가 도는" 상태가 만들어지지 않는다.
+- 포커스가 type 이라 "sidebar 에 포커스가 있는데 편집 키가 도는" 상태가 만들어지지 않는다.
 - 커서 하나가 포커스 표시를 겸해서 새로 배울 시각 언어가 없다.
 - `root` 가 필드라 테스트가 `t.TempDir()` 를 넣는다. `os.Getwd()` 나 `fs.FS` interface 가 필요 없었다.
 - sidebar 가 닫혀 있으면 예전과 한 글자도 다르지 않게 그린다. 기존 테스트가 한 줄도 안 바뀌었다.
@@ -171,7 +171,7 @@ statusBar 를 pane 마다 하나씩 두는 것은 보지 않았다. 두 벌이 �
 - **`git check-ignore` 가 외부 프로세스다.** 느린 저장소에서는 디렉터리를 펼치는 순간 멈칫한다.
   `Update` 안에서 동기로 돌기 때문이다.
 - **디렉터리를 펼칠 때 `os.ReadDir` 이 전부 읽는다.** 항목이 수만 개인 디렉터리에서는 한 키가 멈춘다.
-- **`viewSidebar` 가 거의 빈 型 이다.** 型 하나가 늘고 `WindowSizeMsg` 껍데기도 같이 는다
+- **`viewSidebar` 가 거의 빈 type 이다.** type 하나가 늘고 `WindowSizeMsg` 껍데기도 같이 는다
   (ADR-0002 가 이미 감수한 비용이다).
 - **sidebar 는 `:` 를 받지 않는다.** 받으면 명령이 끝난 뒤 어디로 돌아갈지를 `viewEditorCommand`
   가 들고 다녀야 한다. 한 키 편하자고 치를 비용이 아니다.
@@ -191,7 +191,7 @@ statusBar 를 pane 마다 하나씩 두는 것은 보지 않았다. 두 벌이 �
 **`datastruct.Tree` 재사용** — 이름은 맞지만 pubsub 라우팅용 concurrent trie 다. 자식 순서도
 순회도 없어서 화면에 그릴 수가 없다.
 
-**`editor` 에 `focus` 필드** — 型 을 안 늘려도 된다. 대신 mode 마다 "포커스가 어디냐" 분기가
+**`editor` 에 `focus` 필드** — type 을 안 늘려도 된다. 대신 mode 마다 "포커스가 어디냐" 분기가
 생기고, mode 를 옮기는 모든 자리에서 focus 를 맞춰줘야 한다. 빠뜨리기 쉽다.
 
 **`.gitignore` 직접 파싱** — 외부 프로세스가 없어진다. 위에 적은 문법 크기가 이유로 충분하다.

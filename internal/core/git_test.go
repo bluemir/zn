@@ -145,7 +145,7 @@ func TestCancelledGitJobKeepsStatus(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	e := &editor{ctx: ctx}
 
-	cmd := e.refreshGit()
+	cmd := e.startGitRefresh()
 	require.NotNil(t, cmd)
 	cancel()
 

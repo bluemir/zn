@@ -245,6 +245,21 @@ func TestSearchNextWithoutSearchTells(t *testing.T) {
 	assert.Contains(t, barOf(t, m)[1], "이전 검색이 없습니다")
 }
 
+// `n` 은 mode 를 바꾸지 않는다. 그래서 겹모음 `ㅝ`(`n` `j`) 의 뒤 동작이 이어서 실행된다.
+//
+// 검색이 없어서 알리기만 할 때도 같다 — 알림이 뒤 동작을 삼키면 `ㅝ` 가 아래로 못 간다.
+// `jumpToMatch` 가 model 을 돌려주던 동안에는 그 구별이 `press` 의 type 확인에 달려 있었다
+// (ADR-0008, ADR-0034).
+func TestHangulSearchThenMoveRunsBoth(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\ndef\n", 40, 5)
+
+	m = send(m, "ㅝ")
+
+	require.IsType(t, viewEditorNormal{}, m, "mode 는 그대로다")
+	assert.Contains(t, barOf(t, m)[1], "이전 검색이 없습니다")
+	assert.Equal(t, 1, bufferOf(t, m).cursorLine, "뒤의 `j` 도 실행된다")
+}
+
 // 빈 채로 Enter 는 마지막 검색을 그 방향으로 되풀이한다.
 func TestSearchEmptyRepeatsLastPattern(t *testing.T) {
 	var m tea.Model = newTestEditor("foo\nbar\nfoo\n", 40, 5)

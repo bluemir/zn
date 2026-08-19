@@ -55,7 +55,7 @@ func TestJobBarSteps(t *testing.T) {
 		// 끝을 넘겨 세도 막대는 꽉 찬 데서 멈춘다.
 		{done: 90, total: 60, want: "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿"},
 	} {
-		bar := drawBar(tt.done, tt.total)
+		bar := renderBar(tt.done, tt.total)
 
 		assert.Equal(t, tt.want, bar, "%d/%d", tt.done, tt.total)
 		assert.Equal(t, jobBarCells, len([]rune(bar)), "폭은 언제나 열 칸이다")
@@ -117,7 +117,7 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 		{name: "palette", open: func(t *testing.T) tea.Model { return newPaletteView(t, 80, 20, "a.txt") }},
 		{name: "확인창", open: func(t *testing.T) tea.Model {
 			e := newTestEditor("abc\n", 80, 5)
-			e.buffer().insert([]byte("X"), e.contentWidth())
+			e.activeBuffer().insert([]byte("X"), e.contentWidth())
 
 			return ConfirmDiscard(e, e.editor, "정말 종료 하시겠습니까?", Exit)
 		}},
@@ -138,7 +138,7 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 // editor 는 하나뿐이라, No 로 부모에 돌아가면 그동안의 진행이 보인다 (ADR-0026).
 func TestJobSurvivesConfirmDialog(t *testing.T) {
 	parent := newTestEditor("abc\n", 80, 5)
-	parent.buffer().insert([]byte("X"), parent.contentWidth())
+	parent.activeBuffer().insert([]byte("X"), parent.contentWidth())
 
 	var confirm tea.Model = ConfirmDiscard(parent, parent.editor, "이 tab 을 닫으시겠습니까?", Exit)
 

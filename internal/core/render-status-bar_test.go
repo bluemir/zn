@@ -144,7 +144,7 @@ func TestStatusBarShowsPendingKeys(t *testing.T) {
 	assert.True(t, strings.HasSuffix(barOf(t, m)[1], "31"), "자릿수가 붙는다")
 
 	m = send(m, "j")
-	assert.False(t, strings.HasSuffix(barOf(t, m)[1], "31"), "명령이 끝나면 사라진다")
+	assert.False(t, strings.HasSuffix(barOf(t, m)[1], "31"), "동작이 끝나면 사라진다")
 
 	m = send(m, "g")
 	assert.True(t, strings.HasSuffix(barOf(t, m)[1], "g"), "접두 키도 보인다")
