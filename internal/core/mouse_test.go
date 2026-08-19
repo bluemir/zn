@@ -357,7 +357,7 @@ func TestClickTablineWithDirtyTab(t *testing.T) {
 func TestClickTablineHiddenCountScrolls(t *testing.T) {
 	m := newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
 	m.width = 30
-	require.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, m.View()))
+	require.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, m.View()))
 
 	var model tea.Model = m
 	model, _ = model.Update(click(m.tabline(m.textWidth()).right[0], 0))
@@ -365,14 +365,14 @@ func TestClickTablineHiddenCountScrolls(t *testing.T) {
 	normal, ok := model.(viewEditorNormal)
 	require.True(t, ok)
 	assert.Equal(t, 0, normal.active, "보고 있는 tab 은 그대로다")
-	assert.Equal(t, "<1│ 2 b.txt │ 3 c.txt │2>", tablineOf(t, normal.View()))
+	assert.Equal(t, "<1│ 2 b.txt │ 3 c.txt │....│2>", tablineOf(t, normal.View()))
 
 	model, _ = model.Update(click(normal.tabline(normal.textWidth()).left[0], 0))
 
 	normal, ok = model.(viewEditorNormal)
 	require.True(t, ok)
 	assert.Equal(t, 0, normal.active)
-	assert.Equal(t, " 1 a.txt │ 2 b.txt │3>", tablineOf(t, normal.View()), "왼쪽 표시는 도로 당긴다")
+	assert.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, normal.View()), "왼쪽 표시는 도로 당긴다")
 }
 
 // 밀어둔 채로 tab 을 옮기면 활성 tab 을 따라 다시 맞는다.
@@ -382,7 +382,7 @@ func TestTabSwitchResetsManualTablineScroll(t *testing.T) {
 
 	var model tea.Model = m
 	model, _ = model.Update(click(m.tabline(m.textWidth()).right[0], 0))
-	require.Equal(t, "<1│ 2 b.txt │ 3 c.txt │2>", tablineOf(t, model.(viewEditorNormal).View()))
+	require.Equal(t, "<1│ 2 b.txt │ 3 c.txt │....│2>", tablineOf(t, model.(viewEditorNormal).View()))
 
 	model = send(model, "g", "T")
 

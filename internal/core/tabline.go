@@ -141,6 +141,7 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 //
 // width 는 화면 너비가 아니라 편집 영역 너비다. sidebar 가 열려 있으면 그만큼 좁다.
 // 다 그릴 수 없으면 tabScroll 자리부터 그리고 남은 것은 양끝의 `<n`·`n>` 이 알린다(ADR-0029).
+// 두 표시는 줄의 양 끝에 붙고 그 사이에 남는 칸은 잘린 tab 자리라 점으로 채운다.
 func (e editor) tabline(width int) tablineRow {
 	row := tablineRow{tabs: make([][2]int, len(e.buffers))}
 
@@ -184,17 +185,32 @@ func (e editor) tabline(width int) tablineRow {
 		row.tabs[i] = put(e.tabLabel(i), i == e.active)
 	}
 
+	// 오른쪽 표시는 줄 맨 끝에 붙인다. 마지막 tab 뒤에 두면 tab 이름 길이에 따라 자리가 달라져서
+	// 누를 때마다 다른 칸을 겨눠야 한다. 왼쪽 표시가 늘 0 칸인 것과 짝이 맞는다.
+	tail := 0
+	if window.right != "" {
+		tail = 1 + screenWidthOf(window.right) // 구분선과 표시
+	}
+
+	// 그 사이에 남는 칸은 통째로 들어가지 못한 다음 tab 의 자리다. 점으로 채워 거기서 잘렸다고 알린다.
+	// 한 칸뿐이면 구분선만 남아 오른쪽 표시의 구분선과 붙어 버리므로 비운다.
+	// 남은 칸도 채워야 줄 전체가 한 덩어리로 보인다.
+	if gap := width - col - tail; gap > 0 {
+		hidden := len(e.buffers) - scroll - window.count
+		if hidden > 0 && gap >= 2 && col > 0 {
+			put(e.boxChars.vertical, false)
+			put(strings.Repeat(".", gap-1), false)
+		} else {
+			put(strings.Repeat(" ", gap), false)
+		}
+	}
+
 	if window.right != "" {
 		if col > 0 {
 			put(e.boxChars.vertical, false)
 		}
 
 		row.right = put(window.right, false)
-	}
-
-	// 남은 칸도 채워야 줄 전체가 한 덩어리로 보인다.
-	if width > col {
-		put(strings.Repeat(" ", width-col), false)
 	}
 
 	row.line = line.String()
