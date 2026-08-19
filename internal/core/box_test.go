@@ -25,7 +25,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "internal/core/edit.go", "main.go")
 	m.boxChars = boxASCII
 
-	rows := strings.Split(m.box(), "\n")
+	rows := strings.Split(m.renderBox(), "\n")
 	require.NotEmpty(t, rows)
 
 	assert.True(t, strings.HasPrefix(rows[0], "+-"), "위 모서리: %q", rows[0])
@@ -45,7 +45,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 func TestASCIISidebarCells(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
-	for i, cell := range s.cells(10, "", boxASCII) {
+	for i, cell := range s.renderCells(10, "", boxASCII) {
 		plain := ansi.Strip(cell)
 
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
@@ -59,7 +59,7 @@ func TestASCIITabline(t *testing.T) {
 	m.buffers = append(m.buffers, Buffer{path: "b.txt"})
 	m.boxChars = boxASCII
 
-	line := m.tabline(m.textWidth()).line
+	line := m.renderTabline(m.textWidth()).line
 
 	assert.Contains(t, ansi.Strip(line), "|")
 	assert.NotContains(t, ansi.Strip(line), "│")

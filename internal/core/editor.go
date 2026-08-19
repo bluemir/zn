@@ -331,7 +331,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 	return cmd, nil
 }
 
-// render 는 mode 가 공유하는 화면이다.
+// editorView 는 mode 가 공유하는 화면이다.
 //
 // mode 마다 다른 것은 커서 모양과 statusBar 에 찍히는 것뿐이라 인자로 받는다.
 // mode 별 model 이 자기 이름을 아는데 바깥에서 물을 필요가 없다(ADR-0002).
@@ -339,7 +339,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 // bottom 은 statusBar 의 아래 줄이다. normal/insert 는 커서 위치를 넣고,
 // command mode 는 치고 있는 명령을 넣는다. vim 처럼 맨 아래 줄을 명령줄로 쓰는 것이라
 // 줄을 더 만들지 않아 편집 영역 높이가 흔들리지 않는다.
-func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
+func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View {
 	buf := e.buffers[e.active]
 	height := e.textHeight()
 
@@ -361,10 +361,10 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 		}
 
 		textRows = append(textRows,
-			e.lineNumber(buf.cursorLine, row)+highlightRow(buf.lines[row.line], row, matches, cursorCol))
+			e.renderLineNumber(buf.cursorLine, row)+renderRow(buf.lines[row.line], row, matches, cursorCol))
 	}
 
-	view := e.viewRows(textRows, mode, bottom)
+	view := e.screenView(e.renderScreen(textRows, mode, bottom))
 
 	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
@@ -373,12 +373,6 @@ func (e editor) render(shape tea.CursorShape, mode, bottom string) tea.View {
 	}
 
 	return view
-}
-
-// viewRows 는 편집 영역에 그릴 행들을 받아 편집기 틀에 얹은 화면을 만든다.
-// tabline 과 sidebar 가 따라온다.
-func (e editor) viewRows(textRows []string, mode, bottom string) tea.View {
-	return e.screenView(e.screenRows(textRows, mode, bottom))
 }
 
 // screenView 는 화면 전체 행을 받아 tea.View 를 만든다.
@@ -403,7 +397,7 @@ func (e editor) screenView(rows []string) tea.View {
 	return view
 }
 
-// screenRows 는 화면 전체 행이다.
+// renderScreen 는 편집 내용에 tabline·sidebar·statusBar 를 맞물려 화면 전체 행을 만든다.
 //
 // tabline 은 편집 영역 위에만 그린다. sidebar 위에 걸치면 tab 목록이 지금 보고 있는 파일이
 // 아니라 트리에 딸린 것처럼 읽힌다. 그래서 sidebar 가 화면 맨 윗줄부터 시작하고
@@ -417,12 +411,12 @@ func (e editor) screenView(rows []string) tea.View {
 //
 // sidebar 가 없으면 지금까지와 똑같이 그린다. 채움 행은 빈 문자열이고 본문 뒤에
 // 빈 칸을 붙이지 않는다. 그래야 화면 문자열이 예전과 한 글자도 다르지 않다.
-func (e editor) screenRows(textRows []string, mode, bottom string) []string {
+func (e editor) renderScreen(textRows []string, mode, bottom string) []string {
 	height := e.sidebarHeight()
 
 	// sidebar 오른쪽에 쌓이는 것들이다. 맨 위가 tabline 이고 그 아래가 편집 내용이다.
 	right := make([]string, 0, height)
-	right = append(right, e.tabline(e.textWidth()).line)
+	right = append(right, e.renderTabline(e.textWidth()).line)
 	right = append(right, textRows...)
 	for len(right) < height {
 		right = append(right, "")
@@ -430,7 +424,7 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 
 	rows := right
 	if e.sidebarVisible() {
-		cells := e.sidebar.cells(height, e.activePath(), e.boxChars)
+		cells := e.sidebar.renderCells(height, e.activePath(), e.boxChars)
 
 		rows = make([]string, 0, height)
 		for i := range height {
@@ -438,7 +432,7 @@ func (e editor) screenRows(textRows []string, mode, bottom string) []string {
 		}
 	}
 
-	return append(rows, e.statusBar(mode, bottom)...)
+	return append(rows, e.renderStatusBar(mode, bottom)...)
 }
 
 // reverse 는 편집 내용과 구분되는 색이다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다.

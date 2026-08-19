@@ -108,5 +108,5 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m viewEditorInsert) View() tea.View {
 	// 커서가 글자 사이에 있으므로 막대다.
-	return m.render(tea.CursorBar, "INSERT", m.messageOr(m.position()))
+	return m.editorView(tea.CursorBar, "INSERT", m.messageOr(m.renderPosition()))
 }

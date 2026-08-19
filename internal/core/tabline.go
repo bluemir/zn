@@ -134,7 +134,7 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 	return window
 }
 
-// tabline 은 편집 영역 맨 위 한 줄이다. 열린 파일과 지금 보고 있는 것을 보여준다.
+// renderTabline 은 편집 영역 맨 위 한 줄을 그린다. 열린 파일과 지금 보고 있는 것을 보여준다.
 //
 // 보고 있는 tab 만 편집 내용과 같은 색이고 나머지는 반전이다. vim 의 TabLine/TabLineSel 과 같다.
 // 활성 tab 이 아래 내용과 이어져 보이는 것이 tab 이라는 비유 자체다.
@@ -142,7 +142,7 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 // width 는 화면 너비가 아니라 편집 영역 너비다. sidebar 가 열려 있으면 그만큼 좁다.
 // 다 그릴 수 없으면 tabScroll 자리부터 그리고 남은 것은 양끝의 `<n`·`n>` 이 알린다(ADR-0029).
 // 두 표시는 줄의 양 끝에 붙고 그 사이에 남는 칸은 잘린 tab 자리라 점으로 채운다.
-func (e editor) tabline(width int) tablineRow {
+func (e editor) renderTabline(width int) tablineRow {
 	row := tablineRow{tabs: make([][2]int, len(e.buffers))}
 
 	line := strings.Builder{}

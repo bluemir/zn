@@ -289,8 +289,8 @@ const (
 // ADR-0020 이 공백 마커로 `»` 를 고른 것과 같은 기준이다.
 var jobBarRunes = []rune{'⣀', '⣄', '⣆', '⣇', '⣧', '⣷', '⣿'}
 
-// drawBar 는 막대다. 전체 대비 얼마나 왔는지를 예순 단계로 나눈다.
-func drawBar(done, total int) string {
+// renderBar 는 막대다. 전체 대비 얼마나 왔는지를 예순 단계로 나눈다.
+func renderBar(done, total int) string {
 	steps := 0
 	if total > 0 {
 		steps = done * jobBarCells * jobBarSteps / total
@@ -305,22 +305,22 @@ func drawBar(done, total int) string {
 	return string(bar)
 }
 
-// jobBar 는 맨 앞 작업의 막대다. 전체를 모르면 그리지 않는다 — 반쯤 찬 막대가 거짓말이 된다.
-func (e editor) jobBar() string {
+// renderJobBar 는 맨 앞 작업의 막대다. 전체를 모르면 그리지 않는다 — 반쯤 찬 막대가 거짓말이 된다.
+func (e editor) renderJobBar() string {
 	if len(e.jobs) == 0 || e.jobs[0].total <= 0 {
 		return ""
 	}
 
-	return drawBar(e.jobs[0].done, e.jobs[0].total)
+	return renderBar(e.jobs[0].done, e.jobs[0].total)
 }
 
-// jobText 는 statusBar 에 붙는 진행 표시다. 도는 것이 없으면 빈 문자열이다.
+// renderJobText 는 statusBar 에 붙는 진행 표시다. 도는 것이 없으면 빈 문자열이다.
 //
 // 목록 맨 앞, 곧 가장 먼저 시작한 것을 찍는다. 끝날 때까지 가리키는 것이 바뀌지 않아야
 // 눈이 따라갈 수 있다. 나머지는 개수로만 알린다.
 //
 // bar 는 막대다. 오른쪽에 붙일 칸이 모자라면 부르는 쪽이 빈 문자열을 준다.
-func (e editor) jobText(bar string) string {
+func (e editor) renderJobText(bar string) string {
 	if len(e.jobs) == 0 {
 		return ""
 	}

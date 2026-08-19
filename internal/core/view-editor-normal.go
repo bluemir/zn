@@ -131,6 +131,6 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 
 func (m viewEditorNormal) View() tea.View {
 	// 커서가 글자 위에 있으므로 블록이다.
-	return m.render(tea.CursorBlock, "NORMAL",
-		m.withShowcmd(m.messageOr(m.position()), m.keyState().showcmd()))
+	return m.editorView(tea.CursorBlock, "NORMAL",
+		m.renderWithShowcmd(m.messageOr(m.renderPosition()), m.keyState().showcmd()))
 }

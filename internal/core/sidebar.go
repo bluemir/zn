@@ -252,7 +252,7 @@ func (s *sidebar) scrollTo(height int) {
 // selectRow 는 sidebar 의 화면 행 y 에 있는 항목을 고른다.
 // 트리가 끝난 아래 빈 행이면 아무것도 하지 않고 false 다.
 //
-// cells 는 트리가 짧아도 height 개를 채우므로 그 채움 행을 걸러야 한다.
+// renderCells 는 트리가 짧아도 height 개를 채우므로 그 채움 행을 걸러야 한다.
 func (s *sidebar) selectRow(y, height int) bool {
 	index := s.top + y
 	if index < 0 || index >= len(s.rows()) {
@@ -305,13 +305,13 @@ var (
 	styleTreeIgnored = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 )
 
-// cells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
+// renderCells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
 // 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
 //
 // activePath 는 지금 보고 있는 파일의 절대 경로다. 그 행만 굵게, 밑줄 그어 그린다(ADR-0022).
 // 트리 커서는 터미널 커서라 포커스가 트리에 있을 때만 보이므로, 편집 중에 트리가
 // 지금 자리를 나타내는 것은 이 표시뿐이다. 이름 없는 buffer 는 빈 문자열이라 어느 행과도 안 맞는다.
-func (s sidebar) cells(height int, activePath string, box boxSet) []string {
+func (s sidebar) renderCells(height int, activePath string, box boxSet) []string {
 	rows := s.rows()
 
 	cells := make([]string, 0, max(0, height))
@@ -326,17 +326,17 @@ func (s sidebar) cells(height int, activePath string, box boxSet) []string {
 		// `… 읽는 중` 은 어느 파일도 아니다. 이름 없는 buffer 는 activePath 가 빈 문자열이라
 		// 그냥 두면 그 행이 "보고 있는 파일" 로 굵게 그려진다.
 		node := rows[index].node
-		cells = append(cells, rows[index].cell(!node.placeholder && node.path == activePath, box))
+		cells = append(cells, rows[index].render(!node.placeholder && node.path == activePath, box))
 	}
 
 	return cells
 }
 
-// cell 은 행 하나를 정확히 sidebarWidth 칸으로 그린다.
+// render 는 행 하나를 정확히 sidebarWidth 칸으로 그린다.
 //
 // 자르는 것이 색을 입히는 것보다 먼저다. escape 가 섞이면 폭을 셀 수 없다.
 // 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
-func (r treeRow) cell(active bool, box boxSet) string {
+func (r treeRow) render(active bool, box boxSet) string {
 	label := truncateToWidth(r.label(), labelWidth)
 	pad := max(0, labelWidth-screenWidthOf(label))
 

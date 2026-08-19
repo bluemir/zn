@@ -55,7 +55,7 @@ func TestJobBarSteps(t *testing.T) {
 		// 끝을 넘겨 세도 막대는 꽉 찬 데서 멈춘다.
 		{done: 90, total: 60, want: "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿"},
 	} {
-		bar := drawBar(tt.done, tt.total)
+		bar := renderBar(tt.done, tt.total)
 
 		assert.Equal(t, tt.want, bar, "%d/%d", tt.done, tt.total)
 		assert.Equal(t, jobBarCells, len([]rune(bar)), "폭은 언제나 열 칸이다")

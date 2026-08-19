@@ -22,7 +22,7 @@ const (
 
 // regionAt 은 화면 좌표가 어느 영역인지 돌려준다.
 //
-// 그리는 쪽(screenRows) 과 판별하는 쪽이 어긋나면 한 칸 옆을 누른 것이 되므로
+// 그리는 쪽(renderScreen) 과 판별하는 쪽이 어긋나면 한 칸 옆을 누른 것이 되므로
 // 수치를 새로 두지 않고 render 가 쓰는 geometry 를 그대로 쓴다.
 func (e editor) regionAt(x, y int) region {
 	if x < 0 || y < 0 || x >= e.width || y >= e.height {
@@ -83,7 +83,7 @@ func (e *editor) clickSidebar(y int) (tea.Model, tea.Cmd) {
 //
 // 옮겨간 tab 자리를 트리가 아직 읽지 않았으면 읽는 작업이 시작되므로 Cmd 가 나온다. `gt` 와 같다.
 func (e *editor) clickTabline(x int) tea.Cmd {
-	row := e.tabline(e.textWidth())
+	row := e.renderTabline(e.textWidth())
 
 	col := x - e.sidebarLeft()
 	switch {

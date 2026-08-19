@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// statusBar 는 화면 아래 두 줄이다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.
+// renderStatusBar 는 화면 아래 두 줄을 그린다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.
 //
 // 위 줄만 반전이다. 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.
 // `:` 를 칠 때 배경이 뜨지 않고 명령 결과와 오류도 평범한 글자로 읽힌다.
@@ -20,7 +20,7 @@ import (
 //
 // 아래 줄은 mode 를 따라가지 않고 편집 영역에 맞춰 들여쓴다. 명령줄과 커서 위치는 편집 중인
 // 파일에 딸린 것이라 위 줄의 경로와 세로로 맞아야 읽힌다.
-func (e editor) statusBar(mode, bottom string) []string {
+func (e editor) renderStatusBar(mode, bottom string) []string {
 	buf := e.buffers[e.active]
 
 	path := buf.path
@@ -50,19 +50,19 @@ func (e editor) statusBar(mode, bottom string) []string {
 
 	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
 	return []string{
-		reverse.Width(e.width).Render(left + e.withStatus(truncateToWidth(text, width))),
+		reverse.Width(e.width).Render(left + e.renderWithStatus(truncateToWidth(text, width))),
 		strings.Repeat(" ", e.sidebarLeft()) + truncateToWidth(bottom, width),
 	}
 }
 
-// withStatus 는 statusBar 위 줄 오른쪽 끝에 진행 표시와 저장소 상태를 붙인다.
+// renderWithStatus 는 statusBar 위 줄 오른쪽 끝에 진행 표시와 저장소 상태를 붙인다.
 //
 // 붙일 칸이 없으면 그대로 둔다 — 지금 무슨 mode 인지와 어느 파일인지가 먼저다.
 // 사이를 두 칸 이상 띄운다. 한 칸이면 파일 이름이 긴 tab 에서 경로에 붙은 글자처럼 읽힌다.
 //
 // 오른쪽 끝이 git 이고 그 왼쪽이 진행 표시다. 칸이 모자라면 진행 표시부터 줄인다 —
 // 막대를 떼고, 그래도 모자라면 진행 표시를 통째로 뺀다. git 은 늘 같은 자리에 있어야 눈이 찾는다.
-func (e editor) withStatus(top string) string {
+func (e editor) renderWithStatus(top string) string {
 	git := e.git.label()
 
 	// 진행 표시와 git 을 잇는다. 한쪽이 비면 나머지만 남는다.
@@ -79,7 +79,7 @@ func (e editor) withStatus(top string) string {
 
 	used := screenWidthOf(top)
 
-	for _, label := range []string{right(e.jobText(e.jobBar())), right(e.jobText("")), git} {
+	for _, label := range []string{right(e.renderJobText(e.renderJobBar())), right(e.renderJobText("")), git} {
 		if label == "" {
 			continue
 		}
@@ -106,20 +106,20 @@ func (e editor) messageOr(fallback string) string {
 	return fallback
 }
 
-// position 은 커서 위치와 전체 줄 수다. normal/insert 의 statusBar 아래 줄이다.
+// renderPosition 은 커서 위치와 전체 줄 수다. normal/insert 의 statusBar 아래 줄이다.
 // 줄과 칸은 1 부터 세고, 칸은 byte offset 이 아니라 화면 칸이다.
-func (e editor) position() string {
+func (e editor) renderPosition() string {
 	buf := e.buffers[e.active]
 	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol)
 
 	return fmt.Sprintf("%d:%d  (%d 줄)", buf.cursorLine+1, col+1, len(buf.lines))
 }
 
-// withShowcmd 는 statusBar 아래 줄 오른쪽 끝에 치고 있는 키를 붙인다. vim 의 showcmd 와 같은 자리다.
+// renderWithShowcmd 는 statusBar 아래 줄 오른쪽 끝에 치고 있는 키를 붙인다. vim 의 showcmd 와 같은 자리다.
 //
 // 숫자나 접두 키를 치는 동안 화면에 아무 표시가 없으면 편집기가 그 키를 먹었는지 알 수 없다.
 // 붙일 칸이 없으면 아래 줄을 그대로 둔다 — 커서 위치나 명령 결과가 밀려나는 것이 더 나쁘다.
-func (e editor) withShowcmd(bottom, showcmd string) string {
+func (e editor) renderWithShowcmd(bottom, showcmd string) string {
 	if showcmd == "" {
 		return bottom
 	}

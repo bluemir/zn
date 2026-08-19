@@ -284,14 +284,14 @@ func (e editor) paletteFits() bool {
 }
 
 func (m viewPalette) View() tea.View {
-	view := m.render(tea.CursorBar, "PALETTE", m.counter())
+	view := m.editorView(tea.CursorBar, "PALETTE", m.renderCounter())
 
 	// 편집 화면을 다 그린 뒤 그 위에 박스를 얹는다. 셀 단위라 두 칸 글자와 색이 어긋나지 않는다.
 	// 합성은 팔레트에서만 태운다 — 셀 버퍼를 지나면 줄 끝의 빈 칸이 잘려서 화면 문자열이 달라진다.
 	left := m.paletteLeft()
 	view.Content = lipgloss.NewCompositor(
 		lipgloss.NewLayer(view.Content).Z(0),
-		lipgloss.NewLayer(m.box()).X(left).Y(paletteTop).Z(1),
+		lipgloss.NewLayer(m.renderBox()).X(left).Y(paletteTop).Z(1),
 	).Render()
 
 	// 커서는 편집 내용이 아니라 박스 안 입력줄에 있어야 한다.
@@ -301,17 +301,17 @@ func (m viewPalette) View() tea.View {
 	return view
 }
 
-// counter 는 statusBar 아래 줄이다. 몇 개 중 몇 개가 걸렸는지 보여준다.
-func (m viewPalette) counter() string {
+// renderCounter 는 statusBar 아래 줄이다. 몇 개 중 몇 개가 걸렸는지 보여준다.
+func (m viewPalette) renderCounter() string {
 	return fmt.Sprintf("%d/%d", len(m.hits), len(m.labels()))
 }
 
-// box 는 박스 전체를 화면 행 문자열로 만든다. 각 행이 정확히 paletteWidth() 칸이다.
+// renderBox 는 박스 전체를 화면 행 문자열로 만든다. 각 행이 정확히 paletteWidth() 칸이다.
 //
 // 테두리는 lipgloss 의 Border 를 쓰지 않고 손으로 붙인다. Border 는 안쪽 내용의 폭을 스스로
 // 재는데 강조 escape 가 이미 섞여 있어서 그 계산을 믿을 수 없다. sidebar 가 구분선을 손으로
 // 붙이는 것과 같은 이유다.
-func (m viewPalette) box() string {
+func (m viewPalette) renderBox() string {
 	width := m.paletteWidth()
 	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
 
@@ -320,17 +320,17 @@ func (m viewPalette) box() string {
 
 	rows := []string{
 		chars.topLeft + line + chars.topRight,
-		m.inputRow(inner),
+		m.renderInputRow(inner),
 		chars.leftTee + line + chars.rightTee,
 	}
-	rows = append(rows, m.listRows(inner)...)
+	rows = append(rows, m.renderListRows(inner)...)
 	rows = append(rows, chars.bottomLeft+line+chars.bottomRight)
 
 	return strings.Join(rows, "\n")
 }
 
-// inputRow 는 치고 있는 것을 보여주는 줄이다. 비어 있으면 무엇을 치면 되는지 흐리게 알려준다.
-func (m viewPalette) inputRow(inner int) string {
+// renderInputRow 는 치고 있는 것을 보여주는 줄이다. 비어 있으면 무엇을 치면 되는지 흐리게 알려준다.
+func (m viewPalette) renderInputRow(inner int) string {
 	side := m.boxChars.vertical
 
 	if m.input == "" {
@@ -340,8 +340,8 @@ func (m viewPalette) inputRow(inner int) string {
 	return side + " " + padTo(truncateToWidth(m.input, inner), inner) + " " + side
 }
 
-// listRows 는 목록 행들이다. 걸린 것이 없으면 그 사실을 한 줄로 알린다.
-func (m viewPalette) listRows(inner int) []string {
+// renderListRows 는 목록 행들이다. 걸린 것이 없으면 그 사실을 한 줄로 알린다.
+func (m viewPalette) renderListRows(inner int) []string {
 	side := m.boxChars.vertical
 
 	if len(m.hits) == 0 {
@@ -362,7 +362,7 @@ func (m viewPalette) listRows(inner int) []string {
 			row.left = m.files[hit.index]
 		}
 
-		rows = append(rows, side+" "+row.cell(inner)+" "+side)
+		rows = append(rows, side+" "+row.render(inner)+" "+side)
 	}
 
 	return rows
@@ -378,11 +378,11 @@ type paletteRow struct {
 	selected    bool
 }
 
-// cell 은 행 하나를 inner 칸으로 그린다.
+// render 는 행 하나를 inner 칸으로 그린다.
 //
 // sidebar 의 cell 과 같은 순서다 — 먼저 자르고, 그 다음 색을 입히고, 남은 칸을 채운다.
 // 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없다.
-func (r paletteRow) cell(inner int) string {
+func (r paletteRow) render(inner int) string {
 	left := truncateToWidth(sanitizeName(r.left), inner)
 	leftWidth := screenWidthOf(left)
 
@@ -406,9 +406,9 @@ func (r paletteRow) cell(inner int) string {
 
 	leftMatch, rightMatch := r.splitPositions(len(left), len(right))
 
-	return highlightMatches(left, leftMatch, lipgloss.NewStyle(), styleMatch) +
+	return renderMatches(left, leftMatch, lipgloss.NewStyle(), styleMatch) +
 		pad +
-		highlightMatches(right, rightMatch, styleDetail, styleMatch)
+		renderMatches(right, rightMatch, styleDetail, styleMatch)
 }
 
 // splitPositions 는 이어 붙인 자리를 왼쪽 것과 오른쪽 것으로 가른다.
@@ -429,9 +429,9 @@ func (r paletteRow) splitPositions(leftLen, rightLen int) (left, right []int) {
 	return left, right
 }
 
-// highlightMatches 는 맞은 글자에만 다른 색을 입힌다.
+// renderMatches 는 맞은 글자에만 다른 색을 입힌다.
 // 붙어 있는 자리는 한 구간으로 묶는다 — 글자마다 escape 를 내면 행이 escape 로 뒤덮인다.
-func highlightMatches(text string, positions []int, base, match lipgloss.Style) string {
+func renderMatches(text string, positions []int, base, match lipgloss.Style) string {
 	if len(positions) == 0 {
 		return base.Render(text)
 	}

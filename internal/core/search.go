@@ -126,13 +126,13 @@ func (e editor) searchMatches(line []byte) [][]int {
 	return e.search.pattern.FindAllIndex(line, -1)
 }
 
-// highlightRow 는 화면 행 하나를 그린다. 매칭이 걸쳐 있으면 그 구간만 색을 입힌다.
+// renderRow 는 화면 행 하나를 그린다. 매칭이 걸쳐 있으면 그 구간만 색을 입힌다.
 //
 // matches 는 줄 전체에서 찾은 자리라 이 행 밖으로 넘어가는 것이 섞여 있다. wrap 된 줄에서
 // 매칭이 행 경계에 걸치면 양쪽 행에 나뉘어 칠해진다.
 //
 // cursorCol 은 커서가 이 줄에 없으면 -1 이다.
-func highlightRow(line []byte, row screenRow, matches [][]int, cursorCol int) string {
+func renderRow(line []byte, row screenRow, matches [][]int, cursorCol int) string {
 	mark := markWhitespace(line)
 
 	out := strings.Builder{}

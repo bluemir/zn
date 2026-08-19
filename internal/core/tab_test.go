@@ -228,7 +228,7 @@ func TestTablineRightHiddenCountSticksToEnd(t *testing.T) {
 		m.width = width
 		m.scrollTabsTo()
 
-		row := m.tabline(m.textWidth())
+		row := m.renderTabline(m.textWidth())
 		if row.right == [2]int{} {
 			continue
 		}

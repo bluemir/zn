@@ -123,11 +123,11 @@ var (
 	styleLineNumberRelative = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 )
 
-// lineNumber 는 화면 행 앞에 붙는 줄번호 칸이다. `절대 상대 ` 순서다.
+// renderLineNumber 는 화면 행 앞에 붙는 줄번호 칸이다. `절대 상대 ` 순서다.
 //
 // wrap 되어 이어지는 행은 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
 // 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다.
-func (e editor) lineNumber(cursorLine int, row screenRow) string {
+func (e editor) renderLineNumber(cursorLine int, row screenRow) string {
 	width := e.lineNumberWidth()
 	if width == 0 {
 		return ""

@@ -313,7 +313,7 @@ func (m viewEditorCommand) fail(err error) (tea.Model, tea.Cmd) {
 
 func (m viewEditorCommand) View() tea.View {
 	line := ":" + m.input
-	view := m.render(tea.CursorBlock, "COMMAND", line)
+	view := m.editorView(tea.CursorBlock, "COMMAND", line)
 
 	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다.
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
