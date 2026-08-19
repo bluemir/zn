@@ -60,7 +60,7 @@
 		- 주로 다이캐스트에 쓰이는 아연의 원소 기호. 다이캐스트처럼 에디터를 설정을 hardcording 해서 찍어내는 느낌 반영
 		- 양손으로 빠르게 칠수 있음.(vim 처럼...)
 - [x] 출시 전 `internal/core` 정리. 기능은 고정하고 코드만 손봤다 — 동작이 바뀐 곳은 없다
-	- [x] `editor.go`(957 줄) 를 테스트 파일이 이미 나눠 둔 경계대로 쪼갠다. `tabline.go`(tabline 배치와 스크롤), `status-bar.go`(두 줄 그리기와 진행·git·showcmd), `layout.go`(넓이·높이·줄번호) 셋으로 내고 `editor.go` 에는 상태·tab·render 만 남겼다(457 줄). 선언 목록을 쪼개기 전후로 비교해서 코드 이동뿐임을 확인했다
+	- [x] `editor.go`(957 줄) 를 테스트 파일이 이미 나눠 둔 경계대로 쪼갠다. `tabline.go`(tabline 배치와 스크롤), `status-bar.go`(두 줄 그리기와 진행·git·showcmd, 지금은 `render-status-bar.go`), `layout.go`(넓이·높이·줄번호) 셋으로 내고 `editor.go` 에는 상태·tab·render 만 남겼다(457 줄). 선언 목록을 쪼개기 전후로 비교해서 코드 이동뿐임을 확인했다
 	- [x] 죽은 코드를 걷어낸다. `finalExit.err` 는 읽는 곳이 없고(`core.Run` 이 보지 않는다) 유일한 호출처인 `ExitWithError` 는 `m.cursor` 가 0/1 뿐이라 닿지 않는 `default` 절이었다. 셋 다 지우고 `enter` 를 `if m.cursor == 0` 으로 폈다
 	- [x] `screenColAt([]byte(x), len(x))` 열두 군데를 이미 있던 `screenWidthOf(x)` 로 바꾼다. `layoutTabs` 만 후자를 쓰고 있었다
 	- [x] 코드와 어긋난 주석을 맞춘다. `register` 의 「아직 읽는 곳이 없다」(`p`·`P` 는 ADR-0017 로 들어왔다), `sidebarVisible`·`labelWidth` 의 「24 칸」(`sidebarWidth` 는 32)
@@ -211,6 +211,7 @@
 - [ ] 색상 상수를 파일 하나로 모으기(이후 수정을 편하게..)
 - [x] 화면을 그리는 함수 이름을 `render~`/`~View` 규칙으로 옮겼다. `render`→`editorView`, `screenRows`→`renderScreen`, `statusBar`→`renderStatusBar` 등 스무 곳쯤이다. 전부 패키지 내부 이름이라 동작은 그대로다 (ADR-0036)
 - [x] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히던 것을 고친다. `screenView` 가 `e` 를 한 번도 쓰지 않는 생성자였다 — 층이 아니라 정해진 설정을 붙여 주는 자리다. free function `newView` 로 내려서 `editorView` 와 `viewJobs.View` 가 대등해졌다 (ADR-0036)
+- [ ] 그리기와 상태가 섞인 파일(`tabline.go`·`sidebar.go`·`view-palette.go` 등) 의 이름과 경계를 다시 본다. 지금은 갈래 이름 그대로 두었고 `render-` 접두는 그리기만 든 파일 둘(`render-row.go`·`render-status-bar.go`) 에만 붙였다. 코드를 더 정리하면 경계가 달리 보일 수 있다 (ADR-0036)
 - [ ] git 기준으로 dirty file를 filetree 에서 표시 (파일 뒤에 마커?)
 - command palette 에 추가할 명령
 	- [ ] go definition

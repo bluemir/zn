@@ -40,6 +40,12 @@
 
 **`render` 는 `editorView` 가 된다.** `tea.View` 를 만드니 경계 쪽이다.
 
+**파일 이름은 그리는 코드만 든 파일에만 `render-` 를 붙인다.** 지금은 `render-row.go` 와
+`render-status-bar.go` 둘이다. 그리기와 상태가 섞인 파일은 갈래 이름 그대로다 —
+`tabline.go` 는 `renderTabline` 옆에 `layoutTabs`·`scrollTabsTo` 가 살고, `sidebar.go` 도
+트리를 읽고 고르는 코드가 `renderCells` 와 같이 산다. 접두를 맞추자고 갈래를 두 파일로
+찢지는 않는다.
+
 **mode model type 이름과 `view-*.go` 파일 이름은 그대로다.** 그것은 함수가 아니라 화면
 자체의 이름이고, 화면이 곧 model 인 구조(ADR-0002)에서 나온 이름이라 이 규칙 밖이다.
 
@@ -78,6 +84,8 @@ function 과 `editor` method 만 대상을 이름에 붙이면 된다.
 - free function: `drawBar`→`renderBar`, `highlightRow`→`renderRow`,
   `highlightMatches`→`renderMatches`
 - `screenView` 와 `renderParts` 는 그대로다 — 이미 규칙에 맞다
+- 파일 이름: `status-bar.go`→`render-status-bar.go`(테스트 파일까지). 그리는 코드만 든
+  파일이 이것과 `render-row.go` 둘뿐이라 옮길 자리도 하나였다
 
 전부 패키지 내부 이름이라 동작은 바뀌지 않는다. 테스트 helper(`textOf`, `barOf`,
 `tablineOf`) 는 그리는 것이 아니라 그린 것을 읽는 것이므로 그대로 두었다.
@@ -113,6 +121,8 @@ method 에서는 receiver 와 겹치고(`viewPalette.box` 의 `viewPalette`), fr
   갈래의 두 층으로 읽혔다. free function `newView` 로 내렸다 — `editorView` 와
   `viewJobs.View` 가 각자 자기 화면을 만든 뒤 그것으로 감싸는 대등한 모양이 되어 크기
   관계를 물을 자리가 없어졌다
-- 파일 이름을 규칙에 맞출지. `status-bar.go`·`tabline.go` 는 지금 갈래로 나뉘어 있다
+- **그리기와 상태가 섞인 파일의 이름.** 지금은 갈래 이름 그대로 두었는데, 그 파일들이
+  갈래로 묶여 있는 것이 맞는지 자체를 아직 재보지 않았다. 코드를 더 정리하면 경계가
+  달리 보일 수 있어 그때 다시 본다
 - `expandRow`·`markWhitespace` 처럼 최종 글자가 아니라 그 앞 조각을 만드는 함수를 어느
   쪽으로 볼지. 지금은 손대지 않는다
