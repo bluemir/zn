@@ -210,7 +210,7 @@
 - [ ] 줄번호 앞에 마커용 공간 남겨 두기
 - [ ] 색상 상수를 파일 하나로 모으기(이후 수정을 편하게..)
 - [x] 화면을 그리는 함수 이름을 `render~`/`~View` 규칙으로 옮겼다. `render`→`editorView`, `screenRows`→`renderScreen`, `statusBar`→`renderStatusBar` 등 스무 곳쯤이다. 전부 패키지 내부 이름이라 동작은 그대로다 (ADR-0036)
-- [ ] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽힌다. `screen` 이 `editor` 보다 큰 말인데 바깥이 `editorView` 다. 이름을 바꿀지 층을 바꿀지 이름 옮기기를 끝내고 본다 (ADR-0036)
+- [x] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히던 것을 고친다. `screenView` 가 `e` 를 한 번도 쓰지 않는 생성자였다 — 층이 아니라 정해진 설정을 붙여 주는 자리다. free function `newView` 로 내려서 `editorView` 와 `viewJobs.View` 가 대등해졌다 (ADR-0036)
 - [ ] git 기준으로 dirty file를 filetree 에서 표시 (파일 뒤에 마커?)
 - command palette 에 추가할 명령
 	- [ ] go definition

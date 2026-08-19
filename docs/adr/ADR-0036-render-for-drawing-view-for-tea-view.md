@@ -107,6 +107,12 @@ method 에서는 receiver 와 겹치고(`viewPalette.box` 의 `viewPalette`), fr
 - **`editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히는 것.** `screen`
   이 `editor` 보다 큰 말인데 바깥에 있는 쪽이 `editorView` 다. 이름을 바꿀지, 층을 바꿀지는
   옮기는 일을 끝내고 다시 본다
+
+  이후: 층 순서가 아니라 `screenView` 가 층이 아니었던 것이 문제였다. `e` 를 한 번도 쓰지
+  않고 `rows` 만 받아 터미널 설정을 붙이는 생성자인데, 이름이 `editorView` 옆에 서서 같은
+  갈래의 두 층으로 읽혔다. free function `newView` 로 내렸다 — `editorView` 와
+  `viewJobs.View` 가 각자 자기 화면을 만든 뒤 그것으로 감싸는 대등한 모양이 되어 크기
+  관계를 물을 자리가 없어졌다
 - 파일 이름을 규칙에 맞출지. `status-bar.go`·`tabline.go` 는 지금 갈래로 나뉘어 있다
 - `expandRow`·`markWhitespace` 처럼 최종 글자가 아니라 그 앞 조각을 만드는 함수를 어느
   쪽으로 볼지. 지금은 손대지 않는다

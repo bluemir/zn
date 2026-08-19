@@ -364,7 +364,7 @@ func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View 
 			e.renderLineNumber(buf.cursorLine, row)+renderRow(buf.lines[row.line], row, matches, cursorCol))
 	}
 
-	view := e.screenView(e.renderScreen(textRows, mode, bottom))
+	view := newView(e.renderScreen(textRows, mode, bottom))
 
 	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
@@ -375,12 +375,15 @@ func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View 
 	return view
 }
 
-// screenView 는 화면 전체 행을 받아 tea.View 를 만든다.
+// newView 는 화면 전체 행으로 tea.View 를 만든다.
 //
 // 터미널 설정이 여기 한 곳에 있다. 편집 화면과 달리 tabline·sidebar 를 쓰지 않는 화면
 // (`:jobs`) 도 같은 설정을 그대로 받아야 대체 화면과 키 확장이 어긋나지 않는다.
 // 커서는 부르는 쪽이 얹는다 — 어디에 둘지가 화면마다 다르다.
-func (e editor) screenView(rows []string) tea.View {
+//
+// editor 를 받지 않는다. 그릴 것은 부르는 쪽이 이미 다 만들어서 오므로 이것은 층이
+// 아니라 정해진 설정을 붙여 주는 자리다(ADR-0036).
+func newView(rows []string) tea.View {
 	view := tea.NewView(strings.Join(rows, "\n"))
 
 	view.MouseMode = tea.MouseModeCellMotion
