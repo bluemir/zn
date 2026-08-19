@@ -131,7 +131,7 @@ func (m *viewEditorSearch) preview() {
 
 	buf.moveTo(result.line, result.col, m.contentWidth())
 	buf.clampToNormal(m.contentWidth())
-	buf.scrollTo(m.contentWidth(), m.textHeight())
+	m.scrollToCursor()
 }
 
 // restore 는 미리보기로 옮긴 커서와 화면을 시작 자리로 되돌린다.
@@ -226,7 +226,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 
 	buf.moveTo(line, col, width)
 	buf.clampToNormal(width)
-	buf.scrollTo(width, e.textHeight())
+	e.scrollToCursor()
 
 	if wrapped {
 		e.message = wrapMessage(direction)

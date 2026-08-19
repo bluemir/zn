@@ -22,11 +22,6 @@ type action interface {
 	run(e *editor) (tea.Model, tea.Cmd)
 }
 
-// scrollToCursor 는 커서가 화면 안에 들어오도록 맞춘다. 편집·이동 동작이 끝에 이것을 한다.
-func (e *editor) scrollToCursor() {
-	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
-}
-
 // ── 이동 ──
 
 // actionMove 는 커서를 옮긴다. motion 이 어디로 갈지 안다.

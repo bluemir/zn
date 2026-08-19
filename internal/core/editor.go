@@ -72,10 +72,19 @@ func (e *editor) activeBuffer() *Buffer {
 	return &e.buffers[e.active]
 }
 
+// scrollToCursor 는 활성 buffer 를 지금 화면에 맞춘다. 커서가 화면 안에 들어오게 하고,
+// 폭이 달라졌으면 줄바꿈도 다시 잡는다.
+//
+// 편집·이동 동작이 끝에 이것을 하고, 창 크기가 바뀌거나 sidebar 를 여닫거나 보는 buffer 가
+// 바뀐 뒤에도 부른다 — 그 buffer 는 지금 폭을 본 적이 없을 수 있다.
+func (e *editor) scrollToCursor() {
+	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
+}
+
 func (e *editor) resize(msg tea.WindowSizeMsg) {
 	e.width = msg.Width
 	e.height = msg.Height
-	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 	e.scrollTabsTo()
 }
 
@@ -324,7 +333,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 		cmd = e.startTree()
 	}
 
-	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 	// 편집 영역 너비가 32 칸 달라져서 tabline 에 들어가는 tab 수도 달라진다.
 	e.scrollTabsTo()
 

@@ -251,7 +251,7 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 	if err != nil {
 		return normalModeMessage(m.editor, errors.Cause(err).Error())
 	}
-	m.activeBuffer().scrollTo(m.contentWidth(), m.textHeight())
+	m.scrollToCursor()
 
 	model, cmd := normalMode(m.editor)
 

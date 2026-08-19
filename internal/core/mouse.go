@@ -112,7 +112,7 @@ func (e *editor) clickTabline(x int) tea.Cmd {
 	e.active = index
 
 	// 그 buffer 는 이 창 크기를 본 적이 없을 수 있다. gt 와 같은 처리다.
-	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 
 	return e.revealInSidebar(e.activeBuffer().path)
 }

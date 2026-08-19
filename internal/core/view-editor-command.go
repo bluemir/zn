@@ -298,7 +298,7 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 
 	// 갈아끼운 buffer 는 맨 위에서 시작하지만, 옮겨간 tab 은 보던 자리를 그대로 이어받는다.
 	// 어느 쪽이든 지금 폭에 맞춰 둔다 — sidebar 를 여닫은 뒤라면 폭이 달라져 있다.
-	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 
 	model, cmd := normalMode(e)
 

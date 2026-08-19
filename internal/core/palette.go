@@ -258,7 +258,7 @@ func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	buf.clampToNormal(width)
-	buf.scrollTo(width, e.textHeight())
+	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 끝 공백을 지웠습니다", count))
 }
@@ -296,7 +296,7 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 
 	// 커서 칸은 유지하지만 그 자리가 새 내용에서는 줄 끝 다음일 수 있다.
 	buf.clampToNormal(e.contentWidth())
-	buf.scrollTo(e.contentWidth(), e.textHeight())
+	e.scrollToCursor()
 
 	return normalModeMessage(e, "다시 읽음: "+buf.path)
 }

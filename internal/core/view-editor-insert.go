@@ -33,7 +33,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
 		buf := m.activeBuffer()
 		buf.insert([]byte(msg.Content), m.contentWidth())
-		buf.scrollTo(m.contentWidth(), m.textHeight())
+		m.scrollToCursor()
 
 		return m, nil
 	case tea.KeyPressMsg:
@@ -52,7 +52,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
 			buf.endEdit()
 			buf.moveLeft(1, m.contentWidth())
-			buf.scrollTo(m.contentWidth(), m.textHeight())
+			m.scrollToCursor()
 
 			return normalMode(m.editor)
 		case "enter":
@@ -84,7 +84,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			buf.insert([]byte(msg.Text), m.contentWidth())
 		}
 
-		buf.scrollTo(m.contentWidth(), m.textHeight())
+		m.scrollToCursor()
 
 		return m, nil
 	case tea.MouseClickMsg:
