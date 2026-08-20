@@ -6,8 +6,12 @@
 - [ ] `:%s/a/b/g` 치환을 넣는다. 패턴 문법은 검색과 같다 (ADR-0010)
 - [ ] 여러 파일에 걸친 검색. 결과를 담을 목록 화면(quickfix) 을 같이 정해야 한다
 - [ ] 여러 파일 replace
-- [ ] visual mode 구현
-- [ ] visual mode 를 정하고 구현한다. 종류(char/line/block) 와 진입 키
+- [x] visual mode 를 정하고 구현한다. `v`(글자) `V`(줄) 둘이고 blockwise 는 넣지 않았다. 고른 범위 위에 `d` `x` `y` `c` 를 치고, 범위는 `motionRange` 라 지우기·복사·바꾸기가 그대로 딸려 온다. anchor 는 `Buffer` 가 든다 — 커서·스크롤과 같이 그 파일에 딸린 것이다. 드래그로도 고른다 (ADR-0037)
+- [ ] blockwise visual(`ctrl+v`) 을 넣을지 정한다. `register` 에 blockwise 갈래와 사각 범위의 지우기·붙여넣기·`I`/`A` 가 같이 온다. 폭이 다른 글자와 tab 이 낀 사각형을 화면 칸 기준으로 잡는 일도 있다 (ADR-0037)
+- [ ] visual 의 `o`(양끝 바꾸기)·`p`(고른 자리를 register 로 바꾸기)·`r`(한 글자로 덮기) 를 넣을지 정한다. `p` 는 지우기와 붙여넣기를 한 되돌리기 구간으로 묶어야 하고, `r` 은 글자 하나를 기다리는 상태가 visual 쪽에도 필요하다 (ADR-0017, ADR-0018, ADR-0037)
+- [ ] `gv`(마지막 선택 되살리기) 와 `:'<,'>`(고른 범위 안에서 치환·검색) 를 넣을지 정한다. 지금 `selection` 이 드는 것은 anchor 하나이고 반대쪽 끝은 커서라, visual 을 나가면서 커서가 움직이면 짝이 사라진다. 그때는 anchor 가 아니라 확정된 `motionRange` 를 남겨야 한다. `:%s` 치환·`:1,5d` 범위 문법과 같은 건이다 (ADR-0010, ADR-0037)
+- [ ] statusBar 아래 줄에 고른 크기(`3 줄` `12 글자`) 를 보일지 정한다. 「복사되었음을 알려 주는 기능」과 같이 본다 (ADR-0037)
+- [ ] insert mode 에서 드래그를 받을지 정한다. 지금은 normal 에서만 visual 이 열린다 (ADR-0037)
 - 언어 지원
 	- markdown
 		- [ ] syntax highlight
@@ -40,6 +44,10 @@
 - [ ] 파일이 변경 되었을떄, zn 에서 변경 한게 없으면 자동으로 reload 한다.
 - [ ] git 구현을 내부 라이브러리를 사용해서 구현할수 없는지 확인
 	- https://github.com/go-git/go-git ?
+- [ ] '=' 기능을 구현한다.
+- [ ] Refactor | buffer 의 interface를 정리한다.
+- [ ] 언어 특화 기능을 작성 시의 interface 를 설계한다.
+	- 예를들어, syntax highlight 는 어느 지점이 어떤 색이어야하는가만 buffer 에 알려주고, 어떻게 그 색이 산출되었는지는 editor 나 buffer 가 모르게 한다. 
 
 ## backlog
 
@@ -96,12 +104,12 @@
 - [ ] 팔레트 안에서 `ctrl+n`/`ctrl+j` 를 이동 키로 줄지 정한다. 지금은 화살표뿐이고 `ctrl+p` 는 아무 일도 하지 않는다 (ADR-0011)
 - [ ] 언어별 지원(golang, markdown, html, css, js) 을 넣는다
 - [x] mouse 를 넣는다. 왼쪽 버튼을 누를 때 반응하고, 좌표를 네 영역(sidebar, tabline, 편집 영역, statusBar) 으로 갈라서 mode 마다 다르게 먹는다. filetree 는 클릭 한 번이 고르기와 열기를 겸하고, 편집 영역 클릭은 커서를 옮기며 insert 는 유지한다(undo 구간은 끊는다). 휠은 화면만 굴리고 포인터가 얹힌 쪽이 움직인다. 명령줄·검색 중에는 휠만 받고 팔레트에서는 휠이 목록을 오르내린다 (ADR-0012)
-- [ ] 드래그로 범위를 고르는 것을 넣는다. `MouseModeCellMotion` 이라 motion 이벤트는 이미 오고 있고 지금은 버린다. visual mode 를 정할 때 같이 본다 (ADR-0012)
+- [x] 드래그로 범위를 고르는 것을 넣는다. 누른 자리가 anchor 이고 포인터가 움직이는 순간 글자 단위 visual 로 들어간다. 뗄 때는 보지 않아서 visual 에 머문다. 편집 영역 밖으로 나간 좌표는 안으로 당겨 읽고 위아래로 나가면 한 행씩 굴린다. double/triple-click 은 누른 횟수를 알 수 없어 넣지 못했다 (ADR-0012, ADR-0037)
 - [ ] mouse 로 sidebar 너비를 조절한다. 경계를 끌면 32 칸 고정을 바꾼다. "sidebar 너비를 사용자가 바꾸는 방법" 과 같은 건이다 (ADR-0012)
 - [ ] 팔레트 목록을 클릭해서 고르는 것을 넣는다. 지금 휠은 목록을 오르내리지만 클릭은 받지 않는다. 박스가 놓인 자리를 `regionAt` 이 알아야 해서 다섯 번째 영역이 필요하다 (ADR-0011, ADR-0012)
 - [ ] `/` 검색을 치는 중에 휠로 굴려도 다음 글자에서 incsearch 가 화면을 다시 잡아당겨 사라진다. incsearch 가 화면을 옮기는 기준을 바꿀지 다시 본다 (ADR-0010, ADR-0012)
 - [ ] mouse 의 가운데·오른쪽 버튼과 `Mod`(shift/alt/ctrl) 조합에 뜻을 붙일지 정한다. 지금은 지나가게 둔다 (ADR-0012)
-- [ ] `Update` 마다 크기·클릭·휠 세 종류의 공용 메시지 case 가 반복된다. ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 해둔 값이라 한 번 더 늘면 그때 본다 (ADR-0012)
+- [ ] `Update` 마다 크기·클릭·휠 세 종류의 공용 메시지 case 가 반복된다. ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 해둔 값인데 visual mode 로 한 번 더 늘었다. 드래그(`MouseMotionMsg`) 가 네 번째 종류다 (ADR-0012, ADR-0037)
 - [ ] home, end, page up, page down 의 일관적인 동작을 정의하고 구현한다
 - [ ] (나중에) `pubsub`·`workers`·`datastruct`·`util` 을 별도 저장소로 뺄지 정한다. 에디터와 무관한 개인 공통 라이브러리라 분리하면 `go.mod` 정리와 `httpproxy` 의 gin 의존성이 같이 해결된다
 - [x] command parser
@@ -149,3 +157,4 @@
 - [ ] `git log`, `git graph`의 결과를 볼수 있는기능
 - [ ] shell 명령의 결과를 편집기로 가져오는 기능
 - [ ] `:!cat %` 처럼 command line 의 % 를 현재 파일 path 로 대체
+- [ ] 좌측 sidecar 를 스크롤 할떄 상위 폴더는 sticky 처럼 보이게.. (vs code 처럼)

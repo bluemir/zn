@@ -49,6 +49,9 @@ type Buffer struct {
 	cursorCol  int // lines[cursorLine] 안의 byte offset
 	desiredCol int // 현재 cursor 가 있는 열. 위아래로 움직일떄 현재 열로 올수 있도록 한다. 화면행 안에서의 칸으로 센다.
 
+	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
+	selection selection
+
 	// top, topRow 는 화면 최상단에 그릴 위치다. 커서에서 파생할 수 없다.
 	// 커서를 두고 화면만 움직이는 동작이 있고, 커서가 화면 안에 있는 동안은 화면이 움직이지 않아야 한다.
 	// 줄 하나가 화면 행 여러 개가 될 수 있어서 줄 번호만으로는 부족하다.

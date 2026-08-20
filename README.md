@@ -31,6 +31,8 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 - fzf, command palette
 	- 특히 file matching 에서 > 를 입력하면 바로 command 로 넘어가는 기능
 - mouse 지원
+	- 드래그로 범위를 고른다
+- visual mode(`v` 글자 단위, `V` 줄 단위)
 - 상대 줄번호와 절대 줄번호 동시 표시
 - statusBar 에 git branch, commit, dirty 여부 표시
 - 한국어 지원
@@ -56,7 +58,7 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 		- syntax highlight
 		- 다음줄로 갈때 자동 들여쓰기
 		- 저장시 hook(eg. go fmt)
-- visual mode
+- visual block mode(`ctrl+v`)
 - 키 하나로 현재 화면의 cat 과 동일한 형태로 text 표시
 	- text 복사 붙여 넣기시 유용
 - home, end, page up, page down 의 일관적인 동작

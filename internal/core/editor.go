@@ -358,6 +358,9 @@ func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View 
 	// 검색 매칭은 줄 단위로 찾는다. wrap 된 줄은 행이 여럿이라 줄이 바뀔 때만 다시 찾는다.
 	matchLine, matches := -1, [][]int(nil)
 
+	// 고른 범위는 화면마다 한 번만 구한다. 줄마다의 구간은 selectionOn 이 잘라 준다.
+	area, selecting := buf.selectionRange()
+
 	for _, row := range buf.visibleRows(e.contentWidth(), height) {
 		if row.line != matchLine {
 			matchLine, matches = row.line, e.searchMatches(buf.lines[row.line])
@@ -369,8 +372,14 @@ func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View 
 			cursorCol = buf.cursorCol
 		}
 
+		highlight := rowHighlight{matches: matches, cursorCol: cursorCol}
+		if selecting {
+			highlight.selection, highlight.toLineEnd, _ = buf.selectionOn(area, row.line)
+		}
+
 		textRows = append(textRows,
-			e.renderLineNumber(buf.cursorLine, row)+renderRow(buf.lines[row.line], row, matches, cursorCol))
+			e.renderLineNumber(buf.cursorLine, row)+
+				renderRow(buf.lines[row.line], row, e.contentWidth(), highlight))
 	}
 
 	view := newView(e.renderScreen(textRows, mode, bottom))

@@ -152,6 +152,10 @@ func standaloneAction(key string, count int) action {
 		return actionSearchWord{direction: searchForward, count: count}
 	case "#":
 		return actionSearchWord{direction: searchBackward, count: count}
+	case "v":
+		return actionVisualStart{}
+	case "V":
+		return actionVisualStart{linewise: true}
 	case "i":
 		return actionInsert{}
 	case "a":

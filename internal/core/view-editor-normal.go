@@ -6,6 +6,10 @@ import (
 
 // viewEditorNormal 은 normal mode 다. 커서가 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
 func normalMode(e *editor) (tea.Model, tea.Cmd) {
+	// normal 에는 고른 범위가 없다. visual 을 떠나는 문이 여기와 insertMode 둘뿐이라
+	// 놓는 자리도 그 둘이다 (ADR-0037).
+	e.activeBuffer().selection = selection{}
+
 	return viewEditorNormal{editor: e}, nil
 }
 
@@ -14,7 +18,7 @@ func normalMode(e *editor) (tea.Model, tea.Cmd) {
 func normalModeMessage(e *editor, message string) (tea.Model, tea.Cmd) {
 	e.message = message
 
-	return viewEditorNormal{editor: e}, nil
+	return normalMode(e)
 }
 
 type viewEditorNormal struct {
@@ -76,6 +80,19 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 대기 중인 접두 키(m.state) 와 알림(m.message) 은 그대로 둔다 — 키 이야기다.
 		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
 			return m.click(mouse)
+		}
+
+		return m, nil
+	case tea.MouseMotionMsg:
+		// 버튼을 누른 채 움직이는 중이다. 누른 자리를 anchor 로 삼아 범위를 고르기 시작한다 —
+		// 누른 자리는 MouseClickMsg 가 이미 커서로 만들어 두었다(ADR-0012, ADR-0037).
+		//
+		// 클릭만 하는 것은 지금처럼 커서 이동이다. vim 도 드래그부터 visual 이다.
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft && m.regionAt(mouse.X, mouse.Y) == regionText {
+			m.startSelection(false)
+			m.dragTo(mouse.X, mouse.Y)
+
+			return visualMode(m.editor)
 		}
 
 		return m, nil

@@ -33,6 +33,12 @@ func (buf *Buffer) deleteByMotion(m motion, count, width int) (register, bool) {
 		return register{}, false
 	}
 
+	return buf.deleteRange(area, width)
+}
+
+// deleteRange 는 잡아 둔 범위를 지운다.
+// motion 이 잡은 것도 visual 이 고른 것도 여기로 온다(ADR-0037).
+func (buf *Buffer) deleteRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		return buf.deleteLines(area.startLine, area.endLine, width), true
 	}

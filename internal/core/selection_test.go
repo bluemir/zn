@@ -1,0 +1,191 @@
+package core
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// selectionRange 는 커서가 선 글자까지 넣는다. 어느 쪽 끝에서 골랐든 범위는 같다.
+func TestSelectionRangeIsInclusive(t *testing.T) {
+	tests := []struct {
+		name                  string
+		anchorLine, anchorCol int
+		cursorLine, cursorCol int
+		linewise              bool
+		want                  motionRange
+	}{
+		{
+			name: "한 글자", want: motionRange{endCol: 1},
+		},
+		{
+			name: "앞으로 고르기", cursorCol: 3,
+			want: motionRange{endCol: 4},
+		},
+		{
+			name: "뒤로 고르기", anchorCol: 3,
+			want: motionRange{endCol: 4, targetCol: 0},
+		},
+		{
+			name: "줄을 넘어", cursorLine: 1, cursorCol: 1,
+			want: motionRange{endLine: 1, endCol: 2, targetLine: 0},
+		},
+		{
+			// 한글 한 글자는 3 byte 다. cluster 통째로 든다.
+			name: "한글", anchorLine: 2, cursorLine: 2,
+			want: motionRange{startLine: 2, endLine: 2, endCol: 3, targetLine: 2},
+		},
+		{
+			name: "빈 줄에는 밀 글자가 없다", anchorLine: 3, cursorLine: 3,
+			want: motionRange{startLine: 3, endLine: 3, targetLine: 3},
+		},
+		{
+			name: "줄 단위는 칸을 보지 않는다", anchorCol: 2, cursorLine: 1, cursorCol: 5, linewise: true,
+			want: motionRange{endLine: 1, targetCol: 2, linewise: true},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\n한글\n\n"))
+			buf.selection = selection{
+				active:   true,
+				linewise: test.linewise,
+				line:     test.anchorLine,
+				col:      test.anchorCol,
+			}
+			buf.cursorLine, buf.cursorCol = test.cursorLine, test.cursorCol
+
+			area, ok := buf.selectionRange()
+			require.True(t, ok)
+			assert.Equal(t, test.want, area)
+		})
+	}
+}
+
+func TestSelectionRangeNeedsActiveSelection(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("foo\n"))
+
+	_, ok := buf.selectionRange()
+	assert.False(t, ok, "고른 것이 없으면 범위도 없다")
+}
+
+// selectionOn 은 범위를 줄마다의 byte 구간으로 자른다.
+func TestSelectionOn(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\nquux\n"))
+
+	t.Run("한 줄 안", func(t *testing.T) {
+		span, toEnd, ok := buf.selectionOn(motionRange{startCol: 1, endCol: 4}, 0)
+
+		require.True(t, ok)
+		assert.Equal(t, []int{1, 4}, span)
+		assert.False(t, toEnd, "줄 끝을 넘지 않았다")
+	})
+
+	t.Run("여러 줄", func(t *testing.T) {
+		area := motionRange{startCol: 4, endLine: 2, endCol: 2}
+
+		span, toEnd, ok := buf.selectionOn(area, 0)
+		require.True(t, ok)
+		assert.Equal(t, []int{4, 7}, span)
+		assert.True(t, toEnd, "첫 줄은 개행까지다")
+
+		span, toEnd, ok = buf.selectionOn(area, 1)
+		require.True(t, ok)
+		assert.Equal(t, []int{0, 7}, span)
+		assert.True(t, toEnd, "가운데 줄은 통째로다")
+
+		span, toEnd, ok = buf.selectionOn(area, 2)
+		require.True(t, ok)
+		assert.Equal(t, []int{0, 2}, span)
+		assert.False(t, toEnd, "마지막 줄은 커서 자리까지다")
+	})
+
+	t.Run("줄 단위는 줄 전체", func(t *testing.T) {
+		span, toEnd, ok := buf.selectionOn(motionRange{endLine: 1, linewise: true}, 1)
+
+		require.True(t, ok)
+		assert.Equal(t, []int{0, 7}, span)
+		assert.True(t, toEnd)
+	})
+
+	t.Run("범위 밖의 줄", func(t *testing.T) {
+		_, _, ok := buf.selectionOn(motionRange{endLine: 1}, 2)
+
+		assert.False(t, ok)
+	})
+}
+
+// 겹친 자리는 검색이 이긴다. 선택 배경이 찾은 자리를 덮으면 `n` 이 데려다 놓은 곳이 안 보인다.
+func TestRowSegmentsGiveSearchPrecedence(t *testing.T) {
+	tests := []struct {
+		name      string
+		highlight rowHighlight
+		want      []rowSegment
+	}{
+		{
+			name:      "선택만",
+			highlight: rowHighlight{cursorCol: -1, selection: []int{2, 5}},
+			want:      []rowSegment{{start: 2, end: 5, style: styleSelection}},
+		},
+		{
+			name:      "검색만",
+			highlight: rowHighlight{cursorCol: -1, matches: [][]int{{1, 3}}},
+			want:      []rowSegment{{start: 1, end: 3, style: styleSearchMatch}},
+		},
+		{
+			name: "선택 가운데의 매칭",
+			highlight: rowHighlight{
+				cursorCol: -1, selection: []int{0, 9}, matches: [][]int{{3, 5}},
+			},
+			want: []rowSegment{
+				{start: 0, end: 3, style: styleSelection},
+				{start: 3, end: 5, style: styleSearchMatch},
+				{start: 5, end: 9, style: styleSelection},
+			},
+		},
+		{
+			name: "선택 끝에 걸친 매칭",
+			highlight: rowHighlight{
+				cursorCol: -1, selection: []int{0, 5}, matches: [][]int{{3, 8}},
+			},
+			want: []rowSegment{
+				{start: 0, end: 3, style: styleSelection},
+				{start: 3, end: 8, style: styleSearchMatch},
+			},
+		},
+		{
+			name: "선택 앞의 매칭",
+			highlight: rowHighlight{
+				cursorCol: -1, selection: []int{5, 8}, matches: [][]int{{0, 2}},
+			},
+			want: []rowSegment{
+				{start: 0, end: 2, style: styleSearchMatch},
+				{start: 5, end: 8, style: styleSelection},
+			},
+		},
+		{
+			name: "커서가 선 매칭만 색이 다르다",
+			highlight: rowHighlight{
+				cursorCol: 3, selection: []int{0, 9}, matches: [][]int{{3, 5}},
+			},
+			want: []rowSegment{
+				{start: 0, end: 3, style: styleSelection},
+				{start: 3, end: 5, style: styleSearchCurrent},
+				{start: 5, end: 9, style: styleSelection},
+			},
+		},
+		{
+			name:      "행 밖은 잘린다",
+			highlight: rowHighlight{cursorCol: -1, selection: []int{0, 20}, matches: [][]int{{15, 18}}},
+			want:      []rowSegment{{start: 0, end: 10, style: styleSelection}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, test.highlight.segments(0, 10))
+		})
+	}
+}

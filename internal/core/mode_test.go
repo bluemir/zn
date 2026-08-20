@@ -56,6 +56,8 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 		return v.buffers[v.active]
 	case viewEditorInsert:
 		return v.buffers[v.active]
+	case viewEditorVisual:
+		return v.buffers[v.active]
 	case viewEditorSearch:
 		return v.buffers[v.active]
 	case viewPalette:

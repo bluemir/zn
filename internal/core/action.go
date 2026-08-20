@@ -122,6 +122,102 @@ func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
 	return nil, nil
 }
 
+// ── visual ──
+//
+// visual 의 동작은 operator 와 달리 뒤에 motion 을 기다리지 않는다. 고른 범위가 이미 있어서
+// 그 자리에서 끝난다. 범위는 실행할 때 읽는다 — 한글로 온 키 하나가 「위로 → 지우기」처럼
+// 동작 여럿이 될 수 있어서, 지을 때 담아 두면 앞선 이동을 놓친다(ADR-0008, ADR-0037).
+
+// actionVisualStart 는 normal 의 `v` 와 `V` 다. 커서 자리를 anchor 로 삼아 범위를 연다.
+type actionVisualStart struct{ linewise bool }
+
+func (c actionVisualStart) run(e *editor) (tea.Model, tea.Cmd) {
+	e.startSelection(c.linewise)
+
+	return visualMode(e)
+}
+
+// actionVisualSwitch 는 visual 안에서의 `v` 와 `V` 다.
+// 같은 키를 다시 치면 나가고, 다른 키면 갈래만 바꾼다. vim 과 같다.
+type actionVisualSwitch struct{ linewise bool }
+
+func (c actionVisualSwitch) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+	if buf.selection.linewise == c.linewise {
+		return normalMode(e)
+	}
+
+	buf.selection.linewise = c.linewise
+
+	return visualMode(e)
+}
+
+// actionVisualLeave 는 `esc` 다. 고른 것을 버리고 normal 로 돌아간다.
+type actionVisualLeave struct{}
+
+func (actionVisualLeave) run(e *editor) (tea.Model, tea.Cmd) {
+	return normalMode(e)
+}
+
+// actionVisualDelete 는 visual 의 `d` 와 `x` 다. `x` 가 같은 것은 지울 범위가 이미 정해져
+// 있어서다 — normal 의 `x` 가 `dl` 인 것과 달리 여기서는 고른 것이 전부다.
+type actionVisualDelete struct{}
+
+func (actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	if area, ok := buf.selectionRange(); ok {
+		if deleted, cut := buf.deleteRange(area, e.contentWidth()); cut {
+			e.register = deleted
+		}
+	}
+	e.scrollToCursor()
+
+	return normalMode(e)
+}
+
+// actionVisualYank 는 visual 의 `y` 다. 파일을 건드리지 않는다(ADR-0017).
+type actionVisualYank struct{}
+
+func (actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	if area, ok := buf.selectionRange(); ok {
+		if yanked, copied := buf.yankRange(area, e.contentWidth()); copied {
+			e.register = yanked
+		}
+	}
+	e.scrollToCursor()
+
+	return normalMode(e)
+}
+
+// actionVisualChange 는 visual 의 `c` 다. 지우고 insert mode 로 들어간다.
+//
+// 줄 단위면 줄을 없애지 않고 첫 줄의 들여쓰기만 남긴다. `cc` 와 같은 자리다(ADR-0033).
+type actionVisualChange struct{}
+
+func (actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	area, ok := buf.selectionRange()
+	if !ok {
+		return normalMode(e)
+	}
+
+	// 지운 것과 이어 친 글자가 한 번의 `u` 로 함께 돌아간다. changeRange 가 구간을 열어 둔다.
+	if removed, changed := buf.changeRange(area, e.contentWidth()); changed {
+		if len(removed.lines) > 0 {
+			e.register = removed
+		}
+	}
+
+	next, cmd := insertMode(e)
+	e.scrollToCursor()
+
+	return next, cmd
+}
+
 // ── 붙여넣기와 되돌리기 ──
 
 // actionPasteAfter 는 `p` 다. 비어 있으면 아무 일도 하지 않는다.

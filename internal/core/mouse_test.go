@@ -568,3 +568,92 @@ func TestWheelWorksWhileTypingCommand(t *testing.T) {
 	require.True(t, ok, "명령줄에 남는다")
 	assert.Equal(t, wheelRows, command.buffers[command.active].top)
 }
+
+// drag 는 버튼을 누른 채 움직이는 것이다. click 과 같이 화면 좌표 하나를 메시지로 만든다.
+func drag(x, y int) tea.MouseMotionMsg {
+	return tea.MouseMotionMsg{X: x, Y: y, Button: tea.MouseLeft}
+}
+
+// 클릭만 하면 커서 이동이고, 끌기 시작하면 그 자리를 anchor 로 삼아 visual 로 들어간다.
+// vim 과 같다 (ADR-0012, ADR-0037).
+func TestDragStartsVisual(t *testing.T) {
+	m := newTestEditor("foo bar\nbaz qux", 80, 20)
+	left := contentLeftOf(t, m)
+
+	after, _ := m.Update(click(left+1, tablineHeight))
+	assert.IsType(t, viewEditorNormal{}, after, "클릭만으로는 visual 이 아니다")
+
+	after, _ = after.Update(drag(left+4, tablineHeight))
+
+	visual, ok := after.(viewEditorVisual)
+	require.True(t, ok, "끌기 시작하면 visual 이다")
+
+	buf := visual.activeBuffer()
+	assert.False(t, buf.selection.linewise, "드래그는 글자 단위다")
+	assert.Equal(t, 1, buf.selection.col, "누른 자리가 anchor 다")
+	assert.Equal(t, 4, buf.cursorCol, "끌린 자리가 커서다")
+
+	// 뗄 때는 보지 않는다. visual 에 머문다.
+	after, _ = after.Update(tea.MouseReleaseMsg{X: left + 4, Y: tablineHeight, Button: tea.MouseLeft})
+	assert.IsType(t, viewEditorVisual{}, after)
+}
+
+// 편집 영역 밖으로 끌면 좌표를 안으로 당겨서 읽는다. 포커스는 옮기지 않는다.
+func TestDragOutsideTextClampsInside(t *testing.T) {
+	m := newTestEditor("foo bar\nbaz qux", 80, 20)
+	left := contentLeftOf(t, m)
+
+	after, _ := m.Update(click(left+4, tablineHeight+1))
+	after, _ = after.Update(drag(0, tablineHeight+1))
+
+	visual, ok := after.(viewEditorVisual)
+	require.True(t, ok, "sidebar 쪽으로 끌어도 포커스는 그대로다")
+	assert.Equal(t, 0, visual.activeBuffer().cursorCol, "줄 시작까지 골랐다")
+}
+
+// 화면 아래로 끌면 그 방향으로 한 행 굴린다.
+//
+// 여는 것은 편집 영역 안의 움직임이다. 밖에서 시작한 드래그는 받지 않아서 tabline 을 누르고
+// 끌어도 범위가 열리지 않는다 — 일단 열린 뒤에는 밖으로 나가도 따라간다.
+func TestDragBelowTextScrolls(t *testing.T) {
+	m := newTestEditor("one\ntwo\nthree\nfour\nfive", 80, 2)
+	left := contentLeftOf(t, m)
+
+	after, _ := m.Update(click(left, tablineHeight))
+	after, _ = after.Update(drag(left, tablineHeight+1))
+	require.IsType(t, viewEditorVisual{}, after)
+
+	after, _ = after.Update(drag(left, tablineHeight+2))
+
+	visual, ok := after.(viewEditorVisual)
+	require.True(t, ok)
+	assert.Equal(t, 1, visual.activeBuffer().top, "한 행 굴러갔다")
+	assert.Equal(t, 2, visual.activeBuffer().cursorLine, "끌린 쪽 끝 행이 커서다")
+}
+
+// visual 에서 클릭하면 고른 것을 놓고 그 자리가 새 시작이 된다.
+func TestClickLeavesVisual(t *testing.T) {
+	m := newTestEditor("foo bar\nbaz qux", 80, 20)
+	left := contentLeftOf(t, m)
+
+	after := send(m, "v", "l", "l")
+	require.IsType(t, viewEditorVisual{}, after)
+
+	after, _ = after.Update(click(left+2, tablineHeight+1))
+
+	require.IsType(t, viewEditorNormal{}, after)
+	buf := bufferOf(t, after)
+	assert.False(t, buf.selection.active, "고른 범위를 놓는다")
+	assert.Equal(t, 1, buf.cursorLine)
+	assert.Equal(t, 2, buf.cursorCol)
+}
+
+// statusBar 는 눌러도 아무 일이 없다. visual 도 그대로다.
+func TestClickStatusBarKeepsVisual(t *testing.T) {
+	after := send(newTestEditor("foo bar", 80, 20), "v", "l")
+
+	after, _ = after.Update(click(0, tablineHeight+20))
+
+	assert.IsType(t, viewEditorVisual{}, after)
+	assert.True(t, bufferOf(t, after).selection.active)
+}

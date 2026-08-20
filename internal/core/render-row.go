@@ -134,3 +134,111 @@ func renderParts(parts []screenPart, style lipgloss.Style) string {
 
 	return out.String()
 }
+
+// rowHighlight 는 행 하나에 칠할 것들이다. 검색 매칭과 visual 선택이 같은 walker 를 지난다.
+type rowHighlight struct {
+	// matches 는 그 줄에서 찾은 자리들이다. 줄 전체 기준이라 이 행 밖으로 넘어가는 것이 섞여
+	// 있고, wrap 된 줄에서 행 경계에 걸친 매칭은 양쪽 행에 나뉘어 칠해진다.
+	matches [][]int
+
+	// cursorCol 은 커서가 이 줄에서 선 칸이다. 커서가 다른 줄이면 -1 이다.
+	// 커서가 선 매칭만 색이 다르다.
+	cursorCol int
+
+	// selection 은 visual 이 고른 byte 구간이다. 고르지 않은 줄이면 nil 이다(selection.go).
+	selection []int
+
+	// toLineEnd 는 선택이 개행까지인지다. 줄 끝에 빈 칸 하나를 더 칠한다.
+	toLineEnd bool
+}
+
+// rowSegment 는 행의 한 구간과 거기에 입힐 색이다.
+type rowSegment struct {
+	start, end int
+	style      lipgloss.Style
+}
+
+// segments 는 이 행에 칠할 구간들을 앞에서부터 겹치지 않게 늘어놓는다.
+//
+// 겹치는 두 목록을 walker 에 그냥 넘길 수 없어서 여기서 한 줄로 편다 — walker 는 왼쪽에서
+// 오른쪽으로 한 번만 지나간다.
+//
+// **겹친 자리는 검색이 이긴다.** 선택 배경이 찾은 자리를 덮으면 `n` 이 데려다 놓은 곳이
+// 어디인지 보이지 않는다.
+func (hl rowHighlight) segments(start, end int) []rowSegment {
+	segments := []rowSegment{}
+
+	put := func(from, to int, style lipgloss.Style) {
+		if from < to {
+			segments = append(segments, rowSegment{start: from, end: to, style: style})
+		}
+	}
+
+	// selectStart 는 선택에서 아직 칠하지 않은 앞자리다. 매칭이 지나갈 때마다 그만큼 밀린다.
+	selectStart, selectEnd := 0, 0
+	if hl.selection != nil {
+		selectStart, selectEnd = max(hl.selection[0], start), min(hl.selection[1], end)
+	}
+
+	for _, match := range hl.matches {
+		from, to := max(match[0], start), min(match[1], end)
+		if from >= to {
+			continue
+		}
+
+		put(selectStart, min(from, selectEnd), styleSelection)
+		selectStart = max(selectStart, to)
+
+		style := styleSearchMatch
+		if match[0] == hl.cursorCol {
+			style = styleSearchCurrent
+		}
+
+		put(from, to, style)
+	}
+
+	put(selectStart, selectEnd, styleSelection)
+
+	return segments
+}
+
+// renderRow 는 화면 행 하나를 그린다. 강조가 걸쳐 있으면 그 구간만 색을 입힌다.
+//
+// width 는 편집 영역의 너비다. 줄 끝에 덧붙이는 선택 칸이 그 안에 드는지 보는 데 쓴다.
+func renderRow(line []byte, row screenRow, width int, hl rowHighlight) string {
+	mark := markWhitespace(line)
+
+	out := strings.Builder{}
+	col := 0
+	offset := row.start
+
+	// put 은 offset 부터 end 까지를 그 색으로 그린다.
+	put := func(end int, style lipgloss.Style) {
+		if end <= offset {
+			return
+		}
+
+		parts, next := expandRow(line, offset, end, col, mark)
+		out.WriteString(renderParts(parts, style))
+		col, offset = next, end
+	}
+
+	var plain lipgloss.Style
+
+	for _, segment := range hl.segments(row.start, row.end) {
+		put(segment.start, plain)
+		put(segment.end, segment.style)
+	}
+	put(row.end, plain)
+
+	// 선택이 개행까지면 줄 끝에 칸 하나를 더 칠한다. `V` 로 고른 빈 줄은 칠할 글자가 없어서
+	// 이 칸이 없으면 골랐다는 것이 화면에 드러나지 않는다. vim 과 같다.
+	//
+	// 줄의 마지막 행에만 붙이고, 편집 영역을 넘으면 붙이지 않는다 — 한 칸이 넘치면 줄바꿈이
+	// 어긋난다.
+	if hl.toLineEnd && row.end == len(line) && col < width {
+		out.WriteString(styleSelection.Render(" "))
+	}
+
+	return out.String()
+}

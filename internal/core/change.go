@@ -16,6 +16,13 @@ func (buf *Buffer) changeByMotion(m motion, count, width int) (register, bool) {
 		return register{}, false
 	}
 
+	return buf.changeRange(area, width)
+}
+
+// changeRange 는 잡아 둔 범위를 바꾼다. 되돌리기 구간을 열어 둔 채 나오므로 이어 친 글자가
+// 같은 `u` 로 함께 돌아간다(ADR-0033).
+// motion 이 잡은 것도 visual 이 고른 것도 여기로 온다(ADR-0037).
+func (buf *Buffer) changeRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		removed := buf.changeLines(area.startLine, area.endLine, width)
 		buf.resumeEdit()

@@ -204,3 +204,75 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 	return m, nil
 }
+
+// dragTo 는 끌린 자리로 커서를 옮긴다. anchor 는 그대로라 고른 범위가 그만큼 자란다.
+//
+// **편집 영역 밖으로 나간 좌표는 안으로 당겨서 읽는다.** sidebar 쪽으로 끌면 줄 시작이고
+// statusBar 아래로 끌면 맨 아랫행이다. 끄는 중이라 「다른 영역을 눌렀다」가 아니므로
+// 포커스는 옮기지 않는다.
+//
+// **위아래로 나갔으면 그 방향으로 한 행 굴린다.** motion 이벤트는 포인터가 실제로 움직일 때만
+// 오므로(MouseModeCellMotion) 잡은 채 가만히 있으면 굴러가지 않는다. 타이머는 두지 않았다.
+func (e *editor) dragTo(x, y int) {
+	buf, width, height := e.activeBuffer(), e.contentWidth(), e.textHeight()
+	if height < 1 {
+		return
+	}
+
+	row := y - tablineHeight
+	switch {
+	case row < 0:
+		buf.scrollBy(-1, width, height)
+
+		row = 0
+	case row >= height:
+		buf.scrollBy(1, width, height)
+
+		row = height - 1
+	}
+
+	line, col, ok := buf.positionAt(x-e.contentLeft(), row, width, height)
+	if !ok {
+		// 마지막 줄 아래로 끌었다. 클릭은 그 자리에서 멈추지만(positionAt 주석) 끄는 중에는
+		// 있는 데까지 따라가야 한다 — 범위가 손을 놓치면 어디까지 골랐는지 알 수 없다.
+		rows := buf.visibleRows(width, height)
+		if len(rows) < 1 {
+			return
+		}
+
+		last := rows[len(rows)-1]
+		line, col = last.line, last.end
+	}
+
+	buf.moveTo(line, col, width)
+	buf.clampToNormal(width)
+}
+
+// click 은 visual mode 에서 왼쪽 버튼을 먹는다. 누른 자리가 새 시작이라 visual 이 끝난다.
+func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	region := m.regionAt(mouse.X, mouse.Y)
+	if region == regionNone {
+		// statusBar 와 화면 밖이다. 아무 일도 하지 않는다 — 다른 mode 와 같다.
+		return m, nil
+	}
+
+	// tab 을 옮기기 전에 놓아야 한다. 옮기고 나면 놓을 Buffer 가 바뀌어서 고른 범위가
+	// 보이지 않는 tab 에 남는다.
+	m.activeBuffer().selection = selection{}
+
+	switch region {
+	case regionSidebar:
+		return m.clickSidebar(mouse.Y)
+	case regionTabline:
+		reveal := m.clickTabline(mouse.X)
+
+		next, cmd := normalMode(m.editor)
+
+		return next, tea.Batch(cmd, reveal)
+	}
+
+	m.clickText(mouse.X, mouse.Y)
+	m.activeBuffer().clampToNormal(m.contentWidth())
+
+	return normalMode(m.editor)
+}

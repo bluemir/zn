@@ -12,6 +12,12 @@ func (buf *Buffer) yankByMotion(m motion, count, width int) (register, bool) {
 		return register{}, false
 	}
 
+	return buf.yankRange(area, width)
+}
+
+// yankRange 는 잡아 둔 범위를 register 에 담는다.
+// motion 이 잡은 것도 visual 이 고른 것도 여기로 온다(ADR-0037).
+func (buf *Buffer) yankRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		lines := append([][]byte(nil), buf.lines[area.startLine:area.endLine+1]...)
 		buf.moveToRangeStart(area, width)

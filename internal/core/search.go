@@ -2,7 +2,6 @@ package core
 
 import (
 	"regexp"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -124,50 +123,6 @@ func (e editor) searchMatches(line []byte) [][]int {
 	}
 
 	return e.search.pattern.FindAllIndex(line, -1)
-}
-
-// renderRow 는 화면 행 하나를 그린다. 매칭이 걸쳐 있으면 그 구간만 색을 입힌다.
-//
-// matches 는 줄 전체에서 찾은 자리라 이 행 밖으로 넘어가는 것이 섞여 있다. wrap 된 줄에서
-// 매칭이 행 경계에 걸치면 양쪽 행에 나뉘어 칠해진다.
-//
-// cursorCol 은 커서가 이 줄에 없으면 -1 이다.
-func renderRow(line []byte, row screenRow, matches [][]int, cursorCol int) string {
-	mark := markWhitespace(line)
-
-	out := strings.Builder{}
-	col := 0
-	offset := row.start
-
-	// put 은 offset 부터 end 까지를 그 색으로 그린다.
-	put := func(end int, style lipgloss.Style) {
-		if end <= offset {
-			return
-		}
-
-		parts, next := expandRow(line, offset, end, col, mark)
-		out.WriteString(renderParts(parts, style))
-		col, offset = next, end
-	}
-
-	var plain lipgloss.Style
-
-	for _, match := range matches {
-		if match[1] <= row.start || match[0] >= row.end {
-			continue
-		}
-
-		style := styleSearchMatch
-		if match[0] == cursorCol {
-			style = styleSearchCurrent
-		}
-
-		put(max(match[0], row.start), plain)
-		put(min(match[1], row.end), style)
-	}
-	put(row.end, plain)
-
-	return out.String()
 }
 
 // searchResult 는 찾은 자리다.
