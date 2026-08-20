@@ -219,3 +219,48 @@ func TestPasteAcrossTabs(t *testing.T) {
 	buf := bufferOf(t, after)
 	assert.Equal(t, []string{"a", "a", "b", "c"}, linesOf(buf))
 }
+
+// `y` 는 무엇을 복사했는지 아래 줄에 알린다. 복사는 화면에 자국을 남기지 않아서
+// 알림이 없으면 키가 먹었는지 볼 길이 없다.
+func TestYankTellsWhatWasCopied(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []string
+		want string
+	}{
+		{name: "yy", keys: []string{"y", "y"}, want: "1 줄 복사되었습니다"},
+		{name: "2yy", keys: []string{"2", "y", "y"}, want: "2 줄 복사되었습니다"},
+		{name: "yw", keys: []string{"y", "w"}, want: "4 글자 복사되었습니다"},
+		{name: "y$", keys: []string{"y", "$"}, want: "7 글자 복사되었습니다"},
+		// 한글 한 자는 3 byte 지만 한 글자다.
+		{name: "한글 줄의 y$", keys: []string{"j", "j", "y", "$"}, want: "3 글자 복사되었습니다"},
+		{name: "visual 의 y", keys: []string{"v", "l", "y"}, want: "2 글자 복사되었습니다"},
+		{name: "visual line 의 y", keys: []string{"V", "j", "y"}, want: "2 줄 복사되었습니다"},
+		// 줄을 넘어 고른 글자 단위는 사이의 줄바꿈도 한 글자다. `r` + 줄바꿈 + `baz` 다.
+		{name: "줄을 넘는 visual 의 y", keys: []string{"$", "v", "j", "y"}, want: "5 글자 복사되었습니다"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := send(newTestEditor("foo bar\nbaz\n가나다", 80, 20), test.keys...)
+
+			assert.Contains(t, barOf(t, m)[1], test.want)
+		})
+	}
+}
+
+// 알림은 다음 키에 사라지고, 복사할 것이 없으면 애초에 뜨지 않는다.
+func TestYankMessageIsOnlyForWhatWasCopied(t *testing.T) {
+	t.Run("다음 키를 누르면 사라진다", func(t *testing.T) {
+		m := send(newTestEditor("foo bar\nbaz", 80, 20), "y", "y", "j")
+
+		assert.NotContains(t, barOf(t, m)[1], "복사되었습니다")
+	})
+
+	t.Run("복사한 것이 없으면 알리지 않는다", func(t *testing.T) {
+		// 빈 줄의 `y$` 는 잡을 범위가 없다.
+		m := send(newTestEditor("\nbaz", 80, 20), "y", "$")
+
+		assert.NotContains(t, barOf(t, m)[1], "복사되었습니다")
+	})
+}

@@ -46,7 +46,7 @@ func (m viewEditorNormal) keyState() normalState {
 func (m viewEditorNormal) Init() tea.Cmd {
 	// 트리의 첫 읽기도 여기서 시작한다. core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가
 	// 없어서, git 첫 갱신과 같이 이 자리가 낸다(ADR-0030, ADR-0032).
-	return tea.Batch(m.startGitRefresh(), tickGit(), m.startTree())
+	return tea.Batch(m.startGitRefresh(), tickGit(), tickFile(), m.startTree())
 }
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -61,15 +61,26 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//
 		// 보고 있는 파일은 밖에서 바뀌었을 수 있다. 셸에서 올라오는 길과 다른 창에서 돌아오는
 		// 길이 같은 자리다 — 둘 다 "바깥을 만지고 왔다" 는 뜻이다 (ADR-0023, ADR-0031).
-		// 알리기만 하고 buffer 는 건드리지 않는다 — 가져오는 것은 `:e` 다.
+		// 잃을 것이 없으면 그 자리에서 가져온다 (ADR-0038).
 		//
 		// 알릴 것이 있을 때만 덮어쓴다. 창을 오갈 때마다 아래 줄이 비면 방금 친 명령의 결과가
 		// 창을 한 번 바꿨다는 이유로 사라진다.
-		if message := m.noteOutsideChange(); message != "" {
+		if message := m.reloadOutsideChange(); message != "" {
 			m.message = message
 		}
 
 		return m, nil
+	case fileTickMsg:
+		// 보고 있는 채로 밖에서 바뀌는 파일(로그·생성물, 옆 pane 의 `git pull`) 은 포커스가
+		// 오가지 않아서 복귀만으로는 잡히지 않는다. 주기로 한 번 더 본다 (ADR-0038).
+		//
+		// 다음 tick 은 여기서 예약한다. 공용 처리(handleJob) 에 넘기지 않으므로 예약이
+		// 겹치지 않는다.
+		if message := m.reloadOutsideChange(); message != "" {
+			m.message = message
+		}
+
+		return m, tickFile()
 	case tea.KeyPressMsg:
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())

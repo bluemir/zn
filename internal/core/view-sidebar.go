@@ -67,11 +67,22 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 트리에 포커스가 있어도 본다. ADR-0023 이 셸 복귀에서 이것을 뺀 것은 알림을 놓을
 		// 자리가 마땅치 않아서였는데, 이제 statusBar 의 `[!]` 가 mode 와 무관하게 그 자리다
 		// (ADR-0023, ADR-0031).
-		if message := m.noteOutsideChange(); message != "" {
+		//
+		// 트리를 보고 있어도 편집 영역은 옆에 그려져 있다. 잃을 것이 없으면 가져와서 그
+		// 화면이 파일과 어긋나 있지 않게 한다 (ADR-0038).
+		if message := m.reloadOutsideChange(); message != "" {
 			m.message = message
 		}
 
 		return m, nil
+	case fileTickMsg:
+		// normal 과 같은 자리다. 트리에서 파일을 고르는 동안에도 편집 영역이 밖의 내용을
+		// 따라간다 (ADR-0038).
+		if message := m.reloadOutsideChange(); message != "" {
+			m.message = message
+		}
+
+		return m, tickFile()
 	case tea.KeyPressMsg:
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())

@@ -69,6 +69,7 @@ type actionYank struct {
 func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 	if yanked, ok := e.activeBuffer().yankByMotion(c.motion, c.count, e.contentWidth()); ok {
 		e.register = yanked
+		e.message = yanked.copiedMessage()
 	}
 	e.scrollToCursor()
 
@@ -185,6 +186,7 @@ func (actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 	if area, ok := buf.selectionRange(); ok {
 		if yanked, copied := buf.yankRange(area, e.contentWidth()); copied {
 			e.register = yanked
+			e.message = yanked.copiedMessage()
 		}
 	}
 	e.scrollToCursor()

@@ -58,7 +58,7 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
 		return m, m.handleJob(msg)
 	default:
 		// 바깥 변경 알림(ResumeMsg·FocusMsg) 은 받지 않는다. normal·insert·트리만 본다(ADR-0031).

@@ -62,6 +62,9 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 		return v.buffers[v.active]
 	case viewPalette:
 		return v.buffers[v.active]
+	case viewSidebar:
+		// 트리에 포커스가 있어도 편집 영역은 옆에 그려져 있다. 그 buffer 를 볼 자리다.
+		return v.buffers[v.active]
 	default:
 		t.Fatalf("편집 화면이 아니다: %T", m)
 		return Buffer{}

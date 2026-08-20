@@ -48,15 +48,15 @@ func TestSuspendIgnoredInInsertMode(t *testing.T) {
 	assert.Equal(t, "abc", string(bufferOf(t, next).lines[0]))
 }
 
-// `fg` 로 올라오면 보고 있는 파일이 밖에서 바뀌었는지 본다. 알리기만 하고 buffer 는 그대로다.
-func TestResumeReportsOutsideChange(t *testing.T) {
+// `fg` 로 올라오면 보고 있는 파일이 밖에서 바뀌었는지 본다. 잃을 것이 없으면 가져온다(ADR-0038).
+func TestResumeReloadsOutsideChange(t *testing.T) {
 	m, path := newFileEditor(t, "abc\n")
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	model, _ := m.Update(tea.ResumeMsg{})
 
-	assert.Contains(t, barOf(t, model)[1], "바뀌었습니다")
-	assert.Equal(t, "abc", string(bufferOf(t, model).lines[0]), "다시 읽지는 않는다")
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
+	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
 }
 
 // 올라오는 자리에서는 git 을 읽지 않는다. 주기 갱신이 5 초 안에 따라온다(ADR-0030).

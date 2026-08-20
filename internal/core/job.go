@@ -163,12 +163,17 @@ func (e *editor) cancelJob(name string) {
 // 여기 하나로 모여 있고(ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 적어둔 자리다) mode 쪽에는 어떤
 // msg 를 받는지가 남는다. default 에 숨기면 그 mode 가 작업 msg 를 받는다는 것이 보이지 않는다.
 //
-// 결과가 무엇인지는 여기서 알지 못한다 — 이름으로 가르는 곳이 없다. git tick 만 예외로,
-// 주기를 잇는 자리가 여기 하나여야 mode 를 오갈 때 고리가 갈라지지 않는다(ADR-0030).
+// 결과가 무엇인지는 여기서 알지 못한다 — 이름으로 가르는 곳이 없다. 주기 tick 둘만 예외로,
+// 주기를 잇는 자리가 여기여야 mode 를 오갈 때 고리가 갈라지지 않는다(ADR-0030, ADR-0038).
 func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case gitTickMsg:
 		return tea.Batch(e.startGitRefresh(), tickGit())
+	case fileTickMsg:
+		// 여기서는 파일을 보지 않고 주기만 잇는다. 보는 것은 normal·트리뿐이고(ADR-0038)
+		// 그 둘은 이 자리에 오지 않는다 — 자기 case 에서 받아 스스로 다시 예약한다.
+		// 나머지 mode 를 지나가는 동안 고리가 끊기지 않게 하는 것이 이 case 의 일이다.
+		return tickFile()
 	case jobProgressMsg:
 		e.updateJob(msg)
 
