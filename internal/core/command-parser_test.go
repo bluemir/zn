@@ -7,41 +7,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// words 는 여느 토큰(이름·인자) 을 짧게 적는 손이다. 갈래를 보는 줄만 kind 를 적는다.
+func words(texts ...string) []token {
+	tokens := []token{}
+	for _, text := range texts {
+		tokens = append(tokens, token{text: text})
+	}
+
+	return tokens
+}
+
 func TestTokenize(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  []string
+		want  []token
 	}{
-		{name: "빈 입력", input: "", want: []string{}},
-		{name: "공백만", input: "   ", want: []string{}},
-		{name: "이름 하나", input: "w", want: []string{"w"}},
-		{name: "앞뒤 공백", input: "  w  ", want: []string{"w"}},
-		{name: "이름과 인자", input: "e main.go", want: []string{"e", "main.go"}},
-		{name: "공백 여러 개", input: "e    main.go", want: []string{"e", "main.go"}},
-		{name: "tab 으로도 끊는다", input: "e\tmain.go", want: []string{"e", "main.go"}},
-		{name: "인자 여럿", input: "e a.go b.go", want: []string{"e", "a.go", "b.go"}},
-		{name: "`!` 는 글자다", input: "q!", want: []string{"q!"}},
+		{name: "빈 입력", input: "", want: words()},
+		{name: "공백만", input: "   ", want: words()},
+		{name: "이름 하나", input: "w", want: words("w")},
+		{name: "앞뒤 공백", input: "  w  ", want: words("w")},
+		{name: "이름과 인자", input: "e main.go", want: words("e", "main.go")},
+		{name: "공백 여러 개", input: "e    main.go", want: words("e", "main.go")},
+		{name: "tab 으로도 끊는다", input: "e\tmain.go", want: words("e", "main.go")},
+		{name: "인자 여럿", input: "e a.go b.go", want: words("e", "a.go", "b.go")},
+		{name: "`!` 는 글자다", input: "q!", want: words("q!")},
 
 		// 여기부터가 tokenizer 를 만든 이유다. 공백이 든 파일 이름.
-		{name: "따옴표", input: `w "my notes.txt"`, want: []string{"w", "my notes.txt"}},
-		{name: "이스케이프", input: `w my\ notes.txt`, want: []string{"w", "my notes.txt"}},
-		{name: "따옴표 안의 `\\` 는 글자", input: `w "C:\tmp\a"`, want: []string{"w", `C:\tmp\a`}},
-		{name: "따옴표를 넣으려면 밖에서 이스케이프", input: `w \"quoted\"`, want: []string{"w", `"quoted"`}},
-		{name: "따옴표가 토큰 중간에서 열린다", input: `w a"b c"`, want: []string{"w", "ab c"}},
-		{name: "따옴표 뒤에 글자가 이어진다", input: `w "a b"c`, want: []string{"w", "a bc"}},
-		{name: "빈 따옴표", input: `w ""`, want: []string{"w"}},
-		{name: "따옴표 안의 공백만", input: `w " "`, want: []string{"w", " "}},
-		{name: "한글 경로", input: `w "내 메모.txt"`, want: []string{"w", "내 메모.txt"}},
+		{name: "따옴표", input: `w "my notes.txt"`, want: words("w", "my notes.txt")},
+		{name: "이스케이프", input: `w my\ notes.txt`, want: words("w", "my notes.txt")},
+		{name: "따옴표 안의 `\\` 는 글자", input: `w "C:\tmp\a"`, want: words("w", `C:\tmp\a`)},
+		{name: "따옴표를 넣으려면 밖에서 이스케이프", input: `w \"quoted\"`, want: words("w", `"quoted"`)},
+		{name: "따옴표가 토큰 중간에서 열린다", input: `w a"b c"`, want: words("w", "ab c")},
+		{name: "따옴표 뒤에 글자가 이어진다", input: `w "a b"c`, want: words("w", "a bc")},
+		{name: "빈 따옴표", input: `w ""`, want: words("w")},
+		{name: "따옴표 안의 공백만", input: `w " "`, want: words("w", " ")},
+		{name: "한글 경로", input: `w "내 메모.txt"`, want: words("w", "내 메모.txt")},
 
 		// 맨 앞의 `!` 는 이름 하나로 끊고 뒤를 통째로 넘긴다. 여느 자리의 `!` 는 그냥 글자다.
-		{name: "맨 앞의 `!` 는 뒤를 통째로", input: "!ls -la", want: []string{"!", "ls -la"}},
-		{name: "`!` 만", input: "!", want: []string{"!"}},
-		{name: "`!` 앞의 공백은 아직 맨 앞", input: "  !ls -la", want: []string{"!", "ls -la"}},
-		{name: "셸에 넘길 것은 따옴표도 뜯지 않는다", input: `!echo "a b"`, want: []string{"!", `echo "a b"`}},
-		{name: "셸에 넘길 것은 `\\` 도 글자다", input: `!echo a\ b`, want: []string{"!", `echo a\ b`}},
-		{name: "맨 앞이 아닌 `!` 는 뜻이 없다", input: "w !foo", want: []string{"w", "!foo"}},
-		{name: "이스케이프한 `!` 는 맨 앞이 아니다", input: `\!ls`, want: []string{"!ls"}},
+		{name: "맨 앞의 `!` 는 뒤를 통째로", input: "!ls -la", want: []token{{text: "ls -la", kind: tokenKindShell}}},
+		{name: "`!` 만", input: "!", want: []token{{kind: tokenKindShell}}},
+		{name: "`!` 앞의 공백은 아직 맨 앞", input: "  !ls -la", want: []token{{text: "ls -la", kind: tokenKindShell}}},
+		{name: "셸에 넘길 것은 따옴표도 뜯지 않는다", input: `!echo "a b"`, want: []token{{text: `echo "a b"`, kind: tokenKindShell}}},
+		{name: "셸에 넘길 것은 `\\` 도 글자다", input: `!echo a\ b`, want: []token{{text: `echo a\ b`, kind: tokenKindShell}}},
+		{name: "맨 앞이 아닌 `!` 는 뜻이 없다", input: "w !foo", want: words("w", "!foo")},
+		{name: "이스케이프한 `!` 는 맨 앞이 아니다", input: `\!ls`, want: words("!ls")},
+
+		// 이름 앞의 줄 범위도 맨 앞에서만 뜻을 갖는다. 안쪽은 뜯지 않고 한 토큰이다.
+		{name: "범위와 이름", input: "1,5d", want: []token{{text: "1,5", kind: tokenKindRange}, {text: "d"}}},
+		{name: "숫자 하나도 범위다", input: "5d", want: []token{{text: "5", kind: tokenKindRange}, {text: "d"}}},
+		{name: "범위만", input: "42", want: []token{{text: "42", kind: tokenKindRange}}},
+		{name: "`%` 는 범위다", input: "%d", want: []token{{text: "%", kind: tokenKindRange}, {text: "d"}}},
+		{name: "커서와 끝", input: ".,$d", want: []token{{text: ".,$", kind: tokenKindRange}, {text: "d"}}},
+		{name: "자리 옮김", input: ".,+3d", want: []token{{text: ".,+3", kind: tokenKindRange}, {text: "d"}}},
+		{name: "범위와 이름 사이의 공백", input: "1,5 d", want: []token{{text: "1,5", kind: tokenKindRange}, {text: "d"}}},
+		{name: "범위 뒤에 인자도 온다", input: "1,5 y a", want: []token{{text: "1,5", kind: tokenKindRange}, {text: "y"}, {text: "a"}}},
+		{name: "맨 앞이 아닌 숫자는 인자다", input: "e 1,5", want: words("e", "1,5")},
+		{name: "범위 뒤의 `!` 는 이름 자리다", input: "1,5!sort", want: []token{{text: "1,5", kind: tokenKindRange}, {text: "sort", kind: tokenKindShell}}},
+		{name: "숫자로 시작하는 파일 이름", input: "e 1.txt", want: words("e", "1.txt")},
 	}
 
 	for _, test := range tests {
@@ -83,7 +106,7 @@ func TestTokenizeFlushesLastToken(t *testing.T) {
 	got, err := tokenize("w foo")
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"w", "foo"}, got, "마지막 인자가 사라지면 안 된다")
+	assert.Equal(t, words("w", "foo"), got, "마지막 인자가 사라지면 안 된다")
 }
 
 func TestParseCommand(t *testing.T) {
@@ -103,6 +126,13 @@ func TestParseCommand(t *testing.T) {
 		{name: "`!` 만 치면 넘길 것이 없다", input: "!", want: command{name: "!"}},
 		{name: "`!!` 는 `!` 를 셸에 넘긴다", input: "!!", want: command{name: "!", args: []string{"!"}}},
 		{name: "`!` 는 force 가 아니다", input: "  !ls", want: command{name: "!", args: []string{"ls"}}},
+
+		// 범위는 이름 앞에 붙는다. 안쪽은 parseLineRange 가 뜯는다(command-range_test.go).
+		{name: "범위와 이름", input: "1,5d", want: command{name: "d", lines: lineRange{from: addrLine(1), to: addrLine(5)}}},
+		{name: "범위와 force", input: "1,5d!", want: command{name: "d", force: true, lines: lineRange{from: addrLine(1), to: addrLine(5)}}},
+		{name: "범위와 인자", input: "1,5w foo", want: command{name: "w", args: []string{"foo"}, lines: lineRange{from: addrLine(1), to: addrLine(5)}}},
+		{name: "범위만", input: "42", want: command{lines: lineRange{from: addrLine(42), to: addrLine(42)}}},
+		{name: "범위와 셸", input: "1,5!sort", want: command{name: "!", args: []string{"sort"}, lines: lineRange{from: addrLine(1), to: addrLine(5)}}},
 		{name: "`!` 와 인자", input: `e! "my notes.txt"`, want: command{name: "e", force: true, args: []string{"my notes.txt"}}},
 	}
 
@@ -114,6 +144,14 @@ func TestParseCommand(t *testing.T) {
 			assert.Equal(t, test.want, got)
 		})
 	}
+}
+
+// 범위를 뜯다 막히면 그 오류가 명령줄까지 온다. 뒤에 남은 토큰이 그것을 덮지 않는다.
+func TestParseCommandFailsOnBadRange(t *testing.T) {
+	_, err := parseCommand("1,2,3d foo")
+
+	require.Error(t, err)
+	assert.Equal(t, "범위를 알 수 없습니다: 2,3", err.Error())
 }
 
 func TestParseCommandPassesTokenizeError(t *testing.T) {

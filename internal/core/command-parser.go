@@ -18,98 +18,152 @@ type command struct {
 	name  string   // w, q, tabnew, ! ...
 	force bool     // 이름 뒤에 붙은 `!`
 	args  []string // 파일 이름 등. `:!` 는 뒤를 뜯지 않은 한 줄이 통째로 args[0] 이다
+
+	// lines 는 이름 앞에 붙은 줄 범위다(`:1,5d` 의 `1,5`). 치지 않았으면 zero 이고,
+	// 그때 무엇을 대신 쓸지는 명령이 정한다 — `:d` 는 커서 줄이다.
+	lines lineRange
 }
 
 // parseCommand 는 `:` 뒤에 친 것을 command 로 만든다.
 //
 // 상태 기계 둘을 잇는다 — 글자에서 토큰을 끊는 것(tokenizerState) 과 토큰에서 command 를
-// 만드는 것(commandState) 이다. 다 먹은 뒤 문자열을 다시 뜯어보는 자리는 없다.
+// 만드는 것(commandState) 이다. 토큰은 자기가 무엇으로 끊긴 것인지를 들고 다니므로(tokenKind)
+// 뒤쪽 기계가 문자열을 보고 갈래를 되짚는 자리가 없다.
 func parseCommand(input string) (command, error) {
 	tokens, err := tokenize(input)
 	if err != nil {
 		return command{}, err
 	}
 
-	var state commandState = commandName{}
-	for _, token := range tokens {
-		state = state.consume(token)
+	var state commandState = commandRange{}
+	for _, t := range tokens {
+		state = state.consume(t)
 	}
 
-	return state.end(), nil
+	return state.end()
 }
 
 // commandState 는 토큰에서 command 를 만들며 옮겨 다니는 상태다.
 //
-// 자리마다 뜻이 갈리는 토큰이 있어서 "몇 번째 토큰인가" 를 세지 않고 상태로 안다. 맨 앞의 `!`
-// 가 그 첫 자리이고, 범위 문법(`:1,5d`) 은 commandName 앞에 상태가 하나 더 붙는 자리가 된다.
+// 자리마다 뜻이 갈리는 토큰이 있어서 "몇 번째 토큰인가" 를 세지 않고 상태로 안다.
+// 이름 앞의 범위와 맨 앞의 `!` 가 그런 자리다.
 //
-// end 는 입력이 끝났음을 알린다. 오류를 내지 않는다 — 세 상태 모두 끝날 수 있는 자리이고,
-// 닫히지 않은 따옴표처럼 끝나면 안 되는 것은 글자 단위 쪽이 이미 막았다.
+// end 는 입력이 끝났음을 알린다. 뜯다 막힌 상태(commandFailed) 가 그 오류를 여기서 낸다.
 type commandState interface {
-	consume(token string) commandState
-	end() command
+	consume(t token) commandState
+	end() (command, error)
 }
 
-// commandName 은 첫 토큰을 기다리는 자리다. 이름과 force 를 가르는 것도 여기다.
-type commandName struct{}
+// commandRange 는 이름 앞의 범위 자리다. 명령줄의 첫 상태다.
+//
+// 범위 토큰이 아니면 그 토큰부터가 이름이라 곧바로 넘긴다 — 범위는 있어도 되고 없어도 된다.
+type commandRange struct{}
 
-func (s commandName) consume(token string) commandState {
-	// 맨 앞의 `!` 는 그 자체가 이름이고 뒤가 셸 줄이다. 이름에 붙는 `!` 와 뜻이 다르다.
-	if token == "!" {
-		return commandShell{}
+func (s commandRange) consume(t token) commandState {
+	if t.kind != tokenKindRange {
+		return commandName{}.consume(t)
 	}
 
-	// `!` 하나는 위에서 갈렸으므로 여기 오는 `!` 는 늘 이름 뒤에 붙은 것이다.
-	if name, ok := strings.CutSuffix(token, "!"); ok {
-		return commandArgs{cmd: command{name: name, force: true}}
+	lines, err := parseLineRange(t.text)
+	if err != nil {
+		return commandFailed{err: err}
 	}
 
-	return commandArgs{cmd: command{name: token}}
+	return commandName{lines: lines}
 }
 
 // `:` 만 치고 enter 를 누른 자리다.
-func (s commandName) end() command { return command{} }
+func (s commandRange) end() (command, error) { return command{}, nil }
 
-// commandShell 은 `:!` 뒤를 기다리는 자리다. 오는 토큰 하나가 뜯지 않은 셸 줄이다.
-type commandShell struct{}
-
-func (s commandShell) consume(token string) commandState {
-	return commandArgs{cmd: command{name: "!", args: []string{token}}}
+// commandName 은 이름 토큰을 기다리는 자리다. 이름과 force 를 가르는 것도 여기다.
+type commandName struct {
+	lines lineRange
 }
 
-// `:!` 만 쳤다. 이름은 있고 넘길 것이 없다.
-func (s commandShell) end() command { return command{name: "!"} }
+func (s commandName) consume(t token) commandState {
+	// 이름 자리의 `!` 는 이름이 `!` 이고 뒤가 셸 줄이다. 이름에 붙는 `!`(force) 와 뜻이
+	// 다른데, 그 갈림은 글자 단위 기계가 이미 했고 여기는 갈래를 읽을 뿐이다.
+	if t.kind == tokenKindShell {
+		cmd := command{name: "!", lines: s.lines}
+
+		// `:!` 만 쳤으면 넘길 것이 없다. 빈 줄을 셸에 넘기지 않는다.
+		if t.text != "" {
+			cmd.args = []string{t.text}
+		}
+
+		return commandArgs{cmd: cmd}
+	}
+
+	if name, ok := strings.CutSuffix(t.text, "!"); ok {
+		return commandArgs{cmd: command{name: name, force: true, lines: s.lines}}
+	}
+
+	return commandArgs{cmd: command{name: t.text, lines: s.lines}}
+}
+
+// 범위만 치고 이름이 없다. `:5` 로 그 줄로 가는 자리다.
+func (s commandName) end() (command, error) { return command{lines: s.lines}, nil }
 
 // commandArgs 는 나머지 토큰을 인자로 모으는 자리다.
 type commandArgs struct {
 	cmd command
 }
 
-func (s commandArgs) consume(token string) commandState {
-	s.cmd.args = append(s.cmd.args, token)
+func (s commandArgs) consume(t token) commandState {
+	s.cmd.args = append(s.cmd.args, t.text)
 
 	return s
 }
 
-func (s commandArgs) end() command { return s.cmd }
+func (s commandArgs) end() (command, error) { return s.cmd, nil }
+
+// commandFailed 는 뜯다 막힌 자리다. 남은 토큰을 먹고 끝에서 그 오류를 낸다.
+//
+// 막힌 자리에서 바로 오류를 돌려주지 않는 것은 consume 이 상태만 주기 때문이다.
+// 남은 토큰을 먹어도 결과가 달라지지 않으니 흐름을 끊을 이유도 없다.
+type commandFailed struct {
+	err error
+}
+
+func (s commandFailed) consume(token) commandState { return s }
+
+func (s commandFailed) end() (command, error) { return command{}, s.err }
+
+// tokenKind 는 토큰이 무엇으로 끊긴 것인지다. 글자 단위 기계가 정하고 토큰 단위 기계가 읽는다.
+//
+// 갈래를 토큰에 실어 보내면 뒤쪽 기계가 문자열을 보고 갈래를 되짚지 않는다 — 어디서 끊겼는지는
+// 끊은 쪽만 알 수 있다. `:1,5d` 의 `1,5` 와 `:w 1,5` 의 `1,5` 는 글자가 같고 뜻이 다르다.
+type tokenKind int
+
+const (
+	tokenKindWord  tokenKind = iota // 여느 토큰. 이름이거나 인자다
+	tokenKindRange                  // 이름 앞의 줄 범위(`1,5`, `%`, `.,+3`)
+	tokenKindShell                  // 이름 자리의 `!` 뒤를 뜯지 않은 한 줄
+)
+
+// token 은 끊어놓은 한 조각이다.
+type token struct {
+	text string
+	kind tokenKind
+}
 
 // tokenize 는 글자를 하나씩 먹으면서 토큰으로 끊는다.
 //
 // 공백으로 끊는 것이 기본이고, 따옴표와 `\` 로 공백이 든 파일 이름을 쓸 수 있다.
-// `:!ls -la` 처럼 뒤를 통째로 넘기는 것은 tokenRest 가 한다.
+// 이름 앞의 줄 범위는 tokenRange 가, `:!ls -la` 의 뒤쪽은 tokenRest 가 통째로 끊는다.
 //
 // 첫 상태가 tokenPlain 이 아니라 tokenHead 인 것이 이 함수가 하는 유일한 판단이다 —
-// 위치에 따라 뜻이 갈리는 글자(맨 앞의 `!`) 가 있고, 몇 번째인지를 아는 자리가 여기뿐이다.
-func tokenize(input string) ([]string, error) {
-	tokens := []string{}
+// 위치에 따라 뜻이 갈리는 글자(맨 앞의 `!` 와 범위) 가 있고, 몇 번째인지를 아는 자리가 여기뿐이다.
+func tokenize(input string) ([]token, error) {
+	tokens := []token{}
 
 	var state tokenizerState = tokenHead{}
 	for _, ch := range input {
-		var token string
-		token, state = state.consume(ch)
+		var t token
+		t, state = state.consume(ch)
 
-		if token != "" {
-			tokens = append(tokens, token)
+		if keepToken(t) {
+			tokens = append(tokens, t)
 		}
 	}
 
@@ -118,42 +172,95 @@ func tokenize(input string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if last != "" {
+	if keepToken(last) {
 		tokens = append(tokens, last)
 	}
 
 	return tokens, nil
 }
 
-// tokenizerState 는 tokenize 가 옮겨 다니는 상태다.
+// keepToken 은 모아둘 토큰인지다.
 //
-// consume 은 토큰 하나가 끝났으면 그것을 돌려준다. 아직 모으는 중이면 빈 문자열이다.
-// end 는 입력이 끝났음을 알린다. 닫히지 않은 따옴표처럼 끝나면 안 되는 자리에서는 오류를 낸다.
-type tokenizerState interface {
-	consume(ch rune) (string, tokenizerState)
-	end() (string, error)
+// 아직 모으는 중인 상태는 빈 토큰을 주므로 그것을 걸러낸다. 셸 줄만 예외다 —
+// 비어 있다는 것도 결과여서(`:!` 만 친 것) 여기서 버리면 명령이 이름을 잃는다.
+func keepToken(t token) bool {
+	return t.text != "" || t.kind == tokenKindShell
 }
 
-// tokenHead 는 줄 맨 앞이다. `!` 가 "뒤를 통째로" 라는 뜻을 갖는 자리는 여기뿐이다 —
-// `:w !foo` 의 `!` 는 파일 이름이라 뜻이 없다.
+// tokenizerState 는 tokenize 가 옮겨 다니는 상태다.
+//
+// consume 은 토큰 하나가 끝났으면 그것을 돌려준다. 아직 모으는 중이면 빈 토큰이다.
+// end 는 입력이 끝났음을 알린다. 닫히지 않은 따옴표처럼 끝나면 안 되는 자리에서는 오류를 낸다.
+type tokenizerState interface {
+	consume(ch rune) (token, tokenizerState)
+	end() (token, error)
+}
+
+// tokenHead 는 줄 맨 앞이다. 위치가 곧 뜻인 글자가 둘 있고, 그 갈림이 여기서 끝난다.
+//
+// `!` 는 "뒤를 통째로 셸에" 이고 — `:w !foo` 의 `!` 는 파일 이름이라 뜻이 없다 —
+// 숫자·`.`·`$`·`%` 는 줄 범위다. `:e 1,5` 의 `1,5` 는 파일 이름이다.
 type tokenHead struct{}
 
-func (s tokenHead) consume(ch rune) (string, tokenizerState) {
-	switch ch {
-	case ' ', '\t':
-		// 앞의 공백을 지나도 아직 맨 앞이다. `: !ls` 도 셸 명령이다.
-		return "", s
-	case '!':
-		// 이름은 `!` 하나로 끝나고 뒤는 통째로 한 토큰이다.
-		return "!", tokenRest{}
+func (s tokenHead) consume(ch rune) (token, tokenizerState) {
+	switch {
+	case ch == ' ' || ch == '\t':
+		// 앞의 공백을 지나도 아직 맨 앞이다. `: !ls` 도 `: 1,5d` 도 그대로 먹는다.
+		return token{}, s
+	case ch == '!':
+		return token{}, tokenRest{}
+	case isRangeChar(ch):
+		return token{}, tokenRange{buf: []rune{ch}}
 	default:
 		// 맨 앞이 아니게 되었다. 그 글자부터는 여느 자리와 같다.
 		return tokenPlain{}.consume(ch)
 	}
 }
 
-func (s tokenHead) end() (string, error) {
-	return "", nil
+func (s tokenHead) end() (token, error) {
+	return token{}, nil
+}
+
+// isRangeChar 는 줄 범위에 쓰이는 글자다. 주소(`42` `.` `$` `%`)·자리 옮김(`+3` `-2`)·쉼표다.
+//
+// 이 글자로 시작하는 명령 이름은 없다. 그래서 맨 앞에서 이것을 만나면 범위로 읽어도
+// 이름과 부딪히지 않는다.
+func isRangeChar(ch rune) bool {
+	switch ch {
+	case '.', '$', '%', ',', '+', '-':
+		return true
+	default:
+		return ch >= '0' && ch <= '9'
+	}
+}
+
+// tokenRange 는 이름 앞의 줄 범위 자리다. 범위 글자를 다 모아 한 토큰으로 준다.
+//
+// 안쪽 문법(주소 둘과 자리 옮김) 은 뜯지 않는다. 그것을 읽는 자리는 parseLineRange 하나다.
+type tokenRange struct {
+	buf []rune
+}
+
+func (s tokenRange) consume(ch rune) (token, tokenizerState) {
+	if isRangeChar(ch) {
+		return token{}, tokenRange{buf: append(s.buf, ch)}
+	}
+
+	// 범위가 끝났고 이 글자부터가 이름 자리다. `!` 가 뜻을 갖는 것은 줄 맨 앞이 아니라
+	// **이름 자리** 라서, 범위 뒤에 붙은 것도 셸이다(`:1,5!sort`).
+	if ch == '!' {
+		return token{text: string(s.buf), kind: tokenKindRange}, tokenRest{}
+	}
+
+	// 여느 자리로 넘긴다 — 빈 buf 로 시작하는 tokenPlain 은 글자 하나에 토큰을 내지 않으므로
+	// 그쪽 토큰은 늘 비어 있다.
+	_, next := tokenPlain{}.consume(ch)
+
+	return token{text: string(s.buf), kind: tokenKindRange}, next
+}
+
+func (s tokenRange) end() (token, error) {
+	return token{text: string(s.buf), kind: tokenKindRange}, nil
 }
 
 // tokenRest 는 뒤를 통째로 넘기는 자리다. 공백도 따옴표도 `\` 도 전부 글자다 —
@@ -162,12 +269,12 @@ type tokenRest struct {
 	buf []rune
 }
 
-func (s tokenRest) consume(ch rune) (string, tokenizerState) {
-	return "", tokenRest{buf: append(s.buf, ch)}
+func (s tokenRest) consume(ch rune) (token, tokenizerState) {
+	return token{}, tokenRest{buf: append(s.buf, ch)}
 }
 
-func (s tokenRest) end() (string, error) {
-	return string(s.buf), nil
+func (s tokenRest) end() (token, error) {
+	return token{text: string(s.buf), kind: tokenKindShell}, nil
 }
 
 // tokenPlain 은 따옴표 밖이다. 공백을 만나면 토큰이 끝난다.
@@ -175,27 +282,27 @@ type tokenPlain struct {
 	buf []rune
 }
 
-func (s tokenPlain) consume(ch rune) (string, tokenizerState) {
+func (s tokenPlain) consume(ch rune) (token, tokenizerState) {
 	switch ch {
 	case ' ', '\t':
 		// 모으는 중이 아니면 토큰 사이의 공백이라 흘려보낸다.
 		if len(s.buf) == 0 {
-			return "", s
+			return token{}, s
 		}
 
-		return string(s.buf), tokenPlain{}
+		return token{text: string(s.buf)}, tokenPlain{}
 	case '"':
 		// 토큰 중간에서도 열 수 있다. `a"b c"` 는 `ab c` 한 토큰이다.
-		return "", tokenQuoted{buf: s.buf}
+		return token{}, tokenQuoted{buf: s.buf}
 	case '\\':
-		return "", tokenEscaped{buf: s.buf}
+		return token{}, tokenEscaped{buf: s.buf}
 	default:
-		return "", tokenPlain{buf: append(s.buf, ch)}
+		return token{}, tokenPlain{buf: append(s.buf, ch)}
 	}
 }
 
-func (s tokenPlain) end() (string, error) {
-	return string(s.buf), nil
+func (s tokenPlain) end() (token, error) {
+	return token{text: string(s.buf)}, nil
 }
 
 // tokenQuoted 는 따옴표 안이다. 닫는 따옴표까지 전부 글자 그대로다.
@@ -206,17 +313,17 @@ type tokenQuoted struct {
 	buf []rune
 }
 
-func (s tokenQuoted) consume(ch rune) (string, tokenizerState) {
+func (s tokenQuoted) consume(ch rune) (token, tokenizerState) {
 	if ch == '"' {
 		// 토큰이 끝난 것이 아니라 따옴표가 끝난 것이다. `"a b"c` 는 `a bc` 한 토큰이다.
-		return "", tokenPlain{buf: s.buf}
+		return token{}, tokenPlain{buf: s.buf}
 	}
 
-	return "", tokenQuoted{buf: append(s.buf, ch)}
+	return token{}, tokenQuoted{buf: append(s.buf, ch)}
 }
 
-func (s tokenQuoted) end() (string, error) {
-	return "", errors.New("따옴표가 닫히지 않았습니다")
+func (s tokenQuoted) end() (token, error) {
+	return token{}, errors.New("따옴표가 닫히지 않았습니다")
 }
 
 // tokenEscaped 는 `\` 바로 뒤다. 다음 글자 하나를 뜻 없이 그대로 받는다.
@@ -224,10 +331,10 @@ type tokenEscaped struct {
 	buf []rune
 }
 
-func (s tokenEscaped) consume(ch rune) (string, tokenizerState) {
-	return "", tokenPlain{buf: append(s.buf, ch)}
+func (s tokenEscaped) consume(ch rune) (token, tokenizerState) {
+	return token{}, tokenPlain{buf: append(s.buf, ch)}
 }
 
-func (s tokenEscaped) end() (string, error) {
-	return "", errors.New("`\\` 뒤에 글자가 없습니다")
+func (s tokenEscaped) end() (token, error) {
+	return token{}, errors.New("`\\` 뒤에 글자가 없습니다")
 }

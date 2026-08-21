@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
 )
@@ -93,9 +95,28 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
 	}
 
+	// 줄 범위를 받는 것은 이 셋뿐이다. 이름 없는 것(`:5`) 은 그 줄로 가는 것이다.
+	// 나머지에 붙은 범위를 조용히 버리면 `:1,5w` 가 그 줄만 쓴 것처럼 보인다.
+	switch cmd.name {
+	case "d", "y", "":
+	default:
+		if cmd.lines != (lineRange{}) {
+			return normalModeMessage(m.editor, "이 명령은 줄 범위를 받지 않습니다: "+m.input)
+		}
+	}
+
 	switch cmd.name {
 	case "":
-		return normalMode(m.editor)
+		// 범위만 쳤으면 그 줄로 간다. 아무것도 안 쳤으면 그냥 나간다.
+		if cmd.lines == (lineRange{}) {
+			return normalMode(m.editor)
+		}
+
+		return m.goToLine(cmd)
+	case "d":
+		return m.deleteLines(cmd)
+	case "y":
+		return m.yankLines(cmd)
 	case "w":
 		return m.write(cmd)
 	case "wq", "x":
@@ -180,6 +201,66 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	default:
 		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
 	}
+}
+
+// deleteLines 는 `:[범위]d` 다. 범위를 치지 않았으면 커서 줄 하나다.
+//
+// 지운 줄 수를 알린다. 키로 치는 `dd` 는 글자가 사라지는 것이 화면에 보여서 알리지 않는데
+// (ADR-0017), 손으로 친 범위는 화면 밖일 수 있어서 무엇이 사라졌는지 볼 길이 없다.
+// vim 이 `5 fewer lines` 를 찍는 것과 같은 이유다.
+func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
+	buf := m.activeBuffer()
+
+	from, to, err := cmd.lines.resolve(*buf)
+	if err != nil {
+		return m.fail(err)
+	}
+
+	removed := buf.deleteLines(from, to, m.contentWidth())
+	m.register = removed
+	m.scrollToCursor()
+
+	return normalModeMessage(m.editor, fmt.Sprintf("%d 줄 지웠습니다", len(removed.lines)))
+}
+
+// yankLines 는 `:[범위]y` 다. 범위를 치지 않았으면 커서 줄 하나다.
+//
+// 알림 문구는 `y` 가 쓰는 것을 그대로 쓴다. 세는 법이 두 벌이 되면 `5y` 와 `:.,+4y` 가
+// 같은 것을 하고 다르게 말한다.
+func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
+	buf := m.activeBuffer()
+
+	from, to, err := cmd.lines.resolve(*buf)
+	if err != nil {
+		return m.fail(err)
+	}
+
+	copied := buf.yankLines(from, to)
+	m.register = copied
+
+	return normalModeMessage(m.editor, copied.copiedMessage())
+}
+
+// goToLine 은 이름 없이 범위만 친 것이다. `:5` 로 그 줄로 간다.
+//
+// 두 자리를 쳤으면(`:1,5`) 뒤쪽으로 간다. vim 과 같다 — 범위의 끝이 곧 명령이 마지막으로
+// 건드린 줄이고, 커서는 늘 그 자리에 남는다.
+//
+// 칸은 첫 비공백이다. 줄 번호로 뛰는 것은 `gg`·`G` 와 같은 일이라 그쪽 규칙을 따른다.
+func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
+	buf := m.activeBuffer()
+
+	_, to, err := cmd.lines.resolve(*buf)
+	if err != nil {
+		return m.fail(err)
+	}
+
+	buf.cursorLine = to
+	buf.moveLineFirstNonBlank(m.contentWidth())
+	buf.clampToNormal(m.contentWidth())
+	m.scrollToCursor()
+
+	return normalMode(m.editor)
 }
 
 // write 는 `:w` 다.

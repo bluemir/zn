@@ -14,8 +14,8 @@ import (
 	"github.com/bluemir/zn/internal/syntax"
 )
 
-// token 은 시험에서 토큰을 짧게 적는 손이다.
-func token(start, end int, kind syntax.Kind) syntax.Token {
+// syntaxToken 은 시험에서 토큰을 짧게 적는 손이다.
+func syntaxToken(start, end int, kind syntax.Kind) syntax.Token {
 	return syntax.Token{Start: start, End: end, Kind: kind}
 }
 
@@ -41,7 +41,7 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 		},
 		{
 			name:      "토큰 하나가 행 앞을 덮는다",
-			highlight: rowHighlight{cursorCol: -1, tokens: []syntax.Token{token(0, 4, syntax.KindKeyword)}},
+			highlight: rowHighlight{cursorCol: -1, tokens: []syntax.Token{syntaxToken(0, 4, syntax.KindKeyword)}},
 			want: []rowSegment{
 				{start: 0, end: 4, style: keyword},
 				{start: 4, end: 10, style: plain},
@@ -50,7 +50,7 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 		{
 			name: "토큰 둘 사이는 색 없는 구간이다",
 			highlight: rowHighlight{cursorCol: -1, tokens: []syntax.Token{
-				token(0, 2, syntax.KindKeyword), token(5, 8, syntax.KindComment),
+				syntaxToken(0, 2, syntax.KindKeyword), syntaxToken(5, 8, syntax.KindComment),
 			}},
 			want: []rowSegment{
 				{start: 0, end: 2, style: keyword},
@@ -62,7 +62,7 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 		{
 			name: "색을 정하지 않은 갈래는 조각을 나누지 않는다",
 			highlight: rowHighlight{cursorCol: -1, tokens: []syntax.Token{
-				token(2, 5, syntax.KindPlain),
+				syntaxToken(2, 5, syntax.KindPlain),
 			}},
 			want: []rowSegment{{start: 0, end: 10, style: plain}},
 		},
@@ -71,7 +71,7 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 			highlight: rowHighlight{
 				cursorCol: -1,
 				matches:   [][]int{{3, 6}},
-				tokens:    []syntax.Token{token(0, 10, syntax.KindComment)},
+				tokens:    []syntax.Token{syntaxToken(0, 10, syntax.KindComment)},
 			},
 			want: []rowSegment{
 				{start: 0, end: 3, style: comment},
@@ -84,7 +84,7 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 			highlight: rowHighlight{
 				cursorCol: -1,
 				selection: []int{2, 5},
-				tokens:    []syntax.Token{token(0, 10, syntax.KindKeyword)},
+				tokens:    []syntax.Token{syntaxToken(0, 10, syntax.KindKeyword)},
 			},
 			want: []rowSegment{
 				{start: 0, end: 2, style: keyword},
@@ -98,7 +98,7 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 				cursorCol: -1,
 				matches:   [][]int{{4, 6}},
 				selection: []int{2, 8},
-				tokens:    []syntax.Token{token(0, 10, syntax.KindComment)},
+				tokens:    []syntax.Token{syntaxToken(0, 10, syntax.KindComment)},
 			},
 			want: []rowSegment{
 				{start: 0, end: 2, style: comment},
@@ -111,14 +111,14 @@ func TestRowSegmentsFillGapsWithSyntax(t *testing.T) {
 		{
 			name: "행 밖의 토큰은 잘린다",
 			highlight: rowHighlight{cursorCol: -1, tokens: []syntax.Token{
-				token(15, 18, syntax.KindKeyword),
+				syntaxToken(15, 18, syntax.KindKeyword),
 			}},
 			want: []rowSegment{{start: 0, end: 10, style: plain}},
 		},
 		{
 			name: "행 경계에 걸친 토큰은 걸친 만큼만 칠한다",
 			highlight: rowHighlight{cursorCol: -1, tokens: []syntax.Token{
-				token(7, 20, syntax.KindString),
+				syntaxToken(7, 20, syntax.KindString),
 			}},
 			want: []rowSegment{
 				{start: 0, end: 7, style: plain},

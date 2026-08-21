@@ -25,6 +25,7 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 
 - terminal editor
 - vim 과 유사한 편집 기능
+	- 명령줄에 줄 범위를 쓴다. `:1,5d` `:%d` `:.,+3y` `:5`
 - no config(config 는 compile 됨)
 - 현대화된 tab 기능
 - 언어별 syntax highlight

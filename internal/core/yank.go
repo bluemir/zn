@@ -40,6 +40,14 @@ func (buf *Buffer) yankRange(area motionRange, width int) (register, bool) {
 	return register{lines: lines}, true
 }
 
+// yankLines 는 [from, to] 줄을 register 에 담는다. `:[범위]y` 가 쓴다.
+//
+// 커서를 움직이지 않는다. motion 쪽은 이동이 잡은 범위라 커서가 따라가야 하지만(`yb` 는
+// 앞으로 간다) 여기는 손으로 친 줄 번호라 따라갈 이동이 없다. 파일도 건드리지 않는다.
+func (buf Buffer) yankLines(from, to int) register {
+	return register{lines: append([][]byte(nil), buf.lines[from:to+1]...), linewise: true}
+}
+
 // moveToRangeStart 는 뒤로 가는 motion 이었으면 커서를 범위의 시작으로 옮긴다.
 // 앞으로 가는 motion 이면 제자리다. vim 의 `y` 가 그렇다 — `yw` 는 안 움직이고 `yb` 는 앞으로 간다.
 //
