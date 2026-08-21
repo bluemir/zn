@@ -5,7 +5,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"charm.land/lipgloss/v2"
 	"github.com/cockroachdb/errors"
 )
 
@@ -104,17 +103,6 @@ func splitSearchFlags(input string) (pattern, flags string) {
 
 	return input[:last], rest
 }
-
-// styleSearchMatch, styleSearchCurrent 는 찾은 자리의 색이다.
-//
-// 반전은 statusBar·tabline 이 이미 쓰고 있어서(ADR-0004) 본문에 쓰면 그 둘과 같은 모양이 된다.
-// 그래서 여기만 256색 고정값을 쓴다. sidebar·상대 줄번호와 같은 방식이다(ADR-0005, ADR-0007).
-//
-// 커서가 선 매칭만 색이 다르다. `n` 으로 옮길 때 지금 어느 것 위에 있는지 보여야 한다.
-var (
-	styleSearchMatch   = lipgloss.NewStyle().Background(lipgloss.Color("220")).Foreground(lipgloss.Color("16"))
-	styleSearchCurrent = lipgloss.NewStyle().Background(lipgloss.Color("208")).Foreground(lipgloss.Color("16"))
-)
 
 // searchMatches 는 그 줄에서 강조할 자리들이다. 강조가 꺼져 있으면 비어 있다.
 func (e editor) searchMatches(line []byte) [][]int {

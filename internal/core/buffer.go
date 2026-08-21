@@ -76,6 +76,13 @@ type Buffer struct {
 	// 맞춰 보는 것은 포커스가 돌아올 때·셸에서 올라올 때뿐이라, 이 값은 그때 본 것이지
 	// 지금 이 순간의 사실이 아니다. 저장은 여기를 믿지 않고 그 자리에서 다시 읽는다 (ADR-0015).
 	outside outsideChange
+
+	// syntax 는 문법 강조 토큰을 담아 둔 것이다. 파일 내용에서 나온 것이라 커서·스크롤과 같이
+	// 이 파일에 딸려 있다(위 주석).
+	//
+	// 값 필드다. 그래서 newBuffer 로 새로 열 때와 Reload 가 buffer 를 통째로 갈아끼울 때
+	// (`*buf = next`) 저절로 비워진다 — 비우는 코드를 따로 두지 않는다 (syntax.go).
+	syntax syntaxCache
 }
 
 // edit 은 되돌릴 수 있는 변경 하나다. lines 의 [at, at+count) 를 before 로 바꾸면 되돌아간다.

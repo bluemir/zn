@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/syntax"
 )
 
 // tab 과 space 는 화면에서 똑같은 빈 칸이라, 들여쓰기가 둘로 섞여도 알아챌 수 없다.
@@ -15,10 +17,6 @@ const (
 	markerTab   = "»" // U+00BB
 	markerSpace = "⋅" // U+22C5 DOT OPERATOR
 )
-
-// colorWhitespace 는 공백 마커의 색이다. 본문보다 흐려야 코드를 읽는 데 끼어들지 않는다.
-// 검색 강조·sidebar·상대 줄번호와 같이 256색 고정값이다(ADR-0005, ADR-0007).
-var colorWhitespace = lipgloss.Color("240")
 
 // whitespaceMark 는 한 줄에서 마커를 붙일 구간이다. 들여쓰기와 줄 끝 공백뿐이다.
 //
@@ -150,6 +148,10 @@ type rowHighlight struct {
 
 	// toLineEnd 는 선택이 개행까지인지다. 줄 끝에 빈 칸 하나를 더 칠한다.
 	toLineEnd bool
+
+	// tokens 는 그 줄의 문법 토큰이다. 강조하지 않는 파일이면 nil 이다(syntax.go).
+	// matches 와 같이 줄 전체 기준이라 이 행 밖으로 넘어가는 것이 섞여 있다.
+	tokens []syntax.Token
 }
 
 // rowSegment 는 행의 한 구간과 거기에 입힐 색이다.
@@ -158,14 +160,17 @@ type rowSegment struct {
 	style      lipgloss.Style
 }
 
-// segments 는 이 행에 칠할 구간들을 앞에서부터 겹치지 않게 늘어놓는다.
+// topSegments 는 문법 강조 위에 덮이는 구간들을 앞에서부터 겹치지 않게 늘어놓는다.
+// 검색 매칭과 visual 선택이다.
 //
 // 겹치는 두 목록을 walker 에 그냥 넘길 수 없어서 여기서 한 줄로 편다 — walker 는 왼쪽에서
 // 오른쪽으로 한 번만 지나간다.
 //
 // **겹친 자리는 검색이 이긴다.** 선택 배경이 찾은 자리를 덮으면 `n` 이 데려다 놓은 곳이
 // 어디인지 보이지 않는다.
-func (hl rowHighlight) segments(start, end int) []rowSegment {
+//
+// 빈 자리가 남는다 — 그것을 문법 색으로 메우는 것이 segments 다.
+func (hl rowHighlight) topSegments(start, end int) []rowSegment {
 	segments := []rowSegment{}
 
 	put := func(from, to int, style lipgloss.Style) {
@@ -202,6 +207,72 @@ func (hl rowHighlight) segments(start, end int) []rowSegment {
 	return segments
 }
 
+// segments 는 이 행을 빈틈 없이 덮는 구간들이다. 앞에서부터 겹치지 않게 늘어선다.
+//
+// **문법 강조는 가장 아래 층이다.** 위 층(검색·선택) 이 덮지 않은 자리만 문법 색이 메운다.
+// 검색과 선택은 글자색과 배경을 함께 정하고 문법은 글자색만 정하는데, 겹친 자리에서 둘을
+// 섞으면 고른 범위 안의 글자색이 자리마다 달라져 범위 자체가 흐려진다. 고른 자리가 문법
+// 색을 잃는 것은 vim 도 같다.
+//
+// 빈틈이 없어서 그리는 쪽이 사이를 메울 자리가 없다 — 색 없는 자리는 아무 속성 없는 style 인
+// 구간으로 들어온다. 그 style 은 글자를 그대로 두므로, 강조가 없을 때의 화면 글자는 문법
+// 강조를 넣기 전과 한 글자도 다르지 않다.
+func (hl rowHighlight) segments(start, end int) []rowSegment {
+	top := hl.topSegments(start, end)
+
+	segments := make([]rowSegment, 0, len(top)*2+1)
+
+	// at 은 아직 덮지 않은 앞자리다.
+	at := start
+	for _, segment := range top {
+		segments = hl.appendSyntax(segments, at, segment.start)
+		segments = append(segments, segment)
+		at = segment.end
+	}
+
+	return hl.appendSyntax(segments, at, end)
+}
+
+// appendSyntax 는 [from, to) 를 토큰 경계로 잘라 붙인다.
+// 토큰 사이와, 색을 정하지 않은 갈래는 아무 속성 없는 구간이 된다.
+//
+// 행 밖은 잘라낸다. 줄 전체 기준인 토큰이라 wrap 된 줄에서 행 경계에 걸친 토큰은 양쪽 행에
+// 나뉘어 칠해진다 — 검색 매칭·선택을 max/min 으로 자르는 것과 같은 자리다(topSegments).
+// 자르는 김에 줄 밖을 가리키는 토큰도 함께 접히므로, lexer 가 어긋난 자리를 줘도 그리는
+// 쪽이 없는 byte 를 집지 않는다(expandRow).
+func (hl rowHighlight) appendSyntax(segments []rowSegment, from, to int) []rowSegment {
+	if from >= to {
+		return segments
+	}
+
+	at := from
+	for _, token := range hl.tokens {
+		left, right := max(token.Start, from), min(token.End, to)
+		if left >= right {
+			continue
+		}
+
+		style, ok := styleSyntax[token.Kind]
+		if !ok {
+			// 색을 정하지 않은 갈래다. 조각을 나누지 않고 뒤 구간에 흘려보낸다 — 화면에
+			// 달라지는 것이 없으니 escape 를 덜 낸다.
+			continue
+		}
+
+		if at < left {
+			segments = append(segments, rowSegment{start: at, end: left})
+		}
+		segments = append(segments, rowSegment{start: left, end: right, style: style})
+		at = right
+	}
+
+	if at < to {
+		segments = append(segments, rowSegment{start: at, end: to})
+	}
+
+	return segments
+}
+
 // renderRow 는 화면 행 하나를 그린다. 강조가 걸쳐 있으면 그 구간만 색을 입힌다.
 //
 // width 는 편집 영역의 너비다. 줄 끝에 덧붙이는 선택 칸이 그 안에 드는지 보는 데 쓴다.
@@ -223,13 +294,10 @@ func renderRow(line []byte, row screenRow, width int, hl rowHighlight) string {
 		col, offset = next, end
 	}
 
-	var plain lipgloss.Style
-
+	// segments 가 행을 빈틈 없이 덮으므로 사이를 메울 자리가 없다.
 	for _, segment := range hl.segments(row.start, row.end) {
-		put(segment.start, plain)
 		put(segment.end, segment.style)
 	}
-	put(row.end, plain)
 
 	// 선택이 개행까지면 줄 끝에 칸 하나를 더 칠한다. `V` 로 고른 빈 줄은 칠할 글자가 없어서
 	// 이 칸이 없으면 골랐다는 것이 화면에 드러나지 않는다. vim 과 같다.

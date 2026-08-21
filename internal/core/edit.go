@@ -17,6 +17,13 @@ func (buf *Buffer) replaceLines(at, count int, with [][]byte) [][]byte {
 	next = append(next, buf.lines[at+count:]...)
 	buf.lines = next
 
+	// 문법 캐시도 같은 자리를 같은 수로 갈아끼운다. 줄과 index 가 나란해야 아래쪽에 담아둔
+	// 것을 그대로 쓸 수 있다(syntax.go).
+	//
+	// 이 함수가 lines 를 갈아끼우는 유일한 자리라 여기 한 줄이면 된다. 편집 경로가 늘어도
+	// 제자리 수정은 undo 를 깨므로(위 주석) 이곳을 지나지 않을 수 없다.
+	buf.syntax.replace(at, count, len(with))
+
 	return old
 }
 

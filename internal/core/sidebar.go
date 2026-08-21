@@ -293,18 +293,6 @@ func (s sidebar) selectedRow(height int) (int, bool) {
 // labelWidth 는 sidebar 32 칸 중 이름에 쓰는 칸이다. 나머지 둘은 구분선과 그 뒤 빈 칸이다.
 const labelWidth = sidebarWidth - 2
 
-// 파일 종류별 글자색이다. 256 색 고정값이라 터미널 테마를 타지 않는다(ADR-0005).
-//
-// 굵기와 밑줄은 여기 없다. 그 둘은 "지금 보고 있는 파일" 한 뜻으로만 쓴다(ADR-0022).
-// 디렉터리는 색과 `▸`/`▾` 표시와 `/` 접미로 이미 갈린다.
-var (
-	styleTreeDir     = lipgloss.NewStyle().Foreground(lipgloss.Color("117"))
-	styleTreeGo      = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))
-	styleTreeDoc     = lipgloss.NewStyle().Foreground(lipgloss.Color("150"))
-	styleTreeWeb     = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
-	styleTreeIgnored = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-)
-
 // renderCells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
 // 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
 //

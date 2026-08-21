@@ -1,9 +1,5 @@
 package core
 
-import (
-	"charm.land/lipgloss/v2"
-)
-
 // selection 은 visual mode 가 고른 범위의 반대쪽 끝(anchor) 이다. 이쪽 끝은 커서라,
 // 이동 키가 커서를 옮기면 범위가 그만큼 따라 자란다.
 //
@@ -19,14 +15,6 @@ type selection struct {
 	line     int  // anchor 의 줄
 	col      int  // anchor 의 byte offset
 }
-
-// styleSelection 은 고른 범위의 색이다.
-//
-// 반전은 statusBar·tabline 이 이미 쓰고 있어서(ADR-0004) 본문에 쓰면 그 둘과 같은 모양이 된다.
-// 검색 강조가 256색 고정값을 고른 것과 같은 자리다(ADR-0010).
-//
-// 글자색까지 고정하는 것도 검색과 같은 이유다 — 배경만 정하면 밝은 테마에서 읽히지 않는다.
-var styleSelection = lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(lipgloss.Color("231"))
 
 // selectionRange 는 고른 범위다. 고른 것이 없으면 false 다.
 //

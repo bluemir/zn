@@ -22,15 +22,6 @@ const (
 // paletteFrame 은 박스가 목록 말고 쓰는 행 수다. 테두리 둘, 입력줄, 가름줄이다.
 const paletteFrame = 4
 
-// styleMatch 는 fuzzy 매칭으로 맞은 글자다.
-//
-// 검색 강조(styleSearchMatch) 를 쓰지 않는다 — 그것은 "파일 안에서 찾은 것" 이라는 뜻이
-// 이미 붙었다. 반전도 못 쓴다. statusBar·tabline(ADR-0004) 과 이 목록의 고른 행이 쓰고 있다.
-var (
-	styleMatch  = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
-	styleDetail = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-)
-
 // viewPalette 는 `ctrl+p` 로 여는 command palette 다.
 //
 // 화면 위쪽 가운데에 박스를 띄우고 그 아래로 편집 화면이 그대로 비친다. 기본은 파일 찾기이고

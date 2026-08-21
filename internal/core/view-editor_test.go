@@ -12,11 +12,22 @@ import (
 )
 
 // newTestEditor 의 height 는 편집 내용을 그릴 높이다. tabline 과 statusBar 는 별도로 얹힌다.
+//
+// `test.txt` 로 연다. 문법 강조를 하지 않는 확장자라(syntax.Detect) 본문에 색이 들어오지
+// 않는다 — 색을 보지 않는 렌더 시험이 전부 이것을 쓴다. **경로를 바꾸면 안 된다.** 아래
+// textOf 로 글자를 그대로 견주는 단정이 escape 때문에 한꺼번에 깨진다.
+// 강조를 보는 시험은 newTestEditorFile 을 쓴다.
 func newTestEditor(data string, width, height int) viewEditorNormal {
+	return newTestEditorFile("test.txt", data, width, height)
+}
+
+// newTestEditorFile 은 경로를 정해 여는 편집기다.
+// 문법 강조는 경로로 갈리므로(syntax.Detect) 강조를 보는 시험이 이것을 쓴다.
+func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
 	return viewEditorNormal{
 		editor: &editor{
 			boxChars: boxUnicode,
-			buffers:  []Buffer{newBuffer("test.txt", []byte(data))},
+			buffers:  []Buffer{newBuffer(path, []byte(data))},
 			width:    width,
 			height:   height + tablineHeight + statusBarHeight,
 		},
@@ -24,7 +35,13 @@ func newTestEditor(data string, width, height int) viewEditorNormal {
 }
 
 // textOf 는 tabline·statusBar 와 sidebar·줄번호 칸을 뺀 파일 내용만 돌려준다.
-// 색은 그대로 둔다 — 본문에 색이 없다는 것도 봐야 하기 때문이다. 줄번호는 gutterOf 로 따로 본다.
+//
+// 색은 그대로 둔다 — 강조하지 않는 확장자에서 본문에 색이 없다는 것도 봐야 하기 때문이다.
+// 줄번호는 gutterOf 로 따로 본다.
+//
+// 그래서 문법 강조가 붙는 파일(`.go`·`.md`) 로는 글자를 그대로 견줄 수 없다. 아래
+// leadingStyle 은 행 맨 앞의 escape 만 걷어낸다 — 모든 escape 를 걷도록 고치면 안 된다.
+// 색을 보는 시험이 그 escape 를 봐야 한다.
 func textOf(t *testing.T, m tea.Model) string {
 	t.Helper()
 

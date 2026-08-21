@@ -1,0 +1,188 @@
+package syntax
+
+import (
+	"bytes"
+)
+
+// makeNormal 은 Makefile 의 보통 문맥이다.
+//
+// 조리법 줄(tab 으로 시작하는 줄) 도 여기서 다룬다 — 「tab 으로 시작한다」는 줄 자체에
+// 적혀 있어서 앞 줄을 알 필요가 없다. 문맥이 필요한 것은 `\` 로 이어진 줄뿐이다.
+type makeNormal struct{}
+
+// makeContinued 는 앞 줄이 `\` 로 이어진 자리다. 줄 앞이 대상 이름도 변수 이름도 아니다.
+type makeContinued struct{}
+
+func (s makeNormal) Lex(line []byte) ([]Token, State) {
+	limit, comment := makeCommentAt(line)
+	if limit == 0 {
+		return comment, makeNext(line, s)
+	}
+
+	tokens := makeLexHead(line, limit)
+	tokens = append(tokens, makeLexExpansions(line, headEnd(tokens), limit)...)
+
+	return append(tokens, comment...), makeNext(line, s)
+}
+
+func (s makeContinued) Lex(line []byte) ([]Token, State) {
+	limit, comment := makeCommentAt(line)
+
+	tokens := makeLexExpansions(line, 0, limit)
+
+	return append(tokens, comment...), makeNext(line, s)
+}
+
+// headEnd 는 줄 앞에서 이미 갈래를 매긴 자리 다음이다. 값 참조는 그 뒤부터 찾는다.
+func headEnd(tokens []Token) int {
+	if len(tokens) < 1 {
+		return 0
+	}
+
+	return tokens[len(tokens)-1].End
+}
+
+// makeNext 는 다음 줄의 문맥이다. 줄이 `\` 로 끝나면 다음 줄이 이 줄의 뒷부분이다.
+func makeNext(line []byte, current State) State {
+	if bytes.HasSuffix(line, []byte{'\\'}) {
+		return makeContinued{}
+	}
+
+	if _, ok := current.(makeContinued); ok {
+		return makeNormal{}
+	}
+
+	return current
+}
+
+// makeCommentAt 은 주석이 시작하는 자리와 그 토큰이다.
+//
+// make 의 주석은 줄 아무 자리에서나 시작해서 줄 끝까지다. 이 저장소의 Makefile 이 쓰는
+// `## 도움 문구` 도 그래서 대상 이름 뒤에 붙는다.
+func makeCommentAt(line []byte) (int, []Token) {
+	for at := 0; at < len(line); at++ {
+		if line[at] != '#' {
+			continue
+		}
+		if at > 0 && line[at-1] == '\\' {
+			continue
+		}
+
+		return at, []Token{{Start: at, End: len(line), Kind: KindComment}}
+	}
+
+	return len(line), nil
+}
+
+// makeLexHead 는 줄 앞이 무엇인지 가른다 — 지시자, 변수 이름, 대상 이름 중 하나다.
+//
+// 조리법 줄은 앞이 shell 이라 아무것도 아니다.
+func makeLexHead(line []byte, limit int) []Token {
+	if limit > 0 && line[0] == '\t' {
+		return nil
+	}
+
+	at := 0
+	for at < limit && line[at] == ' ' {
+		at++
+	}
+
+	// 이름은 붙이기 기호 앞에서 끝난다. `?` `+` 를 빼먹으면 `VERSION?=` 의 이름이 `VERSION?` 이 된다.
+	word := at
+	for word < limit && bytes.IndexByte([]byte(" :=?+"), line[word]) < 0 {
+		word++
+	}
+
+	if word > at && makeDirectives[string(line[at:word])] {
+		return []Token{{Start: at, End: word, Kind: KindKeyword}}
+	}
+
+	// 변수 붙이기(`NAME =` `NAME :=` `NAME ?=` `NAME +=` `NAME ::=`) 는 이름이 값을 가리킨다.
+	// 대상(`build: dep`) 은 부르는 이름이라 갈래가 다르다 — `make build` 로 부른다.
+	if word > at && makeAssigns(line, word, limit) {
+		return []Token{{Start: at, End: word, Kind: KindVariable}}
+	}
+
+	if word < limit && line[word] == ':' && word > at {
+		return []Token{{Start: at, End: word, Kind: KindFunction}}
+	}
+
+	return nil
+}
+
+// makeAssigns 는 그 자리부터 붙이기 기호가 오는지다. 빈 칸을 건너뛰고 본다.
+func makeAssigns(line []byte, from, limit int) bool {
+	at := from
+	for at < limit && line[at] == ' ' {
+		at++
+	}
+
+	if at >= limit {
+		return false
+	}
+
+	switch line[at] {
+	case '=':
+		return true
+	case ':', '?', '+':
+		// `:=` `::=` `?=` `+=` 다. `:` 하나는 대상이라 `=` 가 뒤따르는지로 갈린다.
+		for at < limit && (line[at] == ':' || line[at] == '?' || line[at] == '+') {
+			at++
+		}
+
+		return at < limit && line[at] == '='
+	}
+
+	return false
+}
+
+// makeLexExpansions 는 값 참조를 훑는다.
+//
+// 조리법 안은 shell 이라 나머지에 색을 입히지 않는다 — shell lexer 가 없다.
+func makeLexExpansions(line []byte, from, limit int) []Token {
+	tokens := []Token{}
+
+	for at := from; at < limit; {
+		if line[at] != '$' {
+			at++
+
+			continue
+		}
+
+		// `$$` 는 `$` 한 글자를 내는 것이다. 둘을 같이 건너뛰어야 뒤의 `$` 가 다시 참조로 읽히지
+		// 않는다 — `$$2` 가 `$2` 로 보이면 shell 인자에 색이 붙는다.
+		if at+1 < limit && line[at+1] == '$' {
+			at += 2
+
+			continue
+		}
+
+		// `$@` `$<` `$^` `$?` `$*` 는 make 만 쓰는 한 글자 이름이다.
+		if at+1 < limit && bytes.IndexByte([]byte("@<^?*"), line[at+1]) >= 0 {
+			tokens = append(tokens, Token{Start: at, End: at + 2, Kind: KindVariable})
+			at += 2
+
+			continue
+		}
+
+		end, ok := shellExpansionEnd(line, at, limit)
+		if !ok {
+			at++
+
+			continue
+		}
+
+		tokens = append(tokens, Token{Start: at, End: end, Kind: KindVariable})
+		at = end
+	}
+
+	return tokens
+}
+
+// makeDirectives 는 make 자신에게 하는 말이다. 대상도 변수도 아니다.
+var makeDirectives = map[string]bool{
+	"include": true, "-include": true, "sinclude": true,
+	"ifeq": true, "ifneq": true, "ifdef": true, "ifndef": true,
+	"else": true, "endif": true, "define": true, "endef": true,
+	"export": true, "unexport": true, "override": true, "vpath": true,
+}

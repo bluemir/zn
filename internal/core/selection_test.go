@@ -185,7 +185,7 @@ func TestRowSegmentsGiveSearchPrecedence(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, test.highlight.segments(0, 10))
+			assert.Equal(t, test.want, test.highlight.topSegments(0, 10))
 		})
 	}
 }

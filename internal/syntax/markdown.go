@@ -1,0 +1,327 @@
+package syntax
+
+import (
+	"bytes"
+)
+
+// mdNormal 은 markdown 의 보통 문맥이다. 코드펜스 안이 아니다.
+type mdNormal struct{}
+
+// mdFence 는 코드펜스 안이다.
+//
+// 여는 표시의 글자와 길이를 든다. “ ``` “ 는 `~~~` 로 닫히지 않고, 백틱 넷으로 연 것은
+// 셋으로 닫히지 않는다(CommonMark). 둘 다 견줄 수 있는 값이라 문맥 수렴에 쓸 수 있다.
+type mdFence struct {
+	marker byte
+	size   int
+
+	// inner 는 안쪽 언어의 문맥이다. nil 이면 언어를 모르는 것이라 색을 입히지 않는다.
+	//
+	// 이 칸이 interface 라 **안에 들어오는 것은 반드시 `==` 로 견줄 수 있어야 한다**
+	// (ADR-0039, ADR-0040). core 가 나가는 문맥을 캐시에 든 것과 견주는 자리에서 견줄 수
+	// 없는 값은 그 자리에서 panic 이다.
+	inner State
+}
+
+// mdMaxFenceIndent 는 코드펜스로 볼 수 있는 들여쓰기 칸이다. 넷이면 들여쓴 코드블록이다.
+const mdMaxFenceIndent = 3
+
+func (s mdNormal) Lex(line []byte) ([]Token, State) {
+	indent := 0
+	for indent < len(line) && line[indent] == ' ' {
+		indent++
+	}
+
+	// 코드펜스를 연다. 안쪽은 markdown 이 아니므로 문맥이 바뀐다.
+	if marker, size, ok := mdFenceAt(line, indent); ok {
+		tokens := []Token{{Start: indent, End: indent + size, Kind: KindKeyword}}
+
+		// 여는 표시 뒤의 낱말은 그 안이 어느 언어인지다. 색을 주고, 그 언어의 시작 문맥을
+		// 들고 간다. 모르는 언어면 nil 이라 안쪽에 색이 없다(ADR-0040).
+		var inner State
+		if info := bytes.TrimSpace(line[indent+size:]); len(info) > 0 {
+			at := indent + size + bytes.Index(line[indent+size:], info)
+			tokens = append(tokens, Token{Start: at, End: at + len(info), Kind: KindType})
+			inner = mdInfoLanguage(info)
+		}
+
+		return tokens, mdFence{marker: marker, size: size, inner: inner}
+	}
+
+	// 제목은 줄 하나가 통째로 제목이다. 안의 코드 스팬까지 가르지 않는다 — 제목 줄에서
+	// 굵기가 끊기면 어디까지가 제목인지 흐려진다.
+	if end := mdHeadingEnd(line, indent); end > indent {
+		return []Token{{Start: 0, End: len(line), Kind: KindHeading}}, s
+	}
+
+	// 인용문도 줄 단위다. 인용은 곧 남의 말이라 주석과 같은 자리에 둔다.
+	if indent < len(line) && line[indent] == '>' {
+		return []Token{{Start: 0, End: len(line), Kind: KindComment}}, s
+	}
+
+	return mdLexInline(line), s
+}
+
+func (s mdFence) Lex(line []byte) ([]Token, State) {
+	// **닫는 표시를 안쪽 언어보다 먼저 본다.** 이 순서가 아니면 안쪽에서 열린 raw string 이나
+	// 블록 주석이 닫는 펜스를 먹어서 펜스가 영영 닫히지 않는다 — 그때부터 문서 나머지가
+	// 코드로 그려진다(ADR-0040).
+	//
+	// 닫는 표시는 같은 글자로, 여는 것보다 짧지 않게, 그 뒤에 아무것도 없어야 한다.
+	indent := 0
+	for indent < len(line) && line[indent] == ' ' {
+		indent++
+	}
+
+	run := 0
+	for indent+run < len(line) && line[indent+run] == s.marker {
+		run++
+	}
+
+	if indent <= mdMaxFenceIndent && run >= s.size &&
+		len(bytes.TrimSpace(line[indent+run:])) < 1 {
+		// 안쪽 문맥은 버린다. 펜스가 닫히면 안쪽에서 열려 있던 것도 같이 끝난다.
+		return []Token{{Start: indent, End: indent + run, Kind: KindKeyword}}, mdNormal{}
+	}
+
+	// 언어를 모르면 색이 없다. 통째로 문자열 색을 주면 코드블록이 서른 줄씩 한 색으로 덮여
+	// 안 넣는 것보다 나쁘다.
+	if s.inner == nil {
+		return nil, s
+	}
+
+	// 줄을 통째로 맡긴다. 잘라낸 것이 없으니 자리를 되돌릴 것도 없다.
+	//
+	// 여는 펜스의 들여쓰기를 벗기지 않는다. CommonMark 는 벗기는데, 그러려면 칸이 하나 더
+	// 붙어 모든 캐시 줄의 상태 사슬에 실린다. 우리 lexer 중 앞 공백을 보는 것은 makefile 의
+	// 조리법 판정뿐이라 얻는 것이 거의 없다(docs/tasks.md).
+	tokens, inner := s.inner.Lex(line)
+
+	return tokens, mdFence{marker: s.marker, size: s.size, inner: inner}
+}
+
+// mdInfoLanguage 는 info string 이 가리키는 언어다.
+//
+// 첫 낱말만 본다(CommonMark) — ```go title=x 처럼 뒤에 무엇이 붙는 것이 있다.
+// 색은 지금처럼 info string 전체에 붙는다. 그건 위임과 무관한 시각 결정이다(docs/tasks.md).
+func mdInfoLanguage(info []byte) State {
+	if cut := bytes.IndexAny(info, " \t"); cut >= 0 {
+		info = info[:cut]
+	}
+
+	return languageByName(string(info))
+}
+
+// mdFenceAt 은 그 자리에서 코드펜스가 열리는지다.
+func mdFenceAt(line []byte, indent int) (marker byte, size int, ok bool) {
+	if indent > mdMaxFenceIndent || indent >= len(line) {
+		return 0, 0, false
+	}
+
+	marker = line[indent]
+	if marker != '`' && marker != '~' {
+		return 0, 0, false
+	}
+
+	for indent+size < len(line) && line[indent+size] == marker {
+		size++
+	}
+
+	return marker, size, size >= 3
+}
+
+// mdHeadingEnd 는 `#` 이 몇 개인지다. 제목이 아니면 indent 를 그대로 돌려준다.
+//
+// `#` 뒤에는 빈 칸이 오거나 줄이 끝나야 한다. 그러지 않으면 `#hashtag` 가 제목이 된다.
+func mdHeadingEnd(line []byte, indent int) int {
+	at := indent
+	for at < len(line) && line[at] == '#' && at-indent < 6 {
+		at++
+	}
+
+	if at == indent {
+		return indent
+	}
+	if at < len(line) && line[at] != ' ' {
+		return indent
+	}
+
+	return at
+}
+
+// mdLexInline 은 줄 안의 것들을 훑는다.
+//
+// 앞에서 뒤로 한 번만 지나간다. 코드 스팬이 가장 세다 — 그 안의 `*` 는 강조가 아니다.
+//
+// 링크는 주소에만 색을 준다. `[글]` 의 글은 읽는 사람에게 보일 문장이라 본문과 같이 두고,
+// 주소는 기계가 읽는 것이라 갈라 놓는다. vim 의 markdown 문법도 같은 자리를 칠한다.
+// 목록 표시(`-` `1.`) 와 굵은 제목선(`===`) 은 일부러 두고 본다: 이 저장소의 markdown 은
+// 거의 전부 목록이라, 표시마다 색이 붙으면 글이 점으로 뒤덮인다.
+func mdLexInline(line []byte) []Token {
+	tokens := []Token{}
+
+	for at := 0; at < len(line); {
+		switch line[at] {
+		case '`':
+			if end, ok := mdCodeSpanEnd(line, at); ok {
+				tokens = append(tokens, Token{Start: at, End: end, Kind: KindString})
+				at = end
+
+				continue
+			}
+		case '[':
+			if from, to, end, ok := mdLinkDest(line, at); ok {
+				tokens = append(tokens, Token{Start: from, End: to, Kind: KindLink})
+				at = end
+
+				continue
+			}
+		case '<':
+			if end, ok := mdAutolinkEnd(line, at); ok {
+				tokens = append(tokens, Token{Start: at, End: end, Kind: KindLink})
+				at = end
+
+				continue
+			}
+		case '*', '_':
+			if end, ok := mdEmphasisEnd(line, at); ok {
+				tokens = append(tokens, Token{Start: at, End: end, Kind: KindEmphasis})
+				at = end
+
+				continue
+			}
+		}
+
+		at++
+	}
+
+	return tokens
+}
+
+// mdCodeSpanEnd 는 코드 스팬이 끝나는 자리다. 여는 것과 같은 수의 백틱으로 닫힌다.
+func mdCodeSpanEnd(line []byte, at int) (int, bool) {
+	open := 0
+	for at+open < len(line) && line[at+open] == '`' {
+		open++
+	}
+
+	for i := at + open; i < len(line); {
+		if line[i] != '`' {
+			i++
+
+			continue
+		}
+
+		run := 0
+		for i+run < len(line) && line[i+run] == '`' {
+			run++
+		}
+		if run == open {
+			return i + run, true
+		}
+
+		i += run
+	}
+
+	return 0, false
+}
+
+// mdLinkDest 는 `[글](주소)` 의 주소 자리다. 글은 그냥 글이라 색을 주지 않는다.
+func mdLinkDest(line []byte, at int) (from, to, end int, ok bool) {
+	closeAt := bytes.IndexByte(line[at:], ']')
+	if closeAt < 0 || at+closeAt+1 >= len(line) || line[at+closeAt+1] != '(' {
+		return 0, 0, 0, false
+	}
+
+	from = at + closeAt + 2
+
+	paren := bytes.IndexByte(line[from:], ')')
+	if paren < 0 {
+		return 0, 0, 0, false
+	}
+
+	to = from + paren
+	if from >= to {
+		return 0, 0, 0, false
+	}
+
+	return from, to, to + 1, true
+}
+
+// mdAutolinkEnd 는 `<http://...>` 가 끝나는 자리다. 꺾쇠 안에 빈 칸이 있으면 링크가 아니다.
+func mdAutolinkEnd(line []byte, at int) (int, bool) {
+	closeAt := bytes.IndexByte(line[at:], '>')
+	if closeAt < 2 {
+		return 0, false
+	}
+
+	inner := line[at+1 : at+closeAt]
+	if bytes.IndexByte(inner, ' ') >= 0 || bytes.IndexByte(inner, ':') < 0 {
+		return 0, false
+	}
+
+	return at + closeAt + 1, true
+}
+
+// mdEmphasisEnd 는 강조가 끝나는 자리다. 여는 표시 뒤와 닫는 표시 앞에 빈 칸이 없어야 한다.
+//
+// 그 규칙이 없으면 곱셈 기호나 snake_case 의 밑줄이 강조를 연다. CommonMark 의 규칙보다
+// 훨씬 얕지만, 틀렸을 때 피해가 그 줄에서 멈춘다 — 강조는 줄을 넘지 않는다.
+func mdEmphasisEnd(line []byte, at int) (int, bool) {
+	marker := line[at]
+
+	// 밑줄은 낱말 안에서 강조를 열지 않는다. 그러지 않으면 snake_case 가 강조가 된다 —
+	// 이 저장소의 markdown 은 코드 이름을 그대로 적는 자리가 많아서 바로 드러난다.
+	// 별표는 낱말 안에서도 연다(CommonMark 와 같다).
+	if marker == '_' && at > 0 && mdIsWord(line[at-1]) {
+		return 0, false
+	}
+
+	open := 0
+	for at+open < len(line) && line[at+open] == marker && open < 2 {
+		open++
+	}
+
+	body := at + open
+	if body >= len(line) || line[body] == ' ' {
+		return 0, false
+	}
+
+	for i := body; i+open <= len(line); i++ {
+		if line[i] != marker {
+			continue
+		}
+
+		run := 0
+		for i+run < len(line) && line[i+run] == marker {
+			run++
+		}
+
+		closes := run == open && line[i-1] != ' '
+		if closes && marker == '_' && i+run < len(line) && mdIsWord(line[i+run]) {
+			closes = false
+		}
+		if !closes {
+			i += run - 1
+
+			continue
+		}
+
+		return i + run, true
+	}
+
+	return 0, false
+}
+
+// mdIsWord 는 낱말을 이루는 byte 인지다. 한글처럼 여러 byte 인 글자는 이어지는 byte 가
+// 전부 0x80 이상이라 하나만 봐도 낱말 안이라는 것을 알 수 있다.
+func mdIsWord(b byte) bool {
+	switch {
+	case b >= '0' && b <= '9', b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z':
+		return true
+	case b >= 0x80:
+		return true
+	}
+
+	return false
+}

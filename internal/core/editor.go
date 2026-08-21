@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/cockroachdb/errors"
 )
 
@@ -348,12 +347,23 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 // bottom 은 statusBar 의 아래 줄이다. normal/insert 는 커서 위치를 넣고,
 // command mode 는 치고 있는 명령을 넣는다. vim 처럼 맨 아래 줄을 명령줄로 쓰는 것이라
 // 줄을 더 만들지 않아 편집 영역 높이가 흔들리지 않는다.
-func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View {
-	buf := e.buffers[e.active]
+func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View {
+	buf := e.activeBuffer()
 	height := e.textHeight()
 
 	// 화면보다 긴 줄은 visibleRows 가 이미 화면 행 여러 개로 나눠서 준다.
+	rows := buf.visibleRows(e.contentWidth(), height)
 	textRows := make([]string, 0, height)
+
+	// 문법 토큰을 화면 맨 아래 줄까지 채운다. 줄 하나를 훑으려면 그 앞 줄을 끝낸 문맥이
+	// 필요해서, 담아둔 것이 없으면 위에서부터 내려온다(syntax.go).
+	//
+	// 그리는 자리에서 캐시를 채우는 것이라 receiver 가 포인터다. 그리는 길이 이 함수 하나뿐이라
+	// mode 마다 챙길 자리가 없다 — 빠뜨린 mode 에서 고리가 끊기는 것은 tick 에서 이미 겪은
+	// 일이다(ADR-0038).
+	if len(rows) > 0 {
+		buf.lexSyntaxTo(rows[len(rows)-1].line)
+	}
 
 	// 검색 매칭은 줄 단위로 찾는다. wrap 된 줄은 행이 여럿이라 줄이 바뀔 때만 다시 찾는다.
 	matchLine, matches := -1, [][]int(nil)
@@ -361,7 +371,7 @@ func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View 
 	// 고른 범위는 화면마다 한 번만 구한다. 줄마다의 구간은 selectionOn 이 잘라 준다.
 	area, selecting := buf.selectionRange()
 
-	for _, row := range buf.visibleRows(e.contentWidth(), height) {
+	for _, row := range rows {
 		if row.line != matchLine {
 			matchLine, matches = row.line, e.searchMatches(buf.lines[row.line])
 		}
@@ -372,7 +382,11 @@ func (e editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View 
 			cursorCol = buf.cursorCol
 		}
 
-		highlight := rowHighlight{matches: matches, cursorCol: cursorCol}
+		highlight := rowHighlight{
+			matches:   matches,
+			cursorCol: cursorCol,
+			tokens:    buf.syntaxTokens(row.line),
+		}
 		if selecting {
 			highlight.selection, highlight.toLineEnd, _ = buf.selectionOn(area, row.line)
 		}
@@ -455,7 +469,3 @@ func (e editor) renderScreen(textRows []string, mode, bottom string) []string {
 
 	return append(rows, e.renderStatusBar(mode, bottom)...)
 }
-
-// reverse 는 편집 내용과 구분되는 색이다. 색을 정하지 않고 터미널의 전경·배경을 뒤집기만 한다.
-// 밝은 테마든 어두운 테마든 알아서 맞고 팔레트를 정할 필요가 없다(ADR-0004).
-var reverse = lipgloss.NewStyle().Reverse(true)

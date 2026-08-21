@@ -13,16 +13,16 @@
 - [ ] insert mode 에서 드래그를 받을지 정한다. 지금은 normal 에서만 visual 이 열린다 (ADR-0037)
 - 언어 지원
 	- markdown
-		- [ ] syntax highlight
+		- [x] syntax highlight. 제목·인용문·코드펜스·코드 스팬·링크·강조를 가른다. 링크는 문자열과 갈래가 달라서(`KindLink`) 문서에서 링크와 인용된 글자가 갈린다 — 주소만 칠하고 `[글]` 의 글은 본문과 같이 둔다. 제목은 줄 하나가 통째로 굵은 제목이고, 코드펜스 안쪽은 색을 입히지 않는다 — 그 언어로 훑는 것은 따로 본다. 목록 표시는 일부러 뺐다 — 이 저장소의 markdown 은 거의 전부 목록이라 표시마다 색이 붙으면 글이 점으로 뒤덮인다 (ADR-0039)
 		- [ ] auto indent
 		- [ ] vscode 처럼 header 들이 상단에 sticky 되는 기능
 	- golang
-		- [ ] syntax highlight
+		- [x] syntax highlight. 표준 라이브러리 `go/scanner` 를 감싸서 예약어·문자열·주석·숫자·미리 선언된 이름을 가른다. 여러 줄에 걸치는 것은 raw string 과 block comment 둘뿐이고, 닫히지 않았다는 것을 오류 문구가 아니라 마지막 토큰의 생김새로 안다 — 문구는 Go 판마다 바뀔 수 있는 남의 문장이다. type 자리(`const aa BB`, struct 필드, 인자·결과, `*Buffer`, `[]Token`, `syntax.State`) 는 「식별자 둘이 공백만 두고 붙으면 뒤쪽이 type」으로 잡는다 (ADR-0039)
 		- [ ] auto indent
 		- [ ] 함수 정의, struct 정의 등이 상단에 sticky 되는 기능
 		- [ ] go to definition, ...
-		- [ ] rename function 
- 		- [ ] rename variable 
+		- [ ] rename function
+ 		- [ ] rename variable
 - [ ] BUG| `하나 둘` 입력후 `둘` 앞에서 a 로 insert mode 들어갔다가 나오면 둘이 사라지는 이슈
 - [ ] 이름 있는 register(`"a`) 와 숫자 register(`"1`~`"9`) 를 넣을지 정한다. 지금은 무명 하나뿐이라 지우면 앞의 것이 덮인다. 매크로(`q`) 를 넣을 때 같이 본다 (ADR-0017)
 - [ ] autoindent 를 넣을지 정한다. 지금 `o` `O` 는 앞 줄의 들여쓰기를 이어받지 않아서 Go 소스를 쓸 때 매번 tab 을 다시 친다. 언어별 지원과 같이 본다
@@ -30,7 +30,7 @@
 - [x] 복사되었음을 알려 주는 기능. `y` 만 알린다 — `d`·`c` 는 글자가 사라지는 것이 화면에 이미 보인다. 줄 단위면 `3 줄 복사되었습니다`, 글자 단위면 `12 글자 복사되었습니다` 다. vim 의 `report` 와 달리 한 줄짜리도 알린다. 자리는 이미 있던 `editor.message` 라 다음 키에 사라진다
 - [ ] 메세지 센터 기능
 	- job 의  성공 실패등을 모아 볼수 있는 기능
-	- 지나간 message 를 볼수 있는 기능 
+	- 지나간 message 를 볼수 있는 기능
 - [ ] 팔레트에 `!` 로 shell 명령을 돌리는 것을 넣는다. `:!<shell command>` 와 같은 결정이다 (ADR-0011)
 - [ ] 토큰에서 command 를 만드는 단계에 상태 기계가 없다. 지금은 "첫 토큰이 이름, 나머지가 인자" 로 끝나서 필요하지 않다. 범위 문법(`:1,5d`) 을 넣을 때 다시 본다
 - [ ] `:!<shell command>` 를 넣을 때 tokenizer 에 "뒤를 통째로 넘기는" 상태를 더한다. 지금 구조가 그것을 받도록 되어 있다
@@ -47,13 +47,44 @@
 	- https://github.com/go-git/go-git ?
 - [ ] '=' 기능을 구현한다.
 - [ ] Refactor | buffer 의 interface를 정리한다.
-- [ ] 언어 특화 기능을 작성 시의 interface 를 설계한다.
-	- 예를들어, syntax highlight 는 어느 지점이 어떤 색이어야하는가만 buffer 에 알려주고, 어떻게 그 색이 산출되었는지는 editor 나 buffer 가 모르게 한다.
+- [x] 언어 특화 기능을 작성 시의 interface 를 설계한다. `internal/syntax` 가 `State.Lex(line) ([]Token, State)` 하나로 「몇 번째 byte 가 어떤 갈래인가」까지만 말하고 색은 모른다. 갈래→style 표는 `core` 의 `style.go` 에 있어서 언어가 늘어도 그리는 코드와 팔레트가 안 바뀐다. 나가는 문맥이 곧 캐시 키라 다시 훑기를 일찍 멈춘다 (ADR-0039)
 - [ ] 주기적 동작을 위한 구조 만들기
 	- git 변경 감지, 파일 변경 감지, ...
 	- tick 이 둘이 되어 mode 열 곳의 공용 case 에 `fileTickMsg` 가 붙었다. 빠뜨린 mode 가 새로 생기면 그 mode 에서 주기 고리가 끊긴다 (ADR-0030, ADR-0038)
 - [ ] 자동으로 다시 읽을 때 undo 이력이 묻지 않고 사라지는 것을 다시 볼지 정한다. 고치고 `:w` 한 뒤 밖에서 파일이 바뀌면 `u` 로 돌아갈 것이 없어진다. 이력을 남긴 채 내용만 갈아끼우는 것은 `u` 가 엉뚱한 줄을 가리켜서 물렸다 (ADR-0016, ADR-0038)
 - [ ] 유휴 상태에서 5 초마다 파일을 통째로 읽어 sha256 을 내는 것이 거슬리면 mtime 앞잡이나 fsnotify 로 옮긴다. `checkOutside` 안쪽만 바꾸면 되고 부르는 자리는 그대로다 (ADR-0015, ADR-0038)
+- [x] 색상 상수를 파일 하나로 모으기(이후 수정을 편하게..). `style.go` 에 열넷을 옮겼다 — 검색·선택·줄번호·트리·팔레트·공백 마커·반전이고 이름은 그대로다. 문법 갈래별 색이 여기 같이 산다 (ADR-0039)
+- [ ] `:version` - 버전을 보여주는 명령
+- 문법 강조 후속 (ADR-0039)
+	- [x] markdown 코드펜스와 html 의 `<script>`·`<style>` 안을 그 언어로 훑는다. 여러 줄에 걸친 상태가 안쪽 언어의 문맥을 품는 방식이고(`mdFence.inner`, `htmlRawText.inner`), 닫는 표시가 안쪽보다 세다. 모르는 언어는 nil 이라 색이 없어서 이름 없는 펜스가 예전과 같다. `internal/core` 는 한 줄도 안 바뀌었다. 미뤘던 근거(「상태 공간을 언어 수만큼 곱한다」) 가 틀렸다 (ADR-0039, ADR-0040)
+	- [x] shell lexer 를 넣는다. 언어 아홉 번째다. `sh` 펜스가 색을 얻었고 따옴표가 줄을 넘는 것(`shQuoted`) 까지 본다. heredoc 은 뺐다. 옛 `shell.go`(공용 helper) 는 `expansion.go` 가 되었다 (ADR-0040)
+	- [x] BUG| `<script>x</script>` 처럼 한 줄에서 닫히면 그 뒤 파일 나머지 전부가 script 안으로 읽혔다. `htmlScan` 이 여는 tag 를 닫는 순간 곧바로 돌아가 줄의 나머지를 안 봤다. 기존 시험이 닫는 tag 를 늘 다음 줄에만 두어서 못 잡았다 (ADR-0040)
+	- [ ] Makefile 조리법과 Dockerfile `RUN` 본문을 shell lexer 로 잇는다. shell lexer 가 생겨서 가능해졌다 — 지금은 둘 다 값 참조만 집는다 (ADR-0040)
+	- [ ] shell 의 heredoc(`<<EOF`). `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와 헷갈려 가장 틀리기 쉬운 자리다. Dockerfile 의 `RUN <<EOF` 와 같이 본다 (ADR-0040)
+	- [ ] `<script type="application/json">`·`type="text/template"` 을 가리지 않고 늘 js 로 훑는다. 틀렸을 때 피해는 작다 (ADR-0040)
+	- [ ] 코드펜스 info string 의 첫 낱말만 색을 줄지 정한다. 언어는 첫 낱말로 고르는데 색은 전체에 붙어서 ```go title=x 가 통째로 type 색이다 (ADR-0040)
+	- [ ] 들여쓴 코드펜스의 들여쓰기를 안쪽 언어에 넘기기 전에 벗기지 않는다(CommonMark 는 벗긴다). 우리 lexer 중 앞 공백을 보는 것은 makefile 의 조리법 판정뿐이라 「들여쓴 펜스 안의 makefile」만 걸린다 (ADR-0040)
+	- [ ] 코드펜스 중첩 깊이에 상한이 없다. 여는 줄만 이어지면 문맥 사슬이 줄 수만큼 깊어지고 `==` 가 그만큼 걷는다. 닫는 줄 하나가 사슬을 통째로 버리므로 실제 문서에서는 1~2 다 (ADR-0040)
+	- [ ] js 의 정규식 리터럴(`/ab+/`). `/` 가 나눗셈인지 정규식인지는 앞 토큰의 갈래를 봐야 갈리고, 반쯤 맞히면 정규식 안의 따옴표가 문자열을 연다
+	- [ ] js 의 template 보간(`${...}`) 안을 가른다. 지금은 통째로 문자열이다
+	- [ ] python 의 f-string 보간과 세 겹 따옴표 안의 escape. 세 겹 따옴표 안에서 escape 를 보지 않아서 닫는 따옴표 앞에 `\` 가 오면 문맥이 일찍 닫힌다
+	- [ ] markdown 의 setext 제목(`===` 밑줄)·들여쓴 코드블록·표·참조 링크. 앞의 둘은 문단 상태가 필요하다
+	- [ ] css 의 nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다
+	- [ ] makefile 의 `define`/`endef` 본문. 지금은 보통 줄로 읽는다
+	- [ ] dockerfile 의 heredoc(`RUN <<EOF`). 상태 하나가 는다
+	- [ ] 조리법·`RUN` 본문의 shell 문법. shell lexer 가 없어서 값 참조만 집는다
+	- [ ] 파일 내용으로 언어를 알아본다(shebang). 지금은 이름만 봐서 파일이 없어도 같은 답이 나온다
+	- [ ] `treeRow.style()` 과 `styleSyntax` 가 확장자 표를 둘로 들고 있다. 트리는 묶음이 더 굵고 `.txt` 도 색이 있어서 일부러 합치지 않았는데, 언어를 더할 때 둘이 어긋날 수 있다
+	- [ ] 차가운 캐시에서 `G` 로 뛰면 파일 전체를 한 번 훑는다. 300 KB 에 수 ms 다. 거슬리면 `lexSyntaxTo` 안쪽만 고치면 되고 부르는 자리는 그대로다
+	- [ ] 밝은 테마와 어두운 테마에서 색을 따로 줄지 정한다. 지금은 밝기를 가운데로 모은 값 하나다. 「팔레트를 정한다」와 같이 본다
+	- [ ] 갈래를 늘릴 때 색표에 넣기를 잊으면 조용히 색이 없어진다. `TestEveryKindHasStyle` 이 막지만 표본이 그 갈래를 실제로 내야 걸린다 — 언어를 더할 때 표본도 같이 넓힌다
+	- [ ] 식별자 바로 뒤에 결합 문자(`e` + U+0301) 가 오면 토큰 경계가 글자 가운데를 가른다. `go/scanner` 가 결합 문자를 이름으로 보지 않아서다. 소스에서 나올 일이 거의 없어 두었다
+	- [ ] Go 의 type 자리를 「식별자 둘이 붙으면 뒤쪽이 type」으로 잡는데, 포인터는 gofmt 가 `*` 를 이름에 붙이는 것에 기대고 있다(`*Buffer` 대 `a * b`). gofmt 를 거치지 않은 소스에서는 곱셈이 type 으로 보일 수 있다
+	- [ ] Go 의 generic 인자(`List[T]`) 와 함수 type 필드(`handler func()`) 는 아직 type 자리로 보지 않는다
+	- [ ] html 의 `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다
+	- [ ] `replaceLines` 가 키 하나마다 `buf.lines` 를 새 slice 로 담아서 파일 크기에 비례한다(1 만 줄 55 us, 10 만 줄 336 us). undo 가 요구하는 규칙이라(ADR-0001) 그대로 두었는데, 아주 큰 파일에서 거슬리면 그 ADR 을 다시 연다. 문법 캐시 쪽은 줄 수가 같은 편집에서 slice 를 새로 만들지 않아 파일 크기와 무관하다(1.0 us)
+	- [ ] sticky header(제목·함수 정의를 위에 붙여 두기) 와 autoindent 가 이제 같은 토큰을 쓸 수 있다
+- [ ] sidebar 에서도 20j 과 같이 여러줄 이동이 가능하도록 변경
 
 ## backlog
 
@@ -108,7 +139,7 @@
 - [ ] 팔레트에 열린 tab 목록·심볼(`@`)·줄번호(`:`) 접두를 둘지 정한다. 지금은 `>` 하나뿐이다 (ADR-0011)
 - [ ] 팔레트 이력(최근에 연 파일을 위로) 을 넣을지 정한다. 검색 이력과 같이 본다 (ADR-0011)
 - [ ] 팔레트 안에서 `ctrl+n`/`ctrl+j` 를 이동 키로 줄지 정한다. 지금은 화살표뿐이고 `ctrl+p` 는 아무 일도 하지 않는다 (ADR-0011)
-- [ ] 언어별 지원(golang, markdown, html, css, js) 을 넣는다
+- [x] 언어별 지원(golang, markdown, html, css, js) 을 넣는다. python·makefile·dockerfile 까지 여덟이다. 언어 하나가 파일 하나이고 새 언어는 `languageRules` 에 한 줄이 는다 (ADR-0039)
 - [x] mouse 를 넣는다. 왼쪽 버튼을 누를 때 반응하고, 좌표를 네 영역(sidebar, tabline, 편집 영역, statusBar) 으로 갈라서 mode 마다 다르게 먹는다. filetree 는 클릭 한 번이 고르기와 열기를 겸하고, 편집 영역 클릭은 커서를 옮기며 insert 는 유지한다(undo 구간은 끊는다). 휠은 화면만 굴리고 포인터가 얹힌 쪽이 움직인다. 명령줄·검색 중에는 휠만 받고 팔레트에서는 휠이 목록을 오르내린다 (ADR-0012)
 - [x] 드래그로 범위를 고르는 것을 넣는다. 누른 자리가 anchor 이고 포인터가 움직이는 순간 글자 단위 visual 로 들어간다. 뗄 때는 보지 않아서 visual 에 머문다. 편집 영역 밖으로 나간 좌표는 안으로 당겨 읽고 위아래로 나가면 한 행씩 굴린다. double/triple-click 은 누른 횟수를 알 수 없어 넣지 못했다 (ADR-0012, ADR-0037)
 - [ ] mouse 로 sidebar 너비를 조절한다. 경계를 끌면 32 칸 고정을 바꾼다. "sidebar 너비를 사용자가 바꾸는 방법" 과 같은 건이다 (ADR-0012)
@@ -138,7 +169,6 @@
 	- 방안1. overlay 등으로 표시되도록 변경
 	- 방안2. 전체 화면의 가운데 뜨도록 변경
 - [ ] 줄번호 앞에 마커용 공간 남겨 두기
-- [ ] 색상 상수를 파일 하나로 모으기(이후 수정을 편하게..)
 - [x] 화면을 그리는 함수 이름을 `render~`/`~View` 규칙으로 옮겼다. `render`→`editorView`, `screenRows`→`renderScreen`, `statusBar`→`renderStatusBar` 등 스무 곳쯤이다. 전부 패키지 내부 이름이라 동작은 그대로다 (ADR-0036)
 - [x] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히던 것을 고친다. `screenView` 가 `e` 를 한 번도 쓰지 않는 생성자였다 — 층이 아니라 정해진 설정을 붙여 주는 자리다. free function `newView` 로 내려서 `editorView` 와 `viewJobs.View` 가 대등해졌다 (ADR-0036)
 - [ ] 그리기와 상태가 섞인 파일(`tabline.go`·`sidebar.go`·`view-palette.go` 등) 의 이름과 경계를 다시 본다. 지금은 갈래 이름 그대로 두었고 `render-` 접두는 그리기만 든 파일 둘(`render-row.go`·`render-status-bar.go`) 에만 붙였다. 코드를 더 정리하면 경계가 달리 보일 수 있다 (ADR-0036)
@@ -164,3 +194,8 @@
 - [ ] shell 명령의 결과를 편집기로 가져오는 기능
 - [ ] `:!cat %` 처럼 command line 의 % 를 현재 파일 path 로 대체
 - [ ] 좌측 sidecar 를 스크롤 할떄 상위 폴더는 sticky 처럼 보이게.. (vs code 처럼)
+- [ ] `editorconfig` 존중
+- [ ] 내장된 terminal 능력 test 도구
+	- color 가 true color 를 지원하는지.
+	- terminal 에 image 출력이 가능한지 등...
+	- 반드시 완전 자동화일 필요는 없고, 사람 눈으로 보고 판단해도 됨 

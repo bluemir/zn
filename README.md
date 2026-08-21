@@ -24,15 +24,16 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 화면과 키의 자세한 규칙은 [docs/spec.md](docs/spec.md) 에 있다.
 
 - terminal editor
-- vim 키매핑
+- vim 과 유사한 편집 기능
 - no config(config 는 compile 됨)
 - 현대화된 tab 기능
-- integration 잘 된 file tree
-- fzf, command palette
+- 언어별 syntax highlight
+	- golang, markdown, html, css, js, python, shell, makefile, dockerfile
+	- markdown 코드펜스와 html 의 `<script>`·`<style>` 안은 그 언어로 훑는다
+	- 의존성 없이 언어마다 lexer 를 직접 쓴다. golang 은 표준 라이브러리 `go/scanner` 를 쓴다
+- sidebar에서 열리는 file tree
+- vscode 와 유사한 command palette
 	- 특히 file matching 에서 > 를 입력하면 바로 command 로 넘어가는 기능
-- mouse 지원
-	- 드래그로 범위를 고른다
-- visual mode(`v` 글자 단위, `V` 줄 단위)
 - 상대 줄번호와 절대 줄번호 동시 표시
 - statusBar 에 git branch, commit, dirty 여부 표시
 - 한국어 지원
@@ -55,10 +56,8 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 		- 자동 완성
 		- 정의/구현으로 이동
 		- 사용처로 이동
-		- syntax highlight
 		- 다음줄로 갈때 자동 들여쓰기
 		- 저장시 hook(eg. go fmt)
-- visual block mode(`ctrl+v`)
 - 키 하나로 현재 화면의 cat 과 동일한 형태로 text 표시
 	- text 복사 붙여 넣기시 유용
 - home, end, page up, page down 의 일관적인 동작
