@@ -29,6 +29,7 @@ var kindNames = map[Kind]string{
 	KindVariable: "var",
 	KindHeading:  "heading",
 	KindEmphasis: "em",
+	KindStrong:   "strong",
 	KindLink:     "link",
 }
 

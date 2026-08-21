@@ -48,7 +48,16 @@ func TestMarkdownLexLine(t *testing.T) {
 			want: []string{},
 		},
 		{name: "별표 강조", line: "이것은 *중요* 하다", want: []string{"em:*중요*"}},
-		{name: "겹친 별표 강조", line: "이것은 **아주** 하다", want: []string{"em:**아주**"}},
+		{
+			name: "표시 둘은 굵기다. 기울임과 갈래가 다르다",
+			line: "이것은 **아주** 하다",
+			want: []string{"strong:**아주**"},
+		},
+		{
+			name: "겹친 밑줄도 굵기다",
+			line: "이것은 __아주__ 하다",
+			want: []string{"strong:__아주__"},
+		},
 		{name: "밑줄 강조", line: "이것은 _중요_ 하다", want: []string{"em:_중요_"}},
 		{
 			name: "여는 표시 뒤에 빈 칸이 있으면 강조가 아니다",

@@ -87,26 +87,48 @@ var (
 // 배경은 정하지 않는다. 검색·선택이 배경을 쓰고 있어서(styleSearchMatch, styleSelection)
 // 배경을 겹치면 위 층이 어디까지인지 보이지 않는다. 문법은 언제나 글자색뿐이다.
 //
-// 256색 고정값이다(ADR-0005, ADR-0007, ADR-0010). 화면에서 이미 쓰이는 값
-// (220 208 238 240 3 244 117 81 150 179 214) 은 피했다.
+// # 어두운 배경에 맞춘 값이다
 //
-// 대부분은 밝은 테마와 어두운 테마 양쪽에서 읽히도록 밝기를 가운데로 모았다. 제목만 예외로
-// 어두운 배경에 맞춰 밝게 잡았다 — 아래 그 자리에 이유가 있다.
+// 처음에는 밝은 테마와 어두운 테마 양쪽에서 읽히도록 밝기를 가운데로 모았다. 그것이 틀렸다 —
+// 어두운 배경에서 본문 색 전부가 3.4~4.7:1 한 띠에 뭉쳐서 **계층이 사라졌다.** 제목이 본문보다
+// 앞으로 나오지 않고, keyword 와 문자열이 가장 어두워서 Go 의 `import` 문이 안 보였다.
 //
-// 갈래가 늘어도 팔레트가 반드시 늘지는 않는다. emphasis 는 keyword 색을 나눠 쓴다.
+// 이제 `#1e1e1e` 기준으로 전부 **6.8:1 이상**이다. 밝은 배경에서는 1.5~2.5:1 로 약하다 —
+// 그쪽으로 옮기면 이 표를 갈아야 한다(ADR-0041).
 //
-// 주석이 회색이 아닌 이유: 본문 영역에서 회색은 이미 두 번 쓰인다(colorWhitespace 240,
-// styleLineNumberRelative 244). 회색 주석은 "내용이 아님", 즉 줄번호 칸이 말하는 것과 같은
-// 말이 된다.
+// # 두 가지 규칙으로 값을 골랐다
+//
+// **주석이 가장 흐리다.** 6.8:1 로 이 표에서 제일 낮다. 일부러 그렇다 — 주석은 물러나 있어야
+// 코드를 읽는 데 끼어들지 않는다. 회색으로 두지 않은 것은 본문 영역에서 회색이 이미 두 번
+// 쓰여서다(colorWhitespace 240, styleLineNumberRelative 244).
+//
+// **같이 나오는 갈래끼리 색상이 25 도 이상 갈린다.** 언어별로 한 화면에 나오는 조합을 전부
+// 재서 맞췄다. 주석과 문자열만 20 도인데 밝기가 6.8 대 9.5 로 갈려서 그대로 두었다 —
+// 흐린 초록과 선명한 초록이다.
+//
+// **같이 나오지 않는 갈래는 색을 나눠 쓴다.** 강조는 keyword 와, 링크는 부르는 이름과 같은
+// 색이다. markdown 에 keyword·부르는 이름이 없고 코드에 제목·강조·링크가 없어서 한 화면에서
+// 만나지 않는다. 그래서 갈래 열하나가 색 아홉으로 된다 — 갈래를 늘리는 것이 팔레트를 반드시
+// 늘리지는 않는다.
+//
+// 화면에서 이미 쓰이는 값(220 208 238 240 3 244 117 81 150 179 214) 은 피했다.
 var styleSyntax = map[syntax.Kind]lipgloss.Style{
-	syntax.KindKeyword:  lipgloss.NewStyle().Foreground(lipgloss.Color("97")),  // 자주 #875faf
-	syntax.KindString:   lipgloss.NewStyle().Foreground(lipgloss.Color("130")), // 주황빛 갈색 #af5f00
-	syntax.KindComment:  lipgloss.NewStyle().Foreground(lipgloss.Color("65")),  // 흐린 초록 #5f875f
-	syntax.KindNumber:   lipgloss.NewStyle().Foreground(lipgloss.Color("131")), // 벽돌 #af5f5f
-	syntax.KindType:     lipgloss.NewStyle().Foreground(lipgloss.Color("30")),  // 청록 #008787
-	syntax.KindFunction: lipgloss.NewStyle().Foreground(lipgloss.Color("67")),  // 강청 #5f87af
-	syntax.KindConstant: lipgloss.NewStyle().Foreground(lipgloss.Color("168")), // 장미 #d75f87
-	syntax.KindVariable: lipgloss.NewStyle().Foreground(lipgloss.Color("100")), // 올리브 #878700
+	// 흐린 초록. 이 표에서 가장 낮은 6.8:1 이다 — 물러나 있어야 한다.
+	syntax.KindComment: lipgloss.NewStyle().Foreground(lipgloss.Color("108")), // #87af87
+
+	syntax.KindString:   lipgloss.NewStyle().Foreground(lipgloss.Color("113")), // 초록 #87d75f
+	syntax.KindNumber:   lipgloss.NewStyle().Foreground(lipgloss.Color("215")), // 주황 #ffaf5f
+	syntax.KindKeyword:  lipgloss.NewStyle().Foreground(lipgloss.Color("177")), // 자주 #d787ff
+	syntax.KindType:     lipgloss.NewStyle().Foreground(lipgloss.Color("185")), // 노랑 #d7d75f
+	syntax.KindFunction: lipgloss.NewStyle().Foreground(lipgloss.Color("111")), // 연한 파랑 #87afff
+	syntax.KindConstant: lipgloss.NewStyle().Foreground(lipgloss.Color("210")), // 연어 #ff8787
+	syntax.KindVariable: lipgloss.NewStyle().Foreground(lipgloss.Color("79")),  // 청록 #5fd7af
+
+	// 링크는 부르는 이름과 같은 색이다. 둘이 한 화면에 나오지 않는다(위 규칙).
+	//
+	// 하늘 계열을 쓰지 못한다 — 제목이 거기 있고 markdown 에서 늘 같이 나온다. 재보니 하늘 쪽
+	// 후보는 제목과 색상차가 5~20 도라 섞였고, 이 값만 30 도를 넘으면서 밝기도 살았다.
+	syntax.KindLink: lipgloss.NewStyle().Foreground(lipgloss.Color("111")), // 연한 파랑 #87afff
 
 	// 굵기·기울임은 색 위에 얹는다. **색 없이 속성만 쓰지 않는다** — 굵기를 흉내만 내고 밝은
 	// 색으로 바꾸는 터미널이 있고 기울임을 아예 안 그리는 터미널도 있어서, 속성 하나에 뜻을
@@ -119,21 +141,12 @@ var styleSyntax = map[syntax.Kind]lipgloss.Style{
 	// 굵기의 뜻이 트리와 본문에서 갈린다 — 트리에서는 "지금 보고 있는 파일"(ADR-0022) 이고
 	// 여기서는 제목이다. 한 화면에 같이 있지만 트리와 본문은 칸이 갈려 있어 섞이지 않는다.
 	//
-	// **제목은 keyword 색을 나눠 쓰지 않는다.** 자주(97) 는 어두운 배경에서 3.6:1 이라 굵게
-	// 해도 눈에 들어오지 않았다. 제목은 문서에서 가장 구조를 이루는 것이라 본문보다 앞으로
-	// 나와야 하는데 그 색으로는 그것이 안 됐다. 밝은 하늘(45) 은 같은 자리에서 10:1 이다.
-	//
-	// 링크(33) 와 type(30) 도 푸른 쪽인데, 제목은 줄 전체가 굵어서 인라인인 그 둘과 섞이지
-	// 않는다. 밝은 배경에서는 1.9:1 로 약하다 — 그때는 이 한 줄을 고친다.
+	// **제목이 이 표에서 유일하게 자기 색을 혼자 쓴다.** 문서에서 가장 구조를 이루는 것이라
+	// 본문보다 앞으로 나와야 하고, 나눠 쓸 자리가 없었다.
 	syntax.KindHeading: lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true), // 밝은 하늘 #00d7ff
 
-	// emphasis 는 자주로 남는다. 인라인 장식이라 물러나 있어도 되고, 기울임이 이미 뜻을 나른다.
-	syntax.KindEmphasis: lipgloss.NewStyle().Foreground(lipgloss.Color("97")).Italic(true),
-
-	// 링크는 파랑이다. 흔히 링크에 쓰는 색이라 무엇인지 설명할 필요가 없다.
-	// 부르는 이름(67, #5f87af) 과 type(30, #008787) 도 푸른 쪽인데, 이것이 훨씬 짙어서 갈린다.
-	//
-	// 밑줄을 얹지 않는다. 링크에 흔한 표시이긴 하지만 lipgloss 가 글자마다 style 을 내서
-	// 본문에서는 escape 가 너무 길어진다(ADR-0022, ADR-0039).
-	syntax.KindLink: lipgloss.NewStyle().Foreground(lipgloss.Color("33")), // 파랑 #0087ff
+	// 강조와 굵게는 keyword 와 같은 색이고, 속성으로 갈린다 — 쓴 사람이 고른 표시(`*` 하나냐
+	// 둘이냐) 를 화면이 그대로 따라간다.
+	syntax.KindEmphasis: lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Italic(true),
+	syntax.KindStrong:   lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Bold(true),
 }

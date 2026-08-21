@@ -184,8 +184,14 @@ func mdLexInline(line []byte) []Token {
 				continue
 			}
 		case '*', '_':
-			if end, ok := mdEmphasisEnd(line, at); ok {
-				tokens = append(tokens, Token{Start: at, End: end, Kind: KindEmphasis})
+			if end, run, ok := mdEmphasisEnd(line, at); ok {
+				// 표시 하나는 기울임, 둘은 굵기다. 쓴 사람이 고른 표시를 화면이 따라간다.
+				kind := KindEmphasis
+				if run > 1 {
+					kind = KindStrong
+				}
+
+				tokens = append(tokens, Token{Start: at, End: end, Kind: kind})
 				at = end
 
 				continue
@@ -263,18 +269,20 @@ func mdAutolinkEnd(line []byte, at int) (int, bool) {
 	return at + closeAt + 1, true
 }
 
-// mdEmphasisEnd 는 강조가 끝나는 자리다. 여는 표시 뒤와 닫는 표시 앞에 빈 칸이 없어야 한다.
+// mdEmphasisEnd 는 강조가 끝나는 자리와 표시의 개수다. 개수가 기울임(1) 과 굵기(2) 를 가른다.
+//
+// 여는 표시 뒤와 닫는 표시 앞에 빈 칸이 없어야 한다.
 //
 // 그 규칙이 없으면 곱셈 기호나 snake_case 의 밑줄이 강조를 연다. CommonMark 의 규칙보다
 // 훨씬 얕지만, 틀렸을 때 피해가 그 줄에서 멈춘다 — 강조는 줄을 넘지 않는다.
-func mdEmphasisEnd(line []byte, at int) (int, bool) {
+func mdEmphasisEnd(line []byte, at int) (end, run int, ok bool) {
 	marker := line[at]
 
 	// 밑줄은 낱말 안에서 강조를 열지 않는다. 그러지 않으면 snake_case 가 강조가 된다 —
 	// 이 저장소의 markdown 은 코드 이름을 그대로 적는 자리가 많아서 바로 드러난다.
 	// 별표는 낱말 안에서도 연다(CommonMark 와 같다).
 	if marker == '_' && at > 0 && mdIsWord(line[at-1]) {
-		return 0, false
+		return 0, 0, false
 	}
 
 	open := 0
@@ -284,7 +292,7 @@ func mdEmphasisEnd(line []byte, at int) (int, bool) {
 
 	body := at + open
 	if body >= len(line) || line[body] == ' ' {
-		return 0, false
+		return 0, 0, false
 	}
 
 	for i := body; i+open <= len(line); i++ {
@@ -292,25 +300,25 @@ func mdEmphasisEnd(line []byte, at int) (int, bool) {
 			continue
 		}
 
-		run := 0
-		for i+run < len(line) && line[i+run] == marker {
-			run++
+		closing := 0
+		for i+closing < len(line) && line[i+closing] == marker {
+			closing++
 		}
 
-		closes := run == open && line[i-1] != ' '
-		if closes && marker == '_' && i+run < len(line) && mdIsWord(line[i+run]) {
+		closes := closing == open && line[i-1] != ' '
+		if closes && marker == '_' && i+closing < len(line) && mdIsWord(line[i+closing]) {
 			closes = false
 		}
 		if !closes {
-			i += run - 1
+			i += closing - 1
 
 			continue
 		}
 
-		return i + run, true
+		return i + closing, open, true
 	}
 
-	return 0, false
+	return 0, 0, false
 }
 
 // mdIsWord 는 낱말을 이루는 byte 인지다. 한글처럼 여러 byte 인 글자는 이어지는 byte 가

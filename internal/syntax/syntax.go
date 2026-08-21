@@ -40,6 +40,13 @@ const (
 	KindHeading  // markdown 제목. 앞으로 html 의 `<h1>` 도 여기다
 	KindEmphasis // markdown 의 `*foo*` `_foo_`
 
+	// KindStrong 은 markdown 의 `**foo**` `__foo__` 다.
+	//
+	// KindEmphasis 와 갈라 둔다. 둘은 markdown 에서 뜻이 다르다 — 하나는 기울임이고 하나는
+	// 굵기다. 한 갈래로 묶으면 `**굵게**` 가 기울어져 그려져서, 쓴 사람이 고른 표시와 화면이
+	// 어긋난다.
+	KindStrong
+
 	// KindLink 는 가리키는 자리다. markdown 의 `[글](주소)` 의 주소와 `<주소>` 다.
 	// 앞으로 html 의 `href`·`src` 값도 여기다.
 	//
