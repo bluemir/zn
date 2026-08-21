@@ -3,7 +3,9 @@
 ## v1.1 milestone
 
 - [ ] `:%s/a/b/g` 치환을 넣는다. 패턴 문법은 검색과 같다. 범위를 받는 자리는 이미 있다 — `cmd.lines.resolve(buf)` 다 (ADR-0010, ADR-0046)
-- [ ] 여러 파일에 걸친 검색. 결과를 담을 목록 화면(quickfix) 을 같이 정해야 한다
+- [ ] 여러 파일에 걸친 검색. 
+	- 결과를 담을 목록 화면(quickfix) 을 같이 정해야 한다
+	- 검색어를 입력할 modal
 - [ ] 여러 파일 replace
 - [x] visual mode 를 정하고 구현한다. `v`(글자) `V`(줄) 둘이고 blockwise 는 넣지 않았다. 고른 범위 위에 `d` `x` `y` `c` 를 치고, 범위는 `motionRange` 라 지우기·복사·바꾸기가 그대로 딸려 온다. anchor 는 `Buffer` 가 든다 — 커서·스크롤과 같이 그 파일에 딸린 것이다. 드래그로도 고른다 (ADR-0037)
 - [ ] blockwise visual(`ctrl+v`) 을 넣을지 정한다. `register` 에 blockwise 갈래와 사각 범위의 지우기·붙여넣기·`I`/`A` 가 같이 온다. 폭이 다른 글자와 tab 이 낀 사각형을 화면 칸 기준으로 잡는 일도 있다 (ADR-0037)

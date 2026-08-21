@@ -5,6 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/buildinfo"
 )
 
 // viewEditorCommand 는 vim 의 command-line mode 다. normal 에서 `:` 로 들어간다.
@@ -170,6 +172,10 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "jobs":
 		// `!` 는 이 명령에서 뜻이 없다. 목록을 열기만 한다.
 		return jobsMode(m.editor)
+	case "version":
+		// `!` 는 이 명령에서 뜻이 없다. 찍기만 한다.
+		// CLI 의 `--version` 과 같은 줄이다(buildinfo.Describe).
+		return normalModeMessage(m.editor, buildinfo.Describe())
 	case "tree":
 		// `!` 는 이 명령에서 뜻이 없다. 그냥 여닫는다.
 		load, err := m.toggleTree()
