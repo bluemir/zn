@@ -53,7 +53,7 @@ func TestResumeReloadsOutsideChange(t *testing.T) {
 	m, path := newFileEditor(t, "abc\n")
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
-	model, _ := m.Update(tea.ResumeMsg{})
+	model := afterResume(t, m)
 
 	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
 	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
@@ -76,7 +76,7 @@ func TestResumeReportsRemovedFile(t *testing.T) {
 	m, path := newFileEditor(t, "abc\n")
 	require.NoError(t, os.Remove(path))
 
-	model, _ := m.Update(tea.ResumeMsg{})
+	model := afterResume(t, m)
 
 	assert.Contains(t, barOf(t, model)[1], "사라졌습니다")
 }
@@ -117,4 +117,14 @@ func TestResumeInSidebarIsQuiet(t *testing.T) {
 
 	require.IsType(t, viewSidebar{}, model)
 	assert.NotContains(t, barOf(t, model)[1], "밖에서")
+}
+
+// afterResume 은 셸에서 올라온 것을 먹이고 검사 작업이 끝난 뒤까지 몬다(ADR-0044).
+func afterResume(t *testing.T, m tea.Model) tea.Model {
+	t.Helper()
+
+	next, cmd := m.Update(tea.ResumeMsg{})
+	require.NotNil(t, cmd, "검사 작업이 시작되지 않았다")
+
+	return settle(t, next, cmd)
 }

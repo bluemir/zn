@@ -27,11 +27,10 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.FocusMsg:
 		// 치던 중에 다른 창을 만지고 돌아오는 것이 흔하다. 여기서 알려야 남의 변경 위에
 		// 계속 치다가 저장할 때에야 막히는 일이 준다 (ADR-0015, ADR-0031).
-		if message := m.noteOutsideChange(); message != "" {
-			m.message = message
-		}
-
-		return m, nil
+		//
+		// 치기 시작했으면 `dirty` 라서 마커만 붙는다. 아직 아무것도 치지 않았으면 잃을 것이
+		// 없으므로 가져온다 — 검사가 작업으로 내려가며 normal 과 같은 길이 되었다(ADR-0044).
+		return m, m.startOutsideCheck()
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
 		buf := m.activeBuffer()

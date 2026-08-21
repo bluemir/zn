@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -61,7 +60,7 @@ func loadNodeSync(t *testing.T, node *treeNode) {
 	require.True(t, node.isDir, "%s 는 디렉터리가 아니다", node.name)
 
 	node.children = readDir(node.path)
-	markIgnored(context.Background(), node.path, node.children)
+	markIgnored(node.path, node.children)
 	node.expanded = true
 	node.loading = false
 }
@@ -71,6 +70,9 @@ func loadNodeSync(t *testing.T, node *treeNode) {
 //
 // `tea.Batch` 는 msg 하나에 Cmd 여럿을 실어 오므로 풀어서 차례로 돌린다.
 // Init 은 넘기지 않는다 — 5 초짜리 git tick 을 물고 있어서 그 자리에서 멈춘다.
+//
+// 작업이 끝나며 나오는 Cmd 도 같은 이유로 물지 않는다. 주기 작업은 끝나는 자리에서 cooldown
+// 을 걸므로(ADR-0043, ADR-0044) 그것을 부르면 5 초를 기다린다 — 시험이 보려는 것은 결과다.
 func settle(t *testing.T, model tea.Model, cmd tea.Cmd) tea.Model {
 	t.Helper()
 
@@ -92,6 +94,11 @@ func settle(t *testing.T, model tea.Model, cmd tea.Cmd) tea.Model {
 		default:
 			var cmd tea.Cmd
 			model, cmd = model.Update(msg)
+
+			if _, done := msg.(jobDoneMsg); done {
+				continue
+			}
+
 			queue = append(queue, cmd)
 		}
 	}

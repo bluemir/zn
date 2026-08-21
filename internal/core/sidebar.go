@@ -1,9 +1,7 @@
 package core
 
 import (
-	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -130,34 +128,30 @@ func readDir(dir string) []*treeNode {
 }
 
 // markIgnored 는 git 이 무시하는 항목을 표시한다.
-func markIgnored(ctx context.Context, dir string, nodes []*treeNode) {
+//
+// `git check-ignore` 를 부르지 않고 무시 규칙을 직접 읽어 견준다(ADR-0042). dir 이 든 저장소의
+// 뿌리부터 dir 까지 층마다 `.gitignore` 를 얹으므로 값은 깊이만큼만 든다 — 트리를 훑지 않는다.
+//
+// 저장소가 아니면 아무것도 표시하지 않는다. 표시가 없을 뿐 틀리지는 않는다(ADR-0005).
+func markIgnored(dir string, nodes []*treeNode) {
 	if len(nodes) == 0 {
 		return
 	}
 
-	input := strings.Builder{}
-	for _, node := range nodes {
-		input.WriteString(node.path)
-		input.WriteByte(0)
+	_, root, rel, ok := openGitRepo(dir)
+	if !ok {
+		return
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "check-ignore", "-z", "--stdin")
-	cmd.Dir = dir
-	cmd.Stdin = strings.NewReader(input.String())
+	ignore := gitIgnoreAt(root, rel)
 
-	// 무시되는 것이 하나도 없으면 exit 1, 저장소가 아니면 exit 128 이다.
-	// 둘 다 오류로 다루지 않고 출력이 있는 만큼만 읽는다.
-	out, _ := cmd.Output()
-
-	ignored := map[string]bool{}
-	for _, path := range strings.Split(string(out), "\x00") {
-		if path != "" {
-			ignored[path] = true
+	for _, node := range nodes {
+		childRel := node.name
+		if rel != "" {
+			childRel = rel + "/" + node.name
 		}
-	}
 
-	for _, node := range nodes {
-		node.isGitIgnored = ignored[node.path]
+		node.isGitIgnored = ignore.match(childRel, node.isDir)
 	}
 }
 

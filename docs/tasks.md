@@ -43,16 +43,31 @@
 - [ ] compile error 가 있거나 warnning 이 있는 줄은 marker 에 표시
 - [ ] mouse 를 `:mouse` 로 여닫을지 정한다. 켜 두는 동안 터미널의 드래그 복사가 막힌다. 진짜 해결은 화면을 cat 형태로 보여주는 기능이라 그쪽과 같이 본다 (ADR-0012)
 - [x] 파일이 변경 되었을떄, zn 에서 변경 한게 없으면 자동으로 reload 한다. `dirty` 가 아니고 내용이 달라졌으면 그 자리에서 `Reload` 를 부른다. 보는 자리는 포커스 복귀와 5 초 주기 tick(`fileTickMsg`) 둘이고 normal·트리에서만 본다 — insert 는 지금처럼 `[!]` 만 붙인다. 없던 파일이 생긴 것은 손으로 정한다. 읽고 나면 `파일이 밖에서 바뀌어 다시 읽었습니다` 로 한 번 알린다 (ADR-0038)
-- [ ] git 구현을 내부 라이브러리를 사용해서 구현할수 없는지 확인
-	- https://github.com/go-git/go-git ?
+- [x] git 구현을 내부 라이브러리를 사용해서 구현할수 없는지 확인. go-git v5 로 옮겼다. 프로세스를 띄우던 세 자리(statusBar·트리 무시 표시·팔레트 목록) 가 전부 라이브러리다. 느린 것은 `Worktree.Status()` 하나여서 그것만 쓰지 않고 index·HEAD·object 는 맡기고 무시 규칙 모으기와 훑기는 직접 짰다 — go-git 의 `ReadPatterns` 가 재귀할 때 부모 규칙을 물려주지 않아 무시된 디렉터리 안을 훑는다([go-git#181](https://github.com/go-git/go-git/issues/181), 2020 년부터 열린 채다). dirty 판정이 사내 monorepo 에서 2.4s → 120ms 이고 `git status` 와 결과가 일치한다 (ADR-0042)
+- 라이브러리로 옮기며 미룬 것 (ADR-0042)
+	- [ ] go-git 에 `ReadPatterns` 가 부모 규칙을 물려주도록 issue·PR 을 낸다. 고쳐지면 직접 모으는 코드를 지운다
+	- [ ] 작업 트리 훑기를 캐시할지. git 의 `core.untrackedCache` 에 해당하는 것이 없어서 dirty 판정 비용의 대부분이 훑기다(monorepo 120ms 중 139ms 가 그것이다). 거슬리면 그때 본다
+	- [ ] submodule 안이 dirty 한지 본다. 지금은 submodule 이 가리키는 commit 이 바뀐 것만 잡고 그 안에서 고친 것은 놓친다 — `git status` 는 잡는다
+	- [ ] 짧은 해시를 겹치지 않을 만큼 늘릴지. 지금은 일곱 자리 고정이라 큰 저장소에서 `git log` 와 달라 보인다
+	- [ ] `core.autocrlf` 를 본다. 켜 둔 저장소에서 dirty 판정이 틀릴 수 있다. macOS·Linux 기본값이 아니라 미뤘다
+	- [ ] `core.excludesFile` 을 `~/.config/git/config` 에서도 읽는다. go-git 의 `LoadGlobalPatterns` 가 `~/.gitconfig` 만 본다
+	- [ ] 팔레트 인덱싱의 진행 표시. `gitFiles` 는 훑기가 오래 걸려도 진행을 알리지 않는다 — 직접 훑는 길(`walkFiles`) 만 알린다
+	- [ ] 바이너리가 14.7MB 에서 21.6MB 로 늘었다. 거슬리면 `plumbing/format/{index,gitignore}` 만 쓰고 ref 해석을 직접 짜는 길을 다시 본다(+2MB 로 그친다)
 - [ ] '=' 기능을 구현한다.
 - [ ] Refactor | buffer 의 interface를 정리한다.
 - [x] 언어 특화 기능을 작성 시의 interface 를 설계한다. `internal/syntax` 가 `State.Lex(line) ([]Token, State)` 하나로 「몇 번째 byte 가 어떤 갈래인가」까지만 말하고 색은 모른다. 갈래→style 표는 `core` 의 `style.go` 에 있어서 언어가 늘어도 그리는 코드와 팔레트가 안 바뀐다. 나가는 문맥이 곧 캐시 키라 다시 훑기를 일찍 멈춘다 (ADR-0039)
 - [ ] 주기적 동작을 위한 구조 만들기
 	- git 변경 감지, 파일 변경 감지, ...
 	- tick 이 둘이 되어 mode 열 곳의 공용 case 에 `fileTickMsg` 가 붙었다. 빠뜨린 mode 가 새로 생기면 그 mode 에서 주기 고리가 끊긴다 (ADR-0030, ADR-0038)
+	- 둘 다 고정 주기가 아니라 「끝난 뒤 5 초」 cooldown 이고, 둘 다 작업이다. tick 이 작업을 시작하고 작업이 끝나는 자리에서 다음 것을 예약한다 — 예약이 갈라지지 않게 묶어두는 bool 이 종류마다 하나씩 있다. 셋이 되면 표로 모은다 (ADR-0043, ADR-0044)
 - [ ] 자동으로 다시 읽을 때 undo 이력이 묻지 않고 사라지는 것을 다시 볼지 정한다. 고치고 `:w` 한 뒤 밖에서 파일이 바뀌면 `u` 로 돌아갈 것이 없어진다. 이력을 남긴 채 내용만 갈아끼우는 것은 `u` 가 엉뚱한 줄을 가리켜서 물렸다 (ADR-0016, ADR-0038)
-- [ ] 유휴 상태에서 5 초마다 파일을 통째로 읽어 sha256 을 내는 것이 거슬리면 mtime 앞잡이나 fsnotify 로 옮긴다. `checkOutside` 안쪽만 바꾸면 되고 부르는 자리는 그대로다 (ADR-0015, ADR-0038)
+- [x] 유휴 상태에서 5 초마다 파일을 통째로 읽어 sha256 을 내는 것이 거슬리면 mtime 앞잡이나 fsnotify 로 옮긴다. 둘 다 했다 — 검사를 작업으로 내리고 stat(크기·mtime) 을 앞잡이로 두었다. 앞잡이가 맞으면 읽지 않고, 어긋나면 읽어서 해시로 판정한다(mtime 을 판정으로 쓰지는 않는다). 갈아끼울 새 Buffer 를 만드는 것까지 작업 안에서 끝내서 `Update` 가 붙잡히는 시간이 파일 크기와 무관해졌다 — 100MB 에서 42ms·122ms 였던 것이 tick 받는 순간 0, 결과 넣는 순간 2~6µs 다. 읽을지 말지는 `dirty` 만 보고 mode 는 보지 않는다 (ADR-0015, ADR-0038, ADR-0044)
+- 파일 검사를 작업으로 내리며 미룬 것 (ADR-0044)
+	- [ ] fsnotify 로 옮길지. 주기 검사 자체가 없어지고 바뀐 순간에 안다. 의존성과 플랫폼별 한계(감시 개수 상한, 네트워크 파일 시스템) 가 붙고, 놓치는 경우 때문에 주기 검사를 결국 같이 두게 된다
+	- [ ] insert 로 들어가 아무것도 치지 않은 채 5 초가 지나면 본문이 바뀐다. ADR-0038 이 mode 로 막아 두었던 자리다 — 거슬리면 다시 본다
+	- [ ] mtime 을 되돌려 놓는 도구가 있으면 변경을 놓친다. 앞잡이가 맞다고 보고 읽지 않는다
+	- [ ] 보고 있지 않은 tab 의 파일도 볼지. 지금은 활성 buffer 하나만 본다
+	- [ ] 예약 상태(`gitTickScheduled`·`fileTickScheduled`) 가 셋이 되면 이름→cooldown 표로 모은다. `handleJob` 이 보는 작업 이름도 같이 그 표로 옮긴다 (ADR-0043)
 - [x] 색상 상수를 파일 하나로 모으기(이후 수정을 편하게..). `style.go` 에 열넷을 옮겼다 — 검색·선택·줄번호·트리·팔레트·공백 마커·반전이고 이름은 그대로다. 문법 갈래별 색이 여기 같이 산다 (ADR-0039)
 - [ ] `:version` - 버전을 보여주는 명령
 - 문법 강조 후속 (ADR-0039)
@@ -175,7 +190,7 @@
 - [x] 화면을 그리는 함수 이름을 `render~`/`~View` 규칙으로 옮겼다. `render`→`editorView`, `screenRows`→`renderScreen`, `statusBar`→`renderStatusBar` 등 스무 곳쯤이다. 전부 패키지 내부 이름이라 동작은 그대로다 (ADR-0036)
 - [x] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히던 것을 고친다. `screenView` 가 `e` 를 한 번도 쓰지 않는 생성자였다 — 층이 아니라 정해진 설정을 붙여 주는 자리다. free function `newView` 로 내려서 `editorView` 와 `viewJobs.View` 가 대등해졌다 (ADR-0036)
 - [ ] 그리기와 상태가 섞인 파일(`tabline.go`·`sidebar.go`·`view-palette.go` 등) 의 이름과 경계를 다시 본다. 지금은 갈래 이름 그대로 두었고 `render-` 접두는 그리기만 든 파일 둘(`render-row.go`·`render-status-bar.go`) 에만 붙였다. 코드를 더 정리하면 경계가 달리 보일 수 있다 (ADR-0036)
-- [ ] git 기준으로 dirty file를 filetree 에서 표시 (파일 뒤에 마커?)
+- [ ] git 기준으로 dirty file를 filetree 에서 표시 (파일 뒤에 마커?). 바탕은 생겼다 — `gitDirty` 가 셋을 보고 참·거짓만 돌려주는 것을 파일별로 돌려주게 바꾸는 일이 앞에 있다 (ADR-0042)
 - command palette 에 추가할 명령
 	- [ ] go definition
 	- [x] close other tabs — 「다른 tab 모두 닫기」. 보고 있는 tab 만 남긴다. 닫으려는 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다(보고 있지 않아서 무엇을 잃는지 화면에 드러나지 않는다). 짝이 되는 `:` 명령은 두지 않았다 (ADR-0016)
@@ -193,7 +208,7 @@
 - [ ] tab 이 많을 때 `<n`·`n>` 대신 tab 목록을 열어 고르는 길을 둘지 정한다. 팔레트에 열린 tab 목록을 넣는 것과 같은 건이다 (ADR-0011, ADR-0029)
 - [ ] 여러 tab 을 한 번에 변경 사항이 있는지 검사할지 정한다. tab 열 개면 열 파일을 읽어야 하고, 무엇이 바뀌었는지 알리려면 줄 하나로 모자란다. tabline 에 마커를 넣는 것도 이것과 같이 본다 — 검사하지 않은 tab 이 깨끗해 보이면 안 된다 (ADR-0031)
 - [x] 변경 검사 시점이 포커스만으로 부족하면 주기 검사를 얹는다. 5 초 주기 tick 을 얹었다. 포커스를 보고하지 않는 터미널과 보고 있는 채로 바뀌는 파일(로그·생성물, 옆 pane 의 `git pull`) 이 같이 메워졌다 (ADR-0030, ADR-0031, ADR-0038)
-- [ ] `git log`, `git graph`의 결과를 볼수 있는기능
+- [ ] `git log`, `git graph`의 결과를 볼수 있는기능. commit 을 훑는 것은 go-git 이 이미 해준다 — 무엇을 어떻게 보일지가 남은 일이다 (ADR-0042)
 - [ ] shell 명령의 결과를 편집기로 가져오는 기능
 - [ ] `:!cat %` 처럼 command line 의 % 를 현재 파일 path 로 대체
 - [ ] 좌측 sidecar 를 스크롤 할떄 상위 폴더는 sticky 처럼 보이게.. (vs code 처럼)
@@ -202,3 +217,6 @@
 	- color 가 true color 를 지원하는지.
 	- terminal 에 image 출력이 가능한지 등...
 	- 반드시 완전 자동화일 필요는 없고, 사람 눈으로 보고 판단해도 됨 
+- [ ] 읽기 전용으로 여는 방법 제공
+	- 문서를 리뷰할떄는 읽기 전용으로 여는것이 필요하다.
+	- 특히 AI 로 문서를 편집하고 편집기에서 review 하는 경우 자동 다시읽기와 조합하면 읽기 전용으로 전환하는것이 필요하다.  

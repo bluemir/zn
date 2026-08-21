@@ -1,11 +1,9 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/fs"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -142,26 +140,61 @@ func indexFiles(ctx context.Context, root string) <-chan jobProgress {
 }
 
 // gitFiles 는 git 이 아는 파일 목록이다. 추적 중인 것과 아직 추가하지 않은 것을 모두 주되
-// 무시된 것은 빼준다. 저장소가 아니거나 git 이 없으면 false 다.
+// 무시된 것은 빼준다. 저장소가 아니면 false 다.
 //
-// CommandContext 라 취소하면 프로세스가 죽는다. 큰 저장소에서 여기가 가장 오래 걸리는 자리다.
+// `git ls-files` 를 부르지 않고 index 와 작업 트리를 직접 읽는다(ADR-0042). 추적 중인 것은
+// index 가 그대로 들고 있어서 값이 거의 없고, 나머지를 찾는 훑기가 이 함수에서 가장 오래
+// 걸리는 자리다 — 무시된 디렉터리는 들어가지 않는다.
+//
+// ctx 가 끊기면 반쪽짜리 목록을 주지 않고 false 를 준다.
 func gitFiles(ctx context.Context, root string) ([]string, bool) {
-	// `-z` 로 받는다. 이름에 줄바꿈이 든 파일이 있으면 줄 단위로 끊을 수 없다.
-	cmd := exec.CommandContext(ctx, "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard")
-	cmd.Dir = root
+	// prefix 는 저장소 뿌리에서 root 까지다. root 가 뿌리보다 아래면 그 아래만 주고 경로도
+	// root 기준이다 — `git ls-files` 를 그 디렉터리에서 부르던 것과 같다.
+	repo, repoRoot, prefix, ok := openGitRepo(root)
+	if !ok {
+		return nil, false
+	}
 
-	out, err := cmd.Output()
+	index, err := repo.Storer.Index()
 	if err != nil {
 		return nil, false
 	}
 
+	seen := map[string]bool{}
 	files := []string{}
-	for _, name := range bytes.Split(out, []byte{0}) {
-		if len(name) == 0 {
-			continue
+
+	// add 는 뿌리 기준 경로를 root 기준으로 바꿔 담는다. root 밖의 것은 버린다.
+	add := func(rel string) {
+		if prefix != "" {
+			if !strings.HasPrefix(rel, prefix+"/") {
+				return
+			}
+
+			rel = rel[len(prefix)+1:]
 		}
 
-		files = append(files, string(name))
+		if seen[rel] {
+			return
+		}
+
+		seen[rel] = true
+		files = append(files, rel)
+	}
+
+	// 추적 중인 것이다(`--cached`). 무시되는 자리에 있어도 index 에 있으면 준다.
+	for _, entry := range index.Entries {
+		add(entry.Name)
+	}
+
+	// 아직 추가하지 않았고 무시되지도 않은 것이다(`--others --exclude-standard`).
+	walkGitFiles(ctx, repoRoot, prefix, func(rel string) bool {
+		add(rel)
+
+		return true
+	})
+
+	if ctx.Err() != nil {
+		return nil, false
 	}
 
 	return files, true

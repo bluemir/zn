@@ -46,7 +46,7 @@ func (m viewEditorNormal) keyState() normalState {
 func (m viewEditorNormal) Init() tea.Cmd {
 	// 트리의 첫 읽기도 여기서 시작한다. core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가
 	// 없어서, git 첫 갱신과 같이 이 자리가 낸다(ADR-0030, ADR-0032).
-	return tea.Batch(m.startGitRefresh(), tickGit(), tickFile(), m.startTree())
+	return tea.Batch(m.startGitRefresh(), m.startOutsideCheck(), m.startTree())
 }
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -61,26 +61,10 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//
 		// 보고 있는 파일은 밖에서 바뀌었을 수 있다. 셸에서 올라오는 길과 다른 창에서 돌아오는
 		// 길이 같은 자리다 — 둘 다 "바깥을 만지고 왔다" 는 뜻이다 (ADR-0023, ADR-0031).
-		// 잃을 것이 없으면 그 자리에서 가져온다 (ADR-0038).
+		// 잃을 것이 없으면 가져온다 (ADR-0038).
 		//
-		// 알릴 것이 있을 때만 덮어쓴다. 창을 오갈 때마다 아래 줄이 비면 방금 친 명령의 결과가
-		// 창을 한 번 바꿨다는 이유로 사라진다.
-		if message := m.reloadOutsideChange(); message != "" {
-			m.message = message
-		}
-
-		return m, nil
-	case fileTickMsg:
-		// 보고 있는 채로 밖에서 바뀌는 파일(로그·생성물, 옆 pane 의 `git pull`) 은 포커스가
-		// 오가지 않아서 복귀만으로는 잡히지 않는다. 주기로 한 번 더 본다 (ADR-0038).
-		//
-		// 다음 tick 은 여기서 예약한다. 공용 처리(handleJob) 에 넘기지 않으므로 예약이
-		// 겹치지 않는다.
-		if message := m.reloadOutsideChange(); message != "" {
-			m.message = message
-		}
-
-		return m, tickFile()
+		// 검사는 작업이 한다. 큰 파일에서 창을 오갈 때마다 편집기가 멈추지 않는다(ADR-0044).
+		return m, m.startOutsideCheck()
 	case tea.KeyPressMsg:
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())
@@ -111,9 +95,12 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg:
-		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
+		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
+		//
+		// 파일 검사도 여기로 온다. 예전에는 normal·트리가 자기 case 에서 직접 보았는데,
+		// 이제 결과가 `dirty` 만 보고 갈리므로 mode 를 가릴 이유가 없다(ADR-0044).
 		return m, m.handleJob(msg)
 	default:
 		return m, nil

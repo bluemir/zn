@@ -70,19 +70,7 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//
 		// 트리를 보고 있어도 편집 영역은 옆에 그려져 있다. 잃을 것이 없으면 가져와서 그
 		// 화면이 파일과 어긋나 있지 않게 한다 (ADR-0038).
-		if message := m.reloadOutsideChange(); message != "" {
-			m.message = message
-		}
-
-		return m, nil
-	case fileTickMsg:
-		// normal 과 같은 자리다. 트리에서 파일을 고르는 동안에도 편집 영역이 밖의 내용을
-		// 따라간다 (ADR-0038).
-		if message := m.reloadOutsideChange(); message != "" {
-			m.message = message
-		}
-
-		return m, tickFile()
+		return m, m.startOutsideCheck()
 	case tea.KeyPressMsg:
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())
@@ -96,7 +84,7 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
 		// 백그라운드 작업의 진행도 git 갱신 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		return m, m.handleJob(msg)

@@ -34,8 +34,17 @@ type editor struct {
 	register register
 
 	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고 여기에 들고 있다가
-	// 5 초마다 도는 갱신 작업과 저장·파일 열기 직후에 다시 읽는다(ADR-0009, ADR-0030).
+	// 갱신 작업과 저장·파일 열기 직후에 다시 읽는다(ADR-0009, ADR-0030).
 	git gitStatus
+
+	// gitTickScheduled·fileTickScheduled 는 다음 tick 이 이미 걸려 있는지다.
+	//
+	// 갱신이 끝날 때마다 cooldown 을 새로 걸면 `:w` 나 포커스 복귀 한 번에 고리가 둘로
+	// 갈라진다. 예약을 하나로 묶어두는 자리가 여기다(ADR-0043, ADR-0044).
+	//
+	// 셋이 되면 이름→cooldown 표로 옮긴다. 둘까지는 bool 두 개가 읽기 쉽다.
+	gitTickScheduled  bool
+	fileTickScheduled bool
 
 	// ctx 는 편집기의 수명이다. core.Run 이 받은 것을 그대로 든다.
 	// 백그라운드 작업이 여기서 갈라져 나오므로 편집기를 끝내면 도는 것이 전부 정리된다(ADR-0027).
@@ -69,6 +78,24 @@ type editor struct {
 // 값이 아니라 slice 요소를 가리켜야 커서 이동과 편집이 제자리에 남는다.
 func (e *editor) activeBuffer() *Buffer {
 	return &e.buffers[e.active]
+}
+
+// bufferByPath 는 그 경로로 열어둔 buffer 를 준다. 없으면 nil 이다.
+//
+// 백그라운드 검사가 결과를 넣을 자리를 찾는 데 쓴다(ADR-0044). index 로 기억해 두면 그 사이
+// tab 이 닫혀서 다른 파일을 가리킬 수 있다.
+func (e *editor) bufferByPath(path string) *Buffer {
+	if path == "" {
+		return nil
+	}
+
+	for i := range e.buffers {
+		if e.buffers[i].path == path {
+			return &e.buffers[i]
+		}
+	}
+
+	return nil
 }
 
 // scrollToCursor 는 활성 buffer 를 지금 화면에 맞춘다. 커서가 화면 안에 들어오게 하고,

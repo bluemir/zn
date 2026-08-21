@@ -163,17 +163,23 @@ func (e *editor) cancelJob(name string) {
 // 여기 하나로 모여 있고(ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 적어둔 자리다) mode 쪽에는 어떤
 // msg 를 받는지가 남는다. default 에 숨기면 그 mode 가 작업 msg 를 받는다는 것이 보이지 않는다.
 //
-// 결과가 무엇인지는 여기서 알지 못한다 — 이름으로 가르는 곳이 없다. 주기 tick 둘만 예외로,
-// 주기를 잇는 자리가 여기여야 mode 를 오갈 때 고리가 갈라지지 않는다(ADR-0030, ADR-0038).
+// 결과가 무엇인지는 대개 여기서 알지 못한다. 이름을 보는 곳은 한 자리뿐이다 — 주기 작업이
+// 끝나면 cooldown 을 다시 걸어야 하고(ADR-0043, ADR-0044), 그 고리를 잇는 자리가 여기여야
+// mode 를 오갈 때 갈라지지 않는다(ADR-0030, ADR-0038).
 func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case gitTickMsg:
-		return tea.Batch(e.startGitRefresh(), tickGit())
+		// 여기서는 다음 것을 예약하지 않는다. cooldown 은 갱신이 *끝난* 뒤부터 재는 것이라
+		// 예약은 jobDoneMsg 자리에서 한다(ADR-0043).
+		e.gitTickScheduled = false
+
+		return e.startGitRefresh()
 	case fileTickMsg:
-		// 여기서는 파일을 보지 않고 주기만 잇는다. 보는 것은 normal·트리뿐이고(ADR-0038)
-		// 그 둘은 이 자리에 오지 않는다 — 자기 case 에서 받아 스스로 다시 예약한다.
-		// 나머지 mode 를 지나가는 동안 고리가 끊기지 않게 하는 것이 이 case 의 일이다.
-		return tickFile()
+		// 검사는 작업이 한다. 어느 mode 에서 받았는지는 보지 않는다 — 읽을지 말지를 가르는
+		// 것은 `dirty` 하나이고, 그 판정은 결과가 돌아온 뒤에 한다(ADR-0044).
+		e.fileTickScheduled = false
+
+		return e.startOutsideCheck()
 	case jobProgressMsg:
 		e.updateJob(msg)
 
@@ -187,6 +193,16 @@ func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 		return tea.Batch(waitJob(msg.name, msg.ch), e.continueReveal())
 	case jobDoneMsg:
 		e.finishJob(msg.name)
+
+		// 주기 작업이 끝났으면 여기서부터 cooldown 을 잰다. 주기를 잇는 자리가 한 곳이라는
+		// 규칙은 그대로고, 그 한 곳이 tick 받는 자리에서 작업 끝나는 자리로 옮겨온 것이다
+		// (ADR-0030, ADR-0043, ADR-0044).
+		switch msg.name {
+		case gitJobName:
+			return e.scheduleGitTick()
+		case fileJobName:
+			return e.scheduleFileTick()
+		}
 
 		return nil
 	default:

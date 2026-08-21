@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cockroachdb/errors"
@@ -65,6 +66,19 @@ type Buffer struct {
 	editing bool
 
 	dirty bool //마지막 저장 이후 변경사항의 여부.
+
+	// diskSize·diskTime 은 마지막으로 맞춰 봤을 때 파일의 크기와 mtime 이다.
+	//
+	// 다음 검사에서 이 둘이 그대로면 내용을 읽지 않는다 — 읽고 해시를 내는 것이 검사 값의
+	// 거의 전부여서, 유휴 상태의 값이 파일 크기와 무관해진다(ADR-0044).
+	//
+	// mtime 을 *판정* 으로 쓰지는 않는다. 내용이 같아도 mtime 이 바뀌는 일이 흔해서 그것으로
+	// 판정하면 헛경고가 잦다(ADR-0015). 여기서는 「그대로면 안 읽는다」 는 한쪽으로만 쓴다 —
+	// 틀리는 방향이 「괜히 한 번 더 읽는다」 라서 판정이 달라지지 않는다.
+	//
+	// diskTime 이 zero 면 앞잡이가 없다는 뜻이고 그때는 읽어서 해시를 낸다.
+	diskSize int64
+	diskTime time.Time
 
 	// diskHash 는 마지막으로 읽거나 쓴 시점의 파일 내용 해시다. nil 이면 그때 파일이 없었다는 뜻이다.
 	// 저장하기 직전에 파일을 다시 읽어 이것과 맞춰 보고, 다르면 쓰지 않는다 (ADR-0015).
@@ -770,11 +784,20 @@ func (buf *Buffer) Reload() error {
 		return errors.Wrapf(err, "cannot read %s", buf.path)
 	}
 
+	*buf = buf.adopt(newBuffer(buf.path, data))
+
+	return nil
+}
+
+// adopt 은 새로 읽은 내용에 지금 보고 있던 자리를 옮겨 담는다.
+//
+// 읽기와 나누기에서 떼어 둔 것은 값이 갈리기 때문이다. 새 Buffer 를 만드는 것은 파일 크기만큼
+// 드는 일이라 백그라운드에서 하고(ADR-0044), 자리를 옮겨 담는 것은 값이 없어서 `Update` 안에서
+// 해도 된다 — 옮겨 담을 「지금 자리」는 그 순간에만 알 수 있는 것이라 미리 할 수도 없다.
+func (buf Buffer) adopt(next Buffer) Buffer {
 	// 커서 자리를 화면 칸으로 옮겨 둔다. byte offset 은 새 내용에서 다른 글자의 중간일 수 있다.
 	// statusBar 가 보여주는 `줄:칸` 이 이 칸이라, 유지되는 것이 눈에 보이는 값과 같다.
 	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol)
-
-	next := newBuffer(buf.path, data)
 
 	next.cursorLine = min(buf.cursorLine, len(next.lines)-1)
 	next.cursorCol = offsetAtScreenCol(next.lines[next.cursorLine], col)
@@ -785,9 +808,7 @@ func (buf *Buffer) Reload() error {
 	next.top = min(buf.top, len(next.lines)-1)
 	next.topRow = buf.topRow
 
-	*buf = next
-
-	return nil
+	return next
 }
 
 // outsideChange 는 파일이 읽은(또는 마지막으로 쓴) 시점과 어떻게 달라졌는지다.

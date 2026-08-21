@@ -89,7 +89,7 @@ func readDirJob(ctx context.Context, dir string) <-chan jobProgress {
 			return
 		}
 
-		markIgnored(ctx, dir, children)
+		markIgnored(dir, children)
 
 		// 끊긴 뒤에 채우면 방금 접은 디렉터리가 도로 펼쳐진다. 취소했다는 것은 실행기가
 		// 이미 적어 두었다(job.go).
