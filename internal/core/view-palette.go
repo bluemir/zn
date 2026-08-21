@@ -141,21 +141,39 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// commandInput 은 명령 목록을 고르는 중인지와 `>` 를 뗀 검색어를 준다.
+// paletteKind 는 팔레트가 지금 무엇을 하는 중인지다. 입력 맨 앞 글자가 정한다.
 //
-// `>` 는 별도 키도 상태도 아니다. 지우는 순간 파일 목록으로 저절로 돌아온다.
-func (m viewPalette) commandInput() (string, bool) {
-	rest, ok := strings.CutPrefix(m.input, ">")
-	if !ok {
-		return m.input, false
+// 별도 키도 상태도 아니다. 그 글자를 지우는 순간 파일 찾기로 저절로 돌아온다.
+type paletteKind int
+
+const (
+	paletteKindFile    paletteKind = iota // 접두 없음. 파일 찾기다
+	paletteKindCommand                    // `>`. 명령 목록이다
+	paletteKindShell                      // `!`. 고를 목록이 없고 친 것을 셸에 넘긴다
+)
+
+// kind 는 갈래와 접두를 뗀 나머지를 준다.
+func (m viewPalette) kind() (paletteKind, string) {
+	if rest, ok := strings.CutPrefix(m.input, ">"); ok {
+		return paletteKindCommand, strings.TrimLeft(rest, " ")
+	}
+	if rest, ok := strings.CutPrefix(m.input, "!"); ok {
+		// `>` 와 달리 앞 공백을 떼지 않는다. 셸이 읽을 글자를 여기서 고치지 않는다 —
+		// `:!` 도 뗀 적이 없다(ADR-0045).
+		return paletteKindShell, rest
 	}
 
-	return strings.TrimLeft(rest, " "), true
+	return paletteKindFile, m.input
 }
 
 // labels 는 지금 표에서 매칭 대상이 되는 글자들이다.
+//
+// 셸은 고를 것이 없어서 비어 있다. 그 덕에 filter 는 이 갈래를 몰라도 되고 hits 가 저절로 빈다.
 func (m viewPalette) labels() []string {
-	if _, ok := m.commandInput(); !ok {
+	switch kind, _ := m.kind(); kind {
+	case paletteKindShell:
+		return nil
+	case paletteKindFile:
 		return m.files
 	}
 
@@ -169,7 +187,7 @@ func (m viewPalette) labels() []string {
 
 // filter 는 입력으로 목록을 다시 거른다. 입력이 바뀌었으므로 고른 자리는 처음으로 돌아간다.
 func (m *viewPalette) filter() {
-	pattern, _ := m.commandInput()
+	_, pattern := m.kind()
 
 	m.hits = filterPalette(pattern, m.labels())
 	m.selected, m.top = 0, 0
@@ -180,7 +198,7 @@ func (m *viewPalette) filter() {
 // 인덱싱이 파일을 부을 때마다 맨 위로 튀면 목록을 훑을 수 없다. 새로 온 파일이 위로 끼어들면
 // 커서가 가리키는 항목은 바뀔 수 있지만, 그것이 매번 처음으로 돌아가는 것보다 낫다.
 func (m *viewPalette) refilter() {
-	pattern, _ := m.commandInput()
+	_, pattern := m.kind()
 
 	m.hits = filterPalette(pattern, m.labels())
 	m.scrollTo()
@@ -213,13 +231,23 @@ func (m *viewPalette) scrollTo() {
 
 // run 은 고른 것을 실행한다.
 func (m viewPalette) run() (tea.Model, tea.Cmd) {
+	// 셸은 고른 것이 아니라 친 것을 실행한다. 그래서 hits 를 보기 전에 갈린다.
+	// 아무것도 치지 않았으면 가만히 있는다 — 고를 것이 없을 때와 같다.
+	if kind, line := m.kind(); kind == paletteKindShell {
+		if line == "" {
+			return m, nil
+		}
+
+		return runShell(m.editor, line)
+	}
+
 	if len(m.hits) == 0 {
 		return m, nil
 	}
 
 	index := m.hits[m.selected].index
 
-	if _, ok := m.commandInput(); ok {
+	if kind, _ := m.kind(); kind == paletteKindCommand {
 		return paletteCommands[index].run(m.editor)
 	}
 
@@ -293,7 +321,13 @@ func (m viewPalette) View() tea.View {
 }
 
 // renderCounter 는 statusBar 아래 줄이다. 몇 개 중 몇 개가 걸렸는지 보여준다.
+//
+// 셸은 셀 것이 없어서 비운다. `0/0` 은 아무것도 못 찾은 것처럼 보이는 거짓말이다.
 func (m viewPalette) renderCounter() string {
+	if kind, _ := m.kind(); kind == paletteKindShell {
+		return ""
+	}
+
 	return fmt.Sprintf("%d/%d", len(m.hits), len(m.labels()))
 }
 
@@ -325,7 +359,7 @@ func (m viewPalette) renderInputRow(inner int) string {
 	side := m.boxChars.vertical
 
 	if m.input == "" {
-		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 로 명령", inner), inner)) + " " + side
+		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 명령, ! 셸", inner), inner)) + " " + side
 	}
 
 	return side + " " + padTo(truncateToWidth(m.input, inner), inner) + " " + side
@@ -335,18 +369,29 @@ func (m viewPalette) renderInputRow(inner int) string {
 func (m viewPalette) renderListRows(inner int) []string {
 	side := m.boxChars.vertical
 
+	kind, rest := m.kind()
+
+	// 셸은 목록이 아니라 안내를 놓는다. 고를 것이 없는데 「일치하는 것이 없습니다」가 뜨면
+	// 무엇을 잘못 쳤는지 찾게 된다.
+	if kind == paletteKindShell {
+		guide := "Enter 로 셸에서 실행합니다"
+		if rest == "" {
+			guide = "! 뒤에 셸 명령을 칩니다"
+		}
+
+		return []string{side + " " + styleDetail.Render(padTo(truncateToWidth(guide, inner), inner)) + " " + side}
+	}
+
 	if len(m.hits) == 0 {
 		return []string{side + " " + styleDetail.Render(padTo("일치하는 것이 없습니다", inner)) + " " + side}
 	}
-
-	_, isCommand := m.commandInput()
 
 	rows := []string{}
 	for i := m.top; i < len(m.hits) && len(rows) < m.paletteListRows(); i++ {
 		hit := m.hits[i]
 
 		row := paletteRow{positions: hit.positions, selected: i == m.selected}
-		if isCommand {
+		if kind == paletteKindCommand {
 			command := paletteCommands[hit.index]
 			row.left, row.right = command.name, command.detail()
 		} else {

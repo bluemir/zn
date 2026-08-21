@@ -76,10 +76,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return m.fail(err)
 	}
 
-	// 인자를 받는 명령은 이 셋뿐이다. 나머지에 붙은 인자를 조용히 버리면
+	// 인자를 받는 명령은 이 넷뿐이다. 나머지에 붙은 인자를 조용히 버리면
 	// `:qa foo` 가 foo 에 무언가를 한 것처럼 보인다.
+	//
+	// `:!` 의 인자는 파일 이름이 아니라 뜯지 않은 셸 줄이고, tokenRest 가 그것을 한 토큰으로
+	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다.
 	switch cmd.name {
-	case "w", "e", "tabnew":
+	case "w", "e", "tabnew", "!":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
@@ -131,6 +134,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 		// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
 		return model, tea.Batch(next, m.startGitRefresh(), reveal)
+	case "!":
+		// tokenRest 가 뒤를 한 토큰으로 준다. `:!` 만 쳤으면 args 가 비어 있다.
+		if len(cmd.args) == 0 {
+			return normalModeMessage(m.editor, "셸 명령이 없습니다")
+		}
+
+		return runShell(m.editor, cmd.args[0])
 	case "noh", "nohlsearch":
 		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
 		m.search.highlight = false

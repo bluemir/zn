@@ -65,6 +65,11 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//
 		// 검사는 작업이 한다. 큰 파일에서 창을 오갈 때마다 편집기가 멈추지 않는다(ADR-0044).
 		return m, m.startOutsideCheck()
+	case shellDoneMsg:
+		// `:!` 로 넘겼던 터미널이 돌아왔다. 이 msg 를 다른 mode 에서 받을 일은 없다 —
+		// runShell 이 언제나 normal 을 돌려주고, 터미널이 돌아오기 전에는 키가 처리되지
+		// 않아서 그 사이에 mode 가 바뀔 수 없다 (ADR-0045).
+		return m, m.finishShell(msg.err)
 	case tea.KeyPressMsg:
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())

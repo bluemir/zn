@@ -34,6 +34,7 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 - sidebar에서 열리는 file tree
 - vscode 와 유사한 command palette
 	- 특히 file matching 에서 > 를 입력하면 바로 command 로 넘어가는 기능
+	- `!` 를 입력하면 그 뒤를 shell 명령으로 돌린다. `:!<shell command>` 와 같다
 - 상대 줄번호와 절대 줄번호 동시 표시
 - statusBar 에 git branch, commit, dirty 여부 표시
 - 한국어 지원
@@ -61,7 +62,6 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 - 키 하나로 현재 화면의 cat 과 동일한 형태로 text 표시
 	- text 복사 붙여 넣기시 유용
 - home, end, page up, page down 의 일관적인 동작
-- command palette 에서 `!` 를 shell command 로 매핑
 - 여러 파일에 걸친 검색과 치환
 - file tree 에서 파일을 만들고 지우고 이름을 바꾸기
 

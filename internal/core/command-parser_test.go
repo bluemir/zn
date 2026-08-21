@@ -33,6 +33,15 @@ func TestTokenize(t *testing.T) {
 		{name: "빈 따옴표", input: `w ""`, want: []string{"w"}},
 		{name: "따옴표 안의 공백만", input: `w " "`, want: []string{"w", " "}},
 		{name: "한글 경로", input: `w "내 메모.txt"`, want: []string{"w", "내 메모.txt"}},
+
+		// 맨 앞의 `!` 는 이름 하나로 끊고 뒤를 통째로 넘긴다. 여느 자리의 `!` 는 그냥 글자다.
+		{name: "맨 앞의 `!` 는 뒤를 통째로", input: "!ls -la", want: []string{"!", "ls -la"}},
+		{name: "`!` 만", input: "!", want: []string{"!"}},
+		{name: "`!` 앞의 공백은 아직 맨 앞", input: "  !ls -la", want: []string{"!", "ls -la"}},
+		{name: "셸에 넘길 것은 따옴표도 뜯지 않는다", input: `!echo "a b"`, want: []string{"!", `echo "a b"`}},
+		{name: "셸에 넘길 것은 `\\` 도 글자다", input: `!echo a\ b`, want: []string{"!", `echo a\ b`}},
+		{name: "맨 앞이 아닌 `!` 는 뜻이 없다", input: "w !foo", want: []string{"w", "!foo"}},
+		{name: "이스케이프한 `!` 는 맨 앞이 아니다", input: `\!ls`, want: []string{"!ls"}},
 	}
 
 	for _, test := range tests {
@@ -85,11 +94,15 @@ func TestParseCommand(t *testing.T) {
 	}{
 		{name: "빈 명령", input: "", want: command{}},
 		{name: "공백만", input: "  ", want: command{}},
-		{name: "이름만", input: "w", want: command{name: "w", args: []string{}}},
-		{name: "앞뒤 공백", input: " wq ", want: command{name: "wq", args: []string{}}},
-		{name: "`!` 는 이름에서 뗀다", input: "q!", want: command{name: "q", force: true, args: []string{}}},
-		{name: "`!` 는 이름이 길어도 뗀다", input: "qa!", want: command{name: "qa", force: true, args: []string{}}},
+		{name: "이름만", input: "w", want: command{name: "w"}},
+		{name: "앞뒤 공백", input: " wq ", want: command{name: "wq"}},
+		{name: "`!` 는 이름에서 뗀다", input: "q!", want: command{name: "q", force: true}},
+		{name: "`!` 는 이름이 길어도 뗀다", input: "qa!", want: command{name: "qa", force: true}},
 		{name: "인자", input: "e main.go", want: command{name: "e", args: []string{"main.go"}}},
+		{name: "`!` 는 이름이고 뒤는 인자 하나다", input: "!ls -la", want: command{name: "!", args: []string{"ls -la"}}},
+		{name: "`!` 만 치면 넘길 것이 없다", input: "!", want: command{name: "!"}},
+		{name: "`!!` 는 `!` 를 셸에 넘긴다", input: "!!", want: command{name: "!", args: []string{"!"}}},
+		{name: "`!` 는 force 가 아니다", input: "  !ls", want: command{name: "!", args: []string{"ls"}}},
 		{name: "`!` 와 인자", input: `e! "my notes.txt"`, want: command{name: "e", force: true, args: []string{"my notes.txt"}}},
 	}
 
