@@ -50,11 +50,25 @@ func (e editor) regionAt(x, y int) region {
 // clickText 는 편집 영역 좌표로 커서를 옮긴다. 그 자리에 글자가 없으면 아무것도 하지 않는다.
 //
 // scrollTo 는 부르지 않는다. 이미 보이는 자리를 눌렀으니 화면이 움직일 이유가 없고,
-// 부르면 wrap 된 줄 안에 스크롤해 둔 상태에서 화면이 튄다.
+// 부르면 wrap 된 줄 안에 스크롤해 둔 상태에서 화면이 튄다. **머리줄만 예외다** — 아래를 보라.
 func (e *editor) clickText(x, y int) {
 	buf := e.activeBuffer()
+	row := y - tablineHeight
 
-	line, col, ok := buf.positionAt(x-e.contentLeft(), y-tablineHeight, e.contentWidth(), e.textHeight())
+	// 머리줄을 누르면 그 줄로 간다. VSCode 와 같다(ADR-0049).
+	//
+	// **무시하는 선택지가 없다.** 이 자리는 본문을 덮고 있어서 그대로 positionAt 에 넘기면
+	// 가려진 줄로 커서가 간다 — 눌러서 보이는 글자와 커서가 어긋난다.
+	//
+	// 여기서는 화면을 옮긴다. 가려는 곳이 화면 밖이라 위의 「이미 보이는 자리」가 아니다.
+	if sticky := buf.stickyAt(buf.top, e.textHeight()); row < len(sticky) {
+		buf.moveToLine(sticky[row], e.contentWidth())
+		e.scrollToCursor()
+
+		return
+	}
+
+	line, col, ok := buf.positionAt(x-e.contentLeft(), row, e.contentWidth(), e.textHeight())
 	if !ok {
 		return
 	}
@@ -219,12 +233,16 @@ func (e *editor) dragTo(x, y int) {
 		return
 	}
 
+	// 머리줄이 덮은 자리는 편집 영역 위로 나간 것과 같이 다룬다 — 그리로 끌면 위로 굴려서
+	// 가려진 줄을 드러낸다. 머리줄이 없으면 sticky 가 0 이라 예전과 같다(ADR-0049).
+	sticky := len(buf.stickyAt(buf.top, height))
+
 	row := y - tablineHeight
 	switch {
-	case row < 0:
+	case row < sticky:
 		buf.scrollBy(-1, width, height)
 
-		row = 0
+		row = len(buf.stickyAt(buf.top, height))
 	case row >= height:
 		buf.scrollBy(1, width, height)
 

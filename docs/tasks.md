@@ -17,11 +17,11 @@
 	- markdown
 		- [x] syntax highlight. 제목·인용문·코드펜스·코드 스팬·링크·강조를 가른다. 링크는 문자열과 갈래가 달라서(`KindLink`) 문서에서 링크와 인용된 글자가 갈린다 — 주소만 칠하고 `[글]` 의 글은 본문과 같이 둔다. 제목은 줄 하나가 통째로 굵은 제목이고, 코드펜스 안쪽은 색을 입히지 않는다 — 그 언어로 훑는 것은 따로 본다. 목록 표시는 일부러 뺐다 — 이 저장소의 markdown 은 거의 전부 목록이라 표시마다 색이 붙으면 글이 점으로 뒤덮인다 (ADR-0039)
 		- [x] auto indent. 목록 표시(`- ` `* ` `+ ` `> ` `1. `) 를 이어 쓴다. 아홉 언어 중 유일하게 공백이 아닌 글자를 낸다. 빈 항목에서 Enter 를 치면 목록이 끝난다 (ADR-0047)
-		- [ ] vscode 처럼 header 들이 상단에 sticky 되는 기능
+		- [x] sticky 머리줄. 감싸는 제목을 화면 맨 위에 붙인다. 기준은 커서가 아니라 화면 맨 윗줄이라 이미 보이는 제목이 두 번 나오지 않는다. 코드펜스 안의 `#` 은 제목이 아니다 — 원문이 아니라 토큰을 봐서 공짜로 걸러진다 (ADR-0049, ADR-0040)
 	- golang
 		- [x] syntax highlight. 표준 라이브러리 `go/scanner` 를 감싸서 예약어·문자열·주석·숫자·미리 선언된 이름을 가른다. 여러 줄에 걸치는 것은 raw string 과 block comment 둘뿐이고, 닫히지 않았다는 것을 오류 문구가 아니라 마지막 토큰의 생김새로 안다 — 문구는 Go 판마다 바뀔 수 있는 남의 문장이다. type 자리(`const aa BB`, struct 필드, 인자·결과, `*Buffer`, `[]Token`, `syntax.State`) 는 「식별자 둘이 공백만 두고 붙으면 뒤쪽이 type」으로 잡는다 (ADR-0039)
 		- [x] auto indent. 닫히지 않은 `{` `(` `[` 뒤와 `case`/`default` 아래가 한 단계 들어간다. js·css 와 규칙이 같아서 `braceIndent` 하나를 셋이 나눠 쓴다 (ADR-0047)
-		- [ ] 함수 정의, struct 정의 등이 상단에 sticky 되는 기능
+		- [x] 함수·struct 정의도 상단에 sticky. 아홉 언어가 표의 세 번째 칸(`Outline`) 으로 나뉘고, 블록을 여는 줄을 가려내는 일은 autoindent 규칙에 되묻는다. makefile 은 대상 줄, dockerfile 은 없음이라 따로 둔다 (ADR-0049, ADR-0047)
 		- [ ] go to definition, ...
 		- [ ] rename function
  		- [ ] rename variable
@@ -220,7 +220,6 @@
 		- 프로젝트 root 에서 부터 검색
 - 언어 특화 기능
 	- markdown
-		- [ ] 상단에 현재 문단의 상위 제목 표시 하기 - like vs code
 - [ ] 도는 작업이 없으면 `:jobs` 의 경과 시간이 멈춘 것처럼 보인다. 진행 msg 가 올 때만 다시 그리기 때문이다. 주기적으로 다시 그릴지 정한다 (ADR-0027)
 - [ ] `:jobs` 의 이름 칸(16) 보다 `디렉터리 읽기 <경로>` 가 길어서 상태·시간 칸이 밀린다. 목록 쪽 표시를 다시 본다 (ADR-0027, ADR-0032)
 - [ ] `:jobs` 의 끝난 목록에 펼친 디렉터리마다 한 줄이 쌓인다. 이름이 코드에 있는 종류만큼만이라 개수 상한을 없앤 ADR-0030 의 가정이 흔들렸다. 사용자가 펼친 만큼만 늘어서 지금은 그대로 두었다 (ADR-0030, ADR-0032)
@@ -233,6 +232,12 @@
 - [ ] shell 명령의 결과를 편집기로 가져오는 기능. `:r !cmd`(결과를 buffer 로) 와 `:%!sort`(buffer 를 명령에 넘기기) 둘이다. 지금 `:!` 는 출력을 터미널에 흘리고 남기지 않는다 (ADR-0045)
 - [ ] `:!cat %` 처럼 command line 의 % 를 현재 파일 path 로 대체. `:!` 는 뒤를 뜯지 않고 셸에 넘기므로 바꿔치기하는 자리를 따로 정해야 한다 (ADR-0045)
 - [ ] 좌측 sidecar 를 스크롤 할떄 상위 폴더는 sticky 처럼 보이게.. (vs code 처럼)
+- [ ] sticky 머리줄을 본문과 색으로 가를지 정한다. 지금은 줄번호가 끊기는 것만이 표시다 (ADR-0049)
+- [ ] 잘린 sticky 머리줄에 잘렸다는 표시를 붙일지 정한다 (ADR-0049)
+- [ ] sticky 머리줄이 `top` 을 감싸는 것이라, `top` 이 블록 끝자락이면 화면에 보이는 본문은 이미 그 블록 밖인데도 머리줄이 남는다. 보이는 첫 줄로 기준을 옮기면 그 값이 자기를 참조해 진동한다 (ADR-0049)
+- [ ] sticky 의 깊이 어림이 어긋나는 자리들 — `switch` 가 `case` 에 가리고, `} else {` 는 머리줄이 아니고, tab 과 space 를 섞은 파일에서 순서가 갈린다. 전부 덜 붙는 쪽으로 틀린다 (ADR-0049)
+- [ ] 깊이 0 인 줄이 위에 없는 파일에서는 sticky 훑기가 파일 처음까지 간다. 거슬리면 `syntaxLine` 에 깊이 칸을 더한다 (ADR-0049)
+- [ ] dockerfile 의 `FROM ... AS build` 를 sticky 머리줄로 볼지 정한다 (ADR-0049)
 - [x] `editorconfig` 존중. 읽는 키는 `indent_style` `indent_size` `tab_width` 셋뿐이고 autoindent 의 한 단계를 정하는 데 쓴다. 파서는 `editorconfig-core-go` 다 — 명세의 glob(`*.{js,jsx}`) 과 `root = true` 와 상위 훑기를 다시 맞추지 않았다 (ADR-0048)
 - [ ] 내장된 terminal 능력 test 도구
 	- color 가 true color 를 지원하는지.

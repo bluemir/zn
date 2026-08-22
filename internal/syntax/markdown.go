@@ -445,3 +445,58 @@ func mdParseListMark(rest []byte) (mdListMark, bool) {
 		content: len(bytes.TrimSpace(rest[digits+2:])) > 0,
 	}, true
 }
+
+// mdOutline 은 markdown 의 뼈대 규칙이다. 아래 글을 거느리는 것은 제목이다.
+//
+// **들여쓰기를 보지 않는다.** markdown 의 들여쓰기는 목록의 깊이와 네 칸 코드블록이라
+// 글쓴이가 정한 것이고 문서의 뼈대가 아니다 — mdIndent.Reindents 가 거짓인 것과 같은 이유다.
+type mdOutline struct{}
+
+// mdHeadingDepth 는 제목의 깊이다. `#` 하나가 0 이고 여섯이 5 다. 제목이 아니면 거짓이다.
+//
+// **줄보다 토큰을 먼저 본다.** 줄만 보면 코드펜스 안의 `# 주석` 이 제목이 된다 — ```py 안에서
+// 그것은 python 주석이다. mdFence.Lex 는 KindHeading 을 내보내지 않으므로(위의 Lex) 그 갈래의
+// 토큰이 있는지가 곧 「여기는 펜스 밖이다」다. 펜스를 다시 세는 것이 아니라 이미 센 것을 읽는
+// 것이라 값이 0 이다(ADR-0040).
+//
+// **0 부터 세는 것이 중요하다.** 위로 훑기는 깊이 0 에서 멈추는데, `#` 을 1 로 세면 h1 이 없는
+// 문서(이 저장소의 `docs/tasks.md` 가 그렇다) 에서 멈출 자리가 없어진다.
+//
+// 아직 훑지 않은 줄은 토큰이 비어서 제목이 아닌 것이 된다. 그때 모자라는 것은 머리줄 하나이고
+// **틀린 머리줄을 그리지는 않는다** — 어느 쪽으로 틀릴지가 정해져 있는 것이 이 순서의 값이다.
+func mdHeadingDepth(line []byte, tokens []Token) (int, bool) {
+	if len(tokens) != 1 || tokens[0].Kind != KindHeading {
+		return 0, false
+	}
+
+	// 제목 토큰은 줄 전체라 자리를 알려주지 않는다. 깊이는 줄에서 다시 센다.
+	indent := 0
+	for indent < len(line) && line[indent] == ' ' {
+		indent++
+	}
+
+	end := mdHeadingEnd(line, indent)
+	if end <= indent {
+		return 0, false
+	}
+
+	return end - indent - 1, true
+}
+
+// Depth 는 제목이면 그 깊이이고, 제목이 아닌 줄은 어느 제목보다도 깊다.
+//
+// 본문이 가장 깊어야 위로 훑기가 가장 가까운 제목부터 차례로 거둔다.
+func (mdOutline) Depth(line []byte, tokens []Token) int {
+	depth, ok := mdHeadingDepth(line, tokens)
+	if !ok {
+		return OutlineDeep
+	}
+
+	return depth
+}
+
+func (mdOutline) Heads(line []byte, tokens []Token) bool {
+	_, ok := mdHeadingDepth(line, tokens)
+
+	return ok
+}

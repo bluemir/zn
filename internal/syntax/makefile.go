@@ -231,3 +231,16 @@ func (makeIndent) Reindents() bool { return true }
 func (makeIndent) TabIndentsLine([]byte) bool { return false }
 
 func (makeIndent) Unit() []byte { return []byte{'\t'} }
+
+// makeOutline 은 makefile 의 뼈대 규칙이다. 조리법을 거느리는 것은 대상 줄이다.
+//
+// **들여쓰기 규칙에 묻지 않는다.** makeIndent.Next 는 단계를 내지 않고 tab 을 prefix 로 낸다 —
+// 한 단계가 언제나 tab 이라 그렇게 둔 것이고(위의 makeIndent), 그래서 「다음 줄이 들어간다」로는
+// 대상 줄이 하나도 안 걸린다. 조리법이 서른 줄이 되는 것이 흔해서 대상 줄이 가장 아쉬운 자리다.
+type makeOutline struct{}
+
+func (makeOutline) Depth(line []byte, tokens []Token) int { return indentDepth(line, tokens) }
+
+func (makeOutline) Heads(line []byte, tokens []Token) bool {
+	return makeIsTarget(codeBytes(line, tokens))
+}

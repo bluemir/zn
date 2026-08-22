@@ -423,6 +423,22 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 				renderRow(buf.lines[row.line], row, e.contentWidth(), highlight))
 	}
 
+	// 감싸는 머리줄로 본문 위 몇 행을 덮는다(ADR-0049).
+	//
+	// **행 수가 그대로다.** 자리를 떼지 않고 갈아끼우므로 textHeight·sidebarHeight·
+	// visibleRows·positionAt·cursorScreenPos·regionAt 이 하나도 안 바뀐다. 붙는 줄 수가
+	// 스크롤에 따라 바뀌는데 그것이 화면 높이가 되면 sidebar 까지 스크롤마다 늘었다 줄었다 한다.
+	//
+	// lipgloss 합성기(ADR-0011) 를 쓰지 않는다. 폭 전체를 쓰는 행이라 문자열을 통째로
+	// 갈아끼우면 되고, 그래서 셀 버퍼를 지나며 화면이 다시 쓰이는 비용이 없다 — 머리줄이
+	// 없는 화면은 이 기능을 넣기 전과 한 글자도 다르지 않다.
+	//
+	// 커서가 덮이지 않는 것은 scrollTo 가 맡는다. 파일 끝이라 그린 행이 모자랄 때만 여기서
+	// 한 번 더 자른다.
+	for i, line := range e.stickyRows(buf, height, len(textRows)) {
+		textRows[i] = e.renderStickyRow(buf, line)
+	}
+
 	view := newView(e.renderScreen(textRows, mode, bottom))
 
 	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {

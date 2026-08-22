@@ -26,7 +26,19 @@ type languageRule struct {
 	// indent 는 그 언어의 들여쓰기 규칙이다. state 와 나란한 두 번째 언어별 값이라 같은 줄에
 	// 둔다 — 언어를 더할 때 손대는 자리가 하나로 남는다.
 	indent Indent
+
+	// outline 은 그 언어의 뼈대 규칙이다. state·indent 와 나란한 세 번째 언어별 값이다.
+	// 화면 위에 붙는 머리줄이 이것으로 정해진다(ADR-0049).
+	outline Outline
 }
+
+// tabBraceIndent 와 spaceBraceIndent 는 indent 칸과 outline 칸이 **같은 값**을 보게 하는
+// 이름이다. 「다음 줄이 들어간다」와 「아래를 거느린다」가 같은 판정이라, 표에 두 번 적으면
+// 한쪽만 고쳐지는 날이 온다.
+var (
+	tabBraceIndent   = braceIndent{unit: "\t"}
+	spaceBraceIndent = braceIndent{unit: "  "}
+)
 
 // languageRules 는 강조하는 언어 전부다. 새 언어는 여기 한 줄이 는다.
 //
@@ -34,23 +46,25 @@ type languageRule struct {
 // 손이다. 언어 하나가 한 줄이라 「이 언어는 이렇게 알아본다」로 읽힌다.
 var languageRules = []languageRule{
 	{exts: []string{".go"}, aliases: []string{"go", "golang"}, state: goNormal{},
-		indent: braceIndent{unit: "\t"}},
+		indent: tabBraceIndent, outline: blockOutline{opens: tabBraceIndent}},
 	{exts: []string{".md", ".markdown"}, aliases: []string{"md", "markdown"}, state: mdNormal{},
-		indent: mdIndent{}},
+		indent: mdIndent{}, outline: mdOutline{}},
 	{exts: []string{".html", ".htm"}, aliases: []string{"html"}, state: htmlNormal{},
-		indent: htmlIndent{}},
+		indent: htmlIndent{}, outline: blockOutline{opens: htmlIndent{}}},
 	{exts: []string{".js", ".mjs", ".cjs"}, aliases: []string{"js", "javascript"}, state: jsNormal{},
-		indent: braceIndent{unit: "  "}},
+		indent: spaceBraceIndent, outline: blockOutline{opens: spaceBraceIndent}},
 	{exts: []string{".css"}, aliases: []string{"css"}, state: cssNormal{},
-		indent: braceIndent{unit: "  "}},
+		indent: spaceBraceIndent, outline: blockOutline{opens: spaceBraceIndent}},
 	{exts: []string{".py"}, aliases: []string{"py", "python"}, state: pyNormal{},
-		indent: pyIndent{}},
+		indent: pyIndent{}, outline: blockOutline{opens: pyIndent{}}},
 	{exts: []string{".sh", ".bash", ".zsh"}, aliases: []string{"sh", "bash", "shell", "zsh"},
-		state: shNormal{}, indent: shIndent{}},
+		state: shNormal{}, indent: shIndent{}, outline: blockOutline{opens: shIndent{}}},
 	{exts: []string{".mk"}, names: []string{"makefile", "gnumakefile"},
-		aliases: []string{"make", "makefile"}, state: makeNormal{}, indent: makeIndent{}},
+		aliases: []string{"make", "makefile"}, state: makeNormal{}, indent: makeIndent{},
+		outline: makeOutline{}},
 	{exts: []string{".dockerfile"}, names: []string{"dockerfile"},
-		aliases: []string{"docker", "dockerfile"}, state: dockerNormal{}, indent: dockerIndent{}},
+		aliases: []string{"docker", "dockerfile"}, state: dockerNormal{}, indent: dockerIndent{},
+		outline: flatOutline{}},
 }
 
 // Detect 는 경로를 보고 시작 문맥을 고른다. nil 이면 강조하지 않는다.
@@ -82,8 +96,19 @@ func IndentFor(path string) Indent {
 	return rule.indent
 }
 
-// ruleFor 는 이름에 맞는 표의 한 줄이다. Detect 와 IndentFor 가 나눠 쓴다 — 이름을 보는 법이
-// 둘로 갈리면 한쪽만 아는 언어가 생긴다.
+// OutlineFor 는 경로를 보고 뼈대 규칙을 고른다. nil 이면 머리줄을 붙이지 않는다.
+// Detect·IndentFor 와 짝이다 — 같은 표의 또 다른 칸을 본다.
+func OutlineFor(path string) Outline {
+	rule := ruleFor(path)
+	if rule == nil {
+		return nil
+	}
+
+	return rule.outline
+}
+
+// ruleFor 는 이름에 맞는 표의 한 줄이다. Detect·IndentFor·OutlineFor 가 나눠 쓴다 — 이름을
+// 보는 법이 갈리면 한쪽만 아는 언어가 생긴다.
 func ruleFor(path string) *languageRule {
 	name := strings.ToLower(filepath.Base(path))
 

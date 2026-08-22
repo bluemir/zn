@@ -514,17 +514,34 @@ func (buf *Buffer) scrollTo(width, height int) {
 
 	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursorLine], width), buf.cursorCol)
 
-	// 위로 벗어났으면 커서 행을 최상단으로 올린다.
-	if rowBefore(buf.cursorLine, cursorRow, buf.top, buf.topRow) {
-		buf.top, buf.topRow = buf.cursorLine, cursorRow
-		return
-	}
-
 	// 커서에서 height-1 행 위로 올라간 지점이 top 의 하한이다.
 	// 뒤에서 앞으로 세기 때문에 화면 높이만큼만 훑는다.
 	limitLine, limitRow := buf.retreatRows(buf.cursorLine, cursorRow, height-1, width)
 	if rowBefore(buf.top, buf.topRow, limitLine, limitRow) {
 		buf.top, buf.topRow = limitLine, limitRow
+	}
+
+	// 위쪽은 sticky 머리줄이 덮는 만큼 더 올라간다(ADR-0049).
+	//
+	// **한 번으로는 안 맞는다.** 붙는 줄 수는 top 에서 나오고 top 은 그 줄 수에서 나온다.
+	// 그리고 단순히 대입하면 **진동한다** — 감싸는 줄 수가 줄 번호에 대해 단조가 아니라
+	// top 이 두 값을 오간다.
+	//
+	// top 이 **위로만 가는 갈래만** 두어 끝낸다. 한 바퀴마다 top 이 최소 한 행 올라가고,
+	// top 이 0 이면 감싸는 것이 없어 멈춘다. 바퀴 수를 못 박아 두는 것은 판정이 틀려도
+	// 편집기가 멈추지 않게 하는 자물쇠다.
+	//
+	// 머리줄이 없으면(강조하지 않는 파일) margin 이 0 이라 첫 바퀴가 곧 예전의
+	// 「위로 벗어나면 커서 행을 최상단으로」다. 그 갈래를 이것이 대신한다.
+	for range stickyMaxRows(height) + 1 {
+		margin := len(buf.stickyAt(buf.top, height))
+
+		wantLine, wantRow := buf.retreatRows(buf.cursorLine, cursorRow, margin, width)
+		if !rowBefore(wantLine, wantRow, buf.top, buf.topRow) {
+			return
+		}
+
+		buf.top, buf.topRow = wantLine, wantRow
 	}
 }
 
@@ -599,16 +616,21 @@ func (buf *Buffer) scrollBy(n, width, height int) {
 		buf.top, buf.topRow = buf.advanceRows(buf.top, buf.topRow, n, width)
 	}
 
-	// 커서가 아직 화면 안이면 건드릴 것이 없다.
-	if _, _, ok := buf.cursorScreenPos(width, height); ok {
+	// 커서가 아직 화면 안이고 머리줄 아래면 건드릴 것이 없다.
+	// 머리줄이 없으면 sticky 가 0 이라 예전과 같은 물음이다(ADR-0049).
+	sticky := len(buf.stickyAt(buf.top, height))
+	if _, y, ok := buf.cursorScreenPos(width, height); ok && y >= sticky {
 		return
 	}
 
-	// 화면 밖으로 밀려났다. 밀려난 쪽 끝 행으로 데려온다.
+	// 화면 밖으로 밀려났거나 머리줄에 덮였다. 밀려난 쪽 끝 행으로 데려온다.
 	//
 	// 아래로 굴리면(n>0) 화면이 커서를 지나쳐 내려가므로 커서는 화면 위로 벗어난다 —
 	// 맨 윗줄로 데려온다. 위로 굴리면 그 반대다.
-	line, row := buf.top, buf.topRow
+	//
+	// 맨 윗줄이 아니라 **머리줄 바로 아래 행**이다. 맨 윗줄은 머리줄이 덮고 있어서, 거기에
+	// 두면 커서가 커서 줄이 아닌 글자 위에 선다. 머리줄이 없으면 sticky 가 0 이라 맨 윗줄이다.
+	line, row := buf.advanceRows(buf.top, buf.topRow, sticky, width)
 	if n < 0 {
 		line, row = buf.advanceRows(buf.top, buf.topRow, height-1, width)
 	}

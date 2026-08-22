@@ -132,6 +132,19 @@ func (e editor) renderLineNumber(cursorLine int, row screenRow) string {
 		distance = -distance
 	}
 
+	// 상대번호 칸은 화면 높이까지만 잡는다(lineNumberDigits). 그리는 행이 모두 화면 안이라
+	// 거리가 그 칸을 넘지 않는다는 약속 위에 서 있는데, sticky 머리줄은 화면 밖에서 오므로
+	// 그 약속을 깬다(ADR-0049).
+	//
+	// `%*d` 의 폭은 **최소**라 넘치면 그대로 늘어난다. 한 칸이라도 넘치면 행이 편집 영역보다
+	// 넓어져서 터미널이 접고, 그 아래가 통째로 밀리면서 sidebar 칸까지 어긋난다.
+	//
+	// 넘치면 비운다. `k` 로 세어 갈 수 있는 수가 아니라서 잘못 자른 숫자보다 없는 편이 낫다.
+	relativeNumber := fmt.Sprintf("%*d", relative, distance)
+	if len(relativeNumber) > relative {
+		relativeNumber = strings.Repeat(" ", relative)
+	}
+
 	return styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
-		styleLineNumberRelative.Render(fmt.Sprintf("%*d", relative, distance)) + " "
+		styleLineNumberRelative.Render(relativeNumber) + " "
 }
