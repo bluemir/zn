@@ -156,3 +156,30 @@ var dockerInstructions = map[string]bool{
 	"MAINTAINER": true, "ONBUILD": true, "RUN": true, "SHELL": true, "STOPSIGNAL": true,
 	"USER": true, "VOLUME": true, "WORKDIR": true,
 }
+
+// dockerIndent 는 dockerfile 의 들여쓰기 규칙이다. 블록이 없고 `\` 로 이어지는 줄만 있다.
+type dockerIndent struct{}
+
+func (dockerIndent) Next(line []byte, _ []Token) (int, []byte) {
+	continues := bytes.HasSuffix(bytes.TrimRight(line, " \t"), []byte{'\\'})
+	indented := len(line) > 0 && (line[0] == ' ' || line[0] == '\t')
+
+	switch {
+	case continues && !indented:
+		return 1, nil // 이어짐이 시작한다
+	case !continues && indented:
+		return -1, nil // 이어짐이 끝났다
+	}
+
+	return 0, nil
+}
+
+// Close 는 언제나 0 이다.
+func (dockerIndent) Close(_ []byte) int { return 0 }
+
+func (dockerIndent) Reindents() bool { return true }
+
+func (dockerIndent) TabIndentsLine([]byte) bool { return false }
+
+// Unit 은 space 네 칸이다. 이어지는 줄을 눈에 띄게 물리는 것이 dockerfile 의 흔한 모양이다.
+func (dockerIndent) Unit() []byte { return []byte("    ") }

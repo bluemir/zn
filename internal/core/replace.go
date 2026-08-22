@@ -67,7 +67,7 @@ func (buf *Buffer) replaceChar(text []byte, count, width int) bool {
 
 // replaceWithNewline 은 커서부터 count 글자를 지우고 그 자리에서 줄을 가른다. vim 의 `r<Enter>` 다.
 //
-// 커서는 새로 생긴 아래 줄의 첫 칸이다. 들여쓰기는 이어받지 않는다. `o` 와 같다.
+// 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다. `o` 와 같다(indent.go).
 func (buf *Buffer) replaceWithNewline(count, width int) bool {
 	line := buf.lines[buf.cursorLine]
 
@@ -76,14 +76,18 @@ func (buf *Buffer) replaceWithNewline(count, width int) bool {
 		return false
 	}
 
+	// 자르기 전에 정한다. 자른 뒤의 앞 줄은 커서 앞까지라 줄 끝의 여는 괄호가 사라질 수 있다.
+	indent := buf.indentForNewLine(buf.cursorLine, line[:buf.cursorCol])
+	below := concat(indent, line[end:])
+
 	buf.endEdit()
 	buf.beginEdit(buf.cursorLine, 1)
-	buf.replaceLines(buf.cursorLine, 1, [][]byte{line[:buf.cursorCol], line[end:]})
+	buf.replaceLines(buf.cursorLine, 1, [][]byte{line[:buf.cursorCol], below})
 	buf.growEdit(1)
 	buf.endEdit()
 
 	buf.cursorLine++
-	buf.cursorCol = 0
+	buf.cursorCol = len(indent)
 	buf.updateDesiredCol(width)
 
 	return true

@@ -102,6 +102,44 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 	return next, cmd
 }
 
+// actionIndent 는 `>` 와 `<` 다. motion 이 잡은 범위를 한 단계 밀거나 당긴다.
+//
+// 범위가 글자 단위여도(`>w`) 걸친 줄 전체가 움직인다. 들여쓰기는 줄의 성질이라 반쪽을
+// 밀 수 없다. vim 과 같다.
+type actionIndent struct {
+	motion    motion
+	count     int
+	direction indentDirection
+}
+
+func (c actionIndent) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
+		buf.shiftLines(area.startLine, area.endLine, c.direction, e.contentWidth())
+	}
+	e.scrollToCursor()
+
+	return nil, nil
+}
+
+// actionReindent 는 `=` 다. motion 이 잡은 범위를 언어 규칙이 정한 자리로 다시 들여쓴다.
+type actionReindent struct {
+	motion motion
+	count  int
+}
+
+func (c actionReindent) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
+		buf.reindentLines(area.startLine, area.endLine, e.contentWidth())
+	}
+	e.scrollToCursor()
+
+	return nil, nil
+}
+
 // actionReplaceChar 는 커서 자리 글자를 바꿔 넣는다. `r` 뒤의 한 키가 넣을 글자다.
 //
 // 글자가 아닌 키(`esc` 방향키 …) 는 아무 일도 하지 않아서 잘못 누른 `r` 을 무르는 길이 된다.
@@ -218,6 +256,34 @@ func (actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 	e.scrollToCursor()
 
 	return next, cmd
+}
+
+// actionVisualIndent 는 visual 의 `>` 와 `<` 다.
+type actionVisualIndent struct{ direction indentDirection }
+
+func (c actionVisualIndent) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	if area, ok := buf.selectionRange(); ok {
+		buf.shiftLines(area.startLine, area.endLine, c.direction, e.contentWidth())
+	}
+	e.scrollToCursor()
+
+	return normalMode(e)
+}
+
+// actionVisualReindent 는 visual 의 `=` 다.
+type actionVisualReindent struct{}
+
+func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	if area, ok := buf.selectionRange(); ok {
+		buf.reindentLines(area.startLine, area.endLine, e.contentWidth())
+	}
+	e.scrollToCursor()
+
+	return normalMode(e)
 }
 
 // ── 붙여넣기와 되돌리기 ──

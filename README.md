@@ -36,6 +36,12 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 - vscode 와 유사한 command palette
 	- 특히 file matching 에서 > 를 입력하면 바로 command 로 넘어가는 기능
 	- `!` 를 입력하면 그 뒤를 shell 명령으로 돌린다. `:!<shell command>` 와 같다
+- 언어별 자동 들여쓰기
+	- 새 줄이 앞 줄과 언어 규칙을 보고 들여쓰기를 받는다. `{` 뒤는 한 단계 더, `}` 를 치면 그 줄이 당겨진다
+	- markdown 은 목록 표시(`- `, `2. `) 를 이어 쓴다
+	- `=` 로 이미 있는 줄들을 규칙이 정한 자리로 다시 들여쓴다. `>` `<` 로 한 단계씩 밀기도 한다
+	- 한 단계는 `.editorconfig` → 그 파일이 쓰고 있는 것 → 언어 관례 순으로 정한다
+	- `tab` 은 tab 글자가 아니라 한 단계를 넣는다. `shift+tab` 으로 내어쓰고 `backspace` 도 한 단계씩 지운다
 - 상대 줄번호와 절대 줄번호 동시 표시
 - statusBar 에 git branch, commit, dirty 여부 표시
 - 한국어 지원
@@ -58,7 +64,6 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 		- 자동 완성
 		- 정의/구현으로 이동
 		- 사용처로 이동
-		- 다음줄로 갈때 자동 들여쓰기
 		- 저장시 hook(eg. go fmt)
 - 키 하나로 현재 화면의 cat 과 동일한 형태로 text 표시
 	- text 복사 붙여 넣기시 유용
@@ -73,6 +78,7 @@ feature 에 넣지 않을 기능
 - config file
 	- config는 code 내에 하드코딩 한다. 
 	- 분기를 최대한 줄이기 위한 방안이다.
+	- `.editorconfig` 는 여기 걸리지 않는다. 편집기의 동작이 아니라 **그 파일이 tab 으로 쓰였는지 space 로 쓰였는지**라, 줄끝 형식이나 파일 이름으로 고르는 언어와 같은 갈래다(ADR-0048).
 - plugin
 	- 필요한 기능은 전부 코드로 작성한다.
 	- 플러그인 구조를 제외 하여 복잡도를 줄인다. 
@@ -82,6 +88,7 @@ feature 에 넣지 않을 기능
 
 Go 로 쓰였고 TUI 는 [bubbletea](https://github.com/charmbracelet/bubbletea) v2 와 lipgloss v2 다.
 plugin 도 설정 파일도 없어서 그 밖의 런타임 의존성이 없다. 결과물은 binary 하나다.
+여는 파일 옆에 `.editorconfig` 가 있으면 들여쓰기 규칙만 읽지만, 없어도 그대로 돈다.
 
 빌드에는 Go 1.26 이상과 GNU Make 4.3 이상이 필요하다.
 macOS 의 기본 make 는 3.81 이라 `brew install make` 로 받아 `gmake` 로 부른다.

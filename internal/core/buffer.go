@@ -59,6 +59,9 @@ type Buffer struct {
 	top    int // lines 의 index
 	topRow int // 그 줄의 몇 번째 wrap 행부터 그리는지
 
+	// indent 는 이 파일이 한 단계에 쓰는 공백이다(indent.go). 게을러서 처음 쓸 때 정한다.
+	indent indentUnit
+
 	// undo, redo 는 되돌리기 이력
 	// editing 은 열린 구간이 있는지다. 이어지는 타이핑을 한 항목으로 모은다.
 	undo    []edit

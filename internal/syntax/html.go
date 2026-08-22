@@ -2,6 +2,7 @@ package syntax
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 )
 
@@ -326,3 +327,79 @@ func htmlEntityEnd(line []byte, at int) (int, bool) {
 // `type` 속성은 보지 않는다. `<script type="application/json">` 도 js 로 훑는데, 틀렸을 때
 // 피해가 작다 — 그럴듯한 색이 나오고 자리는 가운데 조각 안이라 벗어나지 않는다(docs/tasks.md).
 var htmlRawTextLanguages = map[string]State{"script": jsNormal{}, "style": cssNormal{}}
+
+// htmlIndent 는 html 의 들여쓰기 규칙이다. 블록을 여는 것은 같은 줄에서 닫히지 않은 tag 다.
+type htmlIndent struct{}
+
+// htmlVoidTags 는 닫는 tag 가 없는 것들이다. 여는 것만으로 끝나므로 안쪽이 없다.
+var htmlVoidTags = []string{
+	"area", "base", "br", "col", "embed", "hr", "img", "input",
+	"link", "meta", "param", "source", "track", "wbr",
+}
+
+func (htmlIndent) Next(line []byte, _ []Token) (int, []byte) {
+	// tag 를 세는 것이라 토큰을 쓰지 않는다. 문자열은 속성 값 안이고 거기에는 tag 가 없다.
+	depth := 0
+	for at := 0; at < len(line); {
+		open := bytes.IndexByte(line[at:], '<')
+		if open < 0 {
+			break
+		}
+		at += open
+
+		end := bytes.IndexByte(line[at:], '>')
+		if end < 0 {
+			break
+		}
+
+		depth += htmlTagDepth(line[at : at+end+1])
+		at += end + 1
+	}
+
+	if depth > 0 {
+		return 1, nil
+	}
+
+	return 0, nil
+}
+
+func (htmlIndent) Close(head []byte) int {
+	// `</div>` 의 `>` 를 치는 순간이다. 낱말이 아니라 그 자리에서 끝난 것을 안다.
+	if bytes.HasPrefix(head, []byte("</")) && bytes.IndexByte(head, '>') >= 0 {
+		return 1
+	}
+
+	return 0
+}
+
+func (htmlIndent) Reindents() bool { return true }
+
+func (htmlIndent) TabIndentsLine([]byte) bool { return false }
+
+// Unit 은 space 두 칸이다.
+func (htmlIndent) Unit() []byte { return []byte("  ") }
+
+// htmlTagDepth 는 tag 하나가 깊이를 얼마나 바꾸는지다. `<`…`>` 통째로 받는다.
+func htmlTagDepth(tag []byte) int {
+	if len(tag) < 3 {
+		return 0
+	}
+
+	inner := tag[1 : len(tag)-1]
+
+	// 주석·선언·자기를 닫는 tag 는 안쪽을 만들지 않는다.
+	if inner[0] == '!' || inner[0] == '?' || bytes.HasSuffix(inner, []byte{'/'}) {
+		return 0
+	}
+
+	if inner[0] == '/' {
+		return -1
+	}
+
+	name := string(bytes.ToLower(inner[:identEnd(inner, 0, len(inner))]))
+	if name == "" || slices.Contains(htmlVoidTags, name) {
+		return 0
+	}
+
+	return 1
+}

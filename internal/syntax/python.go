@@ -2,6 +2,7 @@ package syntax
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 )
 
@@ -223,3 +224,43 @@ var pyKeywords = map[string]Kind{
 
 	"True": KindConstant, "False": KindConstant, "None": KindConstant,
 }
+
+// pyIndent 는 python 의 들여쓰기 규칙이다. 블록을 여는 것은 줄 끝의 `:` 다.
+type pyIndent struct{}
+
+// pyDedentKeywords 는 앞 블록을 닫고 새로 여는 낱말이다. 그 줄 자체가 한 단계 나온다.
+var pyDedentKeywords = []string{"else", "elif", "except", "finally", "case"}
+
+// pyBlockEnders 는 이 낱말로 시작한 줄 다음이 한 단계 나오는 것이다. 흐름이 거기서 끊긴다.
+var pyBlockEnders = []string{"return", "pass", "break", "continue", "raise"}
+
+func (pyIndent) Next(line []byte, tokens []Token) (int, []byte) {
+	code := codeBytes(line, tokens)
+	trimmed := bytes.TrimRight(code, " \t")
+
+	if bytes.HasSuffix(trimmed, []byte{':'}) || bracketOpens(code, braceOpen, braceClose) {
+		return 1, nil
+	}
+
+	// `return` 뒤에 같은 블록이 이어지는 일은 드물다. vim 도 여기서 내어쓴다.
+	if slices.Contains(pyBlockEnders, string(firstWord(code))) {
+		return -1, nil
+	}
+
+	return 0, nil
+}
+
+func (pyIndent) Close(head []byte) int {
+	if closesBracket(head, braceClose) || startsWord(head, pyDedentKeywords...) {
+		return 1
+	}
+
+	return 0
+}
+
+func (pyIndent) Reindents() bool { return true }
+
+func (pyIndent) TabIndentsLine([]byte) bool { return false }
+
+// Unit 은 PEP 8 이 정한 space 네 칸이다.
+func (pyIndent) Unit() []byte { return []byte("    ") }

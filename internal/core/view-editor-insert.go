@@ -58,11 +58,18 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return normalMode(m.editor)
 		case "enter":
-			buf.insert([]byte("\n"), m.contentWidth())
+			// 낱말로 블록을 닫는 언어(shell 의 `fi`) 는 줄을 떠나는 이 순간에 낱말이 끝난다.
+			buf.reindentClosing([]byte{'\n'}, m.contentWidth())
+			buf.insertNewLine(m.contentWidth())
 		case "backspace":
-			buf.deleteBackward(m.contentWidth())
+			// 커서 앞이 들여쓰기뿐이면 한 칸이 아니라 앞 단위 경계까지 지운다(indent.go).
+			if !buf.deleteIndentBackward(m.contentWidth()) {
+				buf.deleteBackward(m.contentWidth())
+			}
 		case "tab":
-			buf.insert([]byte("\t"), m.contentWidth())
+			buf.insertIndent(m.contentWidth())
+		case "shift+tab":
+			buf.outdentLine(m.contentWidth())
 		case "up", "down", "left", "right":
 			// 커서를 옮기면 undo 구간이 끊긴다. vim 과 같다.
 			buf.endEdit()
@@ -83,6 +90,10 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
+
+			// 줄 앞이 닫는 표시가 되면 그 줄이 한 단계 당겨진다. 넣기 전에 자리를 잡아야
+			// 커서가 옮겨진 자리에서 글자를 받는다(indent.go).
+			buf.reindentClosing([]byte(msg.Text), m.contentWidth())
 			buf.insert([]byte(msg.Text), m.contentWidth())
 		}
 

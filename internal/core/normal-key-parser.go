@@ -12,7 +12,7 @@ import (
 //
 // "무엇을 기다리는가" 는 type 이 나타내고 "무엇이 정해졌는가" 는 이 값이 나타낸다.
 type partial struct {
-	op      string // 이미 먹은 operator(`d` `y` `c`). "" 면 없음
+	op      string // 이미 먹은 operator(`d` `y` `c` `>` `<` `=`). "" 면 없음
 	opCount int    // 그 앞에 붙은 숫자
 }
 
@@ -52,6 +52,12 @@ func (p partial) operate(mo motion, count int) action {
 		return actionYank{motion: mo, count: n}
 	case "c":
 		return actionChange{motion: mo, count: n}
+	case ">":
+		return actionIndent{motion: mo, count: n, direction: indentRight}
+	case "<":
+		return actionIndent{motion: mo, count: n, direction: indentLeft}
+	case "=":
+		return actionReindent{motion: mo, count: n}
 	}
 
 	return nil
@@ -292,8 +298,8 @@ func (s normalStart) press(key string) ([]action, normalState) {
 	case "r":
 		// 뒤에 바꿔 넣을 글자 한 개가 붙는다.
 		return nil, normalReplace{building: s.building}
-	case "d", "y", "c":
-		// operator 를 두 번 치면 줄 단위다(`dd`).
+	case "d", "y", "c", ">", "<", "=":
+		// operator 를 두 번 치면 줄 단위다(`dd` `>>` `==`).
 		if s.building.op == key {
 			return one(s.building.operate(motionWholeLines{}, 0)), normalStart{}
 		}
@@ -335,8 +341,8 @@ func (s normalCount) press(key string) ([]action, normalState) {
 	case "r":
 		// `3rx` 는 세 글자를 바꾼다.
 		return nil, normalReplace{building: s.building, count: s.count}
-	case "d", "y", "c":
-		// `3dd` 는 세 줄이고 `d3d` 도 같다.
+	case "d", "y", "c", ">", "<", "=":
+		// `3dd` 는 세 줄이고 `d3d` 도 같다. `3>>` 도 같은 자리다.
 		if s.building.op == key {
 			return one(s.building.operate(motionWholeLines{}, s.count)), normalStart{}
 		}

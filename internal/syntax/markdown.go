@@ -2,6 +2,8 @@ package syntax
 
 import (
 	"bytes"
+	"fmt"
+	"strconv"
 )
 
 // mdNormal 은 markdown 의 보통 문맥이다. 코드펜스 안이 아니다.
@@ -332,4 +334,114 @@ func mdIsWord(b byte) bool {
 	}
 
 	return false
+}
+
+// mdIndent 는 markdown 의 들여쓰기 규칙이다.
+//
+// **아홉 중 유일하게 공백이 아닌 글자를 낸다.** 목록 안에서 줄을 바꾸면 다음 줄도 그 목록의
+// 항목이라, 자리만 맞추고 표시를 손으로 다시 치게 하면 목록을 쓰는 내내 그 일이 되풀이된다.
+type mdIndent struct{}
+
+// mdListMark 는 줄 앞의 목록 표시다. 표시가 없으면 빈 것이다.
+//
+// number 가 0 이 아니면 번호 매긴 목록이고, 그때 mark 는 번호 뒤의 구두점(`.` 또는 `)`) 이다.
+type mdListMark struct {
+	mark    byte
+	number  int
+	content bool // 표시 뒤에 내용이 있는지. 빈 항목이면 거짓이다
+}
+
+func (mdIndent) Next(line []byte, _ []Token) (int, []byte) {
+	indent := 0
+	for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
+		indent++
+	}
+
+	mark, ok := mdParseListMark(line[indent:])
+	if !ok {
+		return 0, nil
+	}
+
+	// 빈 항목에서 Enter 를 치면 목록이 끝난다. 표시를 하나 더 내면 빈 항목만 쌓인다.
+	if !mark.content {
+		return 0, nil
+	}
+
+	if mark.number > 0 {
+		return 0, fmt.Appendf(nil, "%d%c ", mark.number+1, mark.mark)
+	}
+
+	return 0, []byte{mark.mark, ' '}
+}
+
+// Close 는 언제나 0 이다. markdown 에 블록을 닫는 표시가 없다.
+func (mdIndent) Close(_ []byte) int { return 0 }
+
+// Reindents 는 거짓이다. 목록의 깊이와 네 칸 들여쓴 코드 블록은 글쓴이가 정한 것이라
+// 앞 줄에서 되짚을 수 없다 — 되짚으려 들면 중첩 목록이 평평해진다.
+func (mdIndent) Reindents() bool { return false }
+
+// TabIndentsLine 은 목록 줄에서 참이다. 항목 가운데에 커서를 두고 tab 을 쳐도 그 항목이
+// 통째로 한 단계 깊어진다 — 목록을 쓰다 「이건 하위 항목이다」 싶을 때의 손이다.
+//
+// 빈 항목(`- ` 만 있는 줄) 도 참이다. 표시를 치자마자 tab 으로 깊이를 잡는 것이 가장 흔하다.
+func (mdIndent) TabIndentsLine(line []byte) bool {
+	indent := 0
+	for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
+		indent++
+	}
+
+	_, ok := mdParseListMark(line[indent:])
+
+	return ok
+}
+
+// Unit 은 space 두 칸이다. 목록 규칙이 level 을 내지 않아서 쓰이는 일이 없다.
+func (mdIndent) Unit() []byte { return []byte("  ") }
+
+// mdParseListMark 는 들여쓰기를 지난 자리에서 목록 표시를 읽는다.
+//
+// 표시 뒤에 공백이 반드시 와야 한다. `-단어` 는 목록이 아니라 그냥 글이다. 인용문(`>`) 도
+// 여기서 같이 본다 — 다음 줄로 이어지는 것이 목록과 같다.
+func mdParseListMark(rest []byte) (mdListMark, bool) {
+	if len(rest) < 1 {
+		return mdListMark{}, false
+	}
+
+	switch rest[0] {
+	case '-', '*', '+', '>':
+		if len(rest) < 2 || rest[1] != ' ' {
+			return mdListMark{}, false
+		}
+
+		return mdListMark{
+			mark:    rest[0],
+			content: len(bytes.TrimSpace(rest[2:])) > 0,
+		}, true
+	}
+
+	digits := 0
+	for digits < len(rest) && rest[digits] >= '0' && rest[digits] <= '9' {
+		digits++
+	}
+	if digits < 1 || digits+1 >= len(rest) {
+		return mdListMark{}, false
+	}
+	if rest[digits] != '.' && rest[digits] != ')' {
+		return mdListMark{}, false
+	}
+	if rest[digits+1] != ' ' {
+		return mdListMark{}, false
+	}
+
+	number, err := strconv.Atoi(string(rest[:digits]))
+	if err != nil {
+		return mdListMark{}, false
+	}
+
+	return mdListMark{
+		mark:    rest[digits],
+		number:  number,
+		content: len(bytes.TrimSpace(rest[digits+2:])) > 0,
+	}, true
 }

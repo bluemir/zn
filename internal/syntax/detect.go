@@ -22,6 +22,10 @@ type languageRule struct {
 	aliases []string
 
 	state State
+
+	// indent 는 그 언어의 들여쓰기 규칙이다. state 와 나란한 두 번째 언어별 값이라 같은 줄에
+	// 둔다 — 언어를 더할 때 손대는 자리가 하나로 남는다.
+	indent Indent
 }
 
 // languageRules 는 강조하는 언어 전부다. 새 언어는 여기 한 줄이 는다.
@@ -29,18 +33,24 @@ type languageRule struct {
 // 표 하나에 규칙을 늘어놓는 것은 팔레트 명령(core/palette.go 의 paletteCommands) 과 같은
 // 손이다. 언어 하나가 한 줄이라 「이 언어는 이렇게 알아본다」로 읽힌다.
 var languageRules = []languageRule{
-	{exts: []string{".go"}, aliases: []string{"go", "golang"}, state: goNormal{}},
-	{exts: []string{".md", ".markdown"}, aliases: []string{"md", "markdown"}, state: mdNormal{}},
-	{exts: []string{".html", ".htm"}, aliases: []string{"html"}, state: htmlNormal{}},
-	{exts: []string{".js", ".mjs", ".cjs"}, aliases: []string{"js", "javascript"}, state: jsNormal{}},
-	{exts: []string{".css"}, aliases: []string{"css"}, state: cssNormal{}},
-	{exts: []string{".py"}, aliases: []string{"py", "python"}, state: pyNormal{}},
+	{exts: []string{".go"}, aliases: []string{"go", "golang"}, state: goNormal{},
+		indent: braceIndent{unit: "\t"}},
+	{exts: []string{".md", ".markdown"}, aliases: []string{"md", "markdown"}, state: mdNormal{},
+		indent: mdIndent{}},
+	{exts: []string{".html", ".htm"}, aliases: []string{"html"}, state: htmlNormal{},
+		indent: htmlIndent{}},
+	{exts: []string{".js", ".mjs", ".cjs"}, aliases: []string{"js", "javascript"}, state: jsNormal{},
+		indent: braceIndent{unit: "  "}},
+	{exts: []string{".css"}, aliases: []string{"css"}, state: cssNormal{},
+		indent: braceIndent{unit: "  "}},
+	{exts: []string{".py"}, aliases: []string{"py", "python"}, state: pyNormal{},
+		indent: pyIndent{}},
 	{exts: []string{".sh", ".bash", ".zsh"}, aliases: []string{"sh", "bash", "shell", "zsh"},
-		state: shNormal{}},
+		state: shNormal{}, indent: shIndent{}},
 	{exts: []string{".mk"}, names: []string{"makefile", "gnumakefile"},
-		aliases: []string{"make", "makefile"}, state: makeNormal{}},
+		aliases: []string{"make", "makefile"}, state: makeNormal{}, indent: makeIndent{}},
 	{exts: []string{".dockerfile"}, names: []string{"dockerfile"},
-		aliases: []string{"docker", "dockerfile"}, state: dockerNormal{}},
+		aliases: []string{"docker", "dockerfile"}, state: dockerNormal{}, indent: dockerIndent{}},
 }
 
 // Detect 는 경로를 보고 시작 문맥을 고른다. nil 이면 강조하지 않는다.
@@ -53,18 +63,56 @@ var languageRules = []languageRule{
 // `.html`·`.css`·`.js` 가 한 색이고 `.txt` 도 색이 있는데 여기서는 lexer 가 없다. 합치면
 // lexer 를 더할 때마다 트리 색이 조용히 바뀐다.
 func Detect(path string) State {
+	rule := ruleFor(path)
+	if rule == nil {
+		return nil
+	}
+
+	return rule.state
+}
+
+// IndentFor 는 경로를 보고 들여쓰기 규칙을 고른다. nil 이면 앞 줄의 들여쓰기를 그대로 잇는다.
+// Detect 와 짝이다 — 같은 표의 다른 칸을 본다.
+func IndentFor(path string) Indent {
+	rule := ruleFor(path)
+	if rule == nil {
+		return nil
+	}
+
+	return rule.indent
+}
+
+// ruleFor 는 이름에 맞는 표의 한 줄이다. Detect 와 IndentFor 가 나눠 쓴다 — 이름을 보는 법이
+// 둘로 갈리면 한쪽만 아는 언어가 생긴다.
+func ruleFor(path string) *languageRule {
 	name := strings.ToLower(filepath.Base(path))
 
-	for _, rule := range languageRules {
+	for i, rule := range languageRules {
 		if slices.Contains(rule.names, name) || slices.Contains(rule.exts, filepath.Ext(name)) {
-			return rule.state
+			return &languageRules[i]
 		}
 	}
 
 	// `Dockerfile.dev` 처럼 이름 뒤에 무엇이 붙는 것. 규칙 표에 접두 칸을 두면 언어 하나
 	// 때문에 표 전체가 그 칸을 들고 다닌다.
 	if strings.HasPrefix(name, "dockerfile.") {
-		return dockerNormal{}
+		return ruleByAlias("dockerfile")
+	}
+
+	return nil
+}
+
+// ruleByAlias 는 사람이 적는 언어 이름으로 표의 한 줄을 찾는다. 모르는 이름이면 nil 이다.
+func ruleByAlias(name string) *languageRule {
+	name = strings.ToLower(name)
+	if name == "" {
+		return nil
+	}
+
+	for i, rule := range languageRules {
+		if slices.Contains(rule.aliases, name) {
+			return &languageRules[i]
+		}
 	}
 
 	return nil
@@ -80,16 +128,10 @@ func Detect(path string) State {
 // aliases 만 본다. 파일 이름(names) 까지 견주면 ```gnumakefile 이 우연히 되면서 두 칸의 뜻이
 // 흐려진다.
 func languageByName(name string) State {
-	name = strings.ToLower(name)
-	if name == "" {
+	rule := ruleByAlias(name)
+	if rule == nil {
 		return nil
 	}
 
-	for _, rule := range languageRules {
-		if slices.Contains(rule.aliases, name) {
-			return rule.state
-		}
-	}
-
-	return nil
+	return rule.state
 }

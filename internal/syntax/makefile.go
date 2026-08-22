@@ -186,3 +186,48 @@ var makeDirectives = map[string]bool{
 	"else": true, "endif": true, "define": true, "endef": true,
 	"export": true, "unexport": true, "override": true, "vpath": true,
 }
+
+// makeIndent 는 makefile 의 들여쓰기 규칙이다.
+//
+// **한 단계가 언제나 tab 인 유일한 언어다.** GNU make 는 조리법 줄을 tab 으로만 알아본다.
+// `.editorconfig` 가 space 라고 적어 두었어도 여기서는 따를 수 없다. level 이 아니라 prefix 로
+// tab 을 내보내면 한 단계를 정하는 셈을 아예 거치지 않아서, 예외를 core 가 알 필요가 없다.
+type makeIndent struct{}
+
+func (makeIndent) Next(line []byte, tokens []Token) (int, []byte) {
+	if makeIsTarget(codeBytes(line, tokens)) {
+		return 0, []byte{'\t'}
+	}
+
+	return 0, nil
+}
+
+// makeIsTarget 은 이 줄 다음에 조리법이 올 수 있는 대상 줄인지다.
+//
+// 대상 줄은 들여쓰기 없이 시작해서 `:` 이 나오는 줄이다. 가려낼 것이 둘 있다 —
+// 변수 대입(`VAR := x`, `VAR ::= x`) 은 `:` 뒤가 `=` 이고, `.PHONY` 같은 특수 대상은
+// 조리법을 갖지 않는다.
+func makeIsTarget(code []byte) bool {
+	if len(code) < 1 || code[0] == ' ' || code[0] == '\t' || code[0] == '.' {
+		return false
+	}
+
+	at := bytes.IndexByte(code, ':')
+	if at < 0 {
+		return false
+	}
+
+	rest := bytes.TrimLeft(code[at+1:], ":")
+
+	return len(rest) < 1 || rest[0] != '='
+}
+
+// Close 는 언제나 0 이다. makefile 에 블록을 닫는 표시가 없다.
+func (makeIndent) Close(_ []byte) int { return 0 }
+
+func (makeIndent) Reindents() bool { return true }
+
+// TabIndentsLine 은 거짓이다. 조리법 줄 안의 tab 은 셸에 그대로 가는 글자다.
+func (makeIndent) TabIndentsLine([]byte) bool { return false }
+
+func (makeIndent) Unit() []byte { return []byte{'\t'} }

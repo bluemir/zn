@@ -1,5 +1,7 @@
 package syntax
 
+import "bytes"
+
 // shNormal 은 shell 의 보통 문맥이다.
 type shNormal struct{}
 
@@ -144,3 +146,47 @@ var shKeywords = map[string]Kind{
 
 	"true": KindConstant, "false": KindConstant,
 }
+
+// shIndent 는 shell 의 들여쓰기 규칙이다. 블록을 여는 것은 줄 끝의 `then`·`do`·`in` 이다.
+type shIndent struct{}
+
+// shCloseKeywords 는 블록을 닫는 낱말이다. `else`·`elif` 는 닫고 다시 여는 자리라 둘 다다.
+var shCloseKeywords = []string{"fi", "done", "esac", "else", "elif"}
+
+func (shIndent) Next(line []byte, tokens []Token) (int, []byte) {
+	code := codeBytes(line, tokens)
+	trimmed := bytes.TrimRight(code, " \t;")
+
+	for _, word := range []string{"then", "do", "in", "else"} {
+		if bytes.HasSuffix(trimmed, []byte(word)) &&
+			shWordStart(trimmed, len(trimmed)-len(word)) {
+			return 1, nil
+		}
+	}
+
+	if bracketOpens(code, "{(", ")}") {
+		return 1, nil
+	}
+
+	return 0, nil
+}
+
+func (shIndent) Close(head []byte) int {
+	// `;;` 는 case 갈래의 끝이다. 낱말이 아니라 마침 글자를 기다릴 것이 없다.
+	if bytes.HasPrefix(head, []byte(";;")) {
+		return 1
+	}
+
+	if closesBracket(head, "})") || startsWord(head, shCloseKeywords...) {
+		return 1
+	}
+
+	return 0
+}
+
+func (shIndent) Reindents() bool { return true }
+
+func (shIndent) TabIndentsLine([]byte) bool { return false }
+
+// Unit 은 space 두 칸이다. shell 소스에 굳은 관례가 없어서 좁은 쪽을 고른다.
+func (shIndent) Unit() []byte { return []byte("  ") }

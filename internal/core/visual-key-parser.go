@@ -7,8 +7,8 @@ import (
 // visualState 는 visual mode 가 키를 받아가며 옮겨 다니는 상태다.
 //
 // normal mode 의 normalState 와 같은 모양이지만 표를 나눠 가진다(normal-key-parser.go).
-// normalState 를 그대로 쓸 수 없는 것은 normalStart 가 `d`·`y`·`c` 를 operator 로 먹기
-// 때문이다 — visual 에서 `d` 는 다음 키를 기다리지 않고 그 자리에서 끝난다. sidebarState 가
+// normalState 를 그대로 쓸 수 없는 것은 normalStart 가 `d`·`y`·`c`·`>`·`<`·`=` 를 operator 로
+// 먹기 때문이다 — visual 에서 `d` 는 다음 키를 기다리지 않고 그 자리에서 끝난다. sidebarState 가
 // 갈린 것과 같은 이유다(ADR-0006, ADR-0037).
 //
 // 기다리는 모양은 숫자 접두와 접두 키(`g`) 둘뿐이라 상태가 셋이다. operator 가 없어서
@@ -57,6 +57,12 @@ func visualAction(key string) action {
 		return actionVisualYank{}
 	case "c":
 		return actionVisualChange{}
+	case ">":
+		return actionVisualIndent{direction: indentRight}
+	case "<":
+		return actionVisualIndent{direction: indentLeft}
+	case "=":
+		return actionVisualReindent{}
 	}
 
 	return nil

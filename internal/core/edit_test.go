@@ -355,8 +355,10 @@ func TestBackspaceKey(t *testing.T) {
 	assert.Equal(t, "bc", string(bufferOf(t, m).lines[0]))
 }
 
-func TestTabKeyInsertsTab(t *testing.T) {
-	var m tea.Model = newTestEditor("ab\n", 40, 5)
+// tab 키는 tab 글자가 아니라 이 파일의 한 단계를 넣는다(indent.go).
+// 무엇이 한 단계인지는 `.editorconfig` 가 정하므로 여기서 놓아 준다.
+func TestTabKeyInsertsOneIndentUnit(t *testing.T) {
+	var m tea.Model = newIndentEditor(t, "a.txt", "indent_style = tab", "ab\n")
 
 	m = send(m, "i", "tab")
 

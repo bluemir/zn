@@ -23,6 +23,10 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyRight}
 	case "enter":
 		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "tab":
+		return tea.KeyPressMsg{Code: tea.KeyTab}
+	case "shift+tab":
+		return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
 	case "ctrl+w":
 		return tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
 	case "ctrl+p":
@@ -146,14 +150,14 @@ func TestOpenLineBelow(t *testing.T) {
 	assert.Equal(t, 0, buf.cursorCol)
 }
 
-// 커서가 줄 중간이나 들여쓴 줄에 있어도 새 줄은 빈 줄이다. 들여쓰기를 이어받지 않는다.
-func TestOpenLineBelowIgnoresIndentAndCursor(t *testing.T) {
+// 커서가 줄 중간에 있어도 `o` 는 줄 끝에서 가른다. 들여쓰기는 이어받는다.
+func TestOpenLineBelowKeepsIndent(t *testing.T) {
 	var m tea.Model = newTestEditor("\tab\ncd\n", 40, 5)
 	m = send(m, "right")
 
 	m = send(m, "o", "x")
 
-	assert.Equal(t, []string{"\tab", "x", "cd"}, linesOf(bufferOf(t, m)))
+	assert.Equal(t, []string{"\tab", "\tx", "cd"}, linesOf(bufferOf(t, m)))
 }
 
 // 마지막 줄에서도 아래에 줄이 생긴다.
