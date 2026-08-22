@@ -168,3 +168,48 @@ func TestTraceEventWritesLine(t *testing.T) {
 	assert.Contains(t, logged, "U+3141")
 	assert.True(t, strings.Contains(logged, "mode=NORMAL"))
 }
+
+// 키 줄에 커서 자리와 그 줄이 같이 남아야 한다.
+//
+// 「빈칸에서 지웠는데 옆 글자가 없어졌다」 같은 것은 무엇이 지워졌는지를 앞뒤 줄로 견주어야
+// 가릴 수 있어서, 키 이름만으로는 모자란다.
+func TestTraceLineRecordsBufferState(t *testing.T) {
+	var m tea.Model = newTestEditor("\t- — 오른쪽\n", 60, 5)
+	buf := m.(viewEditorNormal).activeBuffer()
+
+	// `—` 다음 빈칸에 커서를 둔다
+	buf.cursorLine, buf.cursorCol = 0, 6
+
+	line := traceLine(m, tea.KeyPressMsg{Code: 'x', Text: "x"})
+
+	assert.Contains(t, line, "cur=1:6", "줄:칸 이 남는다")
+	assert.Contains(t, line, traceCursor+" 오른쪽", "커서 표시가 빈칸 위에 온다")
+	assert.Contains(t, line, "screen=7", "화면 칸도 남는다 — tab 은 네 칸이다")
+}
+
+// 커서가 줄 끝 다음 칸이어도(insert) 죽지 않는다.
+func TestTraceBufferAtLineEnd(t *testing.T) {
+	var m tea.Model = newTestEditor("가\n", 60, 5)
+	buf := m.(viewEditorNormal).activeBuffer()
+	buf.cursorLine, buf.cursorCol = 0, 3
+
+	assert.NotPanics(t, func() {
+		assert.Contains(t, traceLine(m, tea.KeyPressMsg{Code: 'x', Text: "x"}), "가"+traceCursor)
+	})
+}
+
+// tick 줄에도 buffer 상태가 붙어야 한다.
+//
+// 키 줄은 「누르기 직전」이라 마지막 키의 결과가 안 남는다. 그것을 보려고 키를 하나 더
+// 누르게 하면 그 키가 또 무언가를 바꾼다. tick 은 저절로 오므로 가만히 있어도 결과가 남는다.
+func TestTraceTickCarriesBufferState(t *testing.T) {
+	var m tea.Model = newTestEditor("\t- — 오른쪽\n", 60, 5)
+	buf := m.(viewEditorNormal).activeBuffer()
+	buf.cursorLine, buf.cursorCol = 0, 6
+
+	for _, msg := range []tea.Msg{gitTickMsg{}, fileTickMsg{}} {
+		line := traceLine(m, msg)
+		assert.Contains(t, line, "cur=1:6", "%T 에 커서가 없다", msg)
+		assert.Contains(t, line, traceCursor+" 오른쪽", "%T 에 줄이 없다", msg)
+	}
+}

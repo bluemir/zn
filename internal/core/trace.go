@@ -47,7 +47,8 @@ func traceEvent(model tea.Model, msg tea.Msg) tea.Msg {
 func traceLine(model tea.Model, msg tea.Msg) string {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		return fmt.Sprintf("key press  %s mode=%s", traceKey(tea.Key(msg)), modeName(model))
+		return fmt.Sprintf("key press  %s mode=%s%s",
+			traceKey(tea.Key(msg)), modeName(model), traceBuffer(model))
 	case tea.KeyReleaseMsg:
 		return fmt.Sprintf("key release %s mode=%s", traceKey(tea.Key(msg)), modeName(model))
 
@@ -70,9 +71,9 @@ func traceLine(model tea.Model, msg tea.Msg) string {
 	// 그 사이에 다시 그리면 그 자리가 덮인다. tick 이 5 초마다 둘씩 도므로(git.go, outside.go)
 	// 손을 안 대도 일어난다 — 그것을 로그에서 보려고 적는다.
 	case gitTickMsg:
-		return "tick git"
+		return "tick git" + traceBuffer(model)
 	case fileTickMsg:
-		return "tick file"
+		return "tick file" + traceBuffer(model)
 	case jobProgressMsg:
 		return "job progress"
 	case jobDoneMsg:
@@ -86,6 +87,42 @@ func traceLine(model tea.Model, msg tea.Msg) string {
 	}
 
 	return ""
+}
+
+// traceCursor 는 로그에서 커서 자리를 가리키는 표시다.
+//
+// 글자가 아닌 것을 골랐다. 파일에 들어 있을 만한 글자면 그것이 표시인지 내용인지 헷갈린다.
+const traceCursor = "‸" // U+2038 CARET
+
+// traceBuffer 는 커서가 선 자리와 그 줄이다. 줄 안의 커서 자리는 traceCursor 로 끼워 넣는다.
+//
+// **이 키가 처리되기 _전_ 상태다.** filter 는 bubbletea 가 msg 를 넘기기 전에 지나므로
+// 여기서 보는 것은 아직 그 키가 닿지 않은 buffer 다. 그래서 어떤 키가 무엇을 바꿨는지는
+// **다음 줄과 견주어** 읽는다.
+//
+// 그래서 tick 줄에도 붙인다. 마지막으로 누른 키의 결과를 보려고 키를 하나 더 누르게 하면,
+// 그 키가 또 무언가를 바꿔서 정작 보려던 것이 묻힌다. tick 은 5 초마다 저절로 오므로
+// **가만히 있어도** 결과가 남는다 (git.go, outside.go).
+//
+// 자리만으로는 모자라서 줄 내용을 통째로 남긴다. 「빈칸에서 지웠는데 옆 글자가 없어졌다」
+// 같은 것은 무엇이 지워졌는지를 앞뒤로 견주어야만 가릴 수 있다.
+func traceBuffer(model tea.Model) string {
+	holder, ok := model.(interface{ activeBuffer() *Buffer })
+	if !ok {
+		return ""
+	}
+
+	buf := holder.activeBuffer()
+	if buf.cursorLine < 0 || buf.cursorLine >= len(buf.lines) {
+		return ""
+	}
+
+	line := buf.lines[buf.cursorLine]
+	at := min(max(buf.cursorCol, 0), len(line))
+
+	return fmt.Sprintf(" cur=%d:%d screen=%d line=%q",
+		buf.cursorLine+1, at, screenColAt(line, at),
+		string(line[:at])+traceCursor+string(line[at:]))
 }
 
 // traceKey 는 키 하나가 들고 온 것 전부다.

@@ -63,7 +63,16 @@ func Run() error {
 		logrus.SetOutput(out)
 		logrus.SetLevel(level)
 		logrus.SetReportCaller(true)
-		logrus.Infof("logrus level: %s", level)
+
+		// **맨 먼저 무엇으로 지은 binary 인지 찍는다.**
+		//
+		// 로그를 받아 보는 쪽이 가장 먼저 물어야 할 것이 이것이다. 고친 것이 들어 있는
+		// binary 로 잡은 로그인지 아닌지를 로그 안에서 가릴 수 없으면, 멀쩡한 로그를 놓고
+		// 없는 버그를 찾게 된다 — 실제로 겪었다.
+		//
+		// `:version` 과 `--version` 이 쓰는 그 줄 그대로다(buildinfo.Describe).
+		logrus.Info(buildinfo.Describe())
+		logrus.Infof("logrus level: %s, log file: %s", level, logFileName(conf.logFile))
 
 		callerPrettyfier := func(f *runtime.Frame) (string, string) {
 			/* https://github.com/sirupsen/logrus/issues/63#issuecomment-476486166 */
@@ -105,6 +114,15 @@ func Run() error {
 	defer stop()
 
 	return core.Run(ctx, conf.files)
+}
+
+// logFileName 은 로그가 어디로 가는지를 사람이 읽을 말로 적은 것이다.
+func logFileName(path string) string {
+	if path == "" {
+		return "없음(버림)"
+	}
+
+	return path
 }
 
 // logOutput 은 로그를 적을 곳이다. 경로가 비면 버리는 곳이다.
