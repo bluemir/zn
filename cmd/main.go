@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime"
@@ -25,7 +26,7 @@ func Run() error {
 	conf := struct {
 		logLevel  int
 		logFormat string
-		logFile   string // TODO 지정 하지 않으면 log 가 남지 않는다.
+		logFile   string // 비면 로그를 버린다. 편집기가 화면을 차지해서 낼 자리가 없다.
 
 		files []string // 편집할 file 들. tab 으로 열린다.
 	}{}
@@ -38,14 +39,28 @@ func Run() error {
 		CounterVar(&conf.logLevel)
 	app.Flag("log-format", "Log format").
 		StringVar(&conf.logFormat)
-	app.Flag("log-file", "Log file").
+	app.Flag("log-file", "Log file. 편집기가 화면을 차지하므로 이것 없이는 로그가 남지 않는다").
 		StringVar(&conf.logFile)
 	app.Arg("files", "files").
 		StringsVar(&conf.files)
 
 	app.PreAction(func(*kingpin.ParseContext) error {
 		level := logrus.Level(conf.logLevel) + defaultLogLevel
-		logrus.SetOutput(os.Stderr)
+
+		// **적을 곳이 없으면 버린다. stderr 로 흘리지 않는다.**
+		//
+		// 편집기는 대체 화면(alt screen) 으로 터미널을 통째로 차지한다. 그 터미널이 곧
+		// stderr 라, 도는 동안 로그 한 줄이 나가면 화면 한가운데에 찍혀 그림이 깨진다.
+		// 끄는 것이 기본값(WarnLevel) 이라 여태 드러나지 않았을 뿐이다.
+		//
+		// 파일을 받는 플래그는 처음부터 있었고 「지정 하지 않으면 log 가 남지 않는다」는
+		// 것이 그때 적어 둔 뜻이다. 그 뜻대로 잇는다.
+		out, err := logOutput(conf.logFile)
+		if err != nil {
+			return err
+		}
+
+		logrus.SetOutput(out)
 		logrus.SetLevel(level)
 		logrus.SetReportCaller(true)
 		logrus.Infof("logrus level: %s", level)
@@ -90,4 +105,22 @@ func Run() error {
 	defer stop()
 
 	return core.Run(ctx, conf.files)
+}
+
+// logOutput 은 로그를 적을 곳이다. 경로가 비면 버리는 곳이다.
+//
+// 파일은 이어 쓴다. 한글 입력기가 얽힌 버그처럼 여러 번 재현해서 견주는 일이 있어서,
+// 띄울 때마다 앞의 기록을 지우면 방금 잡은 것을 잃는다.
+func logOutput(path string) (io.Writer, error) {
+	if path == "" {
+		return io.Discard, nil
+	}
+
+	// 닫지 않는다. 프로세스가 끝날 때까지 쓰는 것이고, 끝나면 OS 가 닫는다.
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil, errors.Wrapf(err, "로그 파일을 열 수 없다: %s", path)
+	}
+
+	return file, nil
 }

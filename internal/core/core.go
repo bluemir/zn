@@ -46,9 +46,14 @@ func Run(ctx context.Context, files []string) error {
 
 	first, _ := normalMode(e)
 
+	// 들어오는 이벤트를 로그로 남긴다. `-vv` 와 `--log-file` 이 둘 다 있어야 실제로 쓰인다 —
+	// 그 전에는 첫 줄에서 곧바로 빠져나온다(trace.go, ADR-0050).
+	//
+	// 여기가 Program 을 만드는 유일한 자리라 이 한 줄로 모든 mode 의 키가 모인다.
 	if _, err := tea.NewProgram(
 		first,
 		tea.WithContext(ctx),
+		tea.WithFilter(traceEvent),
 	).Run(); err != nil {
 		return err
 	}
