@@ -49,6 +49,7 @@ func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 type actionDelete struct {
 	motion motion
 	count  int
+	reg    string // `"` 로 고른 register 이름. "" 면 무명과 숫자 링이다(ADR-0058)
 }
 
 func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
@@ -58,7 +59,7 @@ func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	if deleted, ok := e.activeBuffer().deleteByMotion(c.motion, c.count, e.contentWidth()); ok {
-		e.register = deleted
+		e.storeDelete(deleted, c.reg)
 	}
 	e.scrollToCursor()
 
@@ -69,11 +70,12 @@ func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 type actionYank struct {
 	motion motion
 	count  int
+	reg    string
 }
 
 func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 	if yanked, ok := e.activeBuffer().yankByMotion(c.motion, c.count, e.contentWidth()); ok {
-		e.register = yanked
+		e.storeYank(yanked, c.reg)
 		e.notify(yanked.copiedMessage())
 	}
 	e.scrollToCursor()
@@ -88,6 +90,7 @@ func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 type actionChange struct {
 	motion motion
 	count  int
+	reg    string
 }
 
 func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
@@ -102,8 +105,9 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
+	// 숫자 링도 밀지 않는다 — 담기지 않은 것이 링을 흔들면 `"1` 이 뜻을 잃는다(ADR-0058).
 	if len(removed.lines) > 0 {
-		e.register = removed
+		e.storeDelete(removed, c.reg)
 	}
 
 	next, cmd := insertMode(e)
@@ -225,9 +229,9 @@ func (actionVisualLeave) run(e *editor) (tea.Model, tea.Cmd) {
 
 // actionVisualDelete 는 visual 의 `d` 와 `x` 다. `x` 가 같은 것은 지울 범위가 이미 정해져
 // 있어서다 — normal 의 `x` 가 `dl` 인 것과 달리 여기서는 고른 것이 전부다.
-type actionVisualDelete struct{}
+type actionVisualDelete struct{ reg string }
 
-func (actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
+func (c actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
 	if e.refuseReadOnly() {
 		return nil, nil
@@ -237,7 +241,7 @@ func (actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
 
 	if area, ok := buf.selectionRange(); ok {
 		if deleted, cut := buf.deleteRange(area, e.contentWidth()); cut {
-			e.register = deleted
+			e.storeDelete(deleted, c.reg)
 		}
 	}
 	e.scrollToCursor()
@@ -246,14 +250,14 @@ func (actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
 }
 
 // actionVisualYank 는 visual 의 `y` 다. 파일을 건드리지 않는다(ADR-0017).
-type actionVisualYank struct{}
+type actionVisualYank struct{ reg string }
 
-func (actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
+func (c actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
 		if yanked, copied := buf.yankRange(area, e.contentWidth()); copied {
-			e.register = yanked
+			e.storeYank(yanked, c.reg)
 			e.notify(yanked.copiedMessage())
 		}
 	}
@@ -265,9 +269,9 @@ func (actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 // actionVisualChange 는 visual 의 `c` 다. 지우고 insert mode 로 들어간다.
 //
 // 줄 단위면 줄을 없애지 않고 첫 줄의 들여쓰기만 남긴다. `cc` 와 같은 자리다(ADR-0033).
-type actionVisualChange struct{}
+type actionVisualChange struct{ reg string }
 
-func (actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
+func (c actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
 	if e.refuseReadOnly() {
 		return nil, nil
@@ -283,7 +287,7 @@ func (actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 	// 지운 것과 이어 친 글자가 한 번의 `u` 로 함께 돌아간다. changeRange 가 구간을 열어 둔다.
 	if removed, changed := buf.changeRange(area, e.contentWidth()); changed {
 		if len(removed.lines) > 0 {
-			e.register = removed
+			e.storeDelete(removed, c.reg)
 		}
 	}
 
@@ -334,7 +338,12 @@ func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
 // ── 붙여넣기와 되돌리기 ──
 
 // actionPasteAfter 는 `p` 다. 비어 있으면 아무 일도 하지 않는다.
-type actionPasteAfter struct{ count int }
+//
+// reg 는 `"` 로 고른 register 이름이다. 비어 있으면 무명이다(ADR-0058).
+type actionPasteAfter struct {
+	count int
+	reg   string
+}
 
 func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
@@ -342,14 +351,17 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteAfter(e.register, max(c.count, 1), e.contentWidth())
+	e.activeBuffer().pasteAfter(e.registerNamed(c.reg), max(c.count, 1), e.contentWidth())
 	e.scrollToCursor()
 
 	return nil, nil
 }
 
 // actionPasteBefore 는 `P` 다.
-type actionPasteBefore struct{ count int }
+type actionPasteBefore struct {
+	count int
+	reg   string
+}
 
 func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
@@ -357,7 +369,7 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteBefore(e.register, max(c.count, 1), e.contentWidth())
+	e.activeBuffer().pasteBefore(e.registerNamed(c.reg), max(c.count, 1), e.contentWidth())
 	e.scrollToCursor()
 
 	return nil, nil

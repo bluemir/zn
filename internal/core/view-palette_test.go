@@ -173,7 +173,9 @@ func TestPaletteSwitchesToCommandsWithAngle(t *testing.T) {
 	assert.Len(t, m.(viewPalette).hits, len(paletteCommands))
 
 	m = send(m, "t", "r", "e", "e")
-	require.Len(t, m.(viewPalette).hits, 1)
+	require.NotEmpty(t, m.(viewPalette).hits)
+	// 이어진 `tree` 를 그대로 품은 것이 가장 앞이다. 자모가 흩어져 걸린 것들
+	// (`regis`t`e`r 처럼) 도 목록에 남지만 점수가 낮다.
 	assert.Equal(t, "파일 트리 열기/닫기", paletteCommands[m.(viewPalette).hits[0].index].name)
 
 	m = send(m, "backspace", "backspace", "backspace", "backspace", "backspace")

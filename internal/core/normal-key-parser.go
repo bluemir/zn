@@ -2,6 +2,7 @@ package core
 
 import (
 	"strconv"
+	"unicode/utf8"
 )
 
 // partial 은 짓는 중인 동작에서 이미 정해진 부분이다. 모든 상태가 이것을 들고 다닌다.
@@ -14,6 +15,7 @@ import (
 type partial struct {
 	op      string // 이미 먹은 operator(`d` `y` `c` `>` `<` `=`). "" 면 없음
 	opCount int    // 그 앞에 붙은 숫자
+	reg     string // `"` 로 고른 register 이름. "" 면 무명이다(ADR-0058)
 }
 
 // resolve 는 키 하나로 동작을 짓는다. 지을 수 없으면 nil 이다.
@@ -30,6 +32,66 @@ func (p partial) resolve(key string, count int) action {
 	}
 
 	return standaloneAction(key, count)
+}
+
+// built 는 지은 동작을 내보낸다. register 이름을 여기서 싣고, 받지 않는 동작이면 버린다.
+//
+// **싣고 거르는 자리가 여기 하나다.** 상태들이 동작을 내보내는 길이 여럿이라 (`dd` 는
+// operate 로, `x` 는 standaloneAction 으로, `gg` 는 apply 로, `r` 은 자기 자리에서) 짓는
+// 자리마다 이름을 실으면 한 군데를 빼먹는다 — `x` 가 `dl` 이라는 것이 그런 자리다.
+// 그래서 짓는 쪽은 이름을 모르고, 내보내는 문에서 갈래를 보고 싣는다(ADR-0058).
+//
+// 이름을 받는 동작은 둘로 갈린다.
+//
+//   - 붙이는 것(`p` `P`) — 이름이 무엇이든 받는다. 없는 이름은 빈 register 라 조용하다
+//   - 담는 것(`d` `y` `c` `x`) — **문자 이름만** 받는다. 숫자는 지울 때마다 저절로 채워지는
+//     자리라 손으로 담아 두어도 다음 지우기가 밀어낸다(registerWritable)
+//
+// 버리는 것은 「아무 일도 하지 않음」이다. `"1yy` 는 지우지도 담지도 않는다 — 담기지 않은
+// 것을 담은 척하지 않고, 나중에 숫자에도 담게 할 때 지금 동작하던 것이 바뀌는 자리가 없다.
+// 이름을 받지 않는 키(`"1w` `"1gg` `"1rx`) 도 같이 버려진다.
+//
+// `esc`·`ctrl+c` 도 여기서 버려진다. 잘못 짚은 이름을 무르는 것이고, 무른 뒤 한 번 더
+// 누르면 제 일을 한다 — 접두 키가 하는 것과 같다(normalPending). 손이 미끄러진 `"` 뒤의
+// `ctrl+c` 로 편집기가 꺼지지 않는 것도 그쪽과 같다.
+func (p partial) built(built action) []action {
+	if p.reg == "" {
+		return one(built)
+	}
+
+	// 붙이는 것은 이름을 가리지 않는다. 없는 이름은 빈 register 라 조용하다.
+	switch a := built.(type) {
+	case actionPasteAfter:
+		a.reg = p.reg
+
+		return one(a)
+	case actionPasteBefore:
+		a.reg = p.reg
+
+		return one(a)
+	}
+
+	// 담는 것은 문자 이름만 받는다.
+	if !registerWritable(p.reg) {
+		return nil
+	}
+
+	switch a := built.(type) {
+	case actionDelete:
+		a.reg = p.reg
+
+		return one(a)
+	case actionYank:
+		a.reg = p.reg
+
+		return one(a)
+	case actionChange:
+		a.reg = p.reg
+
+		return one(a)
+	}
+
+	return nil
 }
 
 // apply 는 motion 에 operator 를 얹는다. operator 가 없으면 이동 동작이다.
@@ -64,8 +126,11 @@ func (p partial) operate(mo motion, count int) action {
 }
 
 // showcmd 는 이미 정해진 부분을 화면에 찍는 글자다. 상태가 자기 몫을 뒤에 잇는다.
+//
+// register 이름이 맨 앞이다. `3"1p` 처럼 숫자를 먼저 친 경우에도 `"13` 으로 보이는데,
+// 친 순서와 어긋나는 대신 「어느 register 인가」가 늘 같은 자리에 있다.
 func (p partial) showcmd() string {
-	return countString(p.opCount) + p.op
+	return registerString(p.reg) + countString(p.opCount) + p.op
 }
 
 // startOperator 는 operator 키를 먹었을 때의 다음 상태다. count 는 그 앞에 모아둔 숫자다.
@@ -74,11 +139,12 @@ func (p partial) showcmd() string {
 // 잘못된 motion 에서 바로 무르고 다음 키를 동작으로 받는다(tmux 로 vim 9.1 확인).
 // 무르는 것이므로 모아둔 숫자도 앞 동작의 것이라 같이 버린다.
 func (p partial) startOperator(op string, count int) normalState {
+	// register 이름은 무르지 않는다. `"1dy` 도 `"1` 을 들고 있어야 그 뒤가 규칙대로 버려진다.
 	if p.op != "" {
-		return normalStart{building: partial{op: op}}
+		return normalStart{building: partial{op: op, reg: p.reg}}
 	}
 
-	return normalStart{building: partial{op: op, opCount: count}}
+	return normalStart{building: partial{op: op, opCount: count, reg: p.reg}}
 }
 
 // motionFor 는 키가 가리키는 motion 이다. motion 이 아니면 false 다.
@@ -332,16 +398,19 @@ func (s normalStart) press(key string) ([]action, normalState) {
 	case "r":
 		// 뒤에 바꿔 넣을 글자 한 개가 붙는다.
 		return nil, normalReplace{building: s.building}
+	case "\"":
+		// 뒤에 register 이름 한 개가 붙는다.
+		return nil, normalRegister{building: s.building}
 	case "d", "y", "c", ">", "<", "=":
 		// operator 를 두 번 치면 줄 단위다(`dd` `>>` `==`).
 		if s.building.op == key {
-			return one(s.building.operate(motionWholeLines{}, 0)), normalStart{}
+			return s.building.built(s.building.operate(motionWholeLines{}, 0)), normalStart{}
 		}
 
 		return nil, s.building.startOperator(key, 0)
 	}
 
-	return one(s.building.resolve(key, 0)), normalStart{}
+	return s.building.built(s.building.resolve(key, 0)), normalStart{}
 }
 
 func (s normalStart) showcmd() string { return s.building.showcmd() }
@@ -375,17 +444,20 @@ func (s normalCount) press(key string) ([]action, normalState) {
 	case "r":
 		// `3rx` 는 세 글자를 바꾼다.
 		return nil, normalReplace{building: s.building, count: s.count}
+	case "\"":
+		// `3"1p` 다. 모아둔 숫자를 들고 이름을 기다린다.
+		return nil, normalRegister{building: s.building, count: s.count}
 	case "d", "y", "c", ">", "<", "=":
 		// `3dd` 는 세 줄이고 `d3d` 도 같다. `3>>` 도 같은 자리다.
 		if s.building.op == key {
-			return one(s.building.operate(motionWholeLines{}, s.count)), normalStart{}
+			return s.building.built(s.building.operate(motionWholeLines{}, s.count)), normalStart{}
 		}
 
 		return nil, s.building.startOperator(key, s.count)
 	}
 
 	if built := s.building.resolve(key, s.count); built != nil {
-		return one(built), normalStart{}
+		return s.building.built(built), normalStart{}
 	}
 
 	// 동작이 되지 않는 키다. 모으던 숫자를 버리고 그 키만 친 것으로 본다.
@@ -423,7 +495,7 @@ func (s normalPending) press(key string) ([]action, normalState) {
 	}
 
 	if mo, ok := prefixMotion(s.prefix, key); ok {
-		return one(s.building.apply(mo, s.count)), normalStart{}
+		return s.building.built(s.building.apply(mo, s.count)), normalStart{}
 	}
 
 	// motion 이 아닌 조합은 operator 뒤에 올 수 없다. `dgt` 는 아무것도 아니다.
@@ -431,7 +503,7 @@ func (s normalPending) press(key string) ([]action, normalState) {
 		return nil, normalStart{}
 	}
 
-	return one(prefixAction(s.prefix, key)), normalStart{}
+	return s.building.built(prefixAction(s.prefix, key)), normalStart{}
 }
 
 func (s normalPending) showcmd() string {
@@ -456,11 +528,55 @@ func (s normalReplace) press(key string) ([]action, normalState) {
 		return nil, normalStart{}
 	}
 
-	return one(actionReplaceChar{key: key, count: s.count}), normalStart{}
+	return s.building.built(actionReplaceChar{key: key, count: s.count}), normalStart{}
 }
 
 func (s normalReplace) showcmd() string {
 	return s.building.showcmd() + countString(s.count) + "r"
+}
+
+// normalRegister 는 `"` 를 먹고 register 이름 한 개를 기다리는 상태다(ADR-0058).
+//
+// **한글을 되돌린다.** `r` 뒤의 글자를 그대로 받는 normalReplace 와 반대다 — 이름은 파일에
+// 들어갈 글자가 아니라 키라서, 문자 register 를 넣을 때 `ㅁ` 이 `a` 여야 한다(ADR-0008).
+// 지금은 숫자만 받으므로 되돌려도 달라지는 것이 없지만, 그때 이 자리를 다시 볼 이유를 없앤다.
+//
+// **글자 하나면 무엇이든 이름으로 받는다.** 숫자인지는 여기서 보지 않는다 — 아직 없는
+// 이름은 빈 register 라서 붙여넣기가 조용히 아무 일도 하지 않는다(register.go 의
+// registerNamed). 이름 자리에서 가려내면 `"ap` 가 이름을 무르고 뒤의 `p` 만 남아 무명을
+// 붙이는데, 그것은 부탁하지 않은 것을 붙이는 것이다.
+//
+// 글자 하나가 아닌 키(`esc` `ctrl+c`) 는 이름이 될 수 없어 무른다. 접두 키를 잘못 짚은 것을
+// 무르는 것과 같다(normalPending).
+type normalRegister struct {
+	building partial
+	count    int
+}
+
+func (s normalRegister) press(key string) ([]action, normalState) {
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		// `ㅘ` 처럼 둘로 풀리는 키다. 이름 한 개 자리에 둘을 넣을 수 없다.
+		return nil, normalStart{}
+	}
+	key = keys[0]
+
+	if utf8.RuneCountInString(key) != 1 {
+		return nil, normalStart{}
+	}
+
+	s.building.reg = key
+
+	// 모아둔 숫자를 지키려면 그 상태로 돌아가야 한다. `3"1p` 의 `3` 이 여기 있다.
+	if s.count > 0 {
+		return nil, normalCount{building: s.building, count: s.count}
+	}
+
+	return nil, normalStart{building: s.building}
+}
+
+func (s normalRegister) showcmd() string {
+	return s.building.showcmd() + countString(s.count) + `"`
 }
 
 // operatorCount 는 operator 앞뒤의 두 숫자를 하나로 합친다. vim 처럼 곱한다 — `3d2w` 는 여섯 단어다.
@@ -473,6 +589,15 @@ func operatorCount(operator, motion int) int {
 	}
 
 	return min(max(operator, 1)*max(motion, 1), maxCount)
+}
+
+// registerString 은 showcmd 에 붙일 register 이름이다. 무명이면 빈 값이다.
+func registerString(reg string) string {
+	if reg == "" {
+		return ""
+	}
+
+	return `"` + reg
 }
 
 // countString 은 showcmd 에 붙일 숫자다. 숫자가 없으면 빈 값이다.

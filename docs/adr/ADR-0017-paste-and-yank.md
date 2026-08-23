@@ -27,6 +27,10 @@ ADR-0013 이 "이 ADR 이 정하지 않는 것" 으로 남긴 것 중 세 개가
 **register 는 무명 하나다.** `editor.register` 를 그대로 쓴다. 파서에 `"` 를 받는 상태를
 더하지 않는다. 숫자 register(`"1`~`"9`) 도 없다.
 
+> 이 항목은 ADR-0058 이 대체했다. 숫자 register(`"0`~`"9`), 문자 register(`"a`~`"z`, `"A` 는
+> 덧붙이기), `"` 를 받는 상태가 모두 들어왔다. 아래 근거 중 매크로(`q`) 를 미룬 것만 남아 있다 —
+> 문자 register 는 매크로 없이도 값을 낸다는 것이 그 ADR 의 맥락이다.
+
 **`y` 는 `d` 와 같은 범위 계산을 쓴다.** `deleteByMotion` 에서 범위를 잡는 부분을
 `rangeByMotion` 으로 떼고 둘이 같이 부른다. 파서는 `normalStart`/`normalCount` 의 operator
 자리에 `y` 를 한 글자 더한 것이 전부다 — `yy` `y3w` `3yy` `ygg` `y$` 가 `d` 와 똑같이 딸려 온다.

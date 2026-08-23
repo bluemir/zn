@@ -33,7 +33,23 @@ type editor struct {
 
 	// register 는 마지막으로 지우거나 복사한 내용이다. 붙여넣기가 tab 을 넘어 되어야 하므로
 	// 여기 있다. vim 의 register 도 buffer 밖이다. `d`·`c`·`y` 가 채우고 `p`·`P` 가 읽는다(ADR-0017).
+	//
+	// vim 의 무명 register 다. 이름을 대지 않은 붙여넣기가 읽는 자리라 숫자 register 와
+	// 겹치는 값을 들고 있다 — 겹쳐 두는 까닭은 register.go 에 적었다(ADR-0058).
 	register register
+
+	// numbered 는 숫자 register `"0`~`"9` 다. 자리가 곧 이름이라 map 이 아니다.
+	//
+	// `"0` 은 복사한 것만 들어가고 `"1` 부터가 지운 것의 링이다. 지울 때마다 한 칸씩 밀려
+	// `"9` 에서 떨어져 나간다. 채우고 미는 규칙은 register.go 가 혼자 안다(ADR-0058).
+	numbered [10]register
+
+	// named 는 문자 register `"a`~`"z` 다. 손으로 이름을 대서 담는 자리라 저절로 밀리지
+	// 않는다. 대문자(`"A`) 는 같은 자리에 뒤로 잇는다.
+	//
+	// 여기는 배열이 아니라 map 이다. 스물여섯 자리를 늘 들고 있을 값이 없고, `"-`·`"+` 처럼
+	// 글자가 아닌 이름이 뒤에 올 자리이기도 하다(ADR-0058).
+	named map[string]register
 
 	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고 여기에 들고 있다가
 	// 갱신 작업과 저장·파일 열기 직후에 다시 읽는다(ADR-0009, ADR-0030).

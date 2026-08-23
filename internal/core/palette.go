@@ -268,6 +268,7 @@ var paletteCommands = []paletteCommand{
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
+	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters},
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
 	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
 }

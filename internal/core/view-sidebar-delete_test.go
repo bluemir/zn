@@ -10,29 +10,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// `md` 는 묻고, `y` 가 지운다. 지운 자리는 트리에서도 없어진다.
-func TestSidebarDeleteAsksThenRemovesFile(t *testing.T) {
+// 파일은 `md` 두 키로 곧바로 지운다. 묻지 않는다(ADR-0057).
+func TestSidebarDeleteRemovesFileWithoutAsking(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "d")
+	model = sendSync(t, model, "m", "d")
 
-	require.IsType(t, viewSidebarDelete{}, model, "지우기 전에 한 번 더 묻는다")
-	assert.Contains(t, barOf(t, model)[1], "지울까요? README.md (y/n)")
+	require.IsType(t, viewSidebar{}, model, "묻지 않고 트리에 머문다")
 
 	_, err := os.Stat(filepath.Join(root, "README.md"))
-	require.NoError(t, err, "묻는 동안에는 아직 그대로다")
-
-	model = sendSync(t, model, "y")
-
-	require.IsType(t, viewSidebar{}, model, "지운 뒤에도 트리에 머문다")
-	_, err = os.Stat(filepath.Join(root, "README.md"))
 	assert.Error(t, err, "지워졌다")
 
 	v := model.(viewSidebar)
 	assert.NotContains(t, names(v.sidebar.rows()), "1:README.md", "트리를 다시 읽어서 그 행이 없다")
+
+	// 묻지 않으므로 이 알림이 무엇이 사라졌는지 말하는 유일한 자리다.
 	assert.Contains(t, barOf(t, model)[1], "지웠습니다: README.md")
+}
+
+// 디렉터리는 그대로 묻는다. 안의 것까지 사라지는데 접혀 있으면 이름 한 줄만 보인다.
+func TestSidebarDeleteStillAsksForDir(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "docs")
+	model = send(model, "m", "d")
+
+	require.IsType(t, viewSidebarDelete{}, model, "디렉터리는 한 번 더 묻는다")
+
+	_, err := os.Stat(filepath.Join(root, "docs"))
+	assert.NoError(t, err, "묻는 동안에는 아직 그대로다")
 }
 
 // `y` 가 아닌 키는 전부 취소다. 되돌릴 수 없는 일이라 오타가 실행이 되어서는 안 된다.
@@ -41,19 +50,19 @@ func TestSidebarDeleteCancelsOnAnyOtherKey(t *testing.T) {
 		m := newTreeEditor(t, 80, 10)
 		root := m.sidebar.root
 
-		model := selectTree(t, tea.Model(m), "README.md")
+		model := selectTree(t, tea.Model(m), "docs")
 		model = send(model, "m", "d")
 		require.IsType(t, viewSidebarDelete{}, model)
 
 		model = sendSync(t, model, k)
 
 		assert.IsType(t, viewSidebar{}, model, "%s 는 취소다", k)
-		_, err := os.Stat(filepath.Join(root, "README.md"))
+		_, err := os.Stat(filepath.Join(root, "docs"))
 		assert.NoError(t, err, "%s 로는 지워지지 않는다", k)
 	}
 }
 
-// 디렉터리는 안의 것까지 통째로 지운다. 묻는 문구도 파일과 다르다.
+// 디렉터리는 안의 것까지 통째로 지운다. 무엇을 잃는지가 이름보다 먼저 온다.
 func TestSidebarDeleteRemovesDirRecursively(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
@@ -151,7 +160,8 @@ func TestSidebarDeleteTakesHangulKeys(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
 
-	model := selectTree(t, tea.Model(m), "README.md")
+	// 파일은 묻지 않으므로 `ㅛ` 를 받을 자리가 디렉터리뿐이다.
+	model := selectTree(t, tea.Model(m), "docs")
 	model = send(model, "ㅡ", "ㅇ")
 
 	require.IsType(t, viewSidebarDelete{}, model, "ㅡㅇ 가 md 다")
@@ -159,6 +169,6 @@ func TestSidebarDeleteTakesHangulKeys(t *testing.T) {
 	model = sendSync(t, model, "ㅛ")
 
 	require.IsType(t, viewSidebar{}, model)
-	_, err := os.Stat(filepath.Join(root, "README.md"))
+	_, err := os.Stat(filepath.Join(root, "docs"))
 	assert.Error(t, err, "ㅛ 가 y 라 지워진다")
 }

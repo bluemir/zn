@@ -2,6 +2,7 @@ package core
 
 import (
 	"strconv"
+	"unicode/utf8"
 )
 
 // visualState 는 visual mode 가 키를 받아가며 옮겨 다니는 상태다.
@@ -11,8 +12,9 @@ import (
 // 먹기 때문이다 — visual 에서 `d` 는 다음 키를 기다리지 않고 그 자리에서 끝난다. sidebarState 가
 // 갈린 것과 같은 이유다(ADR-0006, ADR-0037).
 //
-// 기다리는 모양은 숫자 접두와 접두 키(`g`) 둘뿐이라 상태가 셋이다. operator 가 없어서
-// normalState 의 partial 도, 글자 하나를 받는 normalReplace 도 여기에는 없다.
+// 기다리는 모양은 숫자 접두, 접두 키(`g`), register 이름 셋이라 상태가 넷이다. operator 가
+// 없어서 normalState 의 partial 도, 글자 하나를 받는 normalReplace 도 여기에는 없다.
+// 이름은 partial 대신 상태마다 `reg` 로 들고 다닌다 — 들 것이 그것 하나라서다(ADR-0058).
 type visualState interface {
 	// press 는 키 하나를 먹여 완성된 동작들을 준다. 한글로 온 키를 그대로 받는다.
 	// 계약은 normalState 의 것과 같은 자리이고 이 둘뿐이다(normal-key-parser.go).
@@ -68,8 +70,40 @@ func visualAction(key string) action {
 	return nil
 }
 
+// visualWithRegister 는 이름을 실은 동작이다. 이름을 받지 않는 동작이면 버린다.
+//
+// normal 쪽 `partial.built` 와 같은 규칙이고 통과하는 갈래만 다르다 — visual 에는 붙여넣기가
+// 아직 없어서(docs/tasks.md) 담는 것 셋뿐이다. 숫자 이름에 담을 수 없는 것도 같다(ADR-0058).
+func visualWithRegister(built action, reg string) action {
+	if reg == "" {
+		return built
+	}
+	if !registerWritable(reg) {
+		return nil
+	}
+
+	switch a := built.(type) {
+	case actionVisualDelete:
+		a.reg = reg
+
+		return a
+	case actionVisualYank:
+		a.reg = reg
+
+		return a
+	case actionVisualChange:
+		a.reg = reg
+
+		return a
+	}
+
+	return nil
+}
+
 // visualStart 는 다음 키를 동작의 시작으로 받는 상태다.
-type visualStart struct{}
+type visualStart struct {
+	reg string // `"` 로 고른 register 이름. "" 면 무명이다
+}
 
 func (s visualStart) press(key string) ([]action, visualState) {
 	keys := expandHangul(key)
@@ -80,24 +114,38 @@ func (s visualStart) press(key string) ([]action, visualState) {
 
 	// `0` 은 count 의 첫 자리가 될 수 없다. 줄 시작으로 가는 키라 자리를 비워둔다.
 	if n, ok := keyDigit(key); ok && n > 0 {
-		return nil, visualCount{count: n}
+		return nil, visualCount{reg: s.reg, count: n}
 	}
 
 	if key == "g" {
-		return nil, visualPending{prefix: key}
+		return nil, visualPending{reg: s.reg, prefix: key}
+	}
+
+	if key == `"` {
+		// 뒤에 register 이름 한 개가 붙는다.
+		return nil, visualRegister{}
 	}
 
 	if mo, ok := motionFor("", key); ok {
+		// 이름을 실은 이동은 없다. normal 의 `"1w` 와 같이 아무 일도 하지 않는다 —
+		// 범위를 눈으로 고른 뒤에 이름을 대는 것이라 그 사이에 이동이 낄 자리가 없다.
+		if s.reg != "" {
+			return nil, visualStart{}
+		}
+
 		return one(actionMove{motion: mo}), s
 	}
 
-	return one(visualAction(key)), s
+	return one(visualWithRegister(visualAction(key), s.reg)), visualStart{}
 }
 
-func (visualStart) showcmd() string { return "" }
+func (s visualStart) showcmd() string { return registerString(s.reg) }
 
 // visualCount 는 숫자를 모으는 중이다.
-type visualCount struct{ count int }
+type visualCount struct {
+	reg   string
+	count int
+}
 
 func (s visualCount) press(key string) ([]action, visualState) {
 	keys := expandHangul(key)
@@ -111,30 +159,64 @@ func (s visualCount) press(key string) ([]action, visualState) {
 			return nil, s
 		}
 
-		return nil, visualCount{count: s.count*10 + n}
+		return nil, visualCount{reg: s.reg, count: s.count*10 + n}
 	}
 
 	// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
 	if key == "g" {
-		return nil, visualPending{prefix: key, count: s.count}
+		return nil, visualPending{reg: s.reg, prefix: key, count: s.count}
+	}
+
+	if key == `"` {
+		return nil, visualRegister{count: s.count}
 	}
 
 	if mo, ok := motionFor("", key); ok {
+		if s.reg != "" {
+			return nil, visualStart{}
+		}
+
 		return one(actionMove{motion: mo, count: s.count}), visualStart{}
 	}
 
 	// 이동이 아닌 키다. 모으던 숫자를 버리고 그 키만 친 것으로 본다.
 	// 이미 풀린 키라 visualStart 의 press 도 첫머리에서 그대로 빠져나온다.
-	return visualStart{}.press(key)
+	return visualStart{reg: s.reg}.press(key)
 }
 
-func (s visualCount) showcmd() string { return strconv.Itoa(s.count) }
+func (s visualCount) showcmd() string { return registerString(s.reg) + strconv.Itoa(s.count) }
+
+// visualRegister 는 `"` 를 먹고 register 이름 한 개를 기다리는 상태다.
+//
+// normal 쪽 normalRegister 와 같은 규칙이다 — 글자 하나면 무엇이든 이름이고, 글자 하나가
+// 아닌 키(`esc` `ctrl+c`) 는 무른다. 한글도 같이 되돌린다(ADR-0008, ADR-0058).
+//
+// **모아둔 숫자는 여기서 버린다.** 이름을 받는 동작들은 고른 범위가 이미 정해져 있어서
+// count 를 쓰지 않는다 — `3d` 가 `d` 인 것과 같은 자리다(visualAction).
+type visualRegister struct{ count int }
+
+func (s visualRegister) press(key string) ([]action, visualState) {
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		return nil, visualStart{}
+	}
+	key = keys[0]
+
+	if utf8.RuneCountInString(key) != 1 {
+		return nil, visualStart{}
+	}
+
+	return nil, visualStart{reg: key}
+}
+
+func (s visualRegister) showcmd() string { return countString(s.count) + `"` }
 
 // visualPending 은 `g` 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
 //
 // 다음 키가 무엇이든 여기서 끝난다. 짝이 없는 조합은 아무 일도 하지 않는다 —
 // `gt` 는 visual 이 받지 않으므로 여기서 버려진다.
 type visualPending struct {
+	reg    string
 	prefix string
 	count  int
 }
@@ -147,10 +229,17 @@ func (s visualPending) press(key string) ([]action, visualState) {
 	key = keys[0]
 
 	if mo, ok := prefixMotion(s.prefix, key); ok {
+		// 이름을 실은 이동은 없다. visualStart 와 같은 자리다.
+		if s.reg != "" {
+			return nil, visualStart{}
+		}
+
 		return one(actionMove{motion: mo, count: s.count}), visualStart{}
 	}
 
 	return nil, visualStart{}
 }
 
-func (s visualPending) showcmd() string { return countString(s.count) + s.prefix }
+func (s visualPending) showcmd() string {
+	return registerString(s.reg) + countString(s.count) + s.prefix
+}

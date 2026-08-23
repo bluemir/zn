@@ -244,3 +244,51 @@ func TestVisualPaintsSelection(t *testing.T) {
 		assert.NotContains(t, contentRowsOf(t, m)[0], "48;5;238")
 	})
 }
+
+// visual 에서도 `"` 로 담을 자리를 고른다. 범위를 눈으로 고른 뒤에 오는 손이다(ADR-0058).
+func TestVisualRegisterName(t *testing.T) {
+	t.Run("이름을 대고 담는다", func(t *testing.T) {
+		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "a", "y")
+
+		require.IsType(t, viewEditorNormal{}, m, "담고 나면 normal 로 돌아온다")
+		assert.Equal(t, "foo bar⏎", previewOf(m.(viewEditorNormal).registerNamed("a")))
+	})
+
+	t.Run("숫자 이름에는 담지 못한다", func(t *testing.T) {
+		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "1", "y")
+
+		assert.IsType(t, viewEditorVisual{}, m, "아무 일도 없이 visual 에 머문다")
+		assert.False(t, m.(viewEditorVisual).registerNamed("1").filled())
+	})
+
+	t.Run("이름을 실은 이동은 없다", func(t *testing.T) {
+		m := send(newTestEditor("foo\nbar\nbaz", 80, 20), "V", `"`, "a", "j", "y")
+
+		// `j` 가 버려지므로 고른 것은 첫 줄뿐이고, 이름도 같이 버려져서 무명에만 담긴다.
+		require.IsType(t, viewEditorNormal{}, m)
+		assert.Equal(t, "foo⏎", previewOf(m.(viewEditorNormal).register))
+		assert.False(t, m.(viewEditorNormal).registerNamed("a").filled())
+	})
+
+	t.Run("글자 하나가 아닌 키는 이름을 무른다", func(t *testing.T) {
+		m := send(newTestEditor("foo\nbar", 80, 20), "v", `"`, "esc")
+
+		assert.IsType(t, viewEditorVisual{}, m, "`\"` 를 무르는 것이라 visual 에 머문다")
+	})
+
+	t.Run("showcmd 에 보인다", func(t *testing.T) {
+		m := send(newTestEditor("foo\nbar", 80, 20), "v", `"`)
+		assert.Contains(t, barOf(t, m)[1], `"`)
+
+		m = send(m, "a")
+		assert.Contains(t, barOf(t, m)[1], `"a`)
+	})
+
+	t.Run("한글로 온 이름도 되돌린다", func(t *testing.T) {
+		// `ㅁ` 이 `a` 다. 이름은 파일에 들어갈 글자가 아니라 키다(ADR-0008).
+		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "ㅁ", "y")
+
+		require.IsType(t, viewEditorNormal{}, m)
+		assert.Equal(t, "foo bar⏎", previewOf(m.(viewEditorNormal).registerNamed("a")))
+	})
+}

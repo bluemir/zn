@@ -196,6 +196,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "messages", "mes":
 		// vim 이 `:mes` 를 줄임말로 받는다. 여기도 같게 둔다(ADR-0053).
 		return messagesMode(m.editor)
+	case "registers", "reg":
+		// vim 이 `:reg` 를 줄임말로 받는다. `!` 는 이 명령에서 뜻이 없다(ADR-0058).
+		return registersMode(m.editor)
 	case "version":
 		// `!` 는 이 명령에서 뜻이 없다. 찍기만 한다.
 		// CLI 의 `--version` 과 같은 줄이다(buildinfo.Describe).
@@ -247,7 +250,7 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	removed := buf.deleteLines(from, to, m.contentWidth())
-	m.register = removed
+	m.storeDelete(removed, "")
 	m.scrollToCursor()
 
 	return normalModeMessage(m.editor, fmt.Sprintf("%d 줄 지웠습니다", len(removed.lines)))
@@ -266,7 +269,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	copied := buf.yankLines(from, to)
-	m.register = copied
+	m.storeYank(copied, "")
 
 	return normalModeMessage(m.editor, copied.copiedMessage())
 }

@@ -359,3 +359,167 @@ func TestNormalKeyParserLeaderInHangul(t *testing.T) {
 	built, _ = pressAll("₩", "ㅎ", "ㅇ")
 	assert.Equal(t, actionGotoDefinition{}, built)
 }
+
+// `"` 는 register 이름 한 개를 기다린다. 이름을 받는 동작은 붙여넣기 둘뿐이다(ADR-0058).
+func TestNormalKeyParserRegister(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []string
+		want action
+	}{
+		{name: `"1p`, keys: []string{`"`, "1", "p"},
+			want: actionPasteAfter{reg: "1"}},
+		{name: `"0P`, keys: []string{`"`, "0", "P"},
+			want: actionPasteBefore{reg: "0"}},
+		// 숫자는 이름 뒤에 와도 앞에 와도 같은 되풀이다. 이름은 한 글자에서 끝난다.
+		{name: `"13p`, keys: []string{`"`, "1", "3", "p"},
+			want: actionPasteAfter{count: 3, reg: "1"}},
+		{name: `3"1p`, keys: []string{"3", `"`, "1", "p"},
+			want: actionPasteAfter{count: 3, reg: "1"}},
+		// 이름을 대지 않은 것은 그대로다.
+		{name: "p", keys: []string{"p"}, want: actionPasteAfter{}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			built, state := pressAll(test.keys...)
+
+			assert.Equal(t, test.want, built)
+			assert.Equal(t, normalStart{}, state)
+		})
+	}
+}
+
+// 이름을 고른 뒤 붙여넣기가 아닌 키가 오면 아무 일도 하지 않는다.
+//
+// 담기지 않은 것을 담은 척하지 않는다 — `"1yy` 가 무명에 담아 버리면 「`"1` 에 넣었다」로
+// 읽히고, 나중에 숫자 register 에 직접 쓰는 것을 넣을 때 동작이 바뀐다(ADR-0058).
+func TestNormalKeyParserRegisterSwallowsOthers(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []string
+	}{
+		{name: `"1yy`, keys: []string{`"`, "1", "y", "y"}},
+		// `dd` 는 resolve 를 지나지 않고 operate 로 곧장 간다. 여기가 빠지기 쉬운 자리다.
+		{name: `"1dd`, keys: []string{`"`, "1", "d", "d"}},
+		{name: `"1dw`, keys: []string{`"`, "1", "d", "w"}},
+		{name: `"1x`, keys: []string{`"`, "1", "x"}},
+		{name: `"1w 는 이동도 아니다`, keys: []string{`"`, "1", "w"}},
+		{name: `"1gg`, keys: []string{`"`, "1", "g", "g"}},
+		{name: `"1rx`, keys: []string{`"`, "1", "r", "x"}},
+		// operator 를 무르는 자리에서도 이름이 살아 있어야 뒤가 규칙대로 버려진다.
+		{name: `"1dyy`, keys: []string{`"`, "1", "d", "y", "y"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			built, _ := pressAll(test.keys...)
+
+			assert.Nil(t, built)
+		})
+	}
+}
+
+// 아직 없는 이름도 이름이다. 무르지 않아야 뒤의 `p` 가 무명을 붙이지 않는다 —
+// 그 register 가 비어서 붙여넣기가 조용히 끝난다(register.go 의 registerNamed).
+func TestNormalKeyParserUnknownRegisterIsStillAName(t *testing.T) {
+	built, state := pressAll(`"`, "a", "p")
+
+	assert.Equal(t, actionPasteAfter{reg: "a"}, built)
+	assert.Equal(t, normalStart{}, state)
+}
+
+// 글자 하나가 아닌 키는 이름이 될 수 없어 무른다. 접두 키와 같다(normalPending).
+func TestNormalKeyParserRegisterAborts(t *testing.T) {
+	for _, key := range []string{"esc", "ctrl+c", "enter"} {
+		t.Run(key, func(t *testing.T) {
+			built, state := pressAll(`"`, key)
+
+			assert.Nil(t, built)
+			assert.Equal(t, normalStart{}, state)
+		})
+	}
+}
+
+// 이름 자리는 한글을 되돌린다. `r` 뒤의 글자를 그대로 받는 것과 반대다(ADR-0008, ADR-0058).
+func TestNormalKeyParserRegisterShowcmd(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []string
+		want string
+	}{
+		{name: `"`, keys: []string{`"`}, want: `"`},
+		{name: `3"`, keys: []string{"3", `"`}, want: `3"`},
+		{name: `"1`, keys: []string{`"`, "1"}, want: `"1`},
+		{name: `"1d`, keys: []string{`"`, "1", "d"}, want: `"1d`},
+		// 숫자를 먼저 친 것도 이름이 앞에 놓인다. 어느 register 인지가 늘 같은 자리다.
+		{name: `3"1`, keys: []string{"3", `"`, "1"}, want: `"13`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, state := pressAll(test.keys...)
+
+			assert.Equal(t, test.want, state.showcmd())
+		})
+	}
+}
+
+// 문자 이름은 담는 동작에도 실린다. 숫자와 갈리는 자리다(ADR-0058).
+func TestNormalKeyParserWritableRegister(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []string
+		want action
+	}{
+		{name: `"ayy`, keys: []string{`"`, "a", "y", "y"},
+			want: actionYank{motion: motionWholeLines{}, reg: "a"}},
+		{name: `"add`, keys: []string{`"`, "a", "d", "d"},
+			want: actionDelete{motion: motionWholeLines{}, reg: "a"}},
+		{name: `"acw`, keys: []string{`"`, "a", "c", "w"},
+			want: actionChange{motion: motionChangeWord{}, reg: "a"}},
+		// `x` 는 `dl` 이다. 짓는 자리가 operate 가 아니라 standaloneAction 이라 이름을
+		// 짓는 쪽에서 실으면 여기가 빠진다.
+		{name: `"ax`, keys: []string{`"`, "a", "x"},
+			want: actionDelete{motion: motionRight{}, reg: "a"}},
+		{name: `"a2yw`, keys: []string{`"`, "a", "2", "y", "w"},
+			want: actionYank{motion: motionWordForward{}, count: 2, reg: "a"}},
+		// 대문자도 이름이다. 덮지 않고 잇는 것은 담는 자리가 정한다(register.go).
+		{name: `"Ayy`, keys: []string{`"`, "A", "y", "y"},
+			want: actionYank{motion: motionWholeLines{}, reg: "A"}},
+		// 붙이는 것은 그대로다.
+		{name: `"ap`, keys: []string{`"`, "a", "p"}, want: actionPasteAfter{reg: "a"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			built, state := pressAll(test.keys...)
+
+			assert.Equal(t, test.want, built)
+			assert.Equal(t, normalStart{}, state)
+		})
+	}
+}
+
+// 이름 뒤의 `esc`·`ctrl+c` 는 이름을 무른다. 무른 뒤 한 번 더 누르면 제 일을 한다.
+//
+// 접두 키가 하는 것과 같다(normalPending) — 손이 미끄러진 `"` 뒤의 `ctrl+c` 로 편집기가
+// 꺼지지 않는다.
+func TestNormalKeyParserRegisterAbortsWithEscape(t *testing.T) {
+	for _, key := range []string{"esc", "ctrl+c"} {
+		t.Run(key, func(t *testing.T) {
+			built, state := pressAll(`"`, "a", key)
+
+			assert.Nil(t, built, "이름을 무르는 것으로 끝난다")
+			require.Equal(t, normalStart{}, state, "이름이 남아 있으면 안 된다")
+
+			// 한 번 더 누르면 제 일을 한다.
+			again, _ := state.press(key)
+			if key == "ctrl+c" {
+				assert.Equal(t, []action{actionQuit{}}, again)
+			} else {
+				assert.Empty(t, again)
+			}
+		})
+	}
+}

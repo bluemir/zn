@@ -213,9 +213,10 @@ func (m viewSidebar) createFile() (tea.Model, tea.Cmd) {
 	return createFileMode(m.editor, dir)
 }
 
-// deleteFile 은 `md` 다. 지울 수 있는 자리인지 보고 묻는 화면으로 넘긴다.
+// deleteFile 은 `md` 다. 지울 수 있는 자리인지 보고 파일은 곧바로 지운다.
 //
-// 지우는 것 자체는 묻는 화면이 한다. 여기서 걸러내는 셋은 물어 봐도 답이 하나뿐인 것들이다.
+// 여기서 걸러내는 셋은 물어 봐도 답이 하나뿐인 것들이다. 그 셋을 지나면 파일은 묻지 않고
+// 지우고 디렉터리만 묻는 화면으로 넘긴다(ADR-0057).
 func (m viewSidebar) deleteFile() (tea.Model, tea.Cmd) {
 	node := m.sidebar.selectedNode()
 	if node == nil {
@@ -235,7 +236,12 @@ func (m viewSidebar) deleteFile() (tea.Model, tea.Cmd) {
 		return sidebarModeMessage(m.editor, "tab 에 열려 있습니다. 먼저 닫아 주세요: "+m.sidebar.relLabel(open))
 	}
 
-	return deleteFileMode(m.editor, node)
+	// symlink 는 가리키는 것이 디렉터리여도 링크만 지우므로 파일 쪽이다.
+	if !node.isDir || node.isSymlink {
+		return removeTreeEntry(m.editor, node.path, false)
+	}
+
+	return deleteDirMode(m.editor, node)
 }
 
 // renameFile 은 `mm` 이다. 지금 경로가 채워진 화면으로 넘긴다.

@@ -264,3 +264,69 @@ func TestYankMessageIsOnlyForWhatWasCopied(t *testing.T) {
 		assert.NotContains(t, barOf(t, m)[1], "복사되었습니다")
 	})
 }
+
+// 이름을 대면 그 register 를 붙인다. 링에 남은 옛것을 꺼내는 것이 숫자 register 의 쓸모다(ADR-0058).
+func TestPasteFromNumberedRegister(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []string
+		want []string
+	}{
+		// 셋을 지운 뒤라 남은 것은 `four` 하나다. 링은 `"1`=three `"2`=two `"3`=one 이다.
+		{name: `"1p 는 마지막에 지운 것`, keys: []string{`"`, "1", "p"},
+			want: []string{"four", "three"}},
+		{name: `"3p 는 처음에 지운 것`, keys: []string{`"`, "3", "p"},
+			want: []string{"four", "one"}},
+		{name: `"3P 는 위에 붙인다`, keys: []string{`"`, "3", "P"},
+			want: []string{"one", "four"}},
+		// 이름을 대지 않은 것은 무명이고, 무명은 마지막으로 지운 것이다.
+		{name: "p 는 무명", keys: []string{"p"},
+			want: []string{"four", "three"}},
+		// `"0` 은 복사 전용이라 세 번 지워도 그대로다.
+		{name: `"0p 는 복사한 것`, keys: []string{`"`, "0", "p"},
+			want: []string{"four", "one"}},
+		{name: `2"1p 는 두 번 붙인다`, keys: []string{"2", `"`, "1", "p"},
+			want: []string{"four", "three", "three"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// `yy` 로 `"0` 을 채우고 `dd` 셋으로 링을 채운다.
+			m := send(newTestEditor("one\ntwo\nthree\nfour", 80, 20),
+				"y", "y", "d", "d", "d", "d", "d", "d")
+
+			after := send(m, test.keys...)
+
+			assert.Equal(t, test.want, linesOf(bufferOf(t, after)))
+		})
+	}
+}
+
+// 빈 register 를 붙이면 아무 일도 하지 않는다. 무명이 비었을 때와 같은 규칙이다(ADR-0017).
+//
+// 아직 없는 이름(`"a`) 도 여기로 온다 — 문자 register 를 넣기 전까지 늘 비어 있다.
+func TestPasteFromEmptyRegisterIsQuiet(t *testing.T) {
+	for _, name := range []string{"9", "a"} {
+		t.Run(`"`+name, func(t *testing.T) {
+			m := send(newTestEditor("one\ntwo", 80, 20), `"`, name, "p")
+
+			buf := bufferOf(t, m)
+			assert.Equal(t, []string{"one", "two"}, linesOf(buf))
+			assert.False(t, buf.dirty, "붙인 것이 없으면 dirty 도 서지 않는다")
+		})
+	}
+}
+
+// 이름을 고른 뒤 붙여넣기가 아닌 키가 오면 파일도 register 도 그대로다(ADR-0058).
+func TestNamedRegisterOnlyFeedsPaste(t *testing.T) {
+	m := send(newTestEditor("one\ntwo\nthree", 80, 20), "d", "d")
+
+	after := send(m, `"`, "1", "y", "y")
+
+	assert.Equal(t, []string{"two", "three"}, linesOf(bufferOf(t, after)), "파일은 그대로다")
+	assert.Equal(t, map[string]string{
+		`""`: "one⏎",
+		`"1`: "one⏎",
+	}, registersOf(t, after), "담기지도 않았다")
+	assert.NotContains(t, barOf(t, after)[1], "복사되었습니다")
+}
