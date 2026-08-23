@@ -58,8 +58,14 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
-		return m, m.handleJob(msg)
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
+		// model 이 오면 mode 가 바뀐 것이다. 오지 않으면 지금 mode 를 그대로 쓴다(job.go).
+		next, cmd := m.handleJob(msg)
+		if next != nil {
+			return next, cmd
+		}
+
+		return m, cmd
 	default:
 		// 바깥 변경 알림(ResumeMsg·FocusMsg) 은 받지 않는다. normal·insert·트리만 본다(ADR-0031).
 		return m, nil

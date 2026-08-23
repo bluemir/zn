@@ -37,7 +37,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		buf.insert([]byte(msg.Content), m.contentWidth())
 		m.scrollToCursor()
 
-		return m, nil
+		return m, m.scheduleLspTick()
 	case tea.KeyPressMsg:
 		// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
 		m.message = ""
@@ -99,7 +99,9 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.scrollToCursor()
 
-		return m, nil
+		// 고친 것을 언어 서버에도 알려야 한다. 여기서 보내지 않고 예약만 한다 — 250ms
+		// 조용해지면 그때 한 번 간다(ADR-0051).
+		return m, m.scheduleLspTick()
 	case tea.MouseClickMsg:
 		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
 			return m.click(mouse)
@@ -110,11 +112,17 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
-		return m, m.handleJob(msg)
+		// model 이 오면 mode 가 바뀐 것이다. 오지 않으면 지금 mode 를 그대로 쓴다(job.go).
+		next, cmd := m.handleJob(msg)
+		if next != nil {
+			return next, cmd
+		}
+
+		return m, cmd
 	default:
 		return m, nil
 	}

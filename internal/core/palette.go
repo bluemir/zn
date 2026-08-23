@@ -268,6 +268,7 @@ var paletteCommands = []paletteCommand{
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
+	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
 }
 
 // label 은 화면에 보이는 것 전부를 이어 붙인 것이다. 매칭이 이것을 본다.
@@ -281,7 +282,25 @@ func (c paletteCommand) detail() string {
 	return strings.TrimRight(c.hint+" "+c.alias, " ")
 }
 
+// runGotoDefinition 은 커서 자리의 정의로 간다. normal mode 의 `\gd` 와 같은 자리로 간다
+// (ADR-0051).
+//
+// 팔레트를 닫고 normal 로 돌아가며 묻는 Cmd 를 같이 낸다. 알림은 startDefinition 이 적으므로
+// 여기서 덧붙이지 않는다 — 「찾는 중」과 「Go 파일이 아니다」가 그쪽에서 갈린다.
+func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
+	cmd := e.startDefinition()
+
+	model, modeCmd := normalMode(e)
+
+	return model, tea.Batch(cmd, modeCmd)
+}
+
 func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return normalMode(e)
+	}
+
 	buf := e.activeBuffer()
 	width := e.contentWidth()
 

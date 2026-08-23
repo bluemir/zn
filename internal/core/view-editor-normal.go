@@ -46,7 +46,9 @@ func (m viewEditorNormal) keyState() normalState {
 func (m viewEditorNormal) Init() tea.Cmd {
 	// 트리의 첫 읽기도 여기서 시작한다. core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가
 	// 없어서, git 첫 갱신과 같이 이 자리가 낸다(ADR-0030, ADR-0032).
-	return tea.Batch(m.startGitRefresh(), m.startOutsideCheck(), m.startTree())
+	// CLI 인자로 Go 파일을 열고 시작하는 길이 여기다. 언어 서버는 파일을 열 때 띄우는데
+	// (ADR-0051) 시작할 때 이미 열려 있는 것은 openTab 을 지나지 않는다.
+	return tea.Batch(m.startGitRefresh(), m.startOutsideCheck(), m.startTree(), m.startGoplsForOpenBuffers())
 }
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -72,7 +74,12 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.finishShell(msg.err)
 	case tea.KeyPressMsg:
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
-		return m.press(msg.String())
+		next, cmd := m.press(msg.String())
+
+		// 키가 파일을 고쳤으면 언어 서버와 맞출 때를 예약한다. 고쳤는지 보지 않는 것은
+		// 예약이 한 번에 하나뿐이고(scheduleLspTick) 보낼 것이 없으면 그때 아무것도
+		// 보내지 않기 때문이다 — 「고치는 동작」 목록을 여기 또 두지 않는다(ADR-0051).
+		return next, tea.Batch(cmd, m.scheduleLspTick())
 	case tea.MouseClickMsg:
 		// 왼쪽 버튼만 본다. 가운데·오른쪽에 붙일 동작은 아직 정하지 않았다.
 		//
@@ -100,13 +107,19 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		//
 		// 파일 검사도 여기로 온다. 예전에는 normal·트리가 자기 case 에서 직접 보았는데,
 		// 이제 결과가 `dirty` 만 보고 갈리므로 mode 를 가릴 이유가 없다(ADR-0044).
-		return m, m.handleJob(msg)
+		// model 이 오면 mode 가 바뀐 것이다. 오지 않으면 지금 mode 를 그대로 쓴다(job.go).
+		next, cmd := m.handleJob(msg)
+		if next != nil {
+			return next, cmd
+		}
+
+		return m, cmd
 	default:
 		return m, nil
 	}

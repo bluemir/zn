@@ -2,10 +2,7 @@ package core
 
 import (
 	"bytes"
-	"path/filepath"
 	"strconv"
-
-	editorconfig "github.com/editorconfig/editorconfig-core-go/v2"
 
 	"github.com/bluemir/zn/internal/syntax"
 )
@@ -58,23 +55,11 @@ func resolveIndentUnit(path string, lines [][]byte) []byte {
 
 // editorconfigUnit 은 `.editorconfig` 가 정한 한 단계다. 적힌 것이 없으면 nil 이다.
 //
-// 읽는 키는 셋뿐이다 — `indent_style` `indent_size` `tab_width`. 나머지 키(`end_of_line`,
-// `trim_trailing_whitespace`, `charset`) 는 그 키가 건드리는 기능을 고칠 때 같이 본다.
-//
-// 오류는 삼킨다. 파일을 못 읽거나 문법이 깨졌으면 다음 근거로 내려가는 것이 맞다 — 편집을
-// 시작하는 자리에서 설정 파일 이야기를 꺼낼 일이 아니다.
+// 여기서 보는 키는 셋이다 — `indent_style` `indent_size` `tab_width`. 저장할 때의 모습을
+// 정하는 셋은 다른 자리가 본다(editorconfig.go, ADR-0052). 읽어 오는 자리는 그 파일 하나다.
 func editorconfigUnit(path string) []byte {
-	if path == "" {
-		return nil
-	}
-
-	full, err := filepath.Abs(path)
-	if err != nil {
-		return nil
-	}
-
-	def, err := editorconfig.GetDefinitionForFilename(full)
-	if err != nil || def == nil {
+	def := editorconfigFor(path)
+	if def == nil {
 		return nil
 	}
 

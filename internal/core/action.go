@@ -52,6 +52,11 @@ type actionDelete struct {
 }
 
 func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	if deleted, ok := e.activeBuffer().deleteByMotion(c.motion, c.count, e.contentWidth()); ok {
 		e.register = deleted
 	}
@@ -86,6 +91,11 @@ type actionChange struct {
 }
 
 func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	removed, ok := e.activeBuffer().changeByMotion(c.motion, c.count, e.contentWidth())
 	if !ok {
 		return nil, nil
@@ -113,6 +123,11 @@ type actionIndent struct {
 }
 
 func (c actionIndent) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
@@ -130,6 +145,11 @@ type actionReindent struct {
 }
 
 func (c actionReindent) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
@@ -149,6 +169,11 @@ type actionReplaceChar struct {
 }
 
 func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf, width := e.activeBuffer(), e.contentWidth()
 
 	if c.key == "enter" {
@@ -203,6 +228,11 @@ func (actionVisualLeave) run(e *editor) (tea.Model, tea.Cmd) {
 type actionVisualDelete struct{}
 
 func (actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
@@ -238,6 +268,11 @@ func (actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 type actionVisualChange struct{}
 
 func (actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	area, ok := buf.selectionRange()
@@ -262,6 +297,11 @@ func (actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 type actionVisualIndent struct{ direction indentDirection }
 
 func (c actionVisualIndent) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
@@ -276,6 +316,11 @@ func (c actionVisualIndent) run(e *editor) (tea.Model, tea.Cmd) {
 type actionVisualReindent struct{}
 
 func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
@@ -292,6 +337,11 @@ func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
 type actionPasteAfter struct{ count int }
 
 func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	e.activeBuffer().pasteAfter(e.register, max(c.count, 1), e.contentWidth())
 	e.scrollToCursor()
 
@@ -302,6 +352,11 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 type actionPasteBefore struct{ count int }
 
 func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	e.activeBuffer().pasteBefore(e.register, max(c.count, 1), e.contentWidth())
 	e.scrollToCursor()
 
@@ -311,6 +366,11 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 type actionUndo struct{}
 
 func (actionUndo) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf, width := e.activeBuffer(), e.contentWidth()
 
 	buf.applyUndo(width)
@@ -323,6 +383,11 @@ func (actionUndo) run(e *editor) (tea.Model, tea.Cmd) {
 type actionRedo struct{}
 
 func (actionRedo) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	buf, width := e.activeBuffer(), e.contentWidth()
 
 	buf.applyRedo(width)
@@ -338,6 +403,11 @@ func (actionRedo) run(e *editor) (tea.Model, tea.Cmd) {
 type actionInsert struct{}
 
 func (actionInsert) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	return insertMode(e)
 }
 
@@ -346,6 +416,11 @@ func (actionInsert) run(e *editor) (tea.Model, tea.Cmd) {
 type actionAppend struct{}
 
 func (actionAppend) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	next, cmd := insertMode(e)
 
 	e.activeBuffer().moveRight(1, e.contentWidth())
@@ -358,6 +433,11 @@ func (actionAppend) run(e *editor) (tea.Model, tea.Cmd) {
 type actionOpenBelow struct{}
 
 func (actionOpenBelow) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	next, cmd := insertMode(e)
 
 	e.activeBuffer().openLineBelow(e.contentWidth())
@@ -370,6 +450,11 @@ func (actionOpenBelow) run(e *editor) (tea.Model, tea.Cmd) {
 type actionOpenAbove struct{}
 
 func (actionOpenAbove) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
 	next, cmd := insertMode(e)
 
 	e.activeBuffer().openLineAbove(e.contentWidth())
@@ -419,6 +504,17 @@ func (c actionSearchWord) run(e *editor) (tea.Model, tea.Cmd) {
 }
 
 // ── mode 와 화면 ──
+
+// actionGotoDefinition 은 커서 자리의 정의로 간다. `\gd` 다(ADR-0051).
+//
+// 답을 기다리지 않는다 — 물어보는 Cmd 를 내고 돌아온다. 첫 요청은 서버가 모듈을 훑는 동안
+// 1 초 남짓 걸려서, 기다리면 그동안 편집기가 멈춘다. 답이 오면 그때 tab 을 열고 뛴다
+// (gopls.go 의 finishDefinition).
+type actionGotoDefinition struct{}
+
+func (c actionGotoDefinition) run(e *editor) (tea.Model, tea.Cmd) {
+	return nil, e.startDefinition()
+}
 
 // actionQuit 는 `ctrl+c` 다. `:qa` 와 같은 경로라 저장하지 않은 변경이 있으면 확인창이 뜬다.
 type actionQuit struct{}

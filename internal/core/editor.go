@@ -9,6 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/lsp"
 )
 
 // editor 는 mode 가 바뀌어도 유지되는 상태다.
@@ -45,6 +47,20 @@ type editor struct {
 	// 셋이 되면 이름→cooldown 표로 옮긴다. 둘까지는 bool 두 개가 읽기 쉽다.
 	gitTickScheduled  bool
 	fileTickScheduled bool
+
+	// gopls 는 도는 언어 서버다. Go 파일을 처음 열 때 뜨고 그 뒤로 하나뿐이다(ADR-0051).
+	//
+	// goplsStarting 은 뜨는 중인지고 goplsFailed 는 한 번 실패했는지다. 실패한 뒤에는
+	// 다시 걸지 않는다 — 까닭이 대개 「깔려 있지 않다」 라서 파일을 열 때마다 다시 시도해도
+	// 나아지지 않고, 그때마다 오류 문구가 화면 아래를 차지한다.
+	gopls         *lsp.Client
+	goplsStarting bool
+	goplsFailed   bool
+
+	// lspTickScheduled 는 서버와 맞출 예약이 이미 걸려 있는지다. git·파일 검사와 같은 자리다
+	// (ADR-0043). 이것이 타이핑을 모아 주는 자리이기도 하다 — 예약이 하나라 키를 여러 번 쳐도
+	// 보내는 것은 250ms 뒤 한 번이다.
+	lspTickScheduled bool
 
 	// ctx 는 편집기의 수명이다. core.Run 이 받은 것을 그대로 든다.
 	// 백그라운드 작업이 여기서 갈라져 나오므로 편집기를 끝내면 도는 것이 전부 정리된다(ADR-0027).
@@ -209,7 +225,9 @@ func (e *editor) openTab(path string) (tea.Cmd, error) {
 
 	e.scrollTabsTo()
 
-	return e.revealInSidebar(path), nil
+	// Go 파일을 열었으면 언어 서버를 미리 띄운다. 첫 요청이 서버가 모듈을 훑는 동안 1 초
+	// 남짓 걸려서, 파일을 여는 자리에서 시작해 두면 그 기다림이 `\gd` 앞으로 옮겨간다(ADR-0051).
+	return tea.Batch(e.revealInSidebar(path), e.startGoplsForOpenFile(path)), nil
 }
 
 // replaceTab 은 활성 tab 의 내용을 그 파일로 갈아끼운다. tab 수는 그대로다. `:e <파일>` 이 쓴다.
@@ -237,7 +255,7 @@ func (e *editor) replaceTab(path string) (tea.Cmd, error) {
 
 	e.buffers[e.active] = buf
 
-	return e.revealInSidebar(path), nil
+	return tea.Batch(e.revealInSidebar(path), e.startGoplsForOpenFile(path)), nil
 }
 
 // tabOf 는 그 파일을 이미 열어둔 tab 을 찾는다.

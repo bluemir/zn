@@ -25,6 +25,16 @@ func (e lineEnding) bytes() []byte {
 	return []byte("\n")
 }
 
+// name 은 사람에게 보이는 이름이다. `.editorconfig` 의 `end_of_line` 값과 같은 글자다 —
+// 저장할 때 무엇으로 맞췄는지 알리는 자리가 쓴다(editorconfig.go, ADR-0052).
+func (e lineEnding) name() string {
+	if e == lineEndingCRLF {
+		return "CRLF"
+	}
+
+	return "LF"
+}
+
 // Buffer 는 파일 하나에 대응 한다.
 //
 // data 는 파일을 통째로 읽은 것으로 읽은 뒤에는 바꾸지 않는다.
@@ -69,6 +79,12 @@ type Buffer struct {
 	editing bool
 
 	dirty bool //마지막 저장 이후 변경사항의 여부.
+
+	// readOnly 는 이 파일을 고칠 수 없다는 것이다. 열 때 권한을 보고 정하고 그 뒤로 바뀌지 않는다.
+	//
+	// 정의로 뛰어서 열리는 표준 라이브러리·의존 모듈의 파일이 이것이다 — module cache 는
+	// `r--r--r--` 이다(ADR-0051). 고치는 동작이 첫 줄에서 이것을 본다(readonly.go).
+	readOnly bool
 
 	// diskSize·diskTime 은 마지막으로 맞춰 봤을 때 파일의 크기와 mtime 이다.
 	//
@@ -132,6 +148,9 @@ func newEmptyBuffer(path string) Buffer {
 	}
 }
 
+// newBufferReadOnly 는 읽기 전용 표시를 붙인다. 파일을 여는 길이 여럿이라 표시를 붙이는
+// 자리도 여럿이 되지 않게, 읽는 자리에서 한 번 본다.
+
 // OpenBuffer 는 파일을 읽어서 Buffer 로 만든다.
 // 파일이 없으면 빈 줄 하나짜리 새 Buffer 를 만든다.
 func OpenBuffer(path string) (Buffer, error) {
@@ -153,6 +172,7 @@ func newBuffer(path string, data []byte) Buffer {
 		data:       data,
 		lineEnding: detectLineEnding(data),
 		diskHash:   sum[:],
+		readOnly:   detectReadOnly(path),
 	}
 
 	// 마지막 줄끝은 빈 줄이 아니라 "줄끝으로 끝났다" 는 사실이므로 떼어내고 기록한다.
@@ -705,27 +725,48 @@ func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
 
 // Save 는 buffer 를 파일에 쓴다.
 // 읽은 뒤에 파일이 밖에서 바뀌었으면 쓰지 않고 알린다 (ADR-0015).
-func (buf *Buffer) Save() error {
+func (buf *Buffer) Save(width int) (string, error) {
 	// :tabnew 로 만든 buffer 는 이름이 없어서 쓸 곳이 없다. vim 의 E32 와 같다.
 	// 이름을 주려면 `:w <파일>`, 즉 SaveTo 다 (ADR-0024).
 	if buf.path == "" {
-		return errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
+		return "", errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
 	}
 
+	// 바깥 검사가 맞추기보다 먼저다. 막힐 저장이면 buffer 를 건드리지 않아야 한다 —
+	// 「저장하지 못했는데 파일이 달라졌다」가 되면 무엇을 잃었는지 셀 수 없다.
 	if err := buf.checkNotChangedOutside(); err != nil {
-		return err
+		return "", err
 	}
 
-	return buf.write()
+	return buf.formatAndWrite(width)
 }
 
 // SaveForce 는 밖에서 바뀌었는지 보지 않고 덮어쓴다. `:w!` 다.
-func (buf *Buffer) SaveForce() error {
+//
+// 맞추는 것은 건너뛰지 않는다. `!` 는 「바깥 변경을 무릅쓰고 덮어쓴다」 하나만 뜻한다 —
+// 한 키에 뜻을 둘 담으면 어느 쪽을 부른 것인지 갈리지 않는다(ADR-0015, ADR-0052).
+func (buf *Buffer) SaveForce(width int) (string, error) {
 	if buf.path == "" {
-		return errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
+		return "", errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
 	}
 
-	return buf.write()
+	return buf.formatAndWrite(width)
+}
+
+// formatAndWrite 는 `.editorconfig` 가 적어 둔 모습으로 맞춘 뒤 쓴다.
+// 맞춘 것을 한 줄로 준다 — 부르는 쪽이 저장 문구에 붙인다(editorconfig.go, ADR-0052).
+//
+// 맞추는 것이 쓰기보다 먼저다. buffer 를 고치고 그것을 쓰는 순서라야 화면과 파일이 같아진다.
+// 나가는 바이트만 고치면 화면에는 지운 공백이 그대로 남고, 그 상태로 dirty 가 내려가서
+// 다음 자동 다시읽기(ADR-0038) 에 조용히 사라진다.
+func (buf *Buffer) formatAndWrite(width int) (string, error) {
+	note := buf.applyFileFormat(width)
+
+	if err := buf.write(); err != nil {
+		return "", err
+	}
+
+	return note, nil
 }
 
 // SaveTo 는 buffer 를 다른 파일에 쓴다. `:w <파일>` 이다.

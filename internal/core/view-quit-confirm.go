@@ -56,14 +56,20 @@ func (m viewConfirmDiscard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
 		//
 		// 이 창은 statusBar 를 그리지 않지만 그래도 받아야 한다. 흘려보내면 다음 조각을 받을
 		// Cmd 를 아무도 발행하지 않아 작업이 영영 멈춘다.
-		return m, m.handleJob(msg)
+		// model 이 오면 mode 가 바뀐 것이다. 오지 않으면 지금 mode 를 그대로 쓴다(job.go).
+		next, cmd := m.handleJob(msg)
+		if next != nil {
+			return next, cmd
+		}
+
+		return m, cmd
 	default:
 		return m, nil
 	}

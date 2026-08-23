@@ -159,6 +159,10 @@ func (e *editor) cancelJob(name string) {
 
 // handleJob 은 mode 가 공유하는 작업 msg 처리다. 다음 조각을 받을 Cmd 를 준다.
 //
+// **model 을 돌려주면 mode 가 바뀐다.** 바꾸지 않으면 nil 이라 부르는 쪽이 지금 mode 를
+// 그대로 쓴다 — 동작(action.run) 과 같은 규칙이다(ADR-0026). 정의 후보가 여럿이라 고르는
+// 화면을 여는 자리 하나가 이것을 쓴다(ADR-0051).
+//
 // mode 마다 `case jobProgressMsg, jobDoneMsg, gitTickMsg:` 한 자리를 두고 여기로 넘긴다. 하는 일은
 // 여기 하나로 모여 있고(ADR-0002 가 "늘어나면 공용 처리로 뺀다" 고 적어둔 자리다) mode 쪽에는 어떤
 // msg 를 받는지가 남는다. default 에 숨기면 그 mode 가 작업 msg 를 받는다는 것이 보이지 않는다.
@@ -166,20 +170,32 @@ func (e *editor) cancelJob(name string) {
 // 결과가 무엇인지는 대개 여기서 알지 못한다. 이름을 보는 곳은 한 자리뿐이다 — 주기 작업이
 // 끝나면 cooldown 을 다시 걸어야 하고(ADR-0043, ADR-0044), 그 고리를 잇는 자리가 여기여야
 // mode 를 오갈 때 갈라지지 않는다(ADR-0030, ADR-0038).
-func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
+func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case gitTickMsg:
 		// 여기서는 다음 것을 예약하지 않는다. cooldown 은 갱신이 *끝난* 뒤부터 재는 것이라
 		// 예약은 jobDoneMsg 자리에서 한다(ADR-0043).
 		e.gitTickScheduled = false
 
-		return e.startGitRefresh()
+		return nil, e.startGitRefresh()
 	case fileTickMsg:
 		// 검사는 작업이 한다. 어느 mode 에서 받았는지는 보지 않는다 — 읽을지 말지를 가르는
 		// 것은 `dirty` 하나이고, 그 판정은 결과가 돌아온 뒤에 한다(ADR-0044).
 		e.fileTickScheduled = false
 
-		return e.startOutsideCheck()
+		return nil, e.startOutsideCheck()
+	case lspTickMsg:
+		// 언어 서버와 맞출 때다. 다음 것을 여기서 예약하지 않는다 — 주기가 아니라 마지막 키에서
+		// 재는 것이라, 예약은 키를 받는 자리가 한다(ADR-0051).
+		e.lspTickScheduled = false
+
+		return nil, e.syncGopls()
+	case goplsReadyMsg:
+		return nil, e.finishGopls(msg)
+	case definitionMsg:
+		// 정의를 물은 답이다. 후보가 하나면 그 자리로 뛰고(mode 그대로) 여럿이면 고르는
+		// 화면을 연다 — mode 를 바꾸는 유일한 작업 결과다(ADR-0051).
+		return e.finishDefinition(msg)
 	case jobProgressMsg:
 		e.updateJob(msg)
 
@@ -190,7 +206,7 @@ func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 		// 트리가 자식을 기다리며 멈춰 있었으면 여기서 다음 층으로 나아간다.
 		// apply 는 `func(*editor)` 라 Cmd 를 낼 수 없어서 이 자리가 그것을 대신한다(ADR-0032).
 		// 기다리는 것이 없으면 곧바로 nil 이라 다른 작업의 조각에는 얹히지 않는다.
-		return tea.Batch(waitJob(msg.name, msg.ch), e.continueReveal())
+		return nil, tea.Batch(waitJob(msg.name, msg.ch), e.continueReveal())
 	case jobDoneMsg:
 		e.finishJob(msg.name)
 
@@ -199,14 +215,14 @@ func (e *editor) handleJob(msg tea.Msg) tea.Cmd {
 		// (ADR-0030, ADR-0043, ADR-0044).
 		switch msg.name {
 		case gitJobName:
-			return e.scheduleGitTick()
+			return nil, e.scheduleGitTick()
 		case fileJobName:
-			return e.scheduleFileTick()
+			return nil, e.scheduleFileTick()
 		}
 
-		return nil
+		return nil, nil
 	default:
-		return nil
+		return nil, nil
 	}
 }
 

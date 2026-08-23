@@ -158,8 +158,9 @@ func TestJobAppliesResultItself(t *testing.T) {
 	msg := progressOf("파일 인덱싱", 1, 2)
 	msg.apply = func(e *editor) { e.files = []string{"a.txt", "b.txt"} }
 
-	cmd := e.handleJob(msg)
+	next, cmd := e.handleJob(msg)
 
+	assert.Nil(t, next, "진행 조각은 mode 를 바꾸지 않는다")
 	require.NotNil(t, cmd, "다음 조각을 받을 고리를 잇는다")
 	assert.Equal(t, []string{"a.txt", "b.txt"}, e.files)
 }

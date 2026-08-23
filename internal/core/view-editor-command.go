@@ -61,11 +61,17 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
-		return m, m.handleJob(msg)
+		// model 이 오면 mode 가 바뀐 것이다. 오지 않으면 지금 mode 를 그대로 쓴다(job.go).
+		next, cmd := m.handleJob(msg)
+		if next != nil {
+			return next, cmd
+		}
+
+		return m, cmd
 	default:
 		return m, nil
 	}
@@ -116,21 +122,33 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 		return m.goToLine(cmd)
 	case "d":
+		// 읽기 전용 파일은 고치지 않는다(readonly.go). `:y` 는 파일을 건드리지 않아 지나간다.
+		if m.refuseReadOnly() {
+			return normalMode(m.editor)
+		}
+
 		return m.deleteLines(cmd)
 	case "y":
 		return m.yankLines(cmd)
 	case "w":
 		return m.write(cmd)
 	case "wq", "x":
-		var err error
+		var (
+			err  error
+			note string
+		)
 		if cmd.force {
-			err = buf.SaveForce()
+			note, err = buf.SaveForce(m.contentWidth())
 		} else {
-			err = buf.Save()
+			note, err = buf.Save(m.contentWidth())
 		}
 		if err != nil {
 			return m.fail(err)
 		}
+
+		// `.editorconfig` 를 따라 맞춘 것이 있으면 알린다. 마지막 tab 이었으면 편집기가
+		// 여기서 끝나므로 보이지 않는다 — 그때는 파일이 이미 그렇게 쓰였다(ADR-0052).
+		m.message = note
 
 		// 저장은 dirty 를 바꾸는 유일한 편집기 안의 동작이라 주기 갱신을 기다리지 않는다(ADR-0030).
 		// 마지막 tab 이었으면 여기서 편집기가 끝나고, 시작한 갱신은 ctx 가 끊겨 같이 정리된다.
@@ -335,20 +353,38 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
 	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
-	var err error
+	var (
+		err  error
+		note string
+	)
 	if cmd.force {
-		err = buf.SaveForce()
+		note, err = buf.SaveForce(m.contentWidth())
 	} else {
-		err = buf.Save()
+		note, err = buf.Save(m.contentWidth())
 	}
 	if err != nil {
 		return m.fail(err)
 	}
 
+	// 맞춘 것이 있으면 저장 문구 뒤에 붙인다. 손대지 않은 줄이 바뀌는 일이라 반드시 보여야
+	// 한다(ADR-0052). 커서가 잘려나간 자리에 서 있었으면 trimTrailingSpace 가 이미 당겨 두었고,
+	// 화면은 그 자리를 다시 잡아야 한다.
+	m.scrollToCursor()
+
 	// 저장은 dirty 를 바꾸므로 주기 갱신을 기다리지 않는다(ADR-0030).
 	refresh := m.startGitRefresh()
 
-	model, next := normalModeMessage(m.editor, "저장함: "+buf.path)
+	// 저장했다는 것이 앞이고 맞춘 것이 뒤다. 무엇을 했는지가 먼저 오고 곁들여 무엇이
+	// 달라졌는지가 따라온다.
+	//
+	// **경로는 줄여 적는다.** 트리나 팔레트로 연 파일은 절대 경로라, 그대로 두면 좁은 화면에서
+	// 경로가 줄을 다 먹고 뒤에 붙인 문구가 잘린다. 줄이는 법은 `GOTO` 목록과 같다(view-locations.go).
+	message := "저장함: " + shortenPath(buf.path)
+	if note != "" {
+		message += "  " + note
+	}
+
+	model, next := normalModeMessage(m.editor, message)
 
 	return model, tea.Batch(next, refresh)
 }

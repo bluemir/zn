@@ -44,6 +44,10 @@ func Run(ctx context.Context, files []string) error {
 		e.sidebar.setRevealTarget(e.activeBuffer().path)
 	}
 
+	// 언어 서버는 Go 파일을 열 때 뜬다(ADR-0051). 나가는 길에 내리는 자리는 여기 하나다 —
+	// Program 이 돌아온 뒤가 편집기의 마지막이다.
+	defer e.shutdownGopls()
+
 	first, _ := normalMode(e)
 
 	// 들어오는 이벤트를 로그로 남긴다. `-vv` 와 `--log-file` 이 둘 다 있어야 실제로 쓰인다 —

@@ -14,6 +14,27 @@ import (
 // wide 는 wrap 이 일어나지 않을 만큼 넓은 화면이다.
 const wide = 1000
 
+// saveBuffer, saveBufferForce 는 시험이 저장을 부르는 자리다.
+//
+// 저장이 `.editorconfig` 를 따라 파일을 맞추게 되면서 문구가 하나 더 나오는데(ADR-0052),
+// 여기 시험들이 보는 것은 그것이 아니라 「쓰였는가」다. 맞추기만 보는 시험은 따로 있다
+// (editorconfig_test.go).
+func saveBuffer(t *testing.T, buf *Buffer) error {
+	t.Helper()
+
+	_, err := buf.Save(wide)
+
+	return err
+}
+
+func saveBufferForce(t *testing.T, buf *Buffer) error {
+	t.Helper()
+
+	_, err := buf.SaveForce(wide)
+
+	return err
+}
+
 func TestNewBuffer(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -127,7 +148,7 @@ func TestBufferSaveRoundTrip(t *testing.T) {
 
 			buf, err := OpenBuffer(path)
 			require.NoError(t, err)
-			require.NoError(t, buf.Save())
+			require.NoError(t, saveBuffer(t, &buf))
 
 			saved, err := os.ReadFile(path)
 			require.NoError(t, err)
@@ -154,7 +175,7 @@ func TestBufferSaveKeepsFileMode(t *testing.T) {
 
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	info, err := os.Stat(path)
 	require.NoError(t, err)
@@ -172,7 +193,7 @@ func TestBufferSaveRefusesWhenFileChangedOutside(t *testing.T) {
 	buf.insert([]byte("X"), wide)
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
-	err = buf.Save()
+	err = saveBuffer(t, &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "바뀌었습니다")
@@ -194,7 +215,7 @@ func TestBufferSaveForceOverwritesChangedFile(t *testing.T) {
 	buf.insert([]byte("X"), wide)
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
-	require.NoError(t, buf.SaveForce())
+	require.NoError(t, saveBufferForce(t, &buf))
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -213,7 +234,7 @@ func TestBufferSaveAllowsRewriteWithSameContent(t *testing.T) {
 	buf.insert([]byte("X"), wide)
 	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -229,10 +250,10 @@ func TestBufferSaveTwice(t *testing.T) {
 	require.NoError(t, err)
 
 	buf.insert([]byte("X"), wide)
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	buf.insert([]byte("Y"), wide)
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -249,7 +270,7 @@ func TestBufferSaveRefusesWhenFileAppeared(t *testing.T) {
 	buf.insert([]byte("X"), wide)
 	require.NoError(t, os.WriteFile(path, []byte("남이 만든 것\n"), 0644))
 
-	err = buf.Save()
+	err = saveBuffer(t, &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "새로 생겼습니다")
@@ -267,7 +288,7 @@ func TestBufferSaveCreatesNewFile(t *testing.T) {
 	require.NoError(t, err)
 
 	buf.insert([]byte("X"), wide)
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -285,13 +306,13 @@ func TestBufferSaveRefusesWhenFileRemoved(t *testing.T) {
 	buf.insert([]byte("X"), wide)
 	require.NoError(t, os.Remove(path))
 
-	err = buf.Save()
+	err = saveBuffer(t, &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "사라졌습니다")
 	assert.NoFileExists(t, path)
 
-	require.NoError(t, buf.SaveForce(), "`:w!` 로 다시 만들 수 있다")
+	require.NoError(t, saveBufferForce(t, &buf), "`:w!` 로 다시 만들 수 있다")
 	assert.FileExists(t, path)
 }
 
@@ -326,7 +347,7 @@ func TestBufferReloadResetsDiskHash(t *testing.T) {
 	require.NoError(t, buf.Reload())
 
 	buf.insert([]byte("X"), wide)
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)

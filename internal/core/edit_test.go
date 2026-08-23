@@ -282,7 +282,7 @@ func TestSaveAfterEdit(t *testing.T) {
 
 			buf.cursorCol = 2
 			buf.insert([]byte("X"), wide)
-			require.NoError(t, buf.Save())
+			require.NoError(t, saveBuffer(t, &buf))
 
 			saved, err := os.ReadFile(path)
 			require.NoError(t, err)
@@ -301,7 +301,7 @@ func TestSaveAfterNewline(t *testing.T) {
 
 	buf.cursorCol = 2
 	buf.insert([]byte("\n"), wide)
-	require.NoError(t, buf.Save())
+	require.NoError(t, saveBuffer(t, &buf))
 
 	saved, err := os.ReadFile(path)
 	require.NoError(t, err)

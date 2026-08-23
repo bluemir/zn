@@ -281,3 +281,81 @@ func TestNormalKeyParserOperatorShowcmd(t *testing.T) {
 		})
 	}
 }
+
+// leader(`\`) 는 접두 키가 두 키인 유일한 자리다. `\gd` 가 정의로 간다(ADR-0051).
+func TestNormalKeyParserLeader(t *testing.T) {
+	t.Run("\\gd 는 정의로 간다", func(t *testing.T) {
+		built, state := pressAll("\\", "g", "d")
+
+		assert.Equal(t, actionGotoDefinition{}, built)
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	t.Run("\\ 하나는 기다린다", func(t *testing.T) {
+		built, state := pressAll("\\")
+
+		assert.Nil(t, built)
+		assert.Equal(t, "\\", state.showcmd())
+	})
+
+	t.Run("\\g 도 기다린다", func(t *testing.T) {
+		built, state := pressAll("\\", "g")
+
+		assert.Nil(t, built)
+		assert.Equal(t, "\\g", state.showcmd())
+	})
+
+	// `\g` 뒤에 짝이 없는 키가 오면 그 자리에서 끝난다. 다음 키까지 삼키지 않는다.
+	t.Run("짝 없는 조합은 그 자리에서 끝난다", func(t *testing.T) {
+		built, state := pressAll("\\", "g", "z")
+
+		assert.Nil(t, built)
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	// `\` 뒤에 `g` 가 아닌 키가 오면 접두 키가 자라지 않고 끝난다.
+	t.Run("leader 뒤의 모르는 키", func(t *testing.T) {
+		built, state := pressAll("\\", "x")
+
+		assert.Nil(t, built)
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	// leader 를 잘못 짚고 이어 치는 것이 다음 동작을 먹지 않는지 본다.
+	t.Run("무른 뒤의 키는 그대로 동작이 된다", func(t *testing.T) {
+		built, _ := pressAll("\\", "x", "j")
+
+		assert.Equal(t, actionMove{motion: motionLineDown{}}, built)
+	})
+
+	// operator 뒤에는 올 수 없다. `d\gd` 는 아무것도 아니다 — 정의로 가는 것은 범위가 아니다.
+	t.Run("operator 뒤에는 짝이 없다", func(t *testing.T) {
+		built, state := pressAll("d", "\\", "g", "d")
+
+		assert.Nil(t, built)
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	// `gg` 는 그대로다. leader 를 더한 것이 한 글자 접두 키를 건드리지 않는다.
+	t.Run("gg 는 그대로다", func(t *testing.T) {
+		built, _ := pressAll("g", "g")
+
+		assert.Equal(t, actionMove{motion: motionToFirstLine{}}, built)
+	})
+}
+
+// 한글 자판에서 leader 자리의 키는 원화 기호를 낸다. 그것도 leader 다(ADR-0014, ADR-0051).
+func TestNormalKeyParserLeaderInHangul(t *testing.T) {
+	built, state := pressAll("₩", "g", "d")
+
+	assert.Equal(t, actionGotoDefinition{}, built)
+	assert.Equal(t, normalStart{}, state)
+
+	// 문 앞에서 `\` 로 맞추므로 showcmd 도 어느 글자로 들어왔는지와 무관하다.
+	_, state = pressAll("₩")
+	assert.Equal(t, "\\", state.showcmd())
+
+	// 한글 상태로 친 `\gd` 는 `g`·`d` 자리가 `ㅎ`·`ㅇ` 로 온다. 파서가 되돌린다.
+	built, _ = pressAll("₩", "ㅎ", "ㅇ")
+	assert.Equal(t, actionGotoDefinition{}, built)
+}

@@ -211,9 +211,37 @@ func prefixAction(prefix, key string) action {
 		case "ctrl+w", "w":
 			return actionFocusTree{}
 		}
+	case leaderKey + "g":
+		switch key {
+		case "d":
+			return actionGotoDefinition{}
+		}
 	}
 
 	return nil
+}
+
+// leaderKey 는 vim 의 `<Leader>` 기본값이다. 이 키로 시작하는 조합은 vim 이 비워 둔 자리라
+// 우리가 붙이는 것과 부딪히지 않는다.
+const leaderKey = "\\"
+
+// leaderWon 은 한글 입력 상태에서 같은 자리의 키가 내는 글자다.
+//
+// 한글 자판에서 그 키는 `\` 가 아니라 원화 기호를 낸다. `ctrl` 조합은 터미널에게 PC-101
+// 자리를 물어서 풀었지만(ADR-0014) 이것은 modifier 가 없어서 그 길이 없다 — 글자를 보고
+// 아는 수밖에 없다.
+//
+// 자모가 아니라서 한글 되돌리기(expandHangul) 를 지나오지 않는다. 그래서 여기서 받는다.
+// 다른 쓸모가 없는 글자라 부딪힐 것도 없다.
+const leaderWon = "₩"
+
+// expectsMoreKeys 는 그 접두 키 뒤에 키가 **또** 붙어야 하는지다.
+//
+// 접두 키가 두 키를 넘는 것은 leader 뿐이다 — `\gd` 는 세 키다. `\g` 까지 온 것만 여기서
+// 참이고, 짝이 없는 `\x` 는 거짓이라 그 자리에서 아무 일도 없이 끝난다. 접두 키를 잘못
+// 짚었을 때 다음 키까지 삼키지 않는다.
+func expectsMoreKeys(prefix string) bool {
+	return prefix == leaderKey+"g"
 }
 
 // normalState 는 normal mode 가 키를 받아가며 옮겨 다니는 상태다.
@@ -295,6 +323,12 @@ func (s normalStart) press(key string) ([]action, normalState) {
 	case "g", "ctrl+w":
 		// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
 		return nil, normalPending{building: s.building, prefix: key}
+	case leaderKey, leaderWon:
+		// leader 는 뒤에 둘이 더 붙는다(`\gd`) — 몇 개가 남았는지는 normalPending 이 안다.
+		//
+		// 한글 자판의 원화 기호도 여기서 leader 가 된다. **문 앞에서 `\` 로 맞춰 둔다** —
+		// 그러면 접두 키를 쌓는 자리와 showcmd 가 어느 글자로 들어왔는지 몰라도 된다.
+		return nil, normalPending{building: s.building, prefix: leaderKey}
 	case "r":
 		// 뒤에 바꿔 넣을 글자 한 개가 붙는다.
 		return nil, normalReplace{building: s.building}
@@ -382,6 +416,11 @@ func (s normalPending) press(key string) ([]action, normalState) {
 		return pressExpanded(s, keys)
 	}
 	key = keys[0]
+
+	// 접두 키가 자라는 중이다. `\` 뒤의 `g` 가 여기로 와서 `\g` 가 되고, 뜻은 그다음 키가 정한다.
+	if next := s.prefix + key; expectsMoreKeys(next) {
+		return nil, normalPending{building: s.building, prefix: next, count: s.count}
+	}
 
 	if mo, ok := prefixMotion(s.prefix, key); ok {
 		return one(s.building.apply(mo, s.count)), normalStart{}

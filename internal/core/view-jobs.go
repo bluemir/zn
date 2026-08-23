@@ -65,10 +65,13 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
 		// 진행이 오면 목록이 그대로 자란다. 고른 자리는 유지하고 범위만 맞춘다 —
 		// 작업 하나가 끝날 때마다 커서가 튀면 취소하려던 것을 놓친다.
-		cmd := m.handleJob(msg)
+		next, cmd := m.handleJob(msg)
+		if next != nil {
+			return next, cmd
+		}
 		m.scrollTo()
 
 		return m, cmd

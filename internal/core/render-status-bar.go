@@ -37,6 +37,12 @@ func (e editor) renderStatusBar(mode, bottom string) []string {
 		path += " [!]"
 	}
 
+	// 읽기 전용은 잃을 것이 있다는 표시가 아니라 애초에 고칠 수 없다는 것이다. 정의로 뛰어
+	// 열린 표준 라이브러리·의존 모듈의 파일이 이것이다(ADR-0051).
+	if buf.readOnly {
+		path += " [읽기 전용]"
+	}
+
 	// 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.
 	// 자르는 것이 채우는 것보다 먼저다 — 두 칸짜리 글자가 경계에 걸치면 통째로 버려진다.
 	left, text := "", mode+"  "+path
