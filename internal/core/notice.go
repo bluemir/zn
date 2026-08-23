@@ -50,6 +50,9 @@ func (e *editor) notifyError(err error) {
 var (
 	errOpenFile     = errors.New("열 수 없습니다")
 	errWriteFile    = errors.New("쓸 수 없습니다")
+	errCreateFile   = errors.New("만들 수 없습니다")
+	errRemoveFile   = errors.New("지울 수 없습니다")
+	errRenameFile   = errors.New("이름을 바꿀 수 없습니다")
 	errNoWorkingDir = errors.New("지금 디렉터리를 찾을 수 없습니다")
 )
 
@@ -101,6 +104,12 @@ func failedAction(err error) string {
 		return errOpenFile.Error()
 	case errors.Is(err, errWriteFile):
 		return errWriteFile.Error()
+	case errors.Is(err, errCreateFile):
+		return errCreateFile.Error()
+	case errors.Is(err, errRemoveFile):
+		return errRemoveFile.Error()
+	case errors.Is(err, errRenameFile):
+		return errRenameFile.Error()
 	case errors.Is(err, errNoWorkingDir):
 		return errNoWorkingDir.Error()
 	}

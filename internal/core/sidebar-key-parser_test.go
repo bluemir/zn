@@ -38,6 +38,13 @@ func TestSidebarKeyParser(t *testing.T) {
 		{name: "접두 키 뒤에서 이름이 완성된다", keys: []string{"ctrl+w", "ctrl+w"}, want: "ctrl+w ctrl+w"},
 		{name: "ctrl+w w 도 같은 모양이다", keys: []string{"ctrl+w", "w"}, want: "ctrl+w w"},
 
+		// `m` 도 접두 키다. 파일을 만들고 지우고 이름을 바꾸는 셋이 그 뒤에 있다(ADR-0054).
+		{name: "m 은 다음 키를 기다린다", keys: []string{"m"}, want: ""},
+		{name: "m c 는 만들기다", keys: []string{"m", "c"}, want: "m c"},
+		{name: "m d 는 지우기다", keys: []string{"m", "d"}, want: "m d"},
+		{name: "m m 은 이름 바꾸기다", keys: []string{"m", "m"}, want: "m m"},
+		{name: "짝이 없는 m 조합도 이름이 된다", keys: []string{"m", "x"}, want: "m x"},
+
 		// 접두 키 뒤에서는 무엇이 와도 이름이 완성된다. 짝이 없는 조합은 실행하는 쪽이 버린다.
 		// 이것이 `ctrl+w esc` 가 트리를 나가지 않는 이유다.
 		{name: "접두 키가 esc 를 삼킨다", keys: []string{"ctrl+w", "esc"}, want: "ctrl+w esc"},
@@ -74,4 +81,7 @@ func TestSidebarShowcmd(t *testing.T) {
 
 	_, state = pressAllSidebar("ctrl+w", "w")
 	assert.Equal(t, "", state.showcmd(), "이름이 완성되면 사라진다")
+
+	_, state = pressAllSidebar("m")
+	assert.Equal(t, "m", state.showcmd(), "파일 접두 키도 같은 자리에 보인다")
 }

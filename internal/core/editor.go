@@ -281,6 +281,70 @@ func (e editor) tabOf(path string) (int, bool) {
 	return 0, false
 }
 
+// openTabUnder 는 그 자리에 딸린 파일 중 tab 에 열린 것을 준다. 없으면 ok 가 false 다.
+//
+// 트리에서 지우기가 이것을 먼저 묻는다. 열려 있는 파일을 지우면 buffer 와 디스크가 어긋난
+// 채로 남아서, `:w` 한 번에 지운 것이 되살아나거나 tabline 이 없는 파일을 가리킨다.
+// 그 상태를 만들지 않고 먼저 닫으라고 돌려보낸다(ADR-0054).
+//
+// isDir 이면 그 아래 전부를 본다 — 디렉터리를 통째로 지우는 것은 안의 파일을 지우는 것이다.
+func (e editor) openTabUnder(path string, isDir bool) (string, bool) {
+	for _, buf := range e.buffers {
+		// 이름 없는 buffer 는 어느 파일도 아니다.
+		if buf.path == "" {
+			continue
+		}
+
+		if samePath(buf.path, path) {
+			return buf.path, true
+		}
+		if !isDir {
+			continue
+		}
+
+		// 디렉터리 안인지는 정규화한 절대 경로로 본다. CLI 로 연 파일은 상대 경로다.
+		abs, err := filepath.Abs(buf.path)
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(abs, path+string(filepath.Separator)) {
+			return buf.path, true
+		}
+	}
+
+	return "", false
+}
+
+// renameBuffers 는 이름이 바뀐 파일을 보고 있는 tab 들의 경로를 새 이름으로 맞춘다.
+//
+// 트리에서 이름을 바꾸면 그 파일을 열어둔 tab 이 따라간다(ADR-0054). 경로만 갈아끼우므로
+// 편집하던 내용과 커서 자리는 그대로다 — 저장하지 않은 변경도 새 이름으로 저장된다.
+//
+// 파일 내용도 mtime 도 그대로라 바깥 변경 검사(diskSize·diskTime·diskHash) 는 손대지 않는다.
+// 문법 강조는 `syntaxCache.path` 가 buffer 의 경로와 어긋난 것을 보고 스스로 다시 고른다.
+//
+// isDir 이면 그 아래 전부의 앞부분을 갈아끼운다 — 디렉터리를 옮기면 안의 파일도 옮겨진 것이다.
+func (e *editor) renameBuffers(from, to string, isDir bool) {
+	for i := range e.buffers {
+		if e.buffers[i].path == "" {
+			continue
+		}
+
+		// CLI 로 연 파일은 상대 경로다. 트리가 주는 것은 절대 경로라 맞춰 둔다.
+		abs, err := filepath.Abs(e.buffers[i].path)
+		if err != nil {
+			continue
+		}
+
+		switch {
+		case abs == from:
+			e.buffers[i].path = to
+		case isDir && strings.HasPrefix(abs, from+string(filepath.Separator)):
+			e.buffers[i].path = to + abs[len(from):]
+		}
+	}
+}
+
 // samePath 는 두 경로가 같은 파일을 가리키는지다.
 //
 // 정규화해서 비교한다. CLI 로 연 파일은 상대 경로(`internal/core/editor.go`)이고

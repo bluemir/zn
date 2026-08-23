@@ -215,12 +215,34 @@ func (s sidebar) selectedLabel() string {
 		return node.name
 	}
 
-	rel, err := filepath.Rel(s.root, node.path)
-	if err != nil || rel == "." {
+	return s.relLabel(node.path)
+}
+
+// relLabel 은 경로를 뿌리 기준 상대 경로로 바꾼다. 고른 항목과 파일을 만들고 지우는
+// 알림이 모두 이 형태로 말한다 — 같은 파일을 두 가지 이름으로 부르지 않게 한 자리에 둔다.
+//
+// 뿌리 자신은 상대 경로가 `.` 이라 이름으로 부른다. 트리 밖의 경로는 절대 경로 그대로다.
+func (s sidebar) relLabel(path string) string {
+	rel, err := filepath.Rel(s.root, path)
+	if err != nil {
+		return path
+	}
+	if rel == "." {
 		return filepath.Base(s.root) + "/"
 	}
 
 	return rel
+}
+
+// underRoot 는 그 경로가 뿌리 안인지다. 트리가 만들고 지우는 것은 뿌리 안뿐이다 —
+// 이름에 `../` 를 쳐서 트리에 보이지도 않는 자리를 건드리는 길을 막는다.
+func (s sidebar) underRoot(path string) bool {
+	rel, err := filepath.Rel(s.root, path)
+	if err != nil {
+		return false
+	}
+
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // scrollTo 는 고른 항목이 화면 안에 들어오도록 top 을 최소한으로 움직인다.

@@ -6,9 +6,9 @@ package core
 // normalState 를 그대로 쓸 수 없는 것은 normalStart 가 `d`·`y`·`c` 를 operator 로, 숫자를
 // count 로 먹기 때문이다 — 트리에서 `d` 가 다음 키를 삼키면 안 된다(ADR-0005, ADR-0006).
 //
-// 지금 기다리는 모양은 접두 키 하나(`ctrl+w`) 뿐이다. 상태 기계로 둔 것은 트리에서 파일을
-// 만들고 지우고 이름을 바꾸는 것이 들어올 자리이기 때문이다 — 이름을 Enter 까지 모으는 상태와
-// 지우기 확인이 붙으면 필드 하나로는 버티지 못한다(docs/tasks.md).
+// 기다리는 모양은 접두 키 둘(`ctrl+w`·`m`) 이다. 이름을 모으는 것과 지우기 확인은 여기에
+// 상태를 더하지 않고 mode 를 따로 뒀다 — 그 둘은 키가 동작이 아니라 글자이거나 예/아니오라서,
+// 같은 표에 섞으면 한글 파일명이 두벌식 자리로 되돌려진다(ADR-0008, ADR-0054).
 type sidebarState interface {
 	// press 는 키 하나를 먹여 완성된 동작들을 준다. 한글로 온 키를 그대로 받는다.
 	// normalState 의 것과 같은 자리이고 계약도 이 둘뿐이다(normal-key-parser.go).
@@ -46,7 +46,10 @@ func (s sidebarStart) press(key string) ([]string, sidebarState) {
 	key = keys[0]
 
 	// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
-	if key == "ctrl+w" {
+	//
+	// `m` 은 파일을 만들고 지우는 접두 키다(`mc`·`md`). vim 의 mark 가 아니다 —
+	// 트리에는 표시할 자리가 없고, NERDTree 의 파일 메뉴가 이 자리에 있다(ADR-0054).
+	if key == "ctrl+w" || key == "m" {
 		return nil, sidebarPending{prefix: key}
 	}
 
@@ -55,7 +58,7 @@ func (s sidebarStart) press(key string) ([]string, sidebarState) {
 
 func (s sidebarStart) showcmd() string { return "" }
 
-// sidebarPending 은 `ctrl+w` 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
+// sidebarPending 은 `ctrl+w`·`m` 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
 //
 // 다음 키가 무엇이든 이름이 완성된다. 짝이 없는 조합은 실행하는 쪽이 모르는 이름이라
 // 아무 일도 하지 않는다. `esc` 와 `ctrl+c` 도 여기로 와서 버려진다 — 접두 키를 무르는 것이지

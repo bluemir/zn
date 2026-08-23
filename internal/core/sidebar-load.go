@@ -62,6 +62,23 @@ func (e *editor) collapseNode(node *treeNode) {
 	}
 }
 
+// refreshDir 은 그 디렉터리를 다시 읽는다. 파일을 만들거나 지운 뒤 트리를 맞추는 길이다.
+//
+// 접었다 펴는 것이 곧 새로고침이라(ADR-0032) 다시 읽는 것도 expandNode 하나다.
+// 접혀 있던 디렉터리는 이 길에 펼쳐진다 — 방금 그 안에 만든 파일을 보러 가는 자리라
+// 펼쳐지는 것이 맞다.
+//
+// 트리에 아직 없는 자리(뿌리 밖, 읽지 않은 층 아래) 면 아무 일도 하지 않는다.
+// 그 자리는 나중에 펼칠 때 읽으므로 지금 맞출 것이 없다.
+func (e *editor) refreshDir(dir string) tea.Cmd {
+	node := e.sidebar.nodeAt(dir)
+	if node == nil {
+		return nil
+	}
+
+	return e.expandNode(node)
+}
+
 // toggleNode 는 디렉터리를 펼치거나 접는다. 펼치는 쪽은 작업을 시작하므로 Cmd 가 나온다.
 func (e *editor) toggleNode(node *treeNode) tea.Cmd {
 	if node.expanded {
