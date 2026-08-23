@@ -162,7 +162,7 @@ func (m viewEditorSearch) run() (tea.Model, tea.Cmd) {
 	if m.input != "" {
 		compiled, err := parseSearchPattern(m.input)
 		if err != nil {
-			return normalModeMessage(m.editor, err.Error())
+			return normalModeError(m.editor, err)
 		}
 
 		pattern, input = compiled, m.input
@@ -207,7 +207,7 @@ func (m viewEditorSearch) prompt() string {
 // 돌려주면 그 둘이 같은 모양이 되어 `press` 가 mode 가 바뀌었는지 알 수 없다(ADR-0034).
 func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	if e.search.pattern == nil {
-		e.message = "이전 검색이 없습니다"
+		e.notify("이전 검색이 없습니다")
 
 		return
 	}
@@ -222,7 +222,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 		result, ok := buf.find(e.search.pattern, direction, line, col)
 		if !ok {
 			// 하나도 못 찾았으면 커서를 두고 알리기만 한다. 도중까지 옮기면 어디로 갔는지 알 수 없다.
-			e.message = "찾을 수 없음: " + e.search.input
+			e.notify("찾을 수 없음: " + e.search.input)
 
 			return
 		}
@@ -236,7 +236,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	e.scrollToCursor()
 
 	if wrapped {
-		e.message = wrapMessage(direction)
+		e.notify(wrapMessage(direction))
 	}
 }
 
@@ -255,7 +255,7 @@ func (e *editor) searchWord(direction searchDirection, n int) {
 
 	word, col, ok := buf.wordUnderCursor()
 	if !ok {
-		e.message = "커서 아래에 단어가 없습니다"
+		e.notify("커서 아래에 단어가 없습니다")
 
 		return
 	}

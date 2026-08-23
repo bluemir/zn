@@ -4,7 +4,6 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cockroachdb/errors"
 )
 
 // viewSidebar 는 포커스가 좌측 파일 트리에 있는 상태다.
@@ -103,7 +102,7 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // normal mode 와 같은 나눔이고, 도중에 포커스가 옮겨가면 남은 동작은 버린다(ADR-0008).
 func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다. normal 과 같다.
-	m.message = ""
+	m.clearNotice()
 
 	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
 	names, state := m.keyState().press(key)
@@ -192,7 +191,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	// FIFO 나 소켓은 ReadFile 이 영영 돌아오지 않아서 편집기가 통째로 멈춘다.
 	info, err := os.Stat(node.path)
 	if err != nil {
-		return normalModeMessage(m.editor, errors.Cause(err).Error())
+		return normalModeError(m.editor, err)
 	}
 	if !info.Mode().IsRegular() {
 		return normalModeMessage(m.editor, "일반 파일이 아닙니다: "+node.name)
@@ -200,7 +199,7 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 
 	reveal, err := m.openTab(node.path)
 	if err != nil {
-		return normalModeMessage(m.editor, errors.Cause(err).Error())
+		return normalModeError(m.editor, err)
 	}
 	m.scrollToCursor()
 
@@ -215,7 +214,7 @@ func (m viewSidebar) View() tea.View {
 	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
 	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
 	view := m.editorView(tea.CursorBlock, "TREE",
-		m.renderWithShowcmd(m.messageOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
+		m.renderWithShowcmd(m.noticeOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 동작줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.

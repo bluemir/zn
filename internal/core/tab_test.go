@@ -536,7 +536,7 @@ func TestCloseOtherTabsKeepsActiveTab(t *testing.T) {
 	v := m.(viewEditorNormal)
 	assert.Equal(t, 0, v.active)
 	assert.Equal(t, " 1 b.txt", tablineOf(t, v.View()), "보고 있던 tab 이 남는다")
-	assert.Equal(t, "2 개의 tab 을 닫았습니다", v.message)
+	assert.Equal(t, "2 개의 tab 을 닫았습니다", v.notice)
 }
 
 // tab 이 하나뿐이면 닫을 것이 없다. 확인창도 뜨지 않는다.
@@ -547,7 +547,7 @@ func TestCloseOtherTabsWithSingleTab(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1)
-	assert.Equal(t, "닫을 다른 tab 이 없습니다", m.(viewEditorNormal).message)
+	assert.Equal(t, "닫을 다른 tab 이 없습니다", m.(viewEditorNormal).notice)
 }
 
 // 보고 있지 않은 tab 의 변경을 잃게 되므로 묻는다.

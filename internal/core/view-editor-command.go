@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/buildinfo"
 )
@@ -83,7 +82,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 	cmd, err := parseCommand(m.input)
 	if err != nil {
-		return m.fail(err)
+		return normalModeError(m.editor, err)
 	}
 
 	// 인자를 받는 명령은 이 넷뿐이다. 나머지에 붙은 인자를 조용히 버리면
@@ -143,12 +142,16 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 			note, err = buf.Save(m.contentWidth())
 		}
 		if err != nil {
-			return m.fail(err)
+			return normalModeError(m.editor, err)
 		}
 
 		// `.editorconfig` 를 따라 맞춘 것이 있으면 알린다. 마지막 tab 이었으면 편집기가
 		// 여기서 끝나므로 보이지 않는다 — 그때는 파일이 이미 그렇게 쓰였다(ADR-0052).
-		m.message = note
+		// note 는 맞출 것이 없었으면 빈 문자열이다. 빈 알림을 세우지 않는다 —
+		// notify 가 빈 것을 조용히 걸러 주지 않는 것은 일부러다(notice.go).
+		if note != "" {
+			m.notify(note)
+		}
 
 		// 저장은 dirty 를 바꾸는 유일한 편집기 안의 동작이라 주기 갱신을 기다리지 않는다(ADR-0030).
 		// 마지막 tab 이었으면 여기서 편집기가 끝나고, 시작한 갱신은 ctx 가 끊겨 같이 정리된다.
@@ -168,7 +171,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// 이미 열려 있으면 새 tab 을 만들지 않고 그 tab 으로 옮겨간다(ADR-0021).
 		reveal, err := m.openTab(cmd.args[0])
 		if err != nil {
-			return m.fail(err)
+			return normalModeError(m.editor, err)
 		}
 
 		model, next := normalMode(m.editor)
@@ -190,6 +193,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "jobs":
 		// `!` 는 이 명령에서 뜻이 없다. 목록을 열기만 한다.
 		return jobsMode(m.editor)
+	case "messages", "mes":
+		// vim 이 `:mes` 를 줄임말로 받는다. 여기도 같게 둔다(ADR-0053).
+		return messagesMode(m.editor)
 	case "version":
 		// `!` 는 이 명령에서 뜻이 없다. 찍기만 한다.
 		// CLI 의 `--version` 과 같은 줄이다(buildinfo.Describe).
@@ -198,7 +204,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// `!` 는 이 명령에서 뜻이 없다. 그냥 여닫는다.
 		load, err := m.toggleTree()
 		if err != nil {
-			return m.fail(err)
+			return normalModeError(m.editor, err)
 		}
 
 		model, next := normalMode(m.editor)
@@ -237,7 +243,7 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 
 	from, to, err := cmd.lines.resolve(*buf)
 	if err != nil {
-		return m.fail(err)
+		return normalModeError(m.editor, err)
 	}
 
 	removed := buf.deleteLines(from, to, m.contentWidth())
@@ -256,7 +262,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 
 	from, to, err := cmd.lines.resolve(*buf)
 	if err != nil {
-		return m.fail(err)
+		return normalModeError(m.editor, err)
 	}
 
 	copied := buf.yankLines(from, to)
@@ -276,7 +282,7 @@ func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
 
 	_, to, err := cmd.lines.resolve(*buf)
 	if err != nil {
-		return m.fail(err)
+		return normalModeError(m.editor, err)
 	}
 
 	buf.cursorLine = to
@@ -327,7 +333,7 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 		err = buf.SaveTo(path)
 	}
 	if err != nil {
-		return m.fail(err)
+		return normalModeError(m.editor, err)
 	}
 	// 저장하면 저장소가 dirty 가 된다. 주기 갱신을 기다리지 않고 여기서 맞춘다(ADR-0009, ADR-0030).
 	refresh := m.startGitRefresh()
@@ -363,7 +369,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 		note, err = buf.Save(m.contentWidth())
 	}
 	if err != nil {
-		return m.fail(err)
+		return normalModeError(m.editor, err)
 	}
 
 	// 맞춘 것이 있으면 저장 문구 뒤에 붙인다. 손대지 않은 줄이 바뀌는 일이라 반드시 보여야
@@ -427,7 +433,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 	reveal, err := e.replaceTab(path)
 	if err != nil {
-		return normalModeMessage(e, errors.Cause(err).Error())
+		return normalModeError(e, err)
 	}
 
 	// 갈아끼운 buffer 는 맨 위에서 시작하지만, 옮겨간 tab 은 보던 자리를 그대로 이어받는다.
@@ -438,11 +444,6 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 
 	// 파일을 여는 것은 바깥에서 `commit`·`checkout` 을 하고 돌아온 직후일 때가 많다(ADR-0030).
 	return model, tea.Batch(cmd, e.startGitRefresh(), reveal)
-}
-
-// fail 은 명령이 실패했음을 아래 줄에 알리고 normal 로 돌아간다.
-func (m viewEditorCommand) fail(err error) (tea.Model, tea.Cmd) {
-	return normalModeMessage(m.editor, errors.Cause(err).Error())
 }
 
 func (m viewEditorCommand) View() tea.View {

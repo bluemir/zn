@@ -23,7 +23,7 @@ import (
 // 같이 사라지는 것이라 editor 가 아니라 여기 있다(ADR-0002).
 func locationsMode(e *editor, title string, locations []lsp.Location) (tea.Model, tea.Cmd) {
 	// 알림은 이 화면이 대신한다. 「후보 N 개」는 제목줄에 적힌다.
-	e.message = ""
+	e.clearNotice()
 
 	return viewLocations{editor: e, title: title, locations: locations}, nil
 }
@@ -82,7 +82,7 @@ func (m viewLocations) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 한글은 되돌린다. 입력줄이 없는 화면이라 `ㅓ` 를 받아도 `j` 로 읽어야 한다(ADR-0008).
 // 한 키가 여럿으로 풀릴 수 있고, 도중에 이 화면을 벗어나면 남은 것은 버린다.
 func (m viewLocations) press(key string) (tea.Model, tea.Cmd) {
-	m.message = ""
+	m.clearNotice()
 
 	var model tea.Model = m
 	for _, expanded := range expandHangul(key) {
@@ -269,7 +269,7 @@ func (m viewLocations) renderBareStatusBar() []string {
 	bare := *m.editor
 	bare.sidebar = sidebar{}
 
-	return bare.renderStatusBar("GOTO", bare.message)
+	return bare.renderStatusBar("GOTO", bare.notice)
 }
 
 // shortenPath 는 화면에 적을 경로다. 이 목록과 저장 문구(view-editor-command.go) 가 나눠 쓴다.

@@ -303,7 +303,7 @@ func (e *editor) finishJob(name string) {
 		})...)
 
 		if running.err != nil && !errors.Is(running.err, context.Canceled) {
-			e.message = running.name + " 실패: " + running.err.Error()
+			e.notifyFailure(running.name + " 실패: " + running.err.Error())
 		}
 
 		return

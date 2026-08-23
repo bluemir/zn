@@ -176,7 +176,7 @@ func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) out
 func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResult) {
 	if result.err != nil {
 		// 읽지 못한 것은 상태가 아니라 사고다. 마커로 남기지 않고 그 자리에서만 알린다.
-		e.message = errors.Cause(result.err).Error()
+		e.notifyError(result.err)
 
 		return
 	}
@@ -195,7 +195,7 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 
 	if result.change != outsideModified || buf.dirty || result.next == nil {
 		if message := markOutsideChange(buf, result.change); message != "" {
-			e.message = message
+			e.notify(message)
 		}
 
 		return
@@ -212,7 +212,7 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 		e.scrollToCursor()
 	}
 
-	e.message = "파일이 밖에서 바뀌어 다시 읽었습니다"
+	e.notify("파일이 밖에서 바뀌어 다시 읽었습니다")
 }
 
 // outsideSummary 는 `:jobs` 에 남기는 한 줄이다. 무엇을 보고 무엇을 알아냈는지가 보인다.

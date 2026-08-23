@@ -47,14 +47,14 @@ func TestStartDefinitionWithoutServer(t *testing.T) {
 		e := &editor{buffers: []Buffer{newEmptyBuffer("README.md")}}
 
 		assert.Nil(t, e.startDefinition())
-		assert.Equal(t, "Go 파일에서만 정의를 찾습니다", e.message)
+		assert.Equal(t, "Go 파일에서만 정의를 찾습니다", e.notice)
 	})
 
 	t.Run("서버를 못 띄운 뒤", func(t *testing.T) {
 		e := &editor{buffers: []Buffer{newEmptyBuffer("main.go")}, goplsFailed: true}
 
 		assert.Nil(t, e.startDefinition())
-		assert.Equal(t, "gopls 가 없어 정의를 찾을 수 없습니다", e.message)
+		assert.Equal(t, "gopls 가 없어 정의를 찾을 수 없습니다", e.notice)
 	})
 
 	t.Run("아직 뜨는 중이다", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestStartDefinitionWithoutServer(t *testing.T) {
 
 		// 뜨는 중이면 새로 걸지 않는다. 알림만 남는다.
 		assert.Nil(t, e.startDefinition())
-		assert.Equal(t, "gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다", e.message)
+		assert.Equal(t, "gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다", e.notice)
 	})
 }
 
@@ -99,7 +99,7 @@ func TestFinishDefinitionMovesCursor(t *testing.T) {
 
 	assert.Equal(t, 2, e.activeBuffer().cursorLine)
 	assert.Equal(t, 13, e.activeBuffer().cursorCol)
-	assert.Empty(t, e.message)
+	assert.Empty(t, e.notice)
 }
 
 // 다른 파일이면 새 tab 으로 열린다.
@@ -149,7 +149,7 @@ func TestFinishDefinitionOpensList(t *testing.T) {
 	assert.Len(t, list.locations, 3)
 	assert.Equal(t, 0, list.selected)
 	assert.Equal(t, 0, e.activeBuffer().cursorLine, "고르기 전에는 커서가 움직이지 않는다")
-	assert.Empty(t, e.message)
+	assert.Empty(t, e.notice)
 }
 
 // 못 찾았거나 실패했으면 그것을 알린다. 커서는 그대로다.
@@ -159,7 +159,7 @@ func TestFinishDefinitionNothing(t *testing.T) {
 	next, cmd := e.finishDefinition(definitionMsg{})
 	assert.Nil(t, next)
 	assert.Nil(t, cmd)
-	assert.Equal(t, "정의를 찾지 못했습니다", e.message)
+	assert.Equal(t, "정의를 찾지 못했습니다", e.notice)
 }
 
 // 서버가 없으면 맞출 것도 없다. tick 이 와도 아무 일도 하지 않아야 한다.

@@ -8,7 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/cockroachdb/errors"
 )
 
 // 박스 크기다. sidebar 의 수치와 같은 자리에 둔다(docs/spec.md).
@@ -37,7 +36,7 @@ func paletteMode(e *editor) (tea.Model, tea.Cmd) {
 	// 트리 뿌리와 같은 기준이다. 화면에 이미 보이고 있어서 무엇을 찾는지 설명할 필요가 없다.
 	root, err := os.Getwd()
 	if err != nil {
-		return normalModeMessage(e, errors.Cause(err).Error())
+		return normalModeError(e, err)
 	}
 
 	// 목록은 백그라운드 작업이 채운다. 열 때마다 새로 읽는 것은 그대로이고(ADR-0011),
@@ -263,7 +262,7 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 	// FIFO 나 소켓은 ReadFile 이 영영 돌아오지 않아서 편집기가 통째로 멈춘다.
 	info, err := os.Stat(path)
 	if err != nil {
-		return normalModeMessage(m.editor, errors.Cause(err).Error())
+		return normalModeError(m.editor, err)
 	}
 	if !info.Mode().IsRegular() {
 		return normalModeMessage(m.editor, "일반 파일이 아닙니다: "+path)
@@ -271,7 +270,7 @@ func (m viewPalette) openFile(path string) (tea.Model, tea.Cmd) {
 
 	reveal, err := m.openTab(path)
 	if err != nil {
-		return normalModeMessage(m.editor, errors.Cause(err).Error())
+		return normalModeError(m.editor, err)
 	}
 	m.scrollToCursor()
 

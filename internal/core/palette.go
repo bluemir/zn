@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/cockroachdb/errors"
 )
 
 // paletteHit 은 거른 결과 한 줄이다.
@@ -268,6 +267,7 @@ var paletteCommands = []paletteCommand{
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
+	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
 }
 
@@ -343,7 +343,7 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if err := buf.Reload(); err != nil {
-		return normalModeMessage(e, errors.Cause(err).Error())
+		return normalModeError(e, err)
 	}
 
 	// 커서 칸은 유지하지만 그 자리가 새 내용에서는 줄 끝 다음일 수 있다.
@@ -396,7 +396,7 @@ func runToggleTree(e *editor) (tea.Model, tea.Cmd) {
 	// 여는 쪽은 뿌리를 읽는 작업을 시작한다. 그 Cmd 를 흘리면 트리가 영영 `… 읽는 중` 이다.
 	load, err := e.toggleTree()
 	if err != nil {
-		return normalModeMessage(e, errors.Cause(err).Error())
+		return normalModeError(e, err)
 	}
 
 	model, next := normalMode(e)

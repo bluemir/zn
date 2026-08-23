@@ -208,7 +208,7 @@ func TestTreeNoticeRowIsInert(t *testing.T) {
 	assert.Nil(t, cmd, "열 것이 없다")
 	require.IsType(t, viewSidebar{}, next, "편집 화면으로 나가지 않는다")
 	assert.Len(t, next.(viewSidebar).buffers, 1, "tab 을 만들지 않는다")
-	assert.Empty(t, next.(viewSidebar).message, "오류도 알리지 않는다")
+	assert.Empty(t, next.(viewSidebar).notice, "오류도 알리지 않는다")
 }
 
 // `… 읽는 중` 은 "지금 보고 있는 파일" 표시를 받지 않는다.

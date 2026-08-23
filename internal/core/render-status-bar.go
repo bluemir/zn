@@ -101,12 +101,12 @@ func (e editor) renderWithStatus(top string) string {
 	return top
 }
 
-// messageOr 는 statusBar 아래 줄에 무엇을 쓸지다. 알림이 있으면 그것이 먼저다.
+// noticeOr 는 statusBar 아래 줄에 무엇을 쓸지다. 알림이 있으면 그것이 먼저다.
 //
 // 명령줄·검색은 그 줄을 자기 입력에 쓰므로 이것을 부르지 않는다.
-func (e editor) messageOr(fallback string) string {
-	if e.message != "" {
-		return e.message
+func (e editor) noticeOr(fallback string) string {
+	if e.notice != "" {
+		return e.notice
 	}
 
 	return fallback

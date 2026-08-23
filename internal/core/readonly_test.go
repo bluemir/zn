@@ -90,7 +90,7 @@ func TestReadOnlyRefusesEditingKeys(t *testing.T) {
 			model := send(m, pressed...)
 
 			assert.Equal(t, before, string(e.activeBuffer().contents()), "파일이 바뀌었다")
-			assert.Equal(t, "읽기 전용 파일입니다", e.message)
+			assert.Equal(t, "읽기 전용 파일입니다", e.notice)
 			assert.False(t, e.activeBuffer().dirty)
 
 			// mode 도 바뀌지 않는다. `i` 가 insert 로 들어가면 다음 글자가 파일로 간다.
@@ -113,11 +113,11 @@ func TestReadOnlyAllowsMovingAndYanking(t *testing.T) {
 
 	send(m, "j", "j")
 	assert.Equal(t, 2, e.activeBuffer().cursorLine)
-	assert.NotEqual(t, "읽기 전용 파일입니다", e.message)
+	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 
 	send(m, "y", "y")
 	assert.Len(t, e.register.lines, 1)
-	assert.NotEqual(t, "읽기 전용 파일입니다", e.message)
+	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 }
 
 // statusBar 에 읽기 전용임이 보인다. 고치려 하기 전에 알 수 있어야 한다.

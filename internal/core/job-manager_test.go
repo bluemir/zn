@@ -176,5 +176,5 @@ func TestCancelledJobStaysCancelledWhenJobSaysNothing(t *testing.T) {
 
 	require.Len(t, e.finished, 1)
 	assert.Equal(t, "취소됨", e.finished[0].label())
-	assert.Empty(t, e.message, "취소는 알리지 않는다")
+	assert.Empty(t, e.notice, "취소는 알리지 않는다")
 }

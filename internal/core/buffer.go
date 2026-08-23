@@ -159,7 +159,10 @@ func OpenBuffer(path string) (Buffer, error) {
 		return newEmptyBuffer(path), nil
 	}
 	if err != nil {
-		return Buffer{}, errors.Wrapf(err, "cannot read %s", path)
+		// **무엇을 하려 했는지만 표시하고 문구는 짓지 않는다.** 경로와 까닭은 os 가 준
+		// `*os.PathError` 가 이미 들고 있어서, 글자로 부수면 그 구조를 버리는 것이 된다.
+		// 한 줄로 만드는 자리는 보여 주는 곳 하나다(notice.go 의 noticeText, ADR-0053).
+		return Buffer{}, errors.Mark(err, errOpenFile)
 	}
 
 	return newBuffer(path, data), nil
@@ -793,7 +796,7 @@ func (buf *Buffer) saveTo(path string) error {
 	out := buf.contents()
 
 	if err := os.WriteFile(path, out, 0644); err != nil {
-		return errors.Wrapf(err, "cannot write %s", path)
+		return errors.Mark(err, errWriteFile)
 	}
 
 	if buf.path == "" {
@@ -847,7 +850,7 @@ func (buf *Buffer) Reload() error {
 		// OpenBuffer 가 없는 파일을 빈 buffer 로 여는 것과 여기서 갈리는 이유다.
 		return errors.Errorf("파일이 없습니다: %s", buf.path)
 	case err != nil:
-		return errors.Wrapf(err, "cannot read %s", buf.path)
+		return errors.Mark(err, errOpenFile)
 	}
 
 	*buf = buf.adopt(newBuffer(buf.path, data))
@@ -975,7 +978,7 @@ func (buf *Buffer) write() error {
 
 	// 이미 있는 파일은 원래 권한을 유지한다. 0644 는 새로 만들 때만 쓰인다.
 	if err := os.WriteFile(buf.path, out, 0644); err != nil {
-		return errors.Wrapf(err, "cannot write %s", buf.path)
+		return errors.Mark(err, errWriteFile)
 	}
 
 	// 방금 쓴 것이 새 기준이다. 이어서 저장할 때 자기가 쓴 것을 남의 변경으로 보지 않는다.

@@ -261,11 +261,11 @@ func TestWriteCommandShowsNote(t *testing.T) {
 
 	runCommand(m, "w")
 
-	assert.Contains(t, e.message, "저장함: ")
-	assert.Contains(t, e.message, ".editorconfig: 줄끝 공백 2 줄 지움")
+	assert.Contains(t, e.notice, "저장함: ")
+	assert.Contains(t, e.notice, ".editorconfig: 줄끝 공백 2 줄 지움")
 
 	// 저장했다는 것이 앞이고 맞춘 것이 뒤다.
-	assert.Less(t, strings.Index(e.message, "저장함"), strings.Index(e.message, ".editorconfig"))
+	assert.Less(t, strings.Index(e.notice, "저장함"), strings.Index(e.notice, ".editorconfig"))
 }
 
 // 경로는 줄여 적는다. 트리나 팔레트로 연 파일은 절대 경로라, 그대로 두면 좁은 화면에서
@@ -289,8 +289,8 @@ func TestWriteCommandShortensPath(t *testing.T) {
 
 	runCommand(viewEditorNormal{editor: e}, "w")
 
-	assert.Equal(t, "저장함: "+filepath.Join(filepath.Base(dir), "a.txt"), e.message)
-	assert.NotContains(t, e.message, cwd, "절대 경로를 그대로 적지 않는다")
+	assert.Equal(t, "저장함: "+filepath.Join(filepath.Base(dir), "a.txt"), e.notice)
+	assert.NotContains(t, e.notice, cwd, "절대 경로를 그대로 적지 않는다")
 }
 
 // `:w <다른 파일>` 은 사본을 쓰는 길이라 맞추지 않는다. 보고 있는 파일이 그대로여야 한다.

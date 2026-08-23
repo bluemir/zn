@@ -72,11 +72,19 @@ type editor struct {
 	jobs     []job
 	finished []job
 
-	// message 는 명령 결과나 오류다. 다음 키를 누르면 사라진다.
+	// notice 는 지금 아래 줄에 떠 있는 알림이다. 다음 키를 누르면 사라진다.
 	//
 	// mode 가 아니라 여기 있는 것은 백그라운드 작업의 실패가 어느 mode 에서든 도착하기 때문이다.
 	// 아래 줄에 그리는 것은 normal·insert·트리뿐이다 — 명령줄과 검색은 그 줄을 자기가 쓴다.
-	message string
+	//
+	// **여기에 직접 대입하지 않는다.** 쓰는 자리는 notice.go 의 notify·notifyError·
+	// notifyFailure·clearNotice 넷뿐이다. 직접 넣으면 그 알림이 기록에서 빠진다(ADR-0053).
+	notice string
+
+	// notices 는 지금까지 뜬 알림 전부다. `:messages` 가 이것을 보여준다.
+	//
+	// 상한이 없다. 왜 두지 않는지는 notice.go 의 record 에 적었다.
+	notices []notice
 
 	// files 는 팔레트가 고르는 파일 목록이다. 인덱싱 작업이 채운다.
 	// 팔레트를 닫아도 남는다 — 인덱싱은 팔레트보다 오래 살고, 다시 열면 모아둔 것부터 보인다.
@@ -366,7 +374,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 	} else {
 		root, err := os.Getwd()
 		if err != nil {
-			return nil, errors.Wrap(err, "cannot find current directory")
+			return nil, errors.Mark(err, errNoWorkingDir)
 		}
 
 		e.sidebar = openSidebar(root)

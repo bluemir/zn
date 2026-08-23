@@ -79,6 +79,15 @@ var (
 	styleDetail = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 )
 
+// styleNoticeFailed 는 실패한 알림의 색이다(ADR-0053).
+//
+// 256 색 고정값이 아니라 ANSI 1 이다 — 절대 줄번호가 ANSI 3(노랑) 을 쓰는 것과 같은 자리다.
+// 「빨강」은 터미널 테마마다 다르게 정해 두는 색이고, 여기서 필요한 것은 특정 빨강이 아니라
+// **그 테마가 실패라고 부르는 색**이다(ADR-0007, ADR-0041).
+//
+// 색만으로 갈래를 나타내지는 않는다. 목록이 오류 줄에 `!` 도 같이 찍는다(view-messages.go).
+var styleNoticeFailed = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+
 // styleSyntax 는 토큰 갈래별 색이다.
 //
 // **색은 core 가 정한다** — syntax 패키지는 갈래만 주고 색을 모른다(internal/syntax).

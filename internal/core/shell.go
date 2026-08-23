@@ -103,7 +103,7 @@ func (e *editor) finishShell(err error) tea.Cmd {
 	signaled := errors.As(err, &exit) && exit.ExitCode() == -1
 
 	if err != nil && !signaled {
-		e.message = "셸 명령이 실패했습니다: " + err.Error()
+		e.notifyFailure("셸 명령이 실패했습니다: " + err.Error())
 	}
 
 	return e.startOutsideCheck()

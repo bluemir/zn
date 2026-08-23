@@ -80,7 +80,7 @@ func TestFinishShellReportsOnlyFailure(t *testing.T) {
 
 		e.finishShell(nil)
 
-		assert.Empty(t, e.message)
+		assert.Empty(t, e.notice)
 	})
 
 	t.Run("실패는 아래 줄에 남는다", func(t *testing.T) {
@@ -88,7 +88,7 @@ func TestFinishShellReportsOnlyFailure(t *testing.T) {
 
 		e.finishShell(assert.AnError)
 
-		assert.Contains(t, e.message, "셸 명령이 실패했습니다")
+		assert.Contains(t, e.notice, "셸 명령이 실패했습니다")
 	})
 
 	// `ctrl+c` 로 끊은 것은 실패가 아니다. 그만하라고 한 사람이 결과를 이미 안다(ADR-0027).
@@ -103,7 +103,7 @@ func TestFinishShellReportsOnlyFailure(t *testing.T) {
 
 		e.finishShell(err)
 
-		assert.Empty(t, e.message)
+		assert.Empty(t, e.notice)
 	})
 }
 

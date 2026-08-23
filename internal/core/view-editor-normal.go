@@ -16,7 +16,19 @@ func normalMode(e *editor) (tea.Model, tea.Cmd) {
 // normalModeMessage 는 명령 결과를 아래 줄에 띄운 채로 normal 로 돌아간다.
 // 알림은 mode 밖(editor)에 있다 — 백그라운드 작업의 실패가 어느 mode 에서든 도착한다.
 func normalModeMessage(e *editor, message string) (tea.Model, tea.Cmd) {
-	e.message = message
+	e.notify(message)
+
+	return normalMode(e)
+}
+
+// normalModeError 는 실패를 알린 채로 normal 로 돌아간다.
+//
+// 예전에는 이것이 command mode 의 메서드(`fail`) 여서 팔레트·트리·검색이 쓸 수 없었고,
+// 그쪽은 `normalModeMessage(e, errors.Cause(err).Error())` 를 손으로 되풀이했다. 그러면
+// 기록에 남길 때 「이 알림이 오류인가」를 문구만 보고는 알 수 없다 — 갈래를 type 으로
+// 가르려면 오류가 `error` 인 채로 여기까지 와야 한다(notice.go, ADR-0053).
+func normalModeError(e *editor, err error) (tea.Model, tea.Cmd) {
+	e.notifyError(err)
 
 	return normalMode(e)
 }
@@ -135,7 +147,7 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 자체가 사고이므로 사고가 편집을 일으키는 것보다 아무 일도 안 나는 것이 낫다(ADR-0008).
 func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 	// 알림은 다음 키를 누르면 사라진다.
-	m.message = ""
+	m.clearNotice()
 
 	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
 	actions, state := m.keyState().press(key)
@@ -165,5 +177,5 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorNormal) View() tea.View {
 	// 커서가 글자 위에 있으므로 블록이다.
 	return m.editorView(tea.CursorBlock, "NORMAL",
-		m.renderWithShowcmd(m.messageOr(m.renderPosition()), m.keyState().showcmd()))
+		m.renderWithShowcmd(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
 }

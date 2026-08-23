@@ -239,6 +239,10 @@ func modeName(model tea.Model) string {
 		return "PALETTE"
 	case viewJobs:
 		return "JOBS"
+	case viewLocations:
+		return "GOTO"
+	case viewMessages:
+		return "MESSAGES"
 	case viewConfirmDiscard:
 		return "CONFIRM"
 	}

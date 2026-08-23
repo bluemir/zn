@@ -83,7 +83,7 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
 // normal·트리와 같은 나눔이고, 도중에 목록을 벗어나면 남은 동작은 버린다(ADR-0008).
 func (m viewJobs) press(key string) (tea.Model, tea.Cmd) {
-	m.message = ""
+	m.clearNotice()
 
 	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
 	names, state := m.keyState().press(key)
@@ -144,7 +144,7 @@ func (m *viewJobs) cancelSelected() {
 
 	selected := rows[m.selected]
 	if selected.cancel == nil {
-		m.message = "이미 끝난 작업입니다"
+		m.notify("이미 끝난 작업입니다")
 
 		return
 	}
@@ -255,7 +255,7 @@ func (m viewJobs) renderBareStatusBar() []string {
 	// 접두 키를 기다리는 동안 먹은 키는 normal·트리와 같이 아래 줄 오른쪽 끝에 붙는다.
 	// 기다리는 상태가 아직 없어서 지금은 늘 빈 문자열이고 아래 줄이 그대로 나간다.
 	// 폭은 트리를 지운 bare 기준이다 — 이 화면은 트리를 덮는다.
-	return bare.renderStatusBar("JOBS", bare.renderWithShowcmd(m.message, m.keyState().showcmd()))
+	return bare.renderStatusBar("JOBS", bare.renderWithShowcmd(m.notice, m.keyState().showcmd()))
 }
 
 // jobsTitleHeight 는 제목줄이 차지하는 줄 수다. tabline 과 같은 자리를 쓴다.

@@ -40,7 +40,7 @@ func (e *editor) refuseReadOnly() bool {
 		return false
 	}
 
-	e.message = "읽기 전용 파일입니다"
+	e.notify("읽기 전용 파일입니다")
 
 	return true
 }

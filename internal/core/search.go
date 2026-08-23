@@ -64,7 +64,13 @@ func parseSearchPattern(input string) (*regexp.Regexp, error) {
 
 	compiled, err := regexp.Compile(prefix + pattern)
 	if err != nil {
-		return nil, errors.Wrap(err, "잘못된 패턴")
+		// 감싸지(Wrap) 않고 문구를 짓는다. 바로 위의 `모르는 flag` 와 같은 손이다.
+		//
+		// 감싸면 `errors.Cause` 가 앞말을 벗겨 낸다 — 알림을 세우는 자리가 그것을 부르기
+		// 때문이다(notice.go 의 notifyError). 감싸기는 「어느 파일을 쓰다 났는가」처럼
+		// **사람에게 보일 것이 아닌** 맥락을 붙일 때 쓰고, 사람에게 보일 문구는 이렇게 짓는다
+		// (ADR-0053).
+		return nil, errors.Newf("잘못된 패턴: %v", err)
 	}
 
 	return compiled, nil

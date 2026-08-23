@@ -75,7 +75,7 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
 // viewEditorNormal.press 와 같은 고리다 — 도중에 mode 가 바뀌면 남은 동작은 버린다(ADR-0008).
 func (m viewEditorVisual) press(key string) (tea.Model, tea.Cmd) {
-	m.message = ""
+	m.clearNotice()
 
 	actions, state := m.keyState().press(key)
 	m.state = state
@@ -109,5 +109,5 @@ func (m viewEditorVisual) modeName() string {
 func (m viewEditorVisual) View() tea.View {
 	// 커서가 글자 위에 있으므로 normal 과 같이 블록이다.
 	return m.editorView(tea.CursorBlock, m.modeName(),
-		m.renderWithShowcmd(m.messageOr(m.renderPosition()), m.keyState().showcmd()))
+		m.renderWithShowcmd(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
 }

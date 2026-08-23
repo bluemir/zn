@@ -125,7 +125,7 @@ func (e *editor) finishGopls(msg goplsReadyMsg) tea.Cmd {
 
 	if msg.err != nil {
 		e.goplsFailed = true
-		e.message = msg.err.Error()
+		e.notifyError(msg.err)
 
 		return nil
 	}
@@ -216,19 +216,19 @@ func (e *editor) startDefinition() tea.Cmd {
 
 	path, ok := goplsPath(buf.path)
 	if !ok {
-		e.message = "Go 파일에서만 정의를 찾습니다"
+		e.notify("Go 파일에서만 정의를 찾습니다")
 
 		return nil
 	}
 
 	if e.gopls == nil {
 		if e.goplsFailed {
-			e.message = "gopls 가 없어 정의를 찾을 수 없습니다"
+			e.notify("gopls 가 없어 정의를 찾을 수 없습니다")
 
 			return nil
 		}
 
-		e.message = "gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다"
+		e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
 
 		return e.startGopls()
 	}
@@ -240,7 +240,7 @@ func (e *editor) startDefinition() tea.Cmd {
 		Character: lsp.UTF16Column(buf.lines[buf.cursorLine], buf.cursorCol),
 	}
 
-	e.message = "정의를 찾는 중입니다"
+	e.notify("정의를 찾는 중입니다")
 
 	return func() tea.Msg {
 		// 묻기 직전에 전문으로 맞춘다. 저장하지 않은 편집도 이 한 번으로 서버에 닿으므로,
@@ -265,14 +265,14 @@ func (e *editor) startDefinition() tea.Cmd {
 // `charm.land/bubbletea/v2` 에서 28 개였다(ADR-0051).
 func (e *editor) finishDefinition(msg definitionMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		e.message = msg.err.Error()
+		e.notifyError(msg.err)
 
 		return nil, nil
 	}
 
 	switch len(msg.locations) {
 	case 0:
-		e.message = "정의를 찾지 못했습니다"
+		e.notify("정의를 찾지 못했습니다")
 
 		return nil, nil
 	case 1:
@@ -287,13 +287,13 @@ func (e *editor) finishDefinition(msg definitionMsg) (tea.Model, tea.Cmd) {
 func (e *editor) jumpTo(target lsp.Location) tea.Cmd {
 	cmd, err := e.openTab(target.Path())
 	if err != nil {
-		e.message = err.Error()
+		e.notifyError(err)
 
 		return nil
 	}
 
 	e.moveToLocation(target)
-	e.message = ""
+	e.clearNotice()
 
 	return tea.Batch(cmd, e.startGoplsForOpenFile(target.Path()))
 }
