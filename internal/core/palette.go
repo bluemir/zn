@@ -269,6 +269,7 @@ var paletteCommands = []paletteCommand{
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
+	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
 }
 
 // label 은 화면에 보이는 것 전부를 이어 붙인 것이다. 매칭이 이것을 본다.

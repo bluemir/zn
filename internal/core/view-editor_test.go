@@ -27,9 +27,12 @@ func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
 	return viewEditorNormal{
 		editor: &editor{
 			boxChars: boxUnicode,
-			buffers:  []Buffer{newBuffer(path, []byte(data))},
-			width:    width,
-			height:   height + tablineHeight + statusBarHeight,
+			// 테두리를 unicode 로 두는 것과 같은 약속이다. Ambiguous 를 한 칸으로 그리는
+			// 터미널을 가정해야 격자 폭이 고정된다(ADR-0028, ADR-0056).
+			ambiguousWidth: 1,
+			buffers:        []Buffer{newBuffer(path, []byte(data))},
+			width:          width,
+			height:         height + tablineHeight + statusBarHeight,
 		},
 	}
 }

@@ -94,6 +94,26 @@ type editor struct {
 	// 그 뒤로 바뀌지 않는다(ADR-0028).
 	boxChars boxSet
 
+	// ambiguousWidth 는 이 터미널이 East Asian Width 가 Ambiguous 인 글자를 몇 칸으로
+	// 그리는지다. boxChars 와 같은 자리에서 같이 잰다(ADR-0028).
+	//
+	// 폭 계산(clusterAt) 은 이것을 보지 않고 늘 한 칸으로 센다. 특수문자 격자만 본다 —
+	// `→ ± × °` 가 그 갈래라 두 칸으로 그리는 터미널에서는 칸이 통째로 밀린다(ADR-0056).
+	ambiguousWidth int
+
+	// symbols 는 특수문자 drawer 가 고르는 글자 목록이다. 여는 순간 큐레이션 표로 채우고
+	// 훑는 작업이 나머지를 이어 붙인다(symbol.go).
+	//
+	// symbolsIndexed 는 그 훑기가 끝났는지다. 유니코드 표는 도중에 바뀌지 않으므로
+	// 한 번 끝나면 다시 훑지 않는다 — 열 때마다 다시 읽는 파일 목록과 다른 점이다
+	// (ADR-0011, ADR-0056).
+	symbols        []symbol
+	symbolsIndexed bool
+
+	// drawerHeight 는 하단 drawer 가 편집 영역에서 가져간 행 수다. 0 이면 닫힌 것이다.
+	// 여는 mode 가 세우고 나갈 때 되돌린다(docs/spec.md, ADR-0056).
+	drawerHeight int
+
 	width  int
 	height int
 }

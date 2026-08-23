@@ -21,8 +21,11 @@ func Run(ctx context.Context, files []string) error {
 	// 한 칸으로 확인된 터미널에서만 쓰고, 두 칸이거나 재지 못했으면 ASCII 로 내린다(ADR-0028).
 	//
 	// tea.NewProgram 보다 먼저다. bubbletea 가 stdin 을 읽기 시작하면 답을 그쪽이 가져간다.
+	// 잰 값은 특수문자 격자도 쓰므로 버리지 않고 남긴다(ADR-0056).
+	e.ambiguousWidth = probeAmbiguousWidth()
+
 	switch {
-	case probeAmbiguousWidth() == 1:
+	case e.ambiguousWidth == 1:
 		e.boxChars = boxUnicode
 	default: // fallback option
 		e.boxChars = boxASCII

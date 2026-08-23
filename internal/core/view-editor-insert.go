@@ -48,6 +48,23 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
 			return quitAll(m, m.editor)
+		case "ctrl+p":
+			// 팔레트를 insert 에서도 연다. 글을 쓰다 기호가 필요한 순간이 잦아서
+			// esc 를 한 번 거치게 하지 않는다(ADR-0011 을 여기서 고쳤다, ADR-0056).
+			//
+			// 팔레트는 어디서 열렸는지 기억하지 않으므로 커서를 여기서 normal 자리로
+			// 맞춰 놓고 넘긴다 — `esc` 가 하는 것과 같다. 특수문자 drawer 가 `a` 처럼
+			// 한 칸 오른쪽으로 되돌리므로 치던 자리로 돌아온다.
+			//
+			// **줄 맨 앞(0 칸) 에서만 한 칸 오른쪽에서 시작한다.** 왼쪽으로 갈 자리가 없어
+			// moveLeft 가 아무 일도 안 하는데 drawer 는 그대로 한 칸 나아가기 때문이다.
+			// `i<Esc>a` 가 같은 자리에서 한 칸 움직이는 것과 같고, 되돌리려면 어디서
+			// 열렸는지 기억해야 해서 두었다(ADR-0056).
+			buf.endEdit()
+			buf.moveLeft(1, m.contentWidth())
+			m.scrollToCursor()
+
+			return paletteMode(m.editor)
 		case "esc":
 			// insert mode 의 커서는 글자 사이에 있다. normal 로 돌아오면 왼쪽 글자 위에 선다.
 			// vim 과 같은 동작이라 a<Esc> 는 제자리로 돌아오고 i<Esc> 는 한 글자 왼쪽이 된다.
