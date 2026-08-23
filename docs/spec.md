@@ -96,19 +96,26 @@ a b c                       ← 줄 가운데 공백은 그대로
 
 ### 문법 강조
 
-파일 이름으로 언어를 알아보고 본문에 색을 입힌다(ADR-0039). 아홉 언어다 — golang, markdown,
-html, css, js, python, shell, makefile, dockerfile. 모르는 확장자(`.txt` 등) 는 색이 없다.
+파일 이름으로 언어를 알아보고 본문에 색을 입힌다(ADR-0039). 열한 언어다 — golang, markdown,
+html, css, js, python, shell, makefile, dockerfile, json, yaml. 모르는 확장자(`.txt` 등) 는
+색이 없다.
+
+json 은 계열 넷을 한 lexer 로 훑는다 — `.json`·`.jsonc`·`.json5`·`.hjson` (ADR-0055). 넷이 같은
+모양에 허용하는 것만 달라서 주석·따옴표 없는 키·`'''` 여러 줄 문자열을 어느 확장자에서나 알아본다.
+**강조는 검사가 아니다** — `.json` 에 적은 주석도 주석 색이 입고, 문법이 틀렸다는 것은 그 파일을
+읽는 프로그램이 말한다. yaml(`.yaml`·`.yml`) 은 모양이 아주 달라서 lexer 를 따로 둔다.
 
 갈래 | 색 | 나오는 자리
 --- | --- | ---
 주석 | 108 | 모든 언어 / markdown 의 인용문. **이 표에서 가장 흐리다** — 물러나 있어야 한다
 문자열 | 113 | 따옴표 안 / markdown 의 코드 스팬
 숫자 | 215 | 숫자 literal / css 의 `#fff`
-예약어 | 177 | keyword / html tag 이름, docker 명령, make 지시자, css 속성
-type | 185 | 미리 선언된 이름·새 type / python 의 class, css 선택자, 코드펜스의 언어 이름
+예약어 | 177 | keyword / html tag 이름, docker 명령, make 지시자, css 속성, yaml 의 `---`
+type | 185 | 미리 선언된 이름·새 type / python 의 class, css 선택자, 코드펜스의 언어 이름, yaml 의 `!!str`
 부르는 이름 | 111 | 함수 / make 의 대상 이름
-값 낱말 | 210 | `nil` `true` `None` / html 의 `&amp;`, css 의 값
-값 참조 | 79 | `$(VAR)` `${VAR}` / html 속성 이름, css 사용자 속성
+값 낱말 | 210 | `nil` `true` `None` / html 의 `&amp;`, css 의 값, json·yaml 의 `true` `null`
+값 참조 | 79 | `$(VAR)` `${VAR}` / css 의 `var(--x)`, yaml 의 anchor·alias
+키 | 79 | json·yaml 의 키, html 속성 이름, css 의 `--x` 선언
 제목 | 45 + 굵게 | markdown 의 `#`
 강조 | 177 + 기울임 | markdown 의 `*foo*`
 굵게 | 177 + 굵기 | markdown 의 `**foo**`
@@ -119,8 +126,12 @@ type | 185 | 미리 선언된 이름·새 type / python 의 class, css 선택자
 
 같이 나오는 갈래끼리는 색상이 25 도 이상 갈린다. 반대로 **같이 나오지 않는 갈래는 색을 나눠
 쓴다** — 강조·굵게가 예약어와, 링크가 부르는 이름과 같은 색이다. markdown 에 예약어·부르는
-이름이 없고 코드에 제목·강조·링크가 없어서 한 화면에서 만나지 않는다. 그래서 갈래 열둘이
+이름이 없고 코드에 제목·강조·링크가 없어서 한 화면에서 만나지 않는다. 그래서 갈래 열셋이
 색 아홉이다.
+
+**키와 값 참조는 예외로 한 화면에 같이 나오면서 같은 색이다.** css 의 `--x: red` 와 `var(--x)`,
+yaml 의 키와 anchor 가 그렇다. 자리가 이미 갈라 주기 때문이다 — 키는 줄 앞에 서고 참조는 값
+자리에 선다. 갈래를 나눠 둔 것은 색을 나눠야 할 날에 표 한 줄만 고치기 위해서다(ADR-0055).
 
 **겹치면 검색 > 선택 > 문법이다.** 찾은 자리와 고른 범위는 글자색과 배경을 함께 정하고 문법은
 글자색만 정해서, 그 구간에서는 문법 색이 보이지 않는다. vim 과 같다. 공백 마커는 그 안에서도

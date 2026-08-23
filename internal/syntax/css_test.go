@@ -53,7 +53,7 @@ func TestCSSLexLine(t *testing.T) {
 			name:  "사용자 속성",
 			state: cssBlock{},
 			line:  "--my-color: red;",
-			want:  []string{"var:--my-color", "const:red"},
+			want:  []string{"key:--my-color", "const:red"},
 			end:   cssBlock{},
 		},
 		{

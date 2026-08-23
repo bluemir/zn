@@ -117,8 +117,10 @@ var styleNoticeFailed = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 //
 // **같이 나오지 않는 갈래는 색을 나눠 쓴다.** 강조는 keyword 와, 링크는 부르는 이름과 같은
 // 색이다. markdown 에 keyword·부르는 이름이 없고 코드에 제목·강조·링크가 없어서 한 화면에서
-// 만나지 않는다. 그래서 갈래 열하나가 색 아홉으로 된다 — 갈래를 늘리는 것이 팔레트를 반드시
+// 만나지 않는다. 그래서 갈래 열셋이 색 아홉으로 된다 — 갈래를 늘리는 것이 팔레트를 반드시
 // 늘리지는 않는다.
+//
+// **키와 값 참조는 같이 나오면서도 같은 색이다.** 위 규칙의 예외이고 아래에 그 까닭을 적었다.
 //
 // 화면에서 이미 쓰이는 값(220 208 238 240 3 244 117 81 150 179 214) 은 피했다.
 var styleSyntax = map[syntax.Kind]lipgloss.Style{
@@ -132,6 +134,12 @@ var styleSyntax = map[syntax.Kind]lipgloss.Style{
 	syntax.KindFunction: lipgloss.NewStyle().Foreground(lipgloss.Color("111")), // 연한 파랑 #87afff
 	syntax.KindConstant: lipgloss.NewStyle().Foreground(lipgloss.Color("210")), // 연어 #ff8787
 	syntax.KindVariable: lipgloss.NewStyle().Foreground(lipgloss.Color("79")),  // 청록 #5fd7af
+
+	// 키는 값을 가리키는 자리와 같은 청록이다. **둘은 한 화면에 나온다** — css 의
+	// `--x: red` 와 `var(--x)` 가 그렇고 yaml 의 키와 anchor 도 그렇다. 그래도 색을 나누지
+	// 않은 것은 자리가 이미 갈라 주기 때문이다: 키는 줄 앞에 서고 참조는 값 자리에 선다.
+	// 나눠야 할 날이 오면 이 한 줄만 고친다(syntax.go 의 KindKey).
+	syntax.KindKey: lipgloss.NewStyle().Foreground(lipgloss.Color("79")), // 청록 #5fd7af
 
 	// 링크는 부르는 이름과 같은 색이다. 둘이 한 화면에 나오지 않는다(위 규칙).
 	//

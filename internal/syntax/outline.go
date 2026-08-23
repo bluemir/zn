@@ -42,7 +42,7 @@ const OutlineDeep = math.MaxInt
 // 갈리는데 그때는 어느 값도 옳지 않다.
 const outlineTabColumns = 4
 
-// indentDepth 는 들여쓰기를 깊이로 읽는다. markdown 을 뺀 여덟 언어가 나눠 쓴다.
+// indentDepth 는 들여쓰기를 깊이로 읽는다. markdown 을 뺀 열 언어가 나눠 쓴다.
 //
 // **byte 가 아니라 칸으로 센다.** byte 로 세면 tab 하나(1) 가 space 네 칸(4) 보다 얕아 보여서,
 // 섞어 쓴 파일에서 안쪽 줄이 바깥 줄보다 얕다고 나온다.
@@ -80,10 +80,11 @@ func insideText(tokens []Token, at int) bool {
 	return false
 }
 
-// blockOutline 은 들여쓰기가 곧 깊이인 언어의 뼈대다. 여섯이 나눠 쓴다 — go js css python shell html.
+// blockOutline 은 들여쓰기가 곧 깊이인 언어의 뼈대다. 여덟이 나눠 쓴다 —
+// go js css python shell html json yaml.
 //
 // **「다음 줄이 한 단계 들어간다」와 「이 줄이 아래를 거느린다」는 같은 사실이다.** 그 판정을
-// 들여쓰기 규칙이 이미 아홉 언어에 해 두었으므로 다시 쓰지 않고 그것에 묻는다 — 문자열·주석
+// 들여쓰기 규칙이 이미 열한 언어에 해 두었으므로 다시 쓰지 않고 그것에 묻는다 — 문자열·주석
 // 안의 괄호를 거르는 것까지 딸려 온다(ADR-0047 이 적어 둔 「같은 토큰을 쓴다」가 이 자리다).
 // 표에서 indent 칸과 **같은 값**을 넣는 이유이기도 하다. 둘이 갈리면 한쪽만 고쳐진다.
 //

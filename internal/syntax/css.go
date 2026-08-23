@@ -147,7 +147,13 @@ func cssLex(line []byte, inBlock, value bool) ([]Token, State) {
 		case line[at] == '-' && at+1 < len(line) && line[at+1] == '-':
 			end := cssNameEnd(line, at+2)
 			if end > at+2 {
-				tokens = append(tokens, Token{Start: at, End: end, Kind: KindVariable})
+				// 속성 자리의 `--x` 는 이름을 붙이는 선언이고 값 자리의 것은 `var(--x)` 로
+				// 가리키는 참조다. 자리가 갈라 준다 — `#fff` 와 `#id` 를 가르는 것과 같다.
+				kind := KindKey
+				if value {
+					kind = KindVariable
+				}
+				tokens = append(tokens, Token{Start: at, End: end, Kind: kind})
 				at = end
 
 				continue

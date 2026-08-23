@@ -16,19 +16,19 @@ func TestHTMLLexLine(t *testing.T) {
 		{
 			name: "tag 이름과 속성",
 			line: `<div class="a">`,
-			want: []string{"keyword:<div", "var:class", `string:"a"`},
+			want: []string{"keyword:<div", "key:class", `string:"a"`},
 			end:  htmlNormal{},
 		},
 		{
 			name: "홑따옴표 속성 값",
 			line: `<a href='x'>`,
-			want: []string{"keyword:<a", "var:href", "string:'x'"},
+			want: []string{"keyword:<a", "key:href", "string:'x'"},
 			end:  htmlNormal{},
 		},
 		{
 			name: "따옴표 없는 속성 값",
 			line: `<input type=text>`,
-			want: []string{"keyword:<input", "var:type", "string:text"},
+			want: []string{"keyword:<input", "key:type", "string:text"},
 			end:  htmlNormal{},
 		},
 		{
@@ -47,7 +47,7 @@ func TestHTMLLexLine(t *testing.T) {
 			name: "이름에 `-` 와 `:` 가 든다",
 			line: `<my-tag data-id="1" xlink:href="x">`,
 			want: []string{
-				"keyword:<my-tag", "var:data-id", `string:"1"`, "var:xlink:href", `string:"x"`,
+				"keyword:<my-tag", "key:data-id", `string:"1"`, "key:xlink:href", `string:"x"`,
 			},
 			end: htmlNormal{},
 		},
@@ -78,13 +78,13 @@ func TestHTMLLexLine(t *testing.T) {
 		{
 			name: "`>` 가 없으면 다음 줄도 tag 안이다",
 			line: `<div class="a"`,
-			want: []string{"keyword:<div", "var:class", `string:"a"`},
+			want: []string{"keyword:<div", "key:class", `string:"a"`},
 			end:  htmlTag{},
 		},
 		{
 			name: "따옴표가 닫히지 않으면 다음 줄도 값 안이다",
 			line: `<div class="열었다`,
-			want: []string{"keyword:<div", "var:class", `string:"열었다`},
+			want: []string{"keyword:<div", "key:class", `string:"열었다`},
 			end:  htmlAttrValue{quote: '"'},
 		},
 		{
@@ -143,7 +143,7 @@ func TestHTMLRawText(t *testing.T) {
 			name:  "여는 tag 와 같은 줄의 안쪽도 그 언어로 훑는다",
 			lines: []string{`<script src="a.js">let x = 1;`, "</script>"},
 			want: [][]string{
-				{"keyword:<script", "var:src", `string:"a.js"`, "keyword:let", "number:1"},
+				{"keyword:<script", "key:src", `string:"a.js"`, "keyword:let", "number:1"},
 				{"keyword:</script"},
 			},
 			end: htmlNormal{},
@@ -188,7 +188,7 @@ func TestHTMLMultiline(t *testing.T) {
 			lines: []string{"<div", `class="a">글`},
 			want: [][]string{
 				{"keyword:<div"},
-				{"var:class", `string:"a"`},
+				{"key:class", `string:"a"`},
 			},
 			end: htmlNormal{},
 		},
@@ -196,8 +196,8 @@ func TestHTMLMultiline(t *testing.T) {
 			name:  "두 줄에 걸친 속성 값",
 			lines: []string{`<div title="여러 줄에`, `걸친 값" id="x">`},
 			want: [][]string{
-				{"keyword:<div", "var:title", `string:"여러 줄에`},
-				{`string:걸친 값"`, "var:id", `string:"x"`},
+				{"keyword:<div", "key:title", `string:"여러 줄에`},
+				{`string:걸친 값"`, "key:id", `string:"x"`},
 			},
 			end: htmlNormal{},
 		},
@@ -255,7 +255,7 @@ func TestHTMLRawTextClosesOnSameLine(t *testing.T) {
 			lines: []string{`<script src="a.js">let x = 1;</script>`, "<p>글</p>"},
 			want: [][]string{
 				{
-					"keyword:<script", "var:src", `string:"a.js"`,
+					"keyword:<script", "key:src", `string:"a.js"`,
 					"keyword:let", "number:1", "keyword:</script",
 				},
 				{"keyword:<p", "keyword:</p"},

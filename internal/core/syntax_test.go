@@ -181,6 +181,8 @@ func emittedKinds(t *testing.T) map[syntax.Kind]bool {
 		{"sample.css", "/* 주석 */\n.a, #b > c:hover {\n\tcolor: #fff;\n\t--x: rgba(0, 0, 0, 0.5);\n\tcontent: \"한글\" !important;\n}\n"},
 		{"sample.js", "// 주석\nclass B extends A {}\nconst q = `여러 ${값} 줄`;\nconst n = 0x1f;\nlet t = true;\n"},
 		{"sample.html", "<!DOCTYPE html>\n<!-- 주석 -->\n<div class=\"한글\" data-id=1>\n<p>글 &amp; 글</p>\n</div>\n"},
+		{"sample.json", "{\n  // 주석\n  \"a\": \"한글\",\n  \"n\": 0x1f,\n  \"ok\": true\n}\n"},
+		{"sample.yaml", "# 주석\nservices:\n  - name: web\n    port: 8080\n    tag: !!str x\n    base: &공통 y\n    ok: true\n    script: |\n      go build\n"},
 	}
 
 	kinds := map[syntax.Kind]bool{}

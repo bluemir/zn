@@ -172,7 +172,8 @@ func htmlScan(line []byte, from int, inTag bool) ([]Token, State) {
 				end := htmlNameEnd(line, at)
 
 				// `=` 뒤의 낱말은 따옴표 없는 값이고, 그 밖은 속성 이름이다.
-				kind := KindVariable
+				// 속성 이름은 「이름 = 값」 의 이름이라 키다(KindKey 설명 참고).
+				kind := KindKey
 				if htmlAfterEquals(line, at) {
 					kind = KindString
 				}

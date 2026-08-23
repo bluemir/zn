@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,9 +36,15 @@ func TestIndentForEveryLanguage(t *testing.T) {
 	assert.NotNil(t, IndentFor("Dockerfile.dev"), "이름 뒤에 붙는 것도 dockerfile 이다")
 }
 
-func TestReindentsIsFalseOnlyForMarkdown(t *testing.T) {
+// `=` 로 다시 들여쓸 수 없는 언어는 markdown 과 yaml 이다.
+//
+// 둘 다 **들여쓰기가 곧 뜻**이라 앞 줄에서 되짚을 수 없다. markdown 은 목록의 깊이와 네 칸
+// 코드 블록이 글쓴이가 정한 것이고, yaml 은 들여쓰기가 map 의 층이라 되짚으면 중첩이 평평해진다.
+func TestReindentsIsFalseForIndentIsMeaning(t *testing.T) {
+	cannot := []Indent{mdIndent{}, yamlIndent{}}
+
 	for _, rule := range languageRules {
-		want := rule.indent != (Indent)(mdIndent{})
+		want := !slices.Contains(cannot, rule.indent)
 		assert.Equal(t, want, rule.indent.Reindents(), "%v", rule.aliases)
 	}
 }

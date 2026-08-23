@@ -33,7 +33,18 @@ const (
 	KindType     // go(미리 선언된 이름·새 type), py(class 이름), css 선택자
 	KindFunction // go js py(def), make 대상 이름
 	KindConstant // go(`nil` `true`), js, py(`None`), css 값 낱말, html entity
-	KindVariable // make·docker 의 `$(...)`·`${...}`, css 사용자 속성, html 속성 이름
+	KindVariable // make·docker 의 `$(...)`·`${...}`, css 의 `var(--x)`, yaml 의 anchor·alias
+
+	// KindKey 는 「이름 = 값」 의 이름 자리다. json·yaml 의 키, html 속성 이름, css 사용자 속성
+	// 선언이 이것이다.
+	//
+	// KindVariable 과 갈라 둔다. 저쪽은 **값을 가리키는** 자리(`$(VAR)`, `var(--x)`) 이고
+	// 이쪽은 **값에 이름을 붙이는** 자리다. 설정 파일은 거의 전부가 키와 값이라, 둘을 한
+	// 갈래로 두면 `--x: red` 의 선언과 `var(--x)` 의 참조가 같아 보인다.
+	//
+	// css 의 표준 속성(`color:`) 은 여기가 아니라 KindKeyword 다. 그것은 css 가 아는 낱말이라
+	// 예약어에 가깝다 — 사람이 지은 이름만 이 갈래다.
+	KindKey
 
 	// 아래 둘은 지금 markdown 만 쓴다. 「셋 이상의 언어가 쓰는 갈래만 둔다」는 잣대는 색을
 	// 아끼려던 것이었고, 이 둘은 새 색을 요구하지 않아서(굵기·기울임 + 기존 색) 들였다.

@@ -243,6 +243,24 @@ func TestMarkdownFenceDelegates(t *testing.T) {
 			end: mdFence{marker: '`', size: 3, inner: shNormal{}},
 		},
 		{
+			name:  "yaml",
+			lines: []string{"```yaml", "port: 8080"},
+			want: [][]string{
+				{"keyword:```", "type:yaml"},
+				{"key:port", "number:8080"},
+			},
+			end: mdFence{marker: '`', size: 3, inner: yamlNormal{}},
+		},
+		{
+			name:  "json",
+			lines: []string{"```json", `{"a": true}`},
+			want: [][]string{
+				{"keyword:```", "type:json"},
+				{`key:"a"`, "const:true"},
+			},
+			end: mdFence{marker: '`', size: 3, inner: jsonNormal{}},
+		},
+		{
 			name:  "첫 낱말만 언어를 정하고 색은 전체에 붙는다",
 			lines: []string{"```go title=x", "var x int = 1"},
 			want: [][]string{

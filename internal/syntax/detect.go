@@ -65,6 +65,11 @@ var languageRules = []languageRule{
 	{exts: []string{".dockerfile"}, names: []string{"dockerfile"},
 		aliases: []string{"docker", "dockerfile"}, state: dockerNormal{}, indent: dockerIndent{},
 		outline: flatOutline{}},
+	{exts: []string{".json", ".jsonc", ".json5", ".hjson"},
+		aliases: []string{"json", "jsonc", "json5", "hjson"}, state: jsonNormal{},
+		indent: jsonIndent{}, outline: blockOutline{opens: jsonIndent{}}},
+	{exts: []string{".yaml", ".yml"}, aliases: []string{"yaml", "yml"}, state: yamlNormal{},
+		indent: yamlIndent{}, outline: blockOutline{opens: yamlIndent{}}},
 }
 
 // Detect 는 경로를 보고 시작 문맥을 고른다. nil 이면 강조하지 않는다.
