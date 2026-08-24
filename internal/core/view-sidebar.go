@@ -92,8 +92,12 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())
 	case tea.MouseClickMsg:
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+		switch mouse := msg.Mouse(); mouse.Button {
+		case tea.MouseLeft:
 			return m.click(mouse)
+		case tea.MouseRight:
+			// tabline 의 tab 을 닫는다. 보고 있던 tab 이었으면 normal 로 나간다(ADR-0060).
+			return rightClick(m, m.editor, mouse)
 		}
 
 		return m, nil
@@ -123,17 +127,17 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 	m.clearNotice()
 
 	// 한글은 파서가 받아서 푼다. 여기는 키를 그대로 넘기고 나온 동작을 실행하기만 한다.
-	names, state := m.keyState().press(key)
+	actions, state := m.keyState().press(key)
 	m.state = state
 
 	var model tea.Model = m
-	for _, name := range names {
+	for _, act := range actions {
 		tree, ok := model.(viewSidebar)
 		if !ok {
 			return model, nil
 		}
 
-		next, cmd := tree.run(name)
+		next, cmd := tree.run(act)
 		if cmd != nil {
 			return next, cmd
 		}
@@ -149,8 +153,11 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 // 짝이 없는 접두 키 조합(`ctrl+w esc`) 은 여기서 모르는 이름이 되어 아무 일도 하지 않는다.
 // 접두 키가 `esc`·`ctrl+c` 를 삼키는 것이 이 규칙이다 — 잘못 누른 `ctrl+w` 를 무르는 것이지
 // 트리를 나가거나 편집기를 끄는 것이 아니다. normal mode 의 `g` 와 같다.
-func (m viewSidebar) run(name string) (tea.Model, tea.Cmd) {
-	switch name {
+//
+// **숫자를 보는 것은 이동뿐이다.** 나머지는 act.count 를 읽지 않아 그냥 무시한다 —
+// `3md` 가 `md` 인 것이 normal 에서 `3i` 가 `i` 인 것과 같은 자리다(ADR-0059).
+func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
+	switch act.name {
 	case "ctrl+c":
 		// 다른 mode 와 같은 경로다. 확인창에서 취소하면 여기로 돌아온다.
 		return quitAll(m, m.editor)
@@ -167,12 +174,30 @@ func (m viewSidebar) run(name string) (tea.Model, tea.Cmd) {
 		// pane 이 둘뿐이라 순환이 곧 왕래다. normal 의 같은 키와 짝이다.
 		return normalMode(m.editor)
 	case "up", "k":
-		m.sidebar.selected--
+		// 숫자를 대지 않으면 한 행이다. 양끝은 아래 scrollTo 가 당긴다 — 스무 행을 뛰다
+		// 뿌리를 지나쳐도 뿌리에 선다.
+		m.sidebar.selected -= max(act.count, 1)
 	case "down", "j":
-		m.sidebar.selected++
+		m.sidebar.selected += max(act.count, 1)
+	case "g g":
+		// 숫자를 대면 그 행이다 — `20gg` 는 보이는 행 스무 번째다. 행은 1 부터 세고 자리는
+		// 0 부터라 하나를 뺀다. normal 의 `20gg` 와 같은 자리다(ADR-0059).
+		m.sidebar.selected = 0
+		if act.count > 0 {
+			m.sidebar.selected = act.count - 1
+		}
+	case "G":
+		// 숫자를 대지 않으면 마지막 행이고, 대면 `gg` 와 똑같이 그 행이다. normal 의 `G` 와
+		// 같다 — 그래서 파서가 count 를 1 로 메우지 않고 0 을 그대로 준다.
+		m.sidebar.selected = len(m.sidebar.rows()) - 1
+		if act.count > 0 {
+			m.sidebar.selected = act.count - 1
+		}
 	case "enter":
 		return m.enter()
-	case "m c":
+	case "m c", "m a":
+		// `ma` 도 같은 자리다. NERDTree 의 파일 메뉴가 `a`(add) 로 만드는데(ADR-0054 가
+		// 그 메뉴를 이 자리에 두었다) 그 손버릇으로 온 손이 `mc` 를 찾지 않아도 되게 한다.
 		return m.createFile()
 	case "m d":
 		return m.deleteFile()
@@ -316,7 +341,7 @@ func (m viewSidebar) View() tea.View {
 	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
 	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
 	view := m.editorView(tea.CursorBlock, "TREE",
-		m.renderWithShowcmd(m.noticeOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
+		m.renderWithTip(m.noticeOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 동작줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.

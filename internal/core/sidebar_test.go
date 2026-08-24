@@ -658,6 +658,81 @@ func TestSidebarMovesSelectionWithJK(t *testing.T) {
 	assert.Equal(t, 0, m.(viewSidebar).sidebar.selected)
 }
 
+// 숫자를 대면 그만큼 뛴다. `20j` 는 트리를 넘어가지 않고 마지막 행에 선다(ADR-0059).
+func TestSidebarCountMovesManyRows(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	// 뿌리와 그 아래 다섯이라 여섯 행이다.
+	require.Len(t, m.(viewSidebar).sidebar.rows(), 6)
+
+	m = send(m, "3", "j")
+	assert.Equal(t, ".gitignore", m.(viewSidebar).sidebar.selectedNode().name)
+
+	// 넘어가지 않는다. 양끝에서 멈추는 것이 한 행씩 갈 때와 같다.
+	m = send(m, "2", "0", "j")
+	assert.Equal(t, 5, m.(viewSidebar).sidebar.selected, "마지막 행에 선다")
+
+	m = send(m, "2", "0", "k")
+	assert.Equal(t, 0, m.(viewSidebar).sidebar.selected, "뿌리에 선다")
+}
+
+// `G` 는 마지막 행, `gg` 는 뿌리다. 숫자를 대면 둘 다 그 행으로 간다 — normal 과 같다.
+func TestSidebarGotoFirstAndLastRow(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	m = send(m, "G")
+	assert.Equal(t, "main.go", m.(viewSidebar).sidebar.selectedNode().name)
+
+	m = send(m, "g", "g")
+	assert.Equal(t, 0, m.(viewSidebar).sidebar.selected, "뿌리로 돌아온다")
+
+	// 행은 1 부터 센다. 셋째 행이 `docs` 다.
+	m = send(m, "3", "G")
+	assert.Equal(t, "docs", m.(viewSidebar).sidebar.selectedNode().name)
+
+	m = send(m, "g", "g")
+	m = send(m, "3", "g", "g")
+	assert.Equal(t, "docs", m.(viewSidebar).sidebar.selectedNode().name, "`20gg` 도 행 번호다")
+
+	// 트리보다 큰 번호는 마지막 행이다. `G` 가 숫자 없이 가는 자리와 같다.
+	m = send(m, "9", "9", "G")
+	assert.Equal(t, 5, m.(viewSidebar).sidebar.selected)
+}
+
+// 뛴 자리가 화면 밖이면 트리가 따라 굴러야 한다. 한 행씩 갈 때와 같은 scrollTo 다.
+func TestSidebarCountScrollsIntoView(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 3)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	// 트리는 tabline 옆줄까지 쓰므로 편집 영역보다 한 줄 높다(layout.go).
+	require.Equal(t, 4, m.(viewSidebar).sidebarHeight())
+	require.Len(t, m.(viewSidebar).sidebar.rows(), 6)
+
+	m = send(m, "G")
+
+	tree := m.(viewSidebar).sidebar
+	assert.Equal(t, 5, tree.selected)
+	assert.Equal(t, 2, tree.top, "마지막 행이 화면 맨 아래에 들어온다")
+
+	m = send(m, "g", "g")
+	assert.Equal(t, 0, m.(viewSidebar).sidebar.top, "처음으로 돌아오면 화면도 위로 온다")
+}
+
+// 숫자를 보는 것은 이동뿐이다. 파일 동작 앞의 숫자는 버려진다 — `3md` 가 `md` 다.
+func TestSidebarCountIgnoredByFileAction(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "README.md")
+	model = sendSync(t, model, "3", "m", "d")
+
+	require.IsType(t, viewSidebar{}, model)
+	_, err := os.Stat(filepath.Join(root, "README.md"))
+	assert.Error(t, err, "숫자가 붙어도 그 한 파일을 지운다")
+}
+
 func TestSidebarEnterTogglesDirectory(t *testing.T) {
 	var m tea.Model = newTreeEditor(t, 80, 10)
 	m = send(m, "ctrl+w", "ctrl+w", "down", "down")
@@ -700,10 +775,14 @@ func TestSidebarShowsModeAndPath(t *testing.T) {
 	m = send(m, "ctrl+w", "ctrl+w")
 
 	assert.Equal(t, "TREE", modeOf(t, m))
-	assert.Equal(t, filepath.Base(m.(viewSidebar).sidebar.root)+"/", barOf(t, m)[1], "뿌리는 이름만")
+
+	// 아래 줄 오른쪽 끝은 tip 자리라(tip.go) 통째로 비교하지 않는다. 여기서 보는 것은 왼쪽이다.
+	assert.True(t, strings.HasPrefix(barOf(t, m)[1], filepath.Base(m.(viewSidebar).sidebar.root)+"/"),
+		"뿌리는 이름만: %q", barOf(t, m)[1])
 
 	m = send(m, "down", "down")
-	assert.Equal(t, "docs", barOf(t, m)[1], "뿌리 기준 상대 경로라 절대 경로처럼 잘리지 않는다")
+	assert.True(t, strings.HasPrefix(barOf(t, m)[1], "docs"),
+		"뿌리 기준 상대 경로라 절대 경로처럼 잘리지 않는다: %q", barOf(t, m)[1])
 }
 
 // 화면이 좁아져서 sidebar 가 숨으면 포커스가 안 보이는 곳에 남으면 안 된다.

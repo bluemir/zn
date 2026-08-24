@@ -125,6 +125,10 @@ func (e editor) renderPosition() string {
 //
 // 숫자나 접두 키를 치는 동안 화면에 아무 표시가 없으면 편집기가 그 키를 먹었는지 알 수 없다.
 // 붙일 칸이 없으면 아래 줄을 그대로 둔다 — 커서 위치나 명령 결과가 밀려나는 것이 더 나쁘다.
+//
+// **편집 화면은 이것을 직접 부르지 않는다.** 같은 칸을 tip 과 나눠 쓰므로 renderWithTip 을
+// 지나서 온다(tip.go). 여기를 그대로 두는 것은 `:jobs` 같은 판이 tip 없이 이 칸을 쓰기
+// 때문이다 — 판의 아래 줄은 그 판의 안내와 알림 자리다(ADR-0061).
 func (e editor) renderWithShowcmd(bottom, showcmd string) string {
 	if showcmd == "" {
 		return bottom

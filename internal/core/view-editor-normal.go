@@ -93,12 +93,16 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 보내지 않기 때문이다 — 「고치는 동작」 목록을 여기 또 두지 않는다(ADR-0051).
 		return next, tea.Batch(cmd, m.scheduleLspTick())
 	case tea.MouseClickMsg:
-		// 왼쪽 버튼만 본다. 가운데·오른쪽에 붙일 동작은 아직 정하지 않았다.
+		// 왼쪽과 오른쪽만 본다. 가운데 버튼에 붙일 동작은 아직 정하지 않았다.
 		//
 		// 누를 때 반응하고 뗄 때는 보지 않는다. 드래그가 없으니 누른 자리가 곧 고른 자리다.
 		// 대기 중인 접두 키(m.state) 와 알림(m.message) 은 그대로 둔다 — 키 이야기다.
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+		switch mouse := msg.Mouse(); mouse.Button {
+		case tea.MouseLeft:
 			return m.click(mouse)
+		case tea.MouseRight:
+			// tabline 의 tab 을 닫는다. 다른 영역에서는 아무 일도 없다(ADR-0060).
+			return rightClick(m, m.editor, mouse)
 		}
 
 		return m, nil
@@ -177,5 +181,5 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorNormal) View() tea.View {
 	// 커서가 글자 위에 있으므로 블록이다.
 	return m.editorView(tea.CursorBlock, "NORMAL",
-		m.renderWithShowcmd(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
+		m.renderWithTip(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
 }

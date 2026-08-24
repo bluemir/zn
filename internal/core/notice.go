@@ -150,4 +150,11 @@ func (e *editor) record(entry notice) {
 
 	e.notice = entry.text
 	e.notices = append(e.notices, entry)
+
+	// tip 을 한 칸 민다. 알림이 지나는 깔때기가 여기 하나라서 「알림이 났다」를 정확히 한 번
+	// 볼 수 있는 자리도 여기뿐이다 — clearNotice 는 키마다 불려서 매 키에 문장이 갈린다.
+	//
+	// 아래 줄이 이 알림에 덮여 있는 동안 바뀌므로 눈앞에서 글자가 갈리지 않는다. 다음 키에
+	// 알림이 걷히면 그때 새 문장이 드러난다(tip.go 의 renderWithTip, ADR-0061).
+	e.tipIndex++
 }

@@ -13,6 +13,11 @@ func click(x, y int) tea.MouseClickMsg {
 	return tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}
 }
 
+// rightClickAt 은 오른쪽 버튼으로 누른 좌표다. tabline 에서만 뜻이 있다(ADR-0060).
+func rightClickAt(x, y int) tea.MouseClickMsg {
+	return tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseRight}
+}
+
 func wheel(x, y int, up bool) tea.MouseWheelMsg {
 	button := tea.MouseWheelDown
 	if up {
@@ -198,7 +203,7 @@ func TestNonLeftButtonIsIgnored(t *testing.T) {
 
 	m, _ = m.Update(tea.MouseClickMsg{X: left + 2, Y: tablineHeight + 1, Button: tea.MouseRight})
 
-	assert.Equal(t, 0, cursorLineOf(t, m), "오른쪽 버튼은 아무 일도 하지 않는다")
+	assert.Equal(t, 0, cursorLineOf(t, m), "편집 영역의 오른쪽 버튼은 아무 일도 하지 않는다")
 }
 
 // 누르던 접두 키를 클릭이 조용히 삼키면 안 된다.
@@ -656,4 +661,181 @@ func TestClickStatusBarKeepsVisual(t *testing.T) {
 
 	assert.IsType(t, viewEditorVisual{}, after)
 	assert.True(t, bufferOf(t, after).selection.active)
+}
+
+// 우클릭은 누른 자리의 tab 을 닫는다. 보고 있던 파일은 그대로 본다(ADR-0060).
+func TestRightClickTablineClosesTab(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt", "c.txt")
+	m.active = 1
+	require.Equal(t, " 1 a.txt │ 2 b.txt │ 3 c.txt", tablineOf(t, m.View()))
+
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model, _ = model.Update(rightClickAt(spans[2][0], 0))
+
+	normal, ok := model.(viewEditorNormal)
+	require.True(t, ok, "normal 에 머문다: %T", model)
+	require.Len(t, normal.buffers, 2)
+	assert.Equal(t, 1, normal.active)
+	assert.Equal(t, "b.txt", normal.activeBuffer().path, "보고 있던 파일이 그대로다")
+	assert.Equal(t, " 1 a.txt │ 2 b.txt", tablineOf(t, normal.View()))
+}
+
+// 보던 tab 의 왼쪽을 닫으면 번호만 당겨진다. 보는 파일이 바뀌면 안 된다.
+func TestRightClickTablineOnLeftKeepsViewedFile(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt", "c.txt")
+	m.active = 2
+
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model, _ = model.Update(rightClickAt(spans[0][0], 0))
+
+	normal, ok := model.(viewEditorNormal)
+	require.True(t, ok)
+	assert.Equal(t, 1, normal.active, "번호가 하나 당겨진다")
+	assert.Equal(t, "c.txt", normal.activeBuffer().path)
+	assert.Equal(t, " 1 b.txt │ 2 c.txt", tablineOf(t, normal.View()))
+}
+
+// 보고 있는 tab 을 우클릭하면 그 자리에 드러나는 파일을 본다. `:q` 와 같다.
+func TestRightClickTablineClosesViewedTab(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt", "c.txt")
+	m.active = 1
+
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model, _ = model.Update(rightClickAt(spans[1][0], 0))
+
+	normal, ok := model.(viewEditorNormal)
+	require.True(t, ok)
+	require.Len(t, normal.buffers, 2)
+	assert.Equal(t, 1, normal.active)
+	assert.Equal(t, "c.txt", normal.activeBuffer().path, "닫은 자리에 드러난 파일이다")
+}
+
+// tab 이 하나뿐이면 아무 일도 없다. 손이 미끄러진 것으로 편집기가 닫히면 안 된다.
+func TestRightClickLastTabDoesNothing(t *testing.T) {
+	m := newTabsEditor("a.txt")
+
+	var model tea.Model = m
+	model, cmd := model.Update(rightClickAt(m.renderTabline(m.textWidth()).tabs[0][0], 0))
+
+	normal, ok := model.(viewEditorNormal)
+	require.True(t, ok, "종료하지 않는다: %T", model)
+	assert.Len(t, normal.buffers, 1)
+	assert.Nil(t, cmd)
+}
+
+// tab 이 없는 칸은 우클릭도 아무 일이 없다. 가려짐 표시는 밀지도 않는다.
+func TestRightClickTablineNonTabColumns(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt", "e.txt")
+	m.width = 30
+	require.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, m.View()))
+
+	row := m.renderTabline(m.textWidth())
+
+	for name, x := range map[string]int{
+		"구분선":       row.tabs[0][1],
+		"잘린 tab 자리": row.tabs[1][1] + 2,
+		"가려짐 표시":    row.right[0],
+	} {
+		var model tea.Model = m
+		model, _ = model.Update(rightClickAt(x, 0))
+
+		normal, ok := model.(viewEditorNormal)
+		require.True(t, ok)
+		assert.Len(t, normal.buffers, 5, name)
+		assert.Equal(t, " 1 a.txt │ 2 b.txt │.......│3>", tablineOf(t, normal.View()), name)
+	}
+}
+
+// 보고 있지 않은 tab 이어도 저장하지 않은 변경이 있으면 묻는다. 물음에 파일 이름이 들어간다.
+func TestRightClickDirtyTabAsks(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt")
+	m.buffers[1].dirty = true
+
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model, _ = model.Update(rightClickAt(spans[1][0], 0))
+
+	confirm, ok := model.(viewConfirmDiscard)
+	require.True(t, ok, "확인창이 뜬다: %T", model)
+	assert.Equal(t, "b.txt tab 을 닫으시겠습니까?", confirm.question)
+
+	// No 로 나가면 tab 이 그대로 남는다.
+	cancelled, _ := confirm.press("n")
+	cancelled, _ = cancelled.(viewConfirmDiscard).press("enter")
+	assert.Len(t, cancelled.(viewEditorNormal).buffers, 2, "취소하면 그대로다")
+
+	closed, _ := confirm.press("enter")
+	normal, ok := closed.(viewEditorNormal)
+	require.True(t, ok)
+	require.Len(t, normal.buffers, 1)
+	assert.Equal(t, "a.txt", normal.activeBuffer().path)
+}
+
+// insert 로 치던 중에 옆 tab 을 닫아도 계속 친다. 고치던 buffer 는 그대로다.
+func TestRightClickOtherTabKeepsInsert(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt")
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model = send(model, "i")
+	require.IsType(t, viewEditorInsert{}, model)
+
+	model, _ = model.Update(rightClickAt(spans[1][0], 0))
+
+	insert, ok := model.(viewEditorInsert)
+	require.True(t, ok, "insert 에 머문다: %T", model)
+	require.Len(t, insert.buffers, 1)
+	assert.Equal(t, "a.txt", insert.activeBuffer().path)
+}
+
+// 고치던 tab 을 닫았으면 insert 에 남을 수 없다. 남으면 다른 파일을 그 mode 로 고친다.
+func TestRightClickViewedTabLeavesInsert(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt")
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model = send(model, "i")
+	model, _ = model.Update(rightClickAt(spans[0][0], 0))
+
+	normal, ok := model.(viewEditorNormal)
+	require.True(t, ok, "normal 로 나간다: %T", model)
+	assert.Equal(t, "b.txt", normal.activeBuffer().path)
+}
+
+// visual 로 고른 것이 남은 buffer 를 보고 있으면 범위도 mode 도 그대로다.
+func TestRightClickOtherTabKeepsVisual(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt")
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = m
+	model = send(model, "v", "l")
+	require.IsType(t, viewEditorVisual{}, model)
+
+	model, _ = model.Update(rightClickAt(spans[1][0], 0))
+
+	visual, ok := model.(viewEditorVisual)
+	require.True(t, ok, "visual 에 머문다: %T", model)
+	require.Len(t, visual.buffers, 1)
+	assert.True(t, visual.activeBuffer().selection.active, "고른 범위가 그대로다")
+}
+
+// 트리에 포커스를 두고 남의 tab 을 닫아도 포커스는 트리에 남는다. 보는 파일이 그대로다.
+func TestRightClickOtherTabKeepsTreeFocus(t *testing.T) {
+	m := newTabsEditor("a.txt", "b.txt")
+	spans := m.renderTabline(m.textWidth()).tabs
+
+	var model tea.Model = viewSidebar{editor: m.editor}
+	model, _ = model.Update(rightClickAt(spans[1][0], 0))
+
+	tree, ok := model.(viewSidebar)
+	require.True(t, ok, "포커스가 트리에 남는다: %T", model)
+	require.Len(t, tree.buffers, 1)
+	assert.Equal(t, "a.txt", tree.activeBuffer().path)
 }

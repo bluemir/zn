@@ -25,15 +25,33 @@ func inSpan(span [2]int, col int) bool {
 	return col >= span[0] && col < span[1]
 }
 
+// tabAt 은 그린 자리표에서 col 칸이 어느 tab 인지다.
+// 구분선과 빈 칸, 가려짐 표시, 잘려서 안 그려진 tab 자리처럼 tab 이 없는 칸이면 -1 이다.
+func (row tablineRow) tabAt(col int) int {
+	for i, span := range row.tabs {
+		if inSpan(span, col) {
+			return i
+		}
+	}
+
+	return -1
+}
+
+// tabName 은 tab 이 가리키는 파일 이름이다. 경로는 쓰지 않고 이름이 없으면 `[No Name]` 이다.
+// 확인창의 물음도 이것을 쓴다 — 보고 있지 않은 tab 을 닫을 때 어느 파일인지 적어야 한다.
+func (e editor) tabName(index int) string {
+	path := e.buffers[index].path
+	if path == "" {
+		return "[No Name]"
+	}
+
+	return filepath.Base(path)
+}
+
 // tabLabel 은 tabline 에 그리는 tab 한 칸의 글자다. `번호 파일이름` 이고 경로는 쓰지 않는다.
 func (e editor) tabLabel(index int) string {
-	buf := e.buffers[index]
-
-	name := filepath.Base(buf.path)
-	if buf.path == "" {
-		name = "[No Name]"
-	}
-	if buf.dirty {
+	name := e.tabName(index)
+	if e.buffers[index].dirty {
 		name += "+"
 	}
 

@@ -2,11 +2,13 @@ package core
 
 import (
 	"context"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/terminal"
 )
 
@@ -33,6 +35,12 @@ func Run(ctx context.Context, files []string) error {
 	default: // fallback option
 		e.boxChars = boxASCII
 	}
+
+	// tip 의 시작 자리를 흩는다. 늘 첫 문장부터면 편집기를 열 때마다 같은 것을 본다.
+	//
+	// 여는 순간 한 번뿐이다. 그리는 자리에서 굴리면 프레임마다 문장이 바뀌고, 검사는 editor 를
+	// 직접 세워서 이 줄을 지나지 않으므로 언제나 첫 문장을 본다(ADR-0061).
+	e.tipIndex = rand.IntN(len(assets.Tips))
 
 	// filetree 는 기본으로 열어둔다. `:tree` 로 닫는다.
 	//

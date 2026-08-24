@@ -42,8 +42,12 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 한글 되돌림은 파서가 한다. 여기는 키를 그대로 넘긴다(ADR-0008).
 		return m.press(msg.String())
 	case tea.MouseClickMsg:
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+		switch mouse := msg.Mouse(); mouse.Button {
+		case tea.MouseLeft:
 			return m.click(mouse)
+		case tea.MouseRight:
+			// tabline 의 tab 을 닫는다. 보고 있던 tab 이었으면 normal 로 나간다(ADR-0060).
+			return rightClick(m, m.editor, mouse)
 		}
 
 		return m, nil
@@ -109,5 +113,5 @@ func (m viewEditorVisual) modeName() string {
 func (m viewEditorVisual) View() tea.View {
 	// 커서가 글자 위에 있으므로 normal 과 같이 블록이다.
 	return m.editorView(tea.CursorBlock, m.modeName(),
-		m.renderWithShowcmd(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
+		m.renderWithTip(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
 }

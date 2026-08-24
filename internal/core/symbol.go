@@ -2,32 +2,13 @@ package core
 
 import (
 	"context"
-	"strings"
 	"unicode"
 
 	"golang.org/x/text/unicode/runenames"
 	"golang.org/x/text/width"
+
+	"github.com/bluemir/zn/internal/assets"
 )
-
-// symbol 은 특수문자 drawer 에서 고를 수 있는 글자 하나다.
-type symbol struct {
-	// char 는 넣을 글자다. grapheme cluster 하나이고 여러 rune 일 수 있다(ZWJ 이모지).
-	char string
-
-	// name 은 격자 아래 한 줄에 보이는 이름이다. 큐레이션한 것은 한국어이고
-	// 훑어서 얻은 것은 유니코드 영문 이름이다(symbol-table.go).
-	name string
-
-	// keywords 는 이름 말고도 걸릴 말이다. 공백으로 잇는다 — `▲` 는 이름이
-	// 「검은 위쪽 삼각형」이지만 `세모` 로도 찾을 수 있어야 한다.
-	keywords string
-}
-
-// label 은 매칭이 보는 글자다. 보이는 순서와 같아야 맞은 자리를 그대로 강조에 쓸 수 있다
-// (paletteCommand.label 과 같은 규칙이다).
-func (s symbol) label() string {
-	return strings.TrimRight(s.name+" "+s.keywords, " ")
-}
 
 // symbolChunk 는 한 조각에 실어 보내는 글자 수다. 팔레트의 indexChunk 와 같은 뜻이다.
 const symbolChunk = 2048
@@ -66,12 +47,12 @@ func indexSymbols(ctx context.Context) <-chan jobProgress {
 	go func() {
 		defer close(ch)
 
-		symbols := make([]symbol, 0, len(curatedSymbols)+8192)
-		symbols = append(symbols, curatedSymbols...)
+		symbols := make([]assets.Symbol, 0, len(assets.CuratedSymbols)+8192)
+		symbols = append(symbols, assets.CuratedSymbols...)
 
-		curated := make(map[string]bool, len(curatedSymbols))
-		for _, entry := range curatedSymbols {
-			curated[entry.char] = true
+		curated := make(map[string]bool, len(assets.CuratedSymbols))
+		for _, entry := range assets.CuratedSymbols {
+			curated[entry.Char] = true
 		}
 
 		for r := rune(0); r <= lastCodePoint; r++ {
@@ -89,7 +70,7 @@ func indexSymbols(ctx context.Context) <-chan jobProgress {
 				continue
 			}
 
-			symbols = append(symbols, symbol{char: char, name: runenames.Name(r)})
+			symbols = append(symbols, assets.Symbol{Char: char, Name: runenames.Name(r)})
 		}
 
 		// 목록은 다 모은 뒤에 한 번에 붓는다. 다 세기 전에는 개수만 알린다 —

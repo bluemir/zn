@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/lsp"
 )
 
@@ -18,7 +19,7 @@ func newSymbolView(t *testing.T, width, height int) viewSymbol {
 	t.Helper()
 
 	e := newTestEditor("abc\n", width, height).editor
-	e.symbols = curatedSymbols
+	e.symbols = assets.CuratedSymbols
 	e.symbolsIndexed = true
 
 	m, _ := symbolMode(e)
@@ -66,7 +67,7 @@ func filterSymbol(t *testing.T, m viewSymbol, pattern string) viewSymbol {
 func charsOf(m viewSymbol) []string {
 	chars := []string{}
 	for _, hit := range m.hits {
-		chars = append(chars, m.symbols[hit.index].char)
+		chars = append(chars, m.symbols[hit.index].Char)
 	}
 
 	return chars
@@ -111,7 +112,7 @@ func TestSymbolKeepsStatusBar(t *testing.T) {
 // 얹기만 하면 파일이 길 때 넣는 자리가 판 밑에 가려진다(ADR-0056).
 func TestSymbolKeepsCursorAboveDrawer(t *testing.T) {
 	e := newTestEditor(strings.Repeat("line\n", 100), 80, 20).editor
-	e.symbols, e.symbolsIndexed = curatedSymbols, true
+	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 
 	// 파일 끝으로 내려가서 연다. 커서가 편집 영역 맨 아래에 있는 상태다.
 	e.activeBuffer().cursorLine = 99
@@ -133,7 +134,7 @@ func TestSymbolKeepsCursorAboveDrawer(t *testing.T) {
 // drawer 는 편집 영역 아래에만 있다. 폭이 편집 영역과 같아서 트리 옆을 지나가지 않는다.
 func TestSymbolDoesNotShrinkSidebar(t *testing.T) {
 	e := newTestEditor("abc\n", 100, 20).editor
-	e.symbols, e.symbolsIndexed = curatedSymbols, true
+	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 
 	before := e.sidebarHeight()
 
@@ -147,7 +148,7 @@ func TestSymbolDoesNotShrinkSidebar(t *testing.T) {
 // 못 그릴 화면에서는 열지 않는다. paletteFits 와 같은 방어다.
 func TestSymbolRefusesShortScreen(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 4).editor
-	e.symbols, e.symbolsIndexed = curatedSymbols, true
+	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 
 	model, _ := symbolMode(e)
 
@@ -174,7 +175,7 @@ func TestSymbolFiltersByKoreanName(t *testing.T) {
 	assert.Subset(t, charsOf(m), []string{"▲", "△", "▼", "▽", "◀", "▶"})
 
 	for _, hit := range m.hits {
-		assert.Contains(t, m.symbols[hit.index].label(), "삼각형")
+		assert.Contains(t, m.symbols[hit.index].Label(), "삼각형")
 	}
 }
 
@@ -194,8 +195,8 @@ func TestSymbolFiltersByEnglishName(t *testing.T) {
 // 훑기가 끝나면 표에 없는 글자도 영문 이름으로 걸린다.
 func TestSymbolFiltersScannedByEnglishName(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 20).editor
-	e.symbols = append(append([]symbol{}, curatedSymbols...),
-		symbol{char: "⏥", name: "FLATNESS"})
+	e.symbols = append(append([]assets.Symbol{}, assets.CuratedSymbols...),
+		assets.Symbol{Char: "⏥", Name: "FLATNESS"})
 	e.symbolsIndexed = true
 
 	model, _ := symbolMode(e)
@@ -214,7 +215,7 @@ func TestSymbolInsertsAfterCursor(t *testing.T) {
 	next, _ := m.Update(key("enter"))
 
 	assert.IsType(t, viewSymbol{}, next, "연달아 넣을 수 있게 열린 채다")
-	assert.Equal(t, "a"+entry.char+"bc", string(bufferOf(t, next).lines[0]))
+	assert.Equal(t, "a"+entry.Char+"bc", string(bufferOf(t, next).lines[0]))
 }
 
 // 연속으로 넣는 것이 이 mode 의 쓰임새다. enter 를 칠 때마다 이어 붙는다.
@@ -228,7 +229,7 @@ func TestSymbolInsertsRepeatedly(t *testing.T) {
 	model = send(model, "enter", "enter", "enter")
 
 	require.IsType(t, viewSymbol{}, model)
-	assert.Equal(t, "a"+strings.Repeat(entry.char, 3)+"bc", string(bufferOf(t, model).lines[0]))
+	assert.Equal(t, "a"+strings.Repeat(entry.Char, 3)+"bc", string(bufferOf(t, model).lines[0]))
 }
 
 // 연달아 넣은 것은 한 undo 단위다. insert mode 에서 이어 치는 것과 같다.
@@ -246,7 +247,7 @@ func TestSymbolInsertsUndoAsOne(t *testing.T) {
 // 아무것도 안 넣고 나가면 `a<Esc>` 처럼 제자리다.
 func TestSymbolEscapeKeepsCursor(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 20).editor
-	e.symbols, e.symbolsIndexed = curatedSymbols, true
+	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 	e.activeBuffer().cursorCol = 1
 
 	model, _ := symbolMode(e)
@@ -334,7 +335,7 @@ func TestSymbolNoMatchRowFitsNarrowBox(t *testing.T) {
 	// sidebar 를 연 좁은 화면이 이 자리다. 편집 영역이 화면에서 32 칸을 뺀 만큼이다.
 	for _, width := range []int{20, 22, 25, 30, 40} {
 		e := newTestEditor("abc\n", width, 20).editor
-		e.symbols, e.symbolsIndexed = curatedSymbols, true
+		e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 
 		if !e.symbolFits() {
 			continue
@@ -377,7 +378,7 @@ func TestSymbolClosesWhenJobChangesMode(t *testing.T) {
 // 읽기 전용 파일은 고치지 않는다.
 func TestSymbolRefusesReadOnly(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 20).editor
-	e.symbols, e.symbolsIndexed = curatedSymbols, true
+	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 	e.activeBuffer().readOnly = true
 
 	model, _ := symbolMode(e)

@@ -16,7 +16,7 @@ type jobsState interface {
 	// normalState 의 것과 같은 자리이고 계약도 이 둘뿐이다(normal-key-parser.go).
 	//
 	// 이름만 주고 숫자를 주지 않아서 normal mode 처럼 동작 type 을 두지 않고 string 이다.
-	// sidebarState 와 같은 자리이고, 숫자 접두를 넣을 때 struct 가 된다.
+	// 숫자 접두를 넣을 때 struct 가 된다 — 트리가 그렇게 했다(sidebarAction, ADR-0059).
 	press(key string) ([]string, jobsState)
 
 	// showcmd 는 지금까지 먹은 키다. statusBar 아래 줄 오른쪽에 그대로 보인다.

@@ -120,8 +120,12 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 조용해지면 그때 한 번 간다(ADR-0051).
 		return m, m.scheduleLspTick()
 	case tea.MouseClickMsg:
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+		switch mouse := msg.Mouse(); mouse.Button {
+		case tea.MouseLeft:
 			return m.click(mouse)
+		case tea.MouseRight:
+			// tabline 의 tab 을 닫는다. 보고 있던 tab 이었으면 normal 로 나간다(ADR-0060).
+			return rightClick(m, m.editor, mouse)
 		}
 
 		return m, nil
@@ -147,5 +151,8 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m viewEditorInsert) View() tea.View {
 	// 커서가 글자 사이에 있으므로 막대다.
-	return m.editorView(tea.CursorBar, "INSERT", m.noticeOr(m.renderPosition()))
+	//
+	// showcmd 자리에 빈 문자열을 넘긴다. insert 에는 키 파서가 없어서 기다리는 접두 키라는 것이
+	// 없다 — 그래서 이 mode 에서는 그 칸이 늘 tip 자리다(tip.go).
+	return m.editorView(tea.CursorBar, "INSERT", m.renderWithTip(m.noticeOr(m.renderPosition()), ""))
 }

@@ -6,10 +6,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/assets"
 )
 
 // collectSymbols 는 훑기를 끝까지 돌려 목록을 받는다.
-func collectSymbols(t *testing.T) []symbol {
+func collectSymbols(t *testing.T) []assets.Symbol {
 	t.Helper()
 
 	e := &editor{}
@@ -29,8 +31,8 @@ func collectSymbols(t *testing.T) []symbol {
 func TestIndexSymbolsKeepsCuratedFirst(t *testing.T) {
 	symbols := collectSymbols(t)
 
-	require.Greater(t, len(symbols), len(curatedSymbols), "훑어서 더 모아야 한다")
-	assert.Equal(t, curatedSymbols, symbols[:len(curatedSymbols)])
+	require.Greater(t, len(symbols), len(assets.CuratedSymbols), "훑어서 더 모아야 한다")
+	assert.Equal(t, assets.CuratedSymbols, symbols[:len(assets.CuratedSymbols)])
 }
 
 // 글자와 숫자는 뺀다. 넣으면 한글 음절과 CJK 만 10 만 개가 넘어 목록이 그것으로 뒤덮인다.
@@ -39,7 +41,7 @@ func TestIndexSymbolsSkipsLettersAndDigits(t *testing.T) {
 
 	seen := map[string]bool{}
 	for _, entry := range symbols {
-		seen[entry.char] = true
+		seen[entry.Char] = true
 	}
 
 	for _, char := range []string{"A", "z", "가", "漢", "5", "ぁ"} {
@@ -53,11 +55,11 @@ func TestIndexSymbolsDoesNotDuplicateCurated(t *testing.T) {
 
 	count := map[string]int{}
 	for _, entry := range symbols {
-		count[entry.char]++
+		count[entry.Char]++
 	}
 
-	for _, entry := range curatedSymbols {
-		assert.Equal(t, 1, count[entry.char], "%q 가 겹친다", entry.char)
+	for _, entry := range assets.CuratedSymbols {
+		assert.Equal(t, 1, count[entry.Char], "%q 가 겹친다", entry.Char)
 	}
 }
 
@@ -67,7 +69,7 @@ func TestIndexSymbolsNamesScannedInEnglish(t *testing.T) {
 
 	names := map[string]string{}
 	for _, entry := range symbols {
-		names[entry.char] = entry.name
+		names[entry.Char] = entry.Name
 	}
 
 	assert.Equal(t, "FLATNESS", names["⏥"])
@@ -93,21 +95,21 @@ func TestIndexSymbolsStopsWhenCancelled(t *testing.T) {
 func TestCuratedSymbolsAreWellFormed(t *testing.T) {
 	seen := map[string]bool{}
 
-	for _, entry := range curatedSymbols {
-		assert.NotEmpty(t, entry.char, "글자가 비었다: %+v", entry)
-		assert.NotEmpty(t, entry.name, "%q 의 이름이 비었다", entry.char)
-		assert.False(t, seen[entry.char], "%q 가 표에 두 번 있다", entry.char)
-		seen[entry.char] = true
+	for _, entry := range assets.CuratedSymbols {
+		assert.NotEmpty(t, entry.Char, "글자가 비었다: %+v", entry)
+		assert.NotEmpty(t, entry.Name, "%q 의 이름이 비었다", entry.Char)
+		assert.False(t, seen[entry.Char], "%q 가 표에 두 번 있다", entry.Char)
+		seen[entry.Char] = true
 
 		// 격자가 한 칸에 한 글자를 놓는다. 두 글자가 들어오면 칸이 밀린다.
-		assert.Equal(t, len(entry.char), clusterSize([]byte(entry.char), 0),
-			"%q 는 grapheme cluster 하나가 아니다", entry.char)
+		assert.Equal(t, len(entry.Char), clusterSize([]byte(entry.Char), 0),
+			"%q 는 grapheme cluster 하나가 아니다", entry.Char)
 
 		// 보이지 않는 글자는 격자에서 빈 칸이라 서로 구별되지 않는다.
 		// rune 하나하나가 아니라 글자가 통째로 차지하는 폭을 본다 — ZWJ 로 이은
 		// 이모지(`👨‍💻`) 는 안에 폭 0 인 rune 이 있어도 한 글자로 보인다.
-		assert.GreaterOrEqual(t, screenWidthOf(entry.char), 1,
-			"%q 가 화면에서 보이지 않는다", entry.name)
+		assert.GreaterOrEqual(t, screenWidthOf(entry.Char), 1,
+			"%q 가 화면에서 보이지 않는다", entry.Name)
 	}
 }
 
@@ -116,11 +118,11 @@ func TestSymbolWidthIsNeverZero(t *testing.T) {
 	for _, ambiguous := range []int{0, 1, 2} {
 		e := editor{ambiguousWidth: ambiguous}
 
-		for _, entry := range curatedSymbols {
-			got := e.symbolWidth(entry.char)
+		for _, entry := range assets.CuratedSymbols {
+			got := e.symbolWidth(entry.Char)
 
-			assert.GreaterOrEqual(t, got, 1, "%q 의 폭이 0 이다", entry.char)
-			assert.LessOrEqual(t, got, symbolCellWidth, "%q 가 칸보다 넓다", entry.char)
+			assert.GreaterOrEqual(t, got, 1, "%q 의 폭이 0 이다", entry.Char)
+			assert.LessOrEqual(t, got, symbolCellWidth, "%q 가 칸보다 넓다", entry.Char)
 		}
 	}
 }

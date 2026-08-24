@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -178,6 +180,57 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 	if !e.closeTab() {
 		return Exit()
+	}
+
+	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를
+	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032).
+	reveal := e.revealInSidebar(e.activeBuffer().path)
+
+	model, cmd := normalMode(e)
+
+	return model, tea.Batch(cmd, reveal)
+}
+
+// closeTabAt 은 tabline 우클릭이 쓰는 경로다. index 자리의 tab 하나를 닫는다(ADR-0060).
+//
+// **tab 이 하나뿐이면 아무것도 하지 않는다.** `:q` 는 그 자리에서 종료가 되지만 클릭은 손이
+// 미끄러지는 일이라, 한 번 잘못 누른 것으로 편집기가 통째로 닫히면 안 된다.
+//
+// 저장하지 않은 변경이 있으면 확인창을 띄운다. 보고 있지 않은 tab 이어도 묻는다 — 오히려
+// 그쪽이 무엇을 잃는지 화면에 드러나지 않는다('다른 tab 모두 닫기' 와 같다, ADR-0016).
+// 그래서 물음에 파일 이름을 적는다. 「이 tab」 이라고만 하면 어느 것인지 알 수 없다.
+func closeTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd) {
+	if len(e.buffers) < 2 || index < 0 || index >= len(e.buffers) {
+		return parent, nil
+	}
+
+	if e.buffers[index].dirty {
+		question := fmt.Sprintf("%s tab 을 닫으시겠습니까?", e.tabName(index))
+
+		return ConfirmDiscard(parent, e, question, func() (tea.Model, tea.Cmd) {
+			return forceCloseTabAt(parent, e, index)
+		}), nil
+	}
+
+	return forceCloseTabAt(parent, e, index)
+}
+
+// forceCloseTabAt 은 묻지 않고 index 자리의 tab 을 닫는다. 확인창의 Yes 도 쓴다.
+//
+// 보고 있지 않은 tab 을 닫았으면 그대로 parent 로 돌아간다. 보는 파일도 커서도 그대로여서
+// mode 를 옮길 이유가 없다 — insert 로 치던 중에 옆 tab 을 닫았으면 계속 치면 된다.
+//
+// 보고 있던 tab 을 닫았으면 normal 로 간다. 고치던 buffer 가 사라졌으니 insert·visual 에
+// 남을 수 없다. 남으면 그 mode 가 이제 다른 파일을 고친다. `:q` 와 같은 자리다.
+func forceCloseTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd) {
+	viewing := index == e.active
+
+	if !e.closeTabAt(index) {
+		return parent, nil
+	}
+
+	if !viewing {
+		return parent, nil
 	}
 
 	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를

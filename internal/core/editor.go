@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
 
+	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/lsp"
 )
 
@@ -102,6 +103,16 @@ type editor struct {
 	// 상한이 없다. 왜 두지 않는지는 notice.go 의 record 에 적었다.
 	notices []notice
 
+	// tipIndex 는 다음에 보여줄 tip 의 자리다. 문장은 internal/assets 에 살고
+	// 고르는 규칙은 tip.go 다.
+	//
+	// **시계가 시간이 아니라 알림이다.** 아래 줄이 알림에 덮이는 그 순간이 문장을 갈 수 있는
+	// 유일한 때다 — 타이머로 돌리면 가만히 보고 있는 화면의 글자가 저 혼자 움직인다(ADR-0061).
+	// 미는 자리는 notice.go 의 record 하나이고, 목록 길이로 나누는 것은 읽는 쪽(fitTip) 이 한다.
+	//
+	// 여는 순간 한 번 흩는다(core.Run). 그리는 자리에서는 굴리지 않는다 — 프레임마다 바뀐다.
+	tipIndex int
+
 	// files 는 팔레트가 고르는 파일 목록이다. 인덱싱 작업이 채운다.
 	// 팔레트를 닫아도 남는다 — 인덱싱은 팔레트보다 오래 살고, 다시 열면 모아둔 것부터 보인다.
 	files []string
@@ -123,7 +134,7 @@ type editor struct {
 	// symbolsIndexed 는 그 훑기가 끝났는지다. 유니코드 표는 도중에 바뀌지 않으므로
 	// 한 번 끝나면 다시 훑지 않는다 — 열 때마다 다시 읽는 파일 목록과 다른 점이다
 	// (ADR-0011, ADR-0056).
-	symbols        []symbol
+	symbols        []assets.Symbol
 	symbolsIndexed bool
 
 	// drawerHeight 는 하단 drawer 가 편집 영역에서 가져간 행 수다. 0 이면 닫힌 것이다.
@@ -403,13 +414,30 @@ func samePath(a, b string) bool {
 // closeTab 은 활성 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
 // 닫을 것이 없으면 부르는 쪽이 종료로 넘어간다.
 func (e *editor) closeTab() bool {
-	if len(e.buffers) < 2 {
+	return e.closeTabAt(e.active)
+}
+
+// closeTabAt 은 index 자리의 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
+//
+// **보고 있던 파일은 그대로 본다.** 닫은 것이 그 왼쪽이면 번호만 하나 당겨진다 — tabline
+// 우클릭이 남의 tab 을 닫는 자리가 이것을 쓴다(ADR-0060).
+// 보고 있던 것을 닫았으면 그 자리에 드러나는 tab 을 보고, 오른쪽 끝이었으면 왼쪽으로 간다.
+func (e *editor) closeTabAt(index int) bool {
+	if len(e.buffers) < 2 || index < 0 || index >= len(e.buffers) {
 		return false
 	}
 
-	e.buffers = slices.Delete(e.buffers, e.active, e.active+1)
-	// 마지막 tab 을 닫았으면 왼쪽으로 간다.
-	e.active = min(e.active, len(e.buffers)-1)
+	e.buffers = slices.Delete(e.buffers, index, index+1)
+
+	switch {
+	case index < e.active:
+		// 앞이 하나 빠졌으니 보던 tab 이 그만큼 왼쪽으로 밀린다.
+		e.active--
+	case index == e.active:
+		// 마지막 tab 을 닫았으면 왼쪽으로 간다.
+		e.active = min(e.active, len(e.buffers)-1)
+	}
+
 	// 닫은 자리만큼 오른쪽이 비므로 왼쪽에 가려둔 것이 도로 보일 수 있다.
 	e.scrollTabsTo()
 

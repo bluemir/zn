@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/assets"
 )
 
 // drawer 크기다. 팔레트의 수치와 같은 자리에 둔다(docs/spec.md).
@@ -59,7 +61,7 @@ func symbolMode(e *editor) (tea.Model, tea.Cmd) {
 	// 큐레이션 표는 곧바로 쓴다. 유니코드 전체를 훑는 것은 백그라운드로 미룬다 —
 	// 한국어로 찾는 것은 이 표가 하는 일이라 훑기를 기다릴 이유가 없다.
 	if len(e.symbols) == 0 {
-		e.symbols = curatedSymbols
+		e.symbols = assets.CuratedSymbols
 	}
 
 	cmd := tea.Cmd(nil)
@@ -175,7 +177,7 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return next, cmd
 		}
-		if len(m.symbols) > len(curatedSymbols) {
+		if len(m.symbols) > len(assets.CuratedSymbols) {
 			m.symbolsIndexed = true
 		}
 		m.refilter()
@@ -227,7 +229,7 @@ func (m *viewSymbol) refilter() {
 func (m viewSymbol) labels() []string {
 	labels := make([]string, 0, len(m.symbols))
 	for _, entry := range m.symbols {
-		labels = append(labels, entry.label())
+		labels = append(labels, entry.Label())
 	}
 
 	return labels
@@ -266,9 +268,9 @@ func (m *viewSymbol) scrollTo() {
 }
 
 // selectedSymbol 은 지금 고른 글자다. 걸린 것이 없으면 빈 것이다.
-func (m viewSymbol) selectedSymbol() (symbol, bool) {
+func (m viewSymbol) selectedSymbol() (assets.Symbol, bool) {
 	if len(m.hits) == 0 {
-		return symbol{}, false
+		return assets.Symbol{}, false
 	}
 
 	return m.symbols[m.hits[m.selected].index], true
@@ -284,7 +286,7 @@ func (m viewSymbol) insertSelected() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.activeBuffer().insert([]byte(entry.char), m.contentWidth())
+	m.activeBuffer().insert([]byte(entry.Char), m.contentWidth())
 	m.scrollToCursor()
 
 	return m, m.scheduleLspTick()
@@ -406,14 +408,14 @@ func (m viewSymbol) renderGridRows(inner int) []string {
 func (m viewSymbol) renderCell(at int) string {
 	entry := m.symbols[m.hits[at].index]
 
-	pad := strings.Repeat(" ", max(symbolCellWidth-m.symbolWidth(entry.char), 0))
+	pad := strings.Repeat(" ", max(symbolCellWidth-m.symbolWidth(entry.Char), 0))
 
 	// 고른 칸은 반전만 쓴다. 색을 섞으면 안쪽의 색 초기화가 반전까지 꺼버린다(view-palette.go).
 	if at == m.selected {
-		return reverse.Render(entry.char) + pad
+		return reverse.Render(entry.Char) + pad
 	}
 
-	return entry.char + pad
+	return entry.Char + pad
 }
 
 // renderNameRow 는 고른 글자가 무엇인지 알려주는 줄이다.
@@ -426,12 +428,12 @@ func (m viewSymbol) renderNameRow(inner int) string {
 		return side + " " + strings.Repeat(" ", inner) + " " + side
 	}
 
-	head := entry.char + strings.Repeat(" ", max(symbolCellWidth-m.symbolWidth(entry.char), 0))
+	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-m.symbolWidth(entry.Char), 0))
 
 	// 맞은 자리는 label() 안의 offset 이라 paletteRow 가 그대로 갈라 준다.
 	row := paletteRow{
-		left:      entry.name,
-		right:     entry.keywords,
+		left:      entry.Name,
+		right:     entry.Keywords,
 		positions: m.hits[m.selected].positions,
 	}
 
