@@ -1,12 +1,15 @@
 package core
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/lsp"
 )
@@ -208,6 +211,84 @@ func (e *editor) syncGopls() tea.Cmd {
 		// 받는 쪽이 없는 msg 를 만들지 않으려고 이렇게 둔다.
 		return nil
 	}
+}
+
+const goplsJobName = "gopls 설치"
+
+// gotoDefinition 은 커서 자리의 정의로 가거나, gopls 가 없으면 설치를 묻는다.
+func gotoDefinition(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	_, ok := goplsPath(buf.path)
+	if !ok {
+		e.notify("Go 파일에서만 정의를 찾습니다")
+
+		return nil, nil
+	}
+
+	if e.gopls == nil {
+		if e.jobRunning(goplsJobName) {
+			e.notify("gopls 를 설치하는 중입니다")
+
+			return nil, nil
+		}
+
+		if e.goplsStarting {
+			e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
+
+			return nil, nil
+		}
+
+		if e.goplsFailed {
+			return goplsInstallConfirmMode(parent, e)
+		}
+
+		e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
+
+		return nil, e.startGopls()
+	}
+
+	return nil, e.startDefinition()
+}
+
+// installGopls 는 go install 로 gopls 를 설치하는 백그라운드 작업을 시작한다.
+func (e *editor) installGopls() tea.Cmd {
+	if _, err := exec.LookPath("go"); err != nil {
+		e.notifyError(errors.New("go 명령어를 찾을 수 없습니다"))
+
+		return nil
+	}
+
+	return e.startJob(goplsJobName, func(ctx context.Context) <-chan jobProgress {
+		ch := make(chan jobProgress)
+
+		go func() {
+			defer close(ch)
+
+			cmd := exec.CommandContext(ctx, "go", "install", "golang.org/x/tools/gopls@latest")
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				errMsg := strings.TrimSpace(string(out))
+				if errMsg == "" {
+					errMsg = err.Error()
+				}
+
+				ch <- jobProgress{err: errors.New(errMsg)}
+
+				return
+			}
+
+			ch <- jobProgress{
+				summary: "gopls 설치 완료",
+				apply: func(e *editor) {
+					e.goplsFailed = false
+					e.notify("gopls 설치가 끝났습니다")
+				},
+			}
+		}()
+
+		return ch
+	})
 }
 
 // startDefinition 은 커서 자리의 정의가 어디인지 묻는다. `\gd` 와 팔레트의 「정의로 가기」다.

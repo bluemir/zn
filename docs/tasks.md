@@ -8,8 +8,12 @@
 	- 검색어를 입력할 modal
 - [ ] 여러 파일 replace
 - [x] visual mode 를 정하고 구현한다. `v`(글자) `V`(줄) 둘이고 blockwise 는 넣지 않았다. 고른 범위 위에 `d` `x` `y` `c` 를 치고, 범위는 `motionRange` 라 지우기·복사·바꾸기가 그대로 딸려 온다. anchor 는 `Buffer` 가 든다 — 커서·스크롤과 같이 그 파일에 딸린 것이다. 드래그로도 고른다 (ADR-0037)
-- [ ] blockwise visual(`ctrl+v`) 을 넣을지 정한다. `register` 에 blockwise 갈래와 사각 범위의 지우기·붙여넣기·`I`/`A` 가 같이 온다. 폭이 다른 글자와 tab 이 낀 사각형을 화면 칸 기준으로 잡는 일도 있다 (ADR-0037)
-- [ ] visual 의 `o`(양끝 바꾸기)·`p`(고른 자리를 register 로 바꾸기)·`r`(한 글자로 덮기) 를 넣을지 정한다. `p` 는 지우기와 붙여넣기를 한 되돌리기 구간으로 묶어야 하고, `r` 은 글자 하나를 기다리는 상태가 visual 쪽에도 필요하다 — 그 상태는 `visualRegister` 가 본을 만들어 두었다 (ADR-0017, ADR-0018, ADR-0037, ADR-0058)
+- [ ] blockwise visual(`ctrl+v`) 을 넣을지 정한다.
+	- `register` 에 blockwise 갈래와 사각 범위의 지우기·붙여넣기·`I`/`A` 가 같이 온다.
+	- 폭이 다른 글자와 tab 이 낀 사각형을 화면 칸 기준으로 잡는 일도 있다 (ADR-0037)
+- [ ] visual 의 `o`(양끝 바꾸기)·`p`(고른 자리를 register 로 바꾸기)·`r`(한 글자로 덮기) 를 넣을지 정한다.
+	-  `p` 는 지우기와 붙여넣기를 한 되돌리기 구간으로 묶어야 하고, `r` 은 글자 하나를 기다리는 상태가 visual 쪽에도 필요하다
+	- 그 상태는 `visualRegister` 가 본을 만들어 두었다 (ADR-0017, ADR-0018, ADR-0037, ADR-0058)
 - [ ] `gv`(마지막 선택 되살리기) 와 `:'<,'>`(고른 범위 안에서 치환·검색) 를 넣을지 정한다. 지금 `selection` 이 드는 것은 anchor 하나이고 반대쪽 끝은 커서라, visual 을 나가면서 커서가 움직이면 짝이 사라진다. 그때는 anchor 가 아니라 확정된 `motionRange` 를 남겨야 한다. `:%s` 치환·`:1,5d` 범위 문법과 같은 건이다 (ADR-0010, ADR-0037)
 - [ ] statusBar 아래 줄에 고른 크기(`3 줄` `12 글자`) 를 보일지 정한다. 세는 법과 문구는 복사 알림(`register.copiedMessage`) 이 이미 정해 두었다 (ADR-0037)
 - [ ] insert mode 에서 드래그를 받을지 정한다. 지금은 normal 에서만 visual 이 열린다 (ADR-0037)
@@ -245,16 +249,16 @@
 	- command palette 의 `>` 목록에서 「줄 끝 공백 지우기」로 고른다. 여러 줄을 지워도 한 번의 `u` 로 전부 돌아오고, 지울 것이 없으면 dirty 도 서지 않는다. 유니코드 공백은 건드리지 않는다 (ADR-0011)
 - [ ] `:tabnew aaa/bbb` 상태에서 tab 누르면 자동완성이 동작
 - [ ] alternate key 를 주지 않는 터미널 대비 - `hangulKeys` 가 `ctrl+ㅔ` 처럼 modifier 붙은 키 이름을 자모로 풀어 `c` `t` `r` `l` `+` `p` 여섯 키로 먹이는 것을 막는다 (ADR-0014)
-- [ ] dirty reload 시 confirm 창 개선
-	- 방안1. overlay 등으로 표시되도록 변경
-	- 방안2. 전체 화면의 가운데 뜨도록 변경
+- [x] dirty reload 시 confirm 창 개선
+	- 모달 박스 형태로 부모 화면 위에 overlay 렌더링되도록 변경 (`lipgloss.NewCompositor`), 화면 중앙 배치
 - [ ] 줄번호 앞에 마커용 공간 남겨 두기
 - [x] 화면을 그리는 함수 이름을 `render~`/`~View` 규칙으로 옮겼다. `render`→`editorView`, `screenRows`→`renderScreen`, `statusBar`→`renderStatusBar` 등 스무 곳쯤이다. 전부 패키지 내부 이름이라 동작은 그대로다 (ADR-0036)
 - [x] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히던 것을 고친다. `screenView` 가 `e` 를 한 번도 쓰지 않는 생성자였다 — 층이 아니라 정해진 설정을 붙여 주는 자리다. free function `newView` 로 내려서 `editorView` 와 `viewJobs.View` 가 대등해졌다 (ADR-0036)
 - [ ] 그리기와 상태가 섞인 파일(`tabline.go`·`sidebar.go`·`view-palette.go` 등) 의 이름과 경계를 다시 본다. 지금은 갈래 이름 그대로 두었고 `render-` 접두는 그리기만 든 파일 둘(`render-row.go`·`render-status-bar.go`) 에만 붙였다. 코드를 더 정리하면 경계가 달리 보일 수 있다 (ADR-0036)
 - [ ] git 기준으로 dirty file를 filetree 에서 표시 (파일 뒤에 마커?). 바탕은 생겼다 — `gitDirty` 가 셋을 보고 참·거짓만 돌려주는 것을 파일별로 돌려주게 바꾸는 일이 앞에 있다 (ADR-0042)
 - command palette 에 추가할 명령
-	- [ ] go definition
+	- [x] go definition
+		- normal `\gd` 및 팔레트 「정의로 가기」. gopls 부재 시 모달 확인창으로 설치 질의 및 백그라운드 설치 (`startJob`)
 	- [x] close other tabs
 		- 「다른 tab 모두 닫기」. 보고 있는 tab 만 남긴다. 닫으려는 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다(보고 있지 않아서 무엇을 잃는지 화면에 드러나지 않는다). 짝이 되는 `:` 명령은 두지 않았다 (ADR-0016)
 	- [ ] close right tabs
@@ -331,3 +335,4 @@
 	- 지금은 이름없는 tab 으로 시작 하지만, 별도의 home 화면 이나 welcome 화면으로 시작
 	- 마지막 tab 을 닫으면 다시 해당 화면표시
 - [ ] tab 를 드래그 해서 재정렬
+- [ ] git branch 전환 기능
