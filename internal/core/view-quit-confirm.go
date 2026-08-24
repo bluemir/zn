@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -15,8 +16,7 @@ func ConfirmDiscard(parent tea.Model, e *editor, question string, confirm func()
 
 // viewConfirmDiscard 는 이 창만의 상태(고른 자리, 물음, Yes 로 갈 곳) 를 든다.
 //
-// editor 는 이 창이 그리지 않는다 — 자기 화면을 따로 그리고 statusBar 도 없다.
-// 그래도 들고 있는 것은 다른 mode 와 같이 백그라운드 작업의 진행을 받기 위해서다.
+// editor 는 이 창이 직접 편집하지 않지만 다른 mode 와 같이 백그라운드 작업의 진행을 받기 위해 든다.
 // 창이 떠 있는 동안 온 진행이 버려지면 부모로 돌아갔을 때 표시가 뒤로 돌아간다.
 type viewConfirmDiscard struct {
 	*editor
@@ -101,24 +101,77 @@ func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 }
+
+// boxWidth 는 모달 박스의 너비다. 내용에 맞추되 터미널 너비를 넘지 않는다.
+func (m viewConfirmDiscard) boxWidth() int {
+	maxContent := screenWidthOf("저장하지 않은 변경이 있습니다.")
+	for _, qLine := range strings.Split(m.question, "\n") {
+		if w := screenWidthOf(qLine); w > maxContent {
+			maxContent = w
+		}
+	}
+	if btnW := screenWidthOf(cursor(true, "Yes") + "    " + cursor(false, "No")); btnW > maxContent {
+		maxContent = btnW
+	}
+
+	wanted := maxContent + 8
+	if m.width <= 0 {
+		return max(wanted, 40)
+	}
+
+	return min(max(wanted, 40), max(m.width-2, 10))
+}
+
+// renderBox 는 모달 박스 전체 문자열을 만든다.
+func (m viewConfirmDiscard) renderBox(width int) string {
+	inner := width - 4 // 좌우 테두리 2 + 좌우 1칸 공백
+	chars := m.boxChars
+	line := strings.Repeat(chars.horizontal, width-2)
+
+	rows := []string{
+		chars.topLeft + line + chars.topRight,
+		chars.vertical + strings.Repeat(" ", width-2) + chars.vertical,
+		chars.vertical + " " + padTo(truncateToWidth("저장하지 않은 변경이 있습니다.", inner), inner) + " " + chars.vertical,
+		chars.vertical + strings.Repeat(" ", width-2) + chars.vertical,
+	}
+
+	for _, qLine := range strings.Split(m.question, "\n") {
+		rows = append(rows, chars.vertical+" "+padTo(truncateToWidth(qLine, inner), inner)+" "+chars.vertical)
+	}
+
+	buttons := cursor(m.cursor == 0, "Yes") + "    " + cursor(m.cursor == 1, "No")
+
+	rows = append(rows,
+		chars.vertical+strings.Repeat(" ", width-2)+chars.vertical,
+		chars.vertical+" "+padTo(buttons, inner)+" "+chars.vertical,
+		chars.vertical+strings.Repeat(" ", width-2)+chars.vertical,
+		chars.bottomLeft+line+chars.bottomRight,
+	)
+
+	return strings.Join(rows, "\n")
+}
+
 func (m viewConfirmDiscard) View() tea.View {
-	style := lipgloss.NewStyle().Padding(2)
+	width := m.boxWidth()
+	box := m.renderBox(width)
+	boxRows := strings.Split(box, "\n")
+	boxHeight := len(boxRows)
+
+	left := (m.width - width) / 2
+	if left < 0 {
+		left = 0
+	}
+	top := (m.height - boxHeight) / 2
+	if top < 0 {
+		top = 0
+	}
+
+	parent := m.parent.View()
 	view := tea.NewView(
-		style.Render(
-			lipgloss.JoinVertical(
-				lipgloss.Left,
-				// 좁은 화면에서 잘리지 않게 두 줄로 나눈다.
-				// 이 화면은 터미널 너비를 몰라서 statusBar 처럼 잘라내지 못한다.
-				"저장하지 않은 변경이 있습니다.",
-				m.question,
-				"",
-				lipgloss.JoinHorizontal(
-					lipgloss.Top,
-					cursor(m.cursor == 0, "Yes"),
-					cursor(m.cursor == 1, "No"),
-				),
-			),
-		),
+		lipgloss.NewCompositor(
+			lipgloss.NewLayer(parent.Content).Z(0),
+			lipgloss.NewLayer(box).X(left).Y(top).Z(1),
+		).Render(),
 	)
 
 	// 부모 화면 위에 뜨는 것이므로 터미널 상태는 부모를 따라간다.
@@ -126,7 +179,6 @@ func (m viewConfirmDiscard) View() tea.View {
 	//
 	// MouseMode 도 같이 따라간다. 이 창은 mouse 를 받지 않지만(선택지 둘이라 키로 충분하다)
 	// 여기서 꺼지면 확인창이 뜰 때마다 터미널에 mouse 를 끄고 켜는 escape 가 오간다.
-	parent := m.parent.View()
 	view.AltScreen = parent.AltScreen
 	view.MouseMode = parent.MouseMode
 

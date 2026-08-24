@@ -234,3 +234,64 @@ func TestSyncGoplsReconcilesOpenTabs(t *testing.T) {
 	assert.True(t, client.Tracks(first))
 	assert.False(t, client.Tracks(second), "닫은 tab 은 서버도 잊어야 한다")
 }
+
+func TestGotoDefinitionPromptsInstallWhenMissing(t *testing.T) {
+	editor := newTestEditor("package main\nfunc main() {}\n", 80, 20)
+	editor.editor.buffers[0].path = "main.go"
+	editor.editor.goplsFailed = true
+
+	normal, _ := normalMode(editor.editor)
+	model, cmd := gotoDefinition(normal, editor.editor)
+
+	require.IsType(t, viewGoplsInstallConfirm{}, model)
+	assert.Nil(t, cmd)
+
+	confirm := model.(viewGoplsInstallConfirm)
+	assert.Equal(t, 0, confirm.cursor)
+}
+
+func TestGotoDefinitionInNonGoFileNotifies(t *testing.T) {
+	editor := newTestEditor("# Hello\n", 80, 20)
+	editor.editor.buffers[0].path = "README.md"
+
+	normal, _ := normalMode(editor.editor)
+	model, cmd := gotoDefinition(normal, editor.editor)
+
+	assert.Nil(t, model)
+	assert.Nil(t, cmd)
+	assert.Equal(t, "Go 파일에서만 정의를 찾습니다", editor.editor.notice)
+}
+
+func TestGotoDefinitionWhileInstallingNotifies(t *testing.T) {
+	editor := newTestEditor("package main\n", 80, 20)
+	editor.editor.buffers[0].path = "main.go"
+	editor.editor.putJob(job{name: goplsJobName})
+
+	normal, _ := normalMode(editor.editor)
+	model, cmd := gotoDefinition(normal, editor.editor)
+
+	assert.Nil(t, model)
+	assert.Nil(t, cmd)
+	assert.Equal(t, "gopls 를 설치하는 중입니다", editor.editor.notice)
+}
+
+func TestActionGotoDefinitionPromptsConfirm(t *testing.T) {
+	editor := newTestEditor("package main\n", 80, 20)
+	editor.editor.buffers[0].path = "main.go"
+	editor.editor.goplsFailed = true
+
+	model, cmd := actionGotoDefinition{}.run(editor.editor)
+	require.IsType(t, viewGoplsInstallConfirm{}, model)
+	assert.Nil(t, cmd)
+}
+
+func TestGoplsInstallJobDoneStartsGopls(t *testing.T) {
+	editor := newTestEditor("package main\n", 80, 20)
+	editor.editor.buffers[0].path = "main.go"
+	editor.editor.goplsFailed = false
+
+	// jobDoneMsg 가 오면 startGoplsForOpenBuffers 가 불려 goplsStarting 이 true 가 된다.
+	_, cmd := editor.editor.handleJob(jobDoneMsg{name: goplsJobName})
+	assert.NotNil(t, cmd)
+	assert.True(t, editor.editor.goplsStarting)
+}

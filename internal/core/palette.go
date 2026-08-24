@@ -290,16 +290,13 @@ func (c paletteCommand) detail() string {
 // 팔레트를 닫고 normal 로 돌아가며 묻는 Cmd 를 같이 낸다. 알림은 startDefinition 이 적으므로
 // 여기서 덧붙이지 않는다 — 「찾는 중」과 「Go 파일이 아니다」가 그쪽에서 갈린다.
 func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
-	// 볼 파일이 없으면 커서도 없다(ADR-0064).
-	if e.refuseNoBuffer() {
-		return normalMode(e)
+	back, modeCmd := normalMode(e)
+	model, cmd := gotoDefinition(back, e)
+	if model != nil {
+		return model, cmd
 	}
 
-	cmd := e.startDefinition()
-
-	model, modeCmd := normalMode(e)
-
-	return model, tea.Batch(cmd, modeCmd)
+	return back, tea.Batch(cmd, modeCmd)
 }
 
 func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {

@@ -263,3 +263,15 @@ func TestCloseLastTabKeepsTreeSelection(t *testing.T) {
 	require.IsType(t, viewEditorEmpty{}, m)
 	assert.Same(t, selected, m.(viewEditorEmpty).sidebar.selectedNode(), "고른 자리가 그대로다")
 }
+
+// 팔레트의 「정의로 가기」도 볼 파일이 없으면 알리고 물러난다.
+//
+// 가드는 `\gd` 와 팔레트가 함께 지나는 gotoDefinition 에 있다(ADR-0064).
+func TestEmptyScreenRefusesGotoDefinition(t *testing.T) {
+	e := newEmptyEditor(80, 20).editor
+
+	m, _ := runGotoDefinition(e)
+
+	require.IsType(t, viewEditorEmpty{}, m)
+	assert.Contains(t, barOf(t, m)[1], "열린 파일이 없습니다")
+}

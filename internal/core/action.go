@@ -551,7 +551,9 @@ func (c actionSearchWord) run(e *editor) (tea.Model, tea.Cmd) {
 type actionGotoDefinition struct{}
 
 func (c actionGotoDefinition) run(e *editor) (tea.Model, tea.Cmd) {
-	return nil, e.startDefinition()
+	back, _ := normalMode(e)
+
+	return gotoDefinition(back, e)
 }
 
 // actionQuit 는 `ctrl+c` 다. `:qa` 와 같은 경로라 저장하지 않은 변경이 있으면 확인창이 뜬다.

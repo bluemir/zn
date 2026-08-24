@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	describe        = ``
+	describe        = `Zn Editor. Personalized vim clone editor`
 	defaultLogLevel = logrus.WarnLevel
 )
 

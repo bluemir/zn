@@ -218,6 +218,10 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil, e.scheduleGitTick()
 		case fileJobName:
 			return nil, e.scheduleFileTick()
+		case goplsJobName:
+			if !e.goplsFailed {
+				return nil, e.startGoplsForOpenBuffers()
+			}
 		}
 
 		return nil, nil
