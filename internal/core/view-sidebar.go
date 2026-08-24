@@ -154,7 +154,8 @@ func (m viewSidebar) press(key string) (tea.Model, tea.Cmd) {
 // 접두 키가 `esc`·`ctrl+c` 를 삼키는 것이 이 규칙이다 — 잘못 누른 `ctrl+w` 를 무르는 것이지
 // 트리를 나가거나 편집기를 끄는 것이 아니다. normal mode 의 `g` 와 같다.
 //
-// **숫자를 보는 것은 이동뿐이다.** 나머지는 act.count 를 읽지 않아 그냥 무시한다 —
+// **숫자를 보는 것은 이동뿐이다.** 화면 단위 이동까지 여덟이고 나머지는 act.count 를 읽지 않아
+// 그냥 무시한다 —
 // `3md` 가 `md` 인 것이 normal 에서 `3i` 가 `i` 인 것과 같은 자리다(ADR-0059).
 func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 	switch act.name {
@@ -193,6 +194,16 @@ func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 		if act.count > 0 {
 			m.sidebar.selected = act.count - 1
 		}
+	case "ctrl+d":
+		// 반 화면·한 화면 이동이다. 고른 항목과 화면이 같이 내려가므로 커서가 트리 안 같은
+		// 자리에 남는다 — 휠이 화면만 굴리는 것과 갈린다(ADR-0062, ADR-0063).
+		m.sidebar.movePage(pageDown, pageHalf, act.count, m.sidebarHeight())
+	case "ctrl+u":
+		m.sidebar.movePage(pageUp, pageHalf, act.count, m.sidebarHeight())
+	case "ctrl+f":
+		m.sidebar.movePage(pageDown, pageFull, act.count, m.sidebarHeight())
+	case "ctrl+b":
+		m.sidebar.movePage(pageUp, pageFull, act.count, m.sidebarHeight())
 	case "enter":
 		return m.enter()
 	case "m c", "m a":

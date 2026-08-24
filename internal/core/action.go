@@ -43,6 +43,32 @@ func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 	return nil, nil
 }
 
+// actionPage 는 `ctrl+d`·`ctrl+u`(반 화면) 와 `ctrl+f`·`ctrl+b`(한 화면) 다. 화면과 커서를
+// 같이 옮긴다.
+//
+// **motion 이 아니라 홀로 서는 동작이다.** motion 은 buffer 와 폭만 받아서(motion.go) 화면
+// 높이를 모르는데 화면 단위 이동은 높이가 있어야 정해진다. operator 뒤에 올 수 없는 것도
+// 그래서고, vim 에서도 `d ctrl+d` 는 지우지 않는다(ADR-0062, ADR-0063).
+type actionPage struct {
+	direction pageDirection
+	span      pageSpan
+	count     int
+}
+
+func (c actionPage) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	buf.movePage(c.direction, c.span, c.count, e.contentWidth(), e.textHeight())
+
+	// 커서가 글자 위에 있어야 한다. actionMove 와 같은 자리다.
+	buf.clampToNormal(e.contentWidth())
+
+	// scrollToCursor 는 부르지 않는다. movePage 가 화면을 이미 옮겼는데 그것이 커서를 좇아
+	// top 을 다시 최소한으로 당기면, 한 화면 굴린 것이 한 행 굴린 것이 된다.
+
+	return nil, nil
+}
+
 // ── operator ──
 
 // actionDelete 는 motion 이 잡은 범위를 지운다. `x` 는 motion 이 `l` 인 것이다.

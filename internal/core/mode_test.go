@@ -35,6 +35,14 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	case "ctrl+z":
 		return tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl}
+	case "ctrl+d":
+		return tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl}
+	case "ctrl+u":
+		return tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl}
+	case "ctrl+f":
+		return tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}
+	case "ctrl+b":
+		return tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}
 	default:
 		// 나머지는 글자 키다. Text 가 차 있으면 String() 이 그것을 그대로 준다.
 		// 한글도 이 길로 온다 — Code 를 byte 가 아니라 rune 으로 세야 자모가 온전하다.

@@ -4,7 +4,7 @@ package core
 //
 // normal mode 처럼 동작마다 type 을 두지 않는다. 저쪽은 operator 가 범위와 짝지어야 해서
 // 동작이 값을 들어야 했는데(ADR-0013) 트리의 동작은 이름 하나로 끝나고, 숫자를 보는 것은
-// 이동 넷뿐이다. 그 넷 때문에 스무 개의 type 을 만들 값이 없다(ADR-0059).
+// 이동 여덟뿐이다. 그 여덟 때문에 스무 개의 type 을 만들 값이 없다(ADR-0059, ADR-0063).
 type sidebarAction struct {
 	name string
 

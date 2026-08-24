@@ -39,14 +39,24 @@ func pressExpandedVisual(state visualState, keys []string) ([]action, visualStat
 
 // visualAction 는 visual mode 에서 이동이 아닌 키가 가리키는 동작이다. 없으면 nil 이다.
 //
-// 숫자를 쓰지 않는 동작은 count 를 그냥 무시한다. 고른 범위가 이미 정해져 있어서
-// `3d` 가 `d` 와 같다 — 되풀이할 것이 없다.
+// 숫자를 보는 것은 반 화면 이동뿐이다. 나머지는 고른 범위가 이미 정해져 있어서 count 를 그냥
+// 무시한다 — `3d` 가 `d` 와 같고 되풀이할 것이 없다.
 //
 // `:` `/` `gt` `ctrl+p` `ctrl+w` 는 여기 없다. 짝이 없는 조합이 아무 일도 하지 않는 것과 같다.
-func visualAction(key string) action {
+func visualAction(key string, count int) action {
 	switch key {
 	case "ctrl+c":
 		return actionQuit{}
+	case "ctrl+d":
+		// 고른 범위가 커서를 따라 자란다. 이동 키를 친 것과 같다 — 화면 단위 이동이 motion 이
+		// 아니라 홀로 서는 동작인 것은 화면 높이가 있어야 정해지기 때문이다(ADR-0062).
+		return actionPage{direction: pageDown, span: pageHalf, count: count}
+	case "ctrl+u":
+		return actionPage{direction: pageUp, span: pageHalf, count: count}
+	case "ctrl+f":
+		return actionPage{direction: pageDown, span: pageFull, count: count}
+	case "ctrl+b":
+		return actionPage{direction: pageUp, span: pageFull, count: count}
 	case "esc":
 		return actionVisualLeave{}
 	case "v":
@@ -136,7 +146,7 @@ func (s visualStart) press(key string) ([]action, visualState) {
 		return one(actionMove{motion: mo}), s
 	}
 
-	return one(visualWithRegister(visualAction(key), s.reg)), visualStart{}
+	return one(visualWithRegister(visualAction(key, 0), s.reg)), visualStart{}
 }
 
 func (s visualStart) showcmd() string { return registerString(s.reg) }
@@ -179,9 +189,9 @@ func (s visualCount) press(key string) ([]action, visualState) {
 		return one(actionMove{motion: mo, count: s.count}), visualStart{}
 	}
 
-	// 이동이 아닌 키다. 모으던 숫자를 버리고 그 키만 친 것으로 본다.
-	// 이미 풀린 키라 visualStart 의 press 도 첫머리에서 그대로 빠져나온다.
-	return visualStart{reg: s.reg}.press(key)
+	// 이동이 아닌 키다. 숫자를 보는 것은 반 화면 이동뿐이고 나머지는 그 키만 친 것과 같다 —
+	// 동작들이 count 를 받지 않으므로 여기서 걸러 두지 않고 그냥 넘긴다(visualAction).
+	return one(visualWithRegister(visualAction(key, s.count), s.reg)), visualStart{}
 }
 
 func (s visualCount) showcmd() string { return registerString(s.reg) + strconv.Itoa(s.count) }

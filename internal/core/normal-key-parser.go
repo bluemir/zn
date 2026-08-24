@@ -243,6 +243,14 @@ func standaloneAction(key string, count int) action {
 		return actionPasteAfter{count: count}
 	case "P":
 		return actionPasteBefore{count: count}
+	case "ctrl+d":
+		return actionPage{direction: pageDown, span: pageHalf, count: count}
+	case "ctrl+u":
+		return actionPage{direction: pageUp, span: pageHalf, count: count}
+	case "ctrl+f":
+		return actionPage{direction: pageDown, span: pageFull, count: count}
+	case "ctrl+b":
+		return actionPage{direction: pageUp, span: pageFull, count: count}
 	case "u":
 		return actionUndo{}
 	case "ctrl+r":
