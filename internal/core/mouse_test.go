@@ -716,17 +716,17 @@ func TestRightClickTablineClosesViewedTab(t *testing.T) {
 	assert.Equal(t, "c.txt", normal.activeBuffer().path, "닫은 자리에 드러난 파일이다")
 }
 
-// tab 이 하나뿐이면 아무 일도 없다. 손이 미끄러진 것으로 편집기가 닫히면 안 된다.
-func TestRightClickLastTabDoesNothing(t *testing.T) {
+// tab 이 하나뿐이어도 닫는다. 닫으면 빈 화면이 남고 편집기는 끝나지 않는다(ADR-0064).
+func TestRightClickLastTabShowsEmptyScreen(t *testing.T) {
 	m := newTabsEditor("a.txt")
 
 	var model tea.Model = m
 	model, cmd := model.Update(rightClickAt(m.renderTabline(m.textWidth()).tabs[0][0], 0))
 
-	normal, ok := model.(viewEditorNormal)
-	require.True(t, ok, "종료하지 않는다: %T", model)
-	assert.Len(t, normal.buffers, 1)
-	assert.Nil(t, cmd)
+	empty, ok := model.(viewEditorEmpty)
+	require.True(t, ok, "종료하지 않고 빈 화면이 된다: %T", model)
+	assert.Empty(t, empty.buffers)
+	assert.Nil(t, cmd, "드러날 파일이 없어서 트리를 데려가지 않는다")
 }
 
 // tab 이 없는 칸은 우클릭도 아무 일이 없다. 가려짐 표시는 밀지도 않는다.

@@ -21,6 +21,13 @@ func Run(ctx context.Context, files []string) error {
 	// git 표시는 여기서 읽지 않는다. 첫 화면이 뜬 뒤 갱신 작업이 채운다(ADR-0030).
 	e := &editor{ctx: ctx, buffers: buffers}
 
+	// tab 이 없으면 활성 tab 도 없다. **-1 이라야** 첫 tab 이 0 번 자리에 생긴다 —
+	// tab 을 여는 길이 활성 tab 바로 뒤에 끼우는 것이라(openTab, newTab) 0 으로 두면
+	// 없는 tab 뒤를 가리킨다(ADR-0064).
+	if !e.hasTab() {
+		e.active = -1
+	}
+
 	// 박스 그리기 문자는 East Asian Width 가 Ambiguous 라 터미널마다 폭이 다르다.
 	// 한 칸으로 확인된 터미널에서만 쓰고, 두 칸이거나 재지 못했으면 ASCII 로 내린다(ADR-0028).
 	//
@@ -50,18 +57,23 @@ func Run(ctx context.Context, files []string) error {
 	if root, err := os.Getwd(); err == nil {
 		e.sidebar = openSidebar(root)
 
-		// CLI 인자로 연 파일 자리를 갈 곳으로 세워 둔다.
+		// CLI 인자로 연 파일 자리를 갈 곳으로 세워 둔다. 인자가 없으면 갈 자리가 없어서
+		// 뿌리만 읽는다(ADR-0064).
 		//
 		// 읽기를 시작하지는 않는다. 여기는 Program 이 뜨기 전이라 Cmd 를 낼 자리가 없다 —
-		// 첫 읽기는 normal mode 의 Init 이 startTree 로 시작하고, 트리는 그때부터
+		// 첫 읽기는 첫 model 의 Init 이 startTree 로 시작하고, 트리는 그때부터
 		// 이 자리를 향해 한 층씩 내려간다(ADR-0032).
-		e.sidebar.setRevealTarget(e.activeBuffer().path)
+		if e.hasTab() {
+			e.sidebar.setRevealTarget(e.activeBuffer().path)
+		}
 	}
 
 	// 언어 서버는 Go 파일을 열 때 뜬다(ADR-0051). 나가는 길에 내리는 자리는 여기 하나다 —
 	// Program 이 돌아온 뒤가 편집기의 마지막이다.
 	defer e.shutdownGopls()
 
+	// tab 이 없으면 normalMode 가 빈 화면을 준다. 여기서 가르지 않는다 — 편집 화면으로
+	// 가는 길이 다 그 함수를 지나므로 갈림길도 그 안에 있다(ADR-0064).
 	first, _ := normalMode(e)
 
 	// 들어오는 이벤트를 로그로 남긴다. `-vv` 와 `--log-file` 이 둘 다 있어야 실제로 쓰인다 —
@@ -80,7 +92,10 @@ func Run(ctx context.Context, files []string) error {
 }
 
 // openBuffers 는 CLI 인자로 받은 파일들을 tab 순서대로 연다.
-// 인자가 없으면 이름 없는 빈 buffer 하나로 시작한다.
+//
+// **인자가 없으면 tab 이 하나도 없다.** 예전에는 이름 없는 빈 buffer 하나를 끼워 넣었는데,
+// 그러면 아무 파일도 열지 않았다는 것이 「이름 없는 파일을 편집하는 중」 으로 보인다.
+// 그 자리에 오는 것이 빈 화면이다(ADR-0064).
 //
 // 같은 파일을 두 번 넘겨도 tab 은 하나다. 같은 파일에 Buffer 가 둘이면 한쪽에서 저장하는
 // 순간 다른 쪽 편집이 사라진다 — openTab 이 이미 열린 tab 으로 옮겨 가는 것과 같은 이유다.
@@ -105,10 +120,6 @@ func openBuffers(files []string) ([]Buffer, error) {
 			return nil, err
 		}
 		buffers = append(buffers, buf)
-	}
-
-	if len(buffers) == 0 {
-		buffers = append(buffers, newEmptyBuffer(""))
 	}
 
 	return buffers, nil

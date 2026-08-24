@@ -161,6 +161,13 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 // 다 그릴 수 없으면 tabScroll 자리부터 그리고 남은 것은 양끝의 `<n`·`n>` 이 알린다(ADR-0029).
 // 두 표시는 줄의 양 끝에 붙고 그 사이에 남는 칸은 잘린 tab 자리라 점으로 채운다.
 func (e editor) renderTabline(width int) tablineRow {
+	// tab 이 하나도 없으면 그릴 것이 없다. **줄은 남기고 비운다** — 줄까지 없애면 tab 을
+	// 여닫을 때마다 편집 영역이 한 행 튀고, 남는 칸을 반전으로 채우면 아무것도 안 적힌
+	// 막대가 떠서 고장 난 tab 으로 읽힌다(ADR-0064).
+	if !e.hasTab() {
+		return tablineRow{}
+	}
+
 	row := tablineRow{tabs: make([][2]int, len(e.buffers))}
 
 	line := strings.Builder{}
@@ -243,6 +250,13 @@ func (e editor) renderTabline(width int) tablineRow {
 // 뒤쪽이 남아 도는 것도 당긴다 — tab 을 닫거나 화면이 넓어져 오른쪽에 빈 칸이 생기면
 // 왼쪽에 가려둔 것을 도로 보여준다.
 func (e *editor) scrollTabsTo() {
+	// tab 이 없으면 밀 것이 없다. 그대로 두면 tabScroll 이 -1 로 오염된다(ADR-0064).
+	if !e.hasTab() {
+		e.tabScroll = 0
+
+		return
+	}
+
 	width := e.textWidth()
 
 	e.tabScroll = min(max(e.tabScroll, 0), len(e.buffers)-1)

@@ -28,7 +28,7 @@ func Run() error {
 		logFormat string
 		logFile   string // 비면 로그를 버린다. 편집기가 화면을 차지해서 낼 자리가 없다.
 
-		files []string // 편집할 file 들. tab 으로 열린다.
+		files []string // 편집할 file 들. tab 으로 열린다. 없으면 tab 없이 시작한다(ADR-0064).
 	}{}
 
 	app := kingpin.New(buildinfo.AppName, describe)

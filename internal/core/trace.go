@@ -107,8 +107,13 @@ const traceCursor = "‸" // U+2038 CARET
 // 자리만으로는 모자라서 줄 내용을 통째로 남긴다. 「빈칸에서 지웠는데 옆 글자가 없어졌다」
 // 같은 것은 무엇이 지워졌는지를 앞뒤로 견주어야만 가릴 수 있다.
 func traceBuffer(model tea.Model) string {
-	holder, ok := model.(interface{ activeBuffer() *Buffer })
-	if !ok {
+	// hasTab 을 같이 묻는다. mode 를 가리지 않고 buffer 를 들여다보는 자리라, 빈 화면
+	// model 도 editor 를 embed 해서 activeBuffer 를 만족해 버린다(ADR-0064).
+	holder, ok := model.(interface {
+		hasTab() bool
+		activeBuffer() *Buffer
+	})
+	if !ok || !holder.hasTab() {
 		return ""
 	}
 

@@ -13,8 +13,7 @@ func TestOpenBuffersWithoutFiles(t *testing.T) {
 	buffers, err := openBuffers(nil)
 	require.NoError(t, err)
 
-	require.Len(t, buffers, 1)
-	assert.Equal(t, "", buffers[0].path, "이름 없는 빈 buffer 하나로 시작한다")
+	assert.Empty(t, buffers, "인자가 없으면 tab 하나도 없이 시작한다 — 그 자리가 빈 화면이다")
 }
 
 // 같은 파일을 두 번 넘겨도 tab 은 하나여야 한다.

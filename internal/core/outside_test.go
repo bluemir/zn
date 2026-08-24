@@ -406,3 +406,12 @@ func TestOutsideResultDroppedWhenBaselineMoved(t *testing.T) {
 	assert.Equal(t, "abc", string(m.activeBuffer().lines[0]), "낡은 결과를 넣었다")
 	assert.Equal(t, outsideSame, m.activeBuffer().outside, "마커도 붙이지 않는다")
 }
+
+// tab 이 없어도 검사 작업은 시작한다. 시작하지 않으면 끝나지도 않아서 cooldown 고리가
+// 그 자리에서 멈추고, 그러면 빈 화면에서 파일을 열어도 바깥 변경을 다시 보지 않는다
+// (ADR-0044, ADR-0064).
+func TestOutsideCheckRunsWithoutTab(t *testing.T) {
+	e := newEmptyEditor(80, 20).editor
+
+	assert.NotNil(t, e.startOutsideCheck(), "고리가 여기서 끊기면 안 된다")
+}

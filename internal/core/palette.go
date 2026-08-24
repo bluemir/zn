@@ -290,6 +290,11 @@ func (c paletteCommand) detail() string {
 // 팔레트를 닫고 normal 로 돌아가며 묻는 Cmd 를 같이 낸다. 알림은 startDefinition 이 적으므로
 // 여기서 덧붙이지 않는다 — 「찾는 중」과 「Go 파일이 아니다」가 그쪽에서 갈린다.
 func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
+	// 볼 파일이 없으면 커서도 없다(ADR-0064).
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
 	cmd := e.startDefinition()
 
 	model, modeCmd := normalMode(e)
@@ -298,6 +303,10 @@ func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
 }
 
 func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
 	if e.refuseReadOnly() {
 		return normalMode(e)
@@ -322,6 +331,10 @@ func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 // 저장하지 않은 변경이 있으면 그것이 사라지므로 한 번 더 묻는다. 팔레트 항목에는 `:w!` 의 `!`
 // 처럼 강제를 붙일 자리가 없어서 확인창을 쓴다 (ADR-0016).
 func runReloadFile(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
 	// 이름이 없으면 다시 읽을 곳도 없다. 물어보기 전에 여기서 끝낸다 —
 	// Yes 를 눌러도 실패로 끝나는 확인창을 띄우지 않는다.
 	if e.activeBuffer().path == "" {

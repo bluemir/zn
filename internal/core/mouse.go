@@ -37,6 +37,12 @@ func (e editor) regionAt(x, y int) region {
 		return regionSidebar
 	}
 
+	// tab 이 없으면 누를 tab 도 본문도 없다. 빈 화면은 sidebar 만 받는다 — 여기 하나로
+	// 막으면 clickTabline·clickText·wheel·드래그가 다 같이 조용해진다(ADR-0064).
+	if !e.hasTab() {
+		return regionNone
+	}
+
 	switch {
 	case y < tablineHeight:
 		return regionTabline

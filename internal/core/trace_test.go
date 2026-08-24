@@ -213,3 +213,12 @@ func TestTraceTickCarriesBufferState(t *testing.T) {
 		assert.Contains(t, line, traceCursor+" 오른쪽", "%T 에 줄이 없다", msg)
 	}
 }
+
+// tab 이 없으면 적을 buffer 도 없다.
+//
+// 빈 화면 model 도 editor 를 embed 해서 activeBuffer 를 가진 것으로 보이므로, mode 를 가리지
+// 않는 이 자리가 hasTab 을 같이 물어야 한다. `-vv` 를 켰을 때만 나던 종류의 패닉이라 여기서
+// 잠근다(ADR-0064).
+func TestTraceBufferWithoutTab(t *testing.T) {
+	assert.Empty(t, traceBuffer(newEmptyEditor(80, 20)))
+}

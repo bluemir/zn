@@ -6,6 +6,13 @@ import (
 
 // viewEditorNormal 은 normal mode 다. 커서가 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
 func normalMode(e *editor) (tea.Model, tea.Cmd) {
+	// **볼 파일이 없으면 빈 화면이다.** 편집 화면으로 돌아오는 길이 백 곳 남짓인데 전부
+	// 이 함수를 지나므로 여기 하나로 가른다 — 각자 고치면 한 곳은 반드시 빠뜨리고, 그
+	// 한 곳이 tab 없이 normal 로 들어가 다음 프레임에 터진다(ADR-0064).
+	if !e.hasTab() {
+		return emptyMode(e)
+	}
+
 	// normal 에는 고른 범위가 없다. visual 을 떠나는 문이 여기와 insertMode 둘뿐이라
 	// 놓는 자리도 그 둘이다 (ADR-0037).
 	e.activeBuffer().selection = selection{}
@@ -51,16 +58,12 @@ func (m viewEditorNormal) keyState() normalState {
 }
 
 // Init 은 프로그램이 시작할 때 처음 model 에게만 불린다(bubbletea). mode 를 오가며 model 이
-// 바뀌어도 다시 불리지 않으므로, git 갱신 고리를 거는 자리가 여기 하나다(ADR-0030).
+// 바뀌어도 다시 불리지 않는다.
 //
-// 첫 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
-// `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
+// 무엇을 시작하는지는 editor 가 든다. 인자 없이 시작하면 첫 model 이 빈 화면이라 그쪽
+// Init 도 같은 것을 내야 하기 때문이다(startInitialJobs, ADR-0064).
 func (m viewEditorNormal) Init() tea.Cmd {
-	// 트리의 첫 읽기도 여기서 시작한다. core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가
-	// 없어서, git 첫 갱신과 같이 이 자리가 낸다(ADR-0030, ADR-0032).
-	// CLI 인자로 Go 파일을 열고 시작하는 길이 여기다. 언어 서버는 파일을 열 때 띄우는데
-	// (ADR-0051) 시작할 때 이미 열려 있는 것은 openTab 을 지나지 않는다.
-	return tea.Batch(m.startGitRefresh(), m.startOutsideCheck(), m.startTree(), m.startGoplsForOpenBuffers())
+	return m.startInitialJobs()
 }
 
 func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

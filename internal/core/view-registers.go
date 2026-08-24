@@ -47,6 +47,12 @@ func registerNameOrder() []string {
 // 달라서(저쪽은 입력줄과 격자, 이쪽은 목록 한 종류) 겹치는 것이 테두리 붙이는 몇 줄이고,
 // 그것을 장치로 가르려면 안쪽 내용을 넘겨받는 자리가 생긴다. 세 번째 쓰임이 올 때 가른다(ADR-0058).
 func registersMode(e *editor) (tea.Model, tea.Cmd) {
+	// 붙일 자리가 없으면 열지 않는다. drawer 는 편집 맥락에 딸린 자리라, 볼 파일이 없는
+	// 화면에 띄우면 그 자리 설명이 무너진다. 특수문자 판과 같다(ADR-0064).
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
 	m := viewRegisters{editor: e}
 
 	e.drawerHeight = m.registersDrawerHeight()

@@ -78,8 +78,6 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 명령을 실행한다.
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
-	buf := m.activeBuffer()
-
 	cmd, err := parseCommand(m.input)
 	if err != nil {
 		return normalModeError(m.editor, err)
@@ -112,6 +110,25 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// 볼 파일이 있어야 하는 명령들이다. 빈 화면에서는 알리고 물러난다 — 이름을 대고 친
+	// 것이라 조용하면 편집기가 먹지 않는 것으로 읽힌다(refuseNoBuffer, ADR-0064).
+	//
+	// 인자 없는 `:e` 는 다시 읽는 것이라 여기 든다. 인자가 있으면 새로 여는 것이라 지나간다.
+	switch cmd.name {
+	case "d", "y", "w", "wq", "x":
+		if m.refuseNoBuffer() {
+			return normalMode(m.editor)
+		}
+	case "":
+		if cmd.lines != (lineRange{}) && m.refuseNoBuffer() {
+			return normalMode(m.editor)
+		}
+	case "e":
+		if len(cmd.args) == 0 && m.refuseNoBuffer() {
+			return normalMode(m.editor)
+		}
+	}
+
 	switch cmd.name {
 	case "":
 		// 범위만 쳤으면 그 줄로 간다. 아무것도 안 쳤으면 그냥 나간다.
@@ -136,6 +153,8 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 			err  error
 			note string
 		)
+
+		buf := m.activeBuffer()
 		if cmd.force {
 			note, err = buf.SaveForce(m.contentWidth())
 		} else {
@@ -145,8 +164,8 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 			return normalModeError(m.editor, err)
 		}
 
-		// `.editorconfig` 를 따라 맞춘 것이 있으면 알린다. 마지막 tab 이었으면 편집기가
-		// 여기서 끝나므로 보이지 않는다 — 그때는 파일이 이미 그렇게 쓰였다(ADR-0052).
+		// `.editorconfig` 를 따라 맞춘 것이 있으면 알린다(ADR-0052). 마지막 tab 이었어도
+		// 보인다 — 닫은 자리에 빈 화면이 남고 그 아래 줄이 알림 자리다(ADR-0064).
 		// note 는 맞출 것이 없었으면 빈 문자열이다. 빈 알림을 세우지 않는다 —
 		// notify 가 빈 것을 조용히 걸러 주지 않는 것은 일부러다(notice.go).
 		if note != "" {
@@ -154,10 +173,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		// 저장은 dirty 를 바꾸는 유일한 편집기 안의 동작이라 주기 갱신을 기다리지 않는다(ADR-0030).
-		// 마지막 tab 이었으면 여기서 편집기가 끝나고, 시작한 갱신은 ctx 가 끊겨 같이 정리된다.
-		model, quit := forceCloseTab(m.editor)
+		model, close := forceCloseTab(m.editor)
 
-		return model, tea.Batch(quit, m.startGitRefresh())
+		return model, tea.Batch(close, m.startGitRefresh())
 	case "e":
 		return m.edit(cmd)
 	case "tabnew":
@@ -214,7 +232,8 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 		return model, tea.Batch(next, load)
 	case "q":
-		// 지금 보고 있는 tab 만 닫는다. 마지막 tab 이면 종료가 된다.
+		// 지금 보고 있는 tab 만 닫는다. 마지막 tab 을 닫으면 빈 화면이 남고, 그 화면에서
+		// 다시 치면 종료다(ADR-0064).
 		// `!` 는 묻지 않고 닫는다. 그냥 `:q` 는 저장하지 않은 변경이 있으면 확인창을 띄우고,
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다.
 		if cmd.force {
@@ -418,8 +437,11 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 
 	// 지금 tab 의 편집이 사라지는 것은 갈아끼울 때뿐이다. 이미 다른 tab 에 열려 있으면
 	// replaceTab 이 그리로 옮겨가기만 하므로 잃을 것이 없다.
+	//
+	// tab 이 아예 없으면 갈아끼우는 것이 아니라 새로 여는 것이라 여기서도 잃을 것이 없다
+	// (replaceTab, ADR-0064).
 	_, opened := m.tabOf(path)
-	if m.activeBuffer().dirty && !cmd.force && !opened {
+	if m.hasTab() && m.activeBuffer().dirty && !cmd.force && !opened {
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 		back, _ := normalMode(m.editor)
 

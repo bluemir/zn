@@ -21,6 +21,40 @@ import (
 // 아래 줄은 mode 를 따라가지 않고 편집 영역에 맞춰 들여쓴다. 명령줄과 커서 위치는 편집 중인
 // 파일에 딸린 것이라 위 줄의 경로와 세로로 맞아야 읽힌다.
 func (e editor) renderStatusBar(mode, bottom string) []string {
+	path := e.renderStatusPath()
+
+	// 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.
+	// 자르는 것이 채우는 것보다 먼저다 — 두 칸짜리 글자가 경계에 걸치면 통째로 버려진다.
+	left, text := "", mode+"  "+path
+	if e.sidebarVisible() {
+		label := truncateToWidth(mode, sidebarWidth)
+		left = label + strings.Repeat(" ", max(0, sidebarWidth-screenWidthOf(label)))
+		text = path
+	}
+
+	width := e.textWidth()
+
+	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
+	return []string{
+		reverse.Width(e.width).Render(left + e.renderWithStatus(truncateToWidth(text, width))),
+		strings.Repeat(" ", e.sidebarLeft()) + truncateToWidth(bottom, width),
+	}
+}
+
+// renderStatusPath 는 statusBar 위 줄에서 mode 다음에 오는 자리다. 보고 있는 파일과
+// 그것에 딸린 표시들이다.
+//
+// **tab 이 없으면 빈 문자열이다.** `[No Name]` 을 적지 않는다 — 그것은 이름 없는 tab 의
+// 이름이라(tabline 의 tabName), 여기 적으면 「tab 이 없다」 와 「이름 없는 tab 이 하나
+// 있다」 가 사람이 보는 유일한 자리에서 같은 글자가 된다(ADR-0064).
+//
+// git 은 여기 오지 않는다. 그것은 저장소 이야기라 보고 있는 파일과 무관하고, 그래서
+// 빈 화면에서도 남는다(ADR-0009).
+func (e editor) renderStatusPath() string {
+	if !e.hasTab() {
+		return ""
+	}
+
 	buf := e.buffers[e.active]
 
 	path := buf.path
@@ -43,22 +77,7 @@ func (e editor) renderStatusBar(mode, bottom string) []string {
 		path += " [읽기 전용]"
 	}
 
-	// 반전 안에 두어야 색이 왼쪽 끝까지 이어진다.
-	// 자르는 것이 채우는 것보다 먼저다 — 두 칸짜리 글자가 경계에 걸치면 통째로 버려진다.
-	left, text := "", mode+"  "+path
-	if e.sidebarVisible() {
-		label := truncateToWidth(mode, sidebarWidth)
-		left = label + strings.Repeat(" ", max(0, sidebarWidth-screenWidthOf(label)))
-		text = path
-	}
-
-	width := e.textWidth()
-
-	// Width 가 남은 칸을 공백으로 채워서 줄 끝까지 색이 간다.
-	return []string{
-		reverse.Width(e.width).Render(left + e.renderWithStatus(truncateToWidth(text, width))),
-		strings.Repeat(" ", e.sidebarLeft()) + truncateToWidth(bottom, width),
-	}
+	return path
 }
 
 // renderWithStatus 는 statusBar 위 줄 오른쪽 끝에 진행 표시와 저장소 상태를 붙인다.

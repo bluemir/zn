@@ -159,11 +159,15 @@ func quitAll(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 }
 
 // closeTab 은 `:q` 가 쓰는 경로다. 지금 보고 있는 tab 만 닫는다.
-// 마지막 tab 이면 닫을 것이 없으므로 종료가 된다.
+// 마지막 tab 을 닫으면 빈 화면이 남는다.
+//
+// **닫을 tab 이 없으면 종료다.** 빈 화면을 보면서 `:q` 를 친 것은 닫으라는 것이 아니라
+// 나가겠다는 뜻이다 — tab 이 없다는 것이 화면에 이미 드러나 있다. 그래서 `:q` 를 두 번
+// 치면 편집기가 끝나고, vim 에서 오는 손버릇이 그대로 산다(ADR-0064).
 //
 // 활성 tab 에 저장하지 않은 변경이 있으면 확인창을 띄운다. 다른 tab 의 변경은 남으므로 묻지 않는다.
 func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
-	if len(e.buffers) < 2 {
+	if !e.hasTab() {
 		return quitAll(parent, e)
 	}
 
@@ -177,14 +181,24 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 }
 
 // forceCloseTab 은 묻지 않고 활성 tab 을 닫는다. `:q!` 와 확인창의 Yes 가 쓴다.
+//
+// 닫을 tab 이 없으면 종료다. `:q` 와 같은 자리다(closeTab, ADR-0064).
 func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
-	if !e.closeTab() {
+	if !e.hasTab() {
 		return Exit()
 	}
 
+	e.closeTab()
+
 	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를
 	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032).
-	reveal := e.revealInSidebar(e.activeBuffer().path)
+	//
+	// 마지막 tab 이었으면 드러날 파일이 없어서 **트리를 건드리지 않는다.** 접거나 뿌리로
+	// 되돌리지도 않는다 — tab 을 닫은 사람은 대개 그 옆의 것을 열려는 참이다(ADR-0064).
+	var reveal tea.Cmd
+	if e.hasTab() {
+		reveal = e.revealInSidebar(e.activeBuffer().path)
+	}
 
 	model, cmd := normalMode(e)
 
@@ -193,14 +207,16 @@ func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 
 // closeTabAt 은 tabline 우클릭이 쓰는 경로다. index 자리의 tab 하나를 닫는다(ADR-0060).
 //
-// **tab 이 하나뿐이면 아무것도 하지 않는다.** `:q` 는 그 자리에서 종료가 되지만 클릭은 손이
-// 미끄러지는 일이라, 한 번 잘못 누른 것으로 편집기가 통째로 닫히면 안 된다.
+// **tab 이 하나뿐이어도 닫는다.** 예전에는 거부했는데, 그 근거는 「한 번 잘못 누른 것으로
+// 편집기가 통째로 닫히면 안 된다」 하나였다. 이제 마지막 tab 을 닫으면 빈 화면이 남고
+// 편집기는 끝나지 않으므로 그 근거가 사라졌다 — 슬쩍 눌러 잃는 것은 그 tab 의 커서와
+// 스크롤이고, 그것은 남의 tab 을 우클릭할 때 이미 잃는 것과 같다(ADR-0064).
 //
 // 저장하지 않은 변경이 있으면 확인창을 띄운다. 보고 있지 않은 tab 이어도 묻는다 — 오히려
 // 그쪽이 무엇을 잃는지 화면에 드러나지 않는다('다른 tab 모두 닫기' 와 같다, ADR-0016).
 // 그래서 물음에 파일 이름을 적는다. 「이 tab」 이라고만 하면 어느 것인지 알 수 없다.
 func closeTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd) {
-	if len(e.buffers) < 2 || index < 0 || index >= len(e.buffers) {
+	if index < 0 || index >= len(e.buffers) {
 		return parent, nil
 	}
 
@@ -234,8 +250,12 @@ func forceCloseTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd
 	}
 
 	// 닫은 파일이 아니라 그 자리에 드러난 파일이 이제 보는 파일이다. 트리가 아직 그 자리를
-	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032).
-	reveal := e.revealInSidebar(e.activeBuffer().path)
+	// 읽지 않았으면 읽는 작업이 시작된다(ADR-0032). 마지막 tab 이었으면 드러날 파일이
+	// 없어서 트리를 그대로 둔다(ADR-0064).
+	var reveal tea.Cmd
+	if e.hasTab() {
+		reveal = e.revealInSidebar(e.activeBuffer().path)
+	}
 
 	model, cmd := normalMode(e)
 

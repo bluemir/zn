@@ -95,12 +95,22 @@ const (
 // 절대번호는 전체 줄 수까지, 상대번호는 화면 높이까지만 커진다.
 // 상대번호는 화면 밖으로 나가면 볼 수 없으므로 줄 수와 무관하다.
 func (e editor) lineNumberDigits() (absolute, relative int) {
-	return max(digits(len(e.buffers[e.active].lines)), minAbsoluteDigits),
+	lines := 0
+	if e.hasTab() {
+		lines = len(e.buffers[e.active].lines)
+	}
+
+	return max(digits(lines), minAbsoluteDigits),
 		max(digits(e.textHeight()), minRelativeDigits)
 }
 
 // lineNumberWidth 는 줄번호 칸이 차지하는 폭이다. 안 그릴 때는 0 이다.
 func (e editor) lineNumberWidth() int {
+	// tab 이 없으면 번호를 붙일 줄이 없다. 빈 화면은 편집 영역을 통째로 쓴다(ADR-0064).
+	if !e.hasTab() {
+		return 0
+	}
+
 	absolute, relative := e.lineNumberDigits()
 
 	// 번호 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.

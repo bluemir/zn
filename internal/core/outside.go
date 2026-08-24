@@ -66,12 +66,25 @@ type outsideResult struct {
 // 무엇을 검사할지는 시작하는 이 자리에서 정한다. 결과가 돌아올 때는 tab 이 바뀌어 있을 수
 // 있으므로 경로로 다시 찾는다.
 func (e *editor) startOutsideCheck() tea.Cmd {
-	buf := e.activeBuffer()
+	// **tab 이 없어도 작업은 돈다.** 시작하지 않으면 끝나지도 않아서 cooldown 고리가 그
+	// 자리에서 멈추고, 그러면 빈 화면에서 파일을 열어도 검사가 다시 돌지 않는다. 이름 없는
+	// buffer 와 같은 자리로 보낸다 — checkOutsideFile 이 빈 경로를 「그대로인 것」 으로
+	// 끝낸다(ADR-0044, ADR-0064).
+	var (
+		path  string
+		seen  []byte
+		size  int64
+		mtime time.Time
+	)
 
-	path := buf.path
-	seen := buf.diskHash
-	size := buf.diskSize
-	mtime := buf.diskTime
+	if e.hasTab() {
+		buf := e.activeBuffer()
+
+		path = buf.path
+		seen = buf.diskHash
+		size = buf.diskSize
+		mtime = buf.diskTime
+	}
 
 	return e.startJob(fileJobName, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress, 1)

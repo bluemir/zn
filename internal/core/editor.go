@@ -145,8 +145,37 @@ type editor struct {
 	height int
 }
 
+// hasTab 은 열린 tab 이 있는지다. 없으면 빈 화면이다(ADR-0064).
+//
+// **buffer 를 만지는 공용 코드가 이것을 먼저 본다.** 그리기·mouse·주기 작업처럼 mode 를
+// 가리지 않고 오는 자리가 그렇다 — 어느 mode 에서 왔는지로는 tab 이 있는지 알 수 없다.
+func (e editor) hasTab() bool {
+	return len(e.buffers) > 0
+}
+
+// refuseNoBuffer 는 tab 이 없으면 알리고 참을 준다. buffer 가 있어야 하는 동작이 첫 줄에서
+// 부른다 — `:w` 처럼 명령줄로 오는 것과 팔레트 항목이 그렇다.
+//
+// refuseReadOnly 와 같은 꼴이다(readonly.go). **편집 키가 조용한 것과 갈리는 자리다** —
+// 키는 눌러 본 것이지만 이쪽은 이름을 대고 고른 것이라, 아무 일도 안 나면 편집기가 먹지
+// 않는 것으로 읽힌다(ADR-0064).
+func (e *editor) refuseNoBuffer() bool {
+	if e.hasTab() {
+		return false
+	}
+
+	e.notify("열린 파일이 없습니다")
+
+	return true
+}
+
 // activeBuffer 는 활성 activeBuffer 를 가리킨다.
 // 값이 아니라 slice 요소를 가리켜야 커서 이동과 편집이 제자리에 남는다.
+//
+// **tab 이 없을 때 부르면 터진다.** nil 을 돌려주면 부르는 자리 일흔 곳이 다 nil 검사를
+// 달아야 하고, 빠뜨린 한 자리는 터지는 대신 조용히 틀린다. tab 이 없는 동안 편집 동작이
+// 이 자리에 오지 않는 것으로 지킨다 — 판을 갈아끼우는 것이 mode 라는 자리가 그것을
+// 보증한다(ADR-0002, ADR-0064).
 func (e *editor) activeBuffer() *Buffer {
 	return &e.buffers[e.active]
 }
@@ -175,6 +204,12 @@ func (e *editor) bufferByPath(path string) *Buffer {
 // 편집·이동 동작이 끝에 이것을 하고, 창 크기가 바뀌거나 sidebar 를 여닫거나 보는 buffer 가
 // 바뀐 뒤에도 부른다 — 그 buffer 는 지금 폭을 본 적이 없을 수 있다.
 func (e *editor) scrollToCursor() {
+	// tab 이 없으면 맞출 커서가 없다. 창 크기가 바뀌는 길(resize) 이 어느 mode 에서든
+	// 이리로 오므로 목구멍인 여기서 막는다(ADR-0064).
+	if !e.hasTab() {
+		return
+	}
+
 	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
 }
 
@@ -189,12 +224,21 @@ func (e *editor) resize(msg tea.WindowSizeMsg) {
 //
 // 트리가 그 파일 자리를 아직 읽지 않았으면 읽는 작업이 시작되므로 Cmd 가 나온다(ADR-0032).
 func (e *editor) nextTab() tea.Cmd {
+	// tab 이 없으면 옮길 자리가 없다. 나누는 수가 0 이라 셈부터 되지 않는다(ADR-0064).
+	if !e.hasTab() {
+		return nil
+	}
+
 	e.active = (e.active + 1) % len(e.buffers)
 	e.scrollTabsTo()
 
 	return e.revealInSidebar(e.activeBuffer().path)
 }
 func (e *editor) prevTab() tea.Cmd {
+	if !e.hasTab() {
+		return nil
+	}
+
 	e.active = (e.active - 1 + len(e.buffers)) % len(e.buffers)
 	e.scrollTabsTo()
 
@@ -206,6 +250,11 @@ func (e *editor) prevTab() tea.Cmd {
 // 트리 항목은 절대 경로이고 CLI 로 연 파일은 상대 경로다. tabOf·reveal 과 같은 이유로 맞춰 둔다.
 // 이름 없는 buffer 는 빈 문자열이라 어느 행과도 맞지 않는다.
 func (e editor) activePath() string {
+	// tab 이 없으면 보고 있는 파일도 없다. 어느 트리 행도 굵지 않다(ADR-0064).
+	if !e.hasTab() {
+		return ""
+	}
+
 	path := e.buffers[e.active].path
 	if path == "" {
 		return ""
@@ -296,6 +345,12 @@ func (e *editor) openTab(path string) (tea.Cmd, error) {
 //
 // git 갱신은 openTab 과 같이 부르는 쪽의 몫이다.
 func (e *editor) replaceTab(path string) (tea.Cmd, error) {
+	// tab 이 없으면 갈아끼울 것이 없으므로 새로 여는 것이다. 잃을 것도 없어서 부르는 쪽이
+	// 확인창을 띄울 일도 없다(ADR-0064).
+	if !e.hasTab() {
+		return e.openTab(path)
+	}
+
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
 		e.scrollTabsTo()
@@ -411,19 +466,22 @@ func samePath(a, b string) bool {
 	return absA == absB
 }
 
-// closeTab 은 활성 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
-// 닫을 것이 없으면 부르는 쪽이 종료로 넘어간다.
+// closeTab 은 활성 tab 을 닫는다. 닫을 tab 이 없으면 false 를 준다.
 func (e *editor) closeTab() bool {
 	return e.closeTabAt(e.active)
 }
 
-// closeTabAt 은 index 자리의 tab 을 닫는다. 마지막 하나뿐이면 닫지 않고 false 를 준다.
+// closeTabAt 은 index 자리의 tab 을 닫는다. 그 자리에 tab 이 없으면 false 를 준다.
+//
+// **마지막 tab 도 닫는다.** 닫으면 tab 이 없는 상태가 되고 편집 영역이 빈 화면으로 바뀐다.
+// 예전에는 마지막 하나를 거부해서 `:q` 가 그것을 종료로 번역했다(ADR-0064).
 //
 // **보고 있던 파일은 그대로 본다.** 닫은 것이 그 왼쪽이면 번호만 하나 당겨진다 — tabline
 // 우클릭이 남의 tab 을 닫는 자리가 이것을 쓴다(ADR-0060).
 // 보고 있던 것을 닫았으면 그 자리에 드러나는 tab 을 보고, 오른쪽 끝이었으면 왼쪽으로 간다.
+// 마지막 하나였으면 활성 자리가 -1 이 된다 — 볼 tab 이 없다는 뜻이다.
 func (e *editor) closeTabAt(index int) bool {
-	if len(e.buffers) < 2 || index < 0 || index >= len(e.buffers) {
+	if index < 0 || index >= len(e.buffers) {
 		return false
 	}
 
@@ -508,8 +566,13 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 		e.sidebar = openSidebar(root)
 
 		// 닫을 때 트리를 버렸으므로 여는 이 자리에서 보고 있는 파일 자리를 다시 펼친다.
-		// 이름 없는 buffer 면 갈 자리가 없어서 뿌리만 읽는다.
-		e.sidebar.setRevealTarget(e.activeBuffer().path)
+		// 이름 없는 buffer 면 갈 자리가 없어서 뿌리만 읽는다. tab 이 아예 없을 때도 같다.
+		var target string
+		if e.hasTab() {
+			target = e.activeBuffer().path
+		}
+
+		e.sidebar.setRevealTarget(target)
 		cmd = e.startTree()
 	}
 
@@ -518,6 +581,22 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 	e.scrollTabsTo()
 
 	return cmd, nil
+}
+
+// startInitialJobs 는 첫 화면이 뜬 뒤에 시작하는 작업 전부다.
+//
+// **bubbletea 는 Init 을 첫 model 에게만 부른다.** 그 첫 model 이 normal 일 수도 빈 화면일
+// 수도 있어서(인자 없이 시작하면 빈 화면이다) 두 Init 이 같은 이것을 부른다 — 한쪽에
+// 빠뜨리면 git 표시와 트리 첫 읽기가 영영 돌지 않는다(ADR-0064).
+//
+// core.Run 은 Program 이 뜨기 전이라 Cmd 를 낼 자리가 없어서 그것들이 여기 모인다
+// (ADR-0030, ADR-0032). CLI 인자로 Go 파일을 열고 시작하는 길도 여기다 — 언어 서버는
+// 파일을 열 때 띄우는데(ADR-0051) 시작할 때 이미 열려 있는 것은 openTab 을 지나지 않는다.
+//
+// 첫 git 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
+// `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
+func (e *editor) startInitialJobs() tea.Cmd {
+	return tea.Batch(e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startGoplsForOpenBuffers())
 }
 
 // editorView 는 mode 가 공유하는 화면이다.
@@ -529,6 +608,17 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 // command mode 는 치고 있는 명령을 넣는다. vim 처럼 맨 아래 줄을 명령줄로 쓰는 것이라
 // 줄을 더 만들지 않아 편집 영역 높이가 흔들리지 않는다.
 func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View {
+	// tab 이 없으면 그릴 파일이 없다. 본문 자리만 빈 화면으로 갈아끼운다(ADR-0064).
+	//
+	// **가르는 자리가 여기 하나다.** normal 만이 아니라 command·search·팔레트가 같은 자리를
+	// 지나고, tab 없이 트리에 포커스를 둔 상태도 실재해서(`ctrl+w ctrl+w`) 그때 그리는 것은
+	// viewSidebar 다 — 빈 화면 model 안에 두면 그 상태가 비거나 터진다.
+	//
+	// 커서는 얹지 않는다. 놓을 글자가 없어서 터미널이 숨긴다.
+	if !e.hasTab() {
+		return newView(e.renderScreen(e.renderEmptyScreen(), mode, bottom))
+	}
+
 	buf := e.activeBuffer()
 	height := e.textHeight()
 

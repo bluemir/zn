@@ -155,17 +155,17 @@ func TestCommandQuitWhenClean(t *testing.T) {
 
 	m = send(m, ":", "q", "enter")
 
-	assert.IsType(t, finalExit{}, m, "바뀐 것이 없으면 그냥 종료한다")
+	assert.IsType(t, viewEditorEmpty{}, m, "바뀐 것이 없으면 묻지 않고 닫는다")
 }
 
-// 저장하지 않은 변경이 있으면 :q 가 확인창을 띄운다. Ctrl+C 와 같은 경로다.
+// 저장하지 않은 변경이 있으면 :q 가 확인창을 띄운다. 확인창 자체는 Ctrl+C 와 같은 것이다.
 func TestCommandQuitConfirmsWhenDirty(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 5)
 
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "enter")
 
-	assert.IsType(t, viewConfirmDiscard{}, m, "묻고 나서 나간다")
+	assert.IsType(t, viewConfirmDiscard{}, m, "묻고 나서 닫는다")
 	assert.Contains(t, m.View().Content, "저장하지 않은 변경")
 }
 
@@ -201,7 +201,7 @@ func TestCommandForceQuit(t *testing.T) {
 	m = send(m, "i", "X", "esc")
 	m = send(m, ":", "q", "!", "enter")
 
-	assert.IsType(t, finalExit{}, m)
+	assert.IsType(t, viewEditorEmpty{}, m, "묻지 않고 닫는다")
 }
 
 func TestCommandWriteQuit(t *testing.T) {
@@ -211,7 +211,7 @@ func TestCommandWriteQuit(t *testing.T) {
 	model = send(model, "i", "X", "esc")
 	model = send(model, ":", "w", "q", "enter")
 
-	assert.IsType(t, finalExit{}, model)
+	assert.IsType(t, viewEditorEmpty{}, model, "저장하고 닫는다. 마지막 tab 이어도 종료가 아니다")
 
 	saved, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -251,7 +251,7 @@ func TestCommandIgnoresSurroundingSpaces(t *testing.T) {
 
 	m = send(m, ":", " ", "q", " ", "enter")
 
-	assert.IsType(t, finalExit{}, m)
+	assert.IsType(t, viewEditorEmpty{}, m)
 }
 
 // 따옴표가 닫히지 않으면 실행하지 않고 알린다.

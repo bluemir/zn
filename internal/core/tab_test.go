@@ -448,13 +448,14 @@ func TestCloseLastTabMovesActiveLeft(t *testing.T) {
 	assert.Equal(t, " 1 a.txt", tablineOf(t, m.View()))
 }
 
-// tab 이 하나뿐이면 :q 는 종료다.
-func TestCloseOnlyTabExits(t *testing.T) {
+// tab 이 하나뿐이어도 :q 는 그것을 닫는다. 남는 것은 빈 화면이다(ADR-0064).
+func TestCloseOnlyTabShowsEmptyScreen(t *testing.T) {
 	var m tea.Model = newTabsEditor("a.txt")
 
 	m = send(m, ":", "q", "enter")
 
-	assert.IsType(t, finalExit{}, m)
+	require.IsType(t, viewEditorEmpty{}, m)
+	assert.Empty(t, m.(viewEditorEmpty).buffers)
 }
 
 // :q 는 지금 보고 있는 tab 의 변경만 묻는다. 다른 tab 의 변경은 남으므로 묻지 않는다.

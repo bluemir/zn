@@ -50,6 +50,11 @@ func (e editor) symbolDrawerHeight() int {
 // 커서는 `a` 와 같이 글자 뒤로 간다. 팔레트는 어디서 열렸는지 기억하지 않으므로(ADR-0011)
 // 여기 오는 커서는 늘 normal 자리다. insert 에서 연 경우는 그쪽에서 맞춰 놓고 넘긴다.
 func symbolMode(e *editor) (tea.Model, tea.Cmd) {
+	// 넣을 커서가 없으면 열지 않는다. 하단 drawer 는 편집 맥락에 딸린 자리다(ADR-0064).
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
 	// 읽기 전용 파일은 고치지 않는다(readonly.go). 알림은 그쪽이 적는다.
 	if e.refuseReadOnly() {
 		return normalMode(e)
