@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/buildinfo"
 )
@@ -155,10 +156,15 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		)
 
 		buf := m.activeBuffer()
+
+		// **나가는 길에서는 설치를 묻지 않는다.** 깔려 있지 않으면(errHookNotInstalled) 맞추지
+		// 않고 그냥 쓴다 — 여기서 창을 띄우면 tab 을 닫는 것과 겹친다. 다음 `:w` 가 묻는다
+		// (ADR-0065).
+		hook, _ := m.saveHookFor(buf.path)
 		if cmd.force {
-			note, err = buf.SaveForce(m.contentWidth())
+			note, err = buf.SaveForce(m.contentWidth(), hook)
 		} else {
-			note, err = buf.Save(m.contentWidth())
+			note, err = buf.Save(m.contentWidth(), hook)
 		}
 		if err != nil {
 			return normalModeError(m.editor, err)
@@ -380,15 +386,19 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
+	// 쓰기 직전에 통과시킬 포매터다. 깔려 있지 않으면 hook 이 nil 이고 까닭이 따라온다 —
+	// 그것을 가지고 물을지는 저장을 끝낸 뒤에 본다(save-hook.go, ADR-0065).
+	hook, hookErr := m.saveHookFor(buf.path)
+
 	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
 	var (
 		err  error
 		note string
 	)
 	if cmd.force {
-		note, err = buf.SaveForce(m.contentWidth())
+		note, err = buf.SaveForce(m.contentWidth(), hook)
 	} else {
-		note, err = buf.Save(m.contentWidth())
+		note, err = buf.Save(m.contentWidth(), hook)
 	}
 	if err != nil {
 		return normalModeError(m.editor, err)
@@ -413,6 +423,15 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	model, next := normalModeMessage(m.editor, message)
+
+	// 포매터를 찾지 못했으면 여기서 한 번 묻는다. **저장은 이미 끝났다** — 깔지 않기로 해도
+	// 파일은 쓰인 상태다. 창은 방금 그린 화면 위에 얹히고 Yes·No 둘 다 그 화면으로 돌아온다
+	// (ADR-0065).
+	if errors.Is(hookErr, errHookNotInstalled) && m.askGoimports() {
+		confirm, _ := goimportsInstallConfirmMode(model, m.editor)
+
+		return confirm, tea.Batch(next, refresh)
+	}
 
 	return model, tea.Batch(next, refresh)
 }

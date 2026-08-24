@@ -22,7 +22,7 @@ const wide = 1000
 func saveBuffer(t *testing.T, buf *Buffer) error {
 	t.Helper()
 
-	_, err := buf.Save(wide)
+	_, err := buf.Save(wide, nil)
 
 	return err
 }
@@ -30,7 +30,7 @@ func saveBuffer(t *testing.T, buf *Buffer) error {
 func saveBufferForce(t *testing.T, buf *Buffer) error {
 	t.Helper()
 
-	_, err := buf.SaveForce(wide)
+	_, err := buf.SaveForce(wide, nil)
 
 	return err
 }

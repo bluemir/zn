@@ -287,6 +287,32 @@ func (buf *Buffer) trimTrailingSpace(width int) int {
 	return count
 }
 
+// replaceAll 은 파일 전체를 next 로 갈아끼운다. 저장할 때 포매터가 낸 글이 이 길로 온다
+// (save-hook.go).
+//
+// **한 번의 `u` 로 통째로 돌아간다.** 포매터가 고친 것은 한 동작이라 되돌리기도 하나여야 하고,
+// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다 — trimTrailingSpace 와 같은
+// 자리다. 줄 수가 달라지므로 growEdit 으로 열린 구간을 지금 줄 수에 맞춘다.
+//
+// 커서는 줄 번호를 지킨다. 포매터는 들여쓰기를 고치고 import 를 옮기지 줄을 뒤섞지 않아서,
+// 보던 자리가 대개 그 자리에 있다. 파일이 짧아졌으면 범위 안으로 끌어온다 — 다시 읽기가
+// 커서를 이어받는 것과 같은 태도다(Reload).
+func (buf *Buffer) replaceAll(next [][]byte, width int) {
+	before := len(buf.lines)
+
+	buf.endEdit()
+	buf.beginEdit(0, before)
+
+	buf.replaceLines(0, before, next)
+	buf.growEdit(len(next) - before)
+
+	buf.cursorLine = min(buf.cursorLine, len(buf.lines)-1)
+	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.updateDesiredCol(width)
+
+	buf.endEdit()
+}
+
 // trimLineEnd 는 줄 끝의 공백과 tab 을 뗀 부분이다.
 // 자르기만 하므로 새로 할당하지 않는다(ADR-0001).
 func trimLineEnd(line []byte) []byte {

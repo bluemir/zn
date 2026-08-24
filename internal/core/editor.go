@@ -74,6 +74,14 @@ type editor struct {
 	goplsStarting bool
 	goplsFailed   bool
 
+	// saveHooks 는 폴더마다 찾아 둔 저장 포매터다. 없다고 판정한 것은 nil 로 담긴다 —
+	// 「아직 안 찾아봤다」와 「찾아봤는데 없다」가 갈려야 저장마다 다시 뒤지지 않는다.
+	//
+	// goimportsDeclined 는 설치를 거절했는지다. 거절한 뒤로는 묻지 않는다 — 저장은 손이
+	// 가장 자주 가는 자리라, 물음이 되풀이되면 그것이 곧 방해다(save-hook.go, ADR-0065).
+	saveHooks         map[string]*saveHook
+	goimportsDeclined bool
+
 	// lspTickScheduled 는 서버와 맞출 예약이 이미 걸려 있는지다. git·파일 검사와 같은 자리다
 	// (ADR-0043). 이것이 타이핑을 모아 주는 자리이기도 하다 — 예약이 하나라 키를 여러 번 쳐도
 	// 보내는 것은 250ms 뒤 한 번이다.

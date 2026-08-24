@@ -35,7 +35,7 @@ func saveWithNote(t *testing.T, path string) (string, string) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	note, err := buf.Save(wide)
+	note, err := buf.Save(wide, nil)
 	require.NoError(t, err)
 
 	saved, err := os.ReadFile(path)
@@ -190,7 +190,7 @@ func TestSaveRefusedDoesNotFormat(t *testing.T) {
 	// 밖에서 바뀌었다. `:w` 는 막힌다(ADR-0015).
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
-	note, err := buf.Save(wide)
+	note, err := buf.Save(wide, nil)
 	require.Error(t, err)
 	assert.Empty(t, note)
 
@@ -223,7 +223,7 @@ func TestSaveTrimPullsCursorIn(t *testing.T) {
 	buf.moveTo(0, 12, wide)
 	require.Equal(t, 12, buf.cursorCol)
 
-	_, err = buf.Save(wide)
+	_, err = buf.Save(wide, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, len("가나다"), buf.cursorCol, "잘려나간 자리에 남지 않는다")
@@ -238,7 +238,7 @@ func TestSaveTrimIsUndoable(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	_, err = buf.Save(wide)
+	_, err = buf.Save(wide, nil)
 	require.NoError(t, err)
 	require.Equal(t, "가나다", string(buf.lines[0]))
 
@@ -350,7 +350,7 @@ func TestReadOnlyFileIsNotFormatted(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, buf.readOnly)
 
-	note, err := buf.Save(wide)
+	note, err := buf.Save(wide, nil)
 
 	// 쓰기 자체는 권한 때문에 실패한다. 그 전에 줄이 다듬어지지 않았는지가 요점이다.
 	require.Error(t, err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
@@ -769,7 +770,11 @@ func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
 
 // Save 는 buffer 를 파일에 쓴다.
 // 읽은 뒤에 파일이 밖에서 바뀌었으면 쓰지 않고 알린다 (ADR-0015).
-func (buf *Buffer) Save(width int) (string, error) {
+//
+// hook 은 쓰기 직전에 통과시킬 포매터다. 없으면 nil 이다(save-hook.go). 부르는 쪽이 찾아서
+// 넘기는 것은 「무엇이 깔려 있는가」가 편집기가 도는 동안의 상태라서다 — buffer 는 그것을
+// 들 자리가 아니다.
+func (buf *Buffer) Save(width int, hook *saveHook) (string, error) {
 	// :tabnew 로 만든 buffer 는 이름이 없어서 쓸 곳이 없다. vim 의 E32 와 같다.
 	// 이름을 주려면 `:w <파일>`, 즉 SaveTo 다 (ADR-0024).
 	if buf.path == "" {
@@ -782,19 +787,19 @@ func (buf *Buffer) Save(width int) (string, error) {
 		return "", err
 	}
 
-	return buf.formatAndWrite(width)
+	return buf.formatAndWrite(width, hook)
 }
 
 // SaveForce 는 밖에서 바뀌었는지 보지 않고 덮어쓴다. `:w!` 다.
 //
 // 맞추는 것은 건너뛰지 않는다. `!` 는 「바깥 변경을 무릅쓰고 덮어쓴다」 하나만 뜻한다 —
 // 한 키에 뜻을 둘 담으면 어느 쪽을 부른 것인지 갈리지 않는다(ADR-0015, ADR-0052).
-func (buf *Buffer) SaveForce(width int) (string, error) {
+func (buf *Buffer) SaveForce(width int, hook *saveHook) (string, error) {
 	if buf.path == "" {
 		return "", errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
 	}
 
-	return buf.formatAndWrite(width)
+	return buf.formatAndWrite(width, hook)
 }
 
 // formatAndWrite 는 `.editorconfig` 가 적어 둔 모습으로 맞춘 뒤 쓴다.
@@ -803,14 +808,23 @@ func (buf *Buffer) SaveForce(width int) (string, error) {
 // 맞추는 것이 쓰기보다 먼저다. buffer 를 고치고 그것을 쓰는 순서라야 화면과 파일이 같아진다.
 // 나가는 바이트만 고치면 화면에는 지운 공백이 그대로 남고, 그 상태로 dirty 가 내려가서
 // 다음 자동 다시읽기(ADR-0038) 에 조용히 사라진다.
-func (buf *Buffer) formatAndWrite(width int) (string, error) {
-	note := buf.applyFileFormat(width)
+func (buf *Buffer) formatAndWrite(width int, hook *saveHook) (string, error) {
+	// 포매터가 먼저고 `.editorconfig` 가 뒤다. 적어 둔 사람의 뜻이 마지막에 서야 한다 —
+	// gofmt 계열은 줄끝을 LF 로, 마지막 줄바꿈을 있는 것으로 내는데, 그 파일에 `end_of_line`
+	// 이나 `insert_final_newline` 이 적혀 있으면 그쪽이 이긴다(ADR-0052, ADR-0065).
+	notes := []string{}
+	if note := buf.applySaveHook(hook, width); note != "" {
+		notes = append(notes, note)
+	}
+	if note := buf.applyFileFormat(width); note != "" {
+		notes = append(notes, note)
+	}
 
 	if err := buf.write(); err != nil {
 		return "", err
 	}
 
-	return note, nil
+	return strings.Join(notes, "  "), nil
 }
 
 // SaveTo 는 buffer 를 다른 파일에 쓴다. `:w <파일>` 이다.
