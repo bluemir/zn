@@ -37,6 +37,19 @@ func TestSidebarCreateAsksNameInSelectedDir(t *testing.T) {
 	assert.Contains(t, barOf(t, model)[1], "새 파일: docs/", "만들 자리가 아래 줄에 보인다")
 }
 
+// `ma` 도 `mc` 와 같은 화면으로 간다. NERDTree 손버릇으로 온 손을 돌려보내지 않는다.
+func TestSidebarCreateAcceptsMaAsWell(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "docs")
+	model = send(model, "m", "a")
+
+	create, ok := model.(viewSidebarCreate)
+	require.True(t, ok, "이름을 받는 화면으로 간다")
+	assert.Equal(t, filepath.Join(root, "docs"), create.dir)
+}
+
 // 파일을 골랐으면 그 파일이 있는 디렉터리다.
 func TestSidebarCreateUsesParentDirOfSelectedFile(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)

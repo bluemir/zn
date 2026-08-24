@@ -41,6 +41,7 @@ func TestSidebarKeyParser(t *testing.T) {
 		// `m` 도 접두 키다. 파일을 만들고 지우고 이름을 바꾸는 셋이 그 뒤에 있다(ADR-0054).
 		{name: "m 은 다음 키를 기다린다", keys: []string{"m"}},
 		{name: "m c 는 만들기다", keys: []string{"m", "c"}, want: sidebarAction{name: "m c"}},
+		{name: "m a 도 이름이 완성된다", keys: []string{"m", "a"}, want: sidebarAction{name: "m a"}},
 		{name: "m d 는 지우기다", keys: []string{"m", "d"}, want: sidebarAction{name: "m d"}},
 		{name: "m m 은 이름 바꾸기다", keys: []string{"m", "m"}, want: sidebarAction{name: "m m"}},
 		{name: "짝이 없는 m 조합도 이름이 된다", keys: []string{"m", "x"}, want: sidebarAction{name: "m x"}},
