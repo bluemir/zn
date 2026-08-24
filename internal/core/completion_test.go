@@ -190,18 +190,19 @@ func TestCompletionClosesOnOtherKeys(t *testing.T) {
 }
 
 // 커서 아래가 제자리고, 아래에 자리가 없으면 위로 올린다.
-func TestCompletionBoxPos(t *testing.T) {
-	left, top := completionBoxPos(10, 3, 100, 20, 6)
+// 자동완성 목록과 이름 바꾸기 창이 같이 쓰는 셈이다(render-popup.go).
+func TestPopupPos(t *testing.T) {
+	left, top := popupPos(10, 3, completionBoxWidth, 6, 100, 20)
 	assert.Equal(t, 10, left)
 	assert.Equal(t, 4, top, "커서 바로 아래다")
 
-	_, top = completionBoxPos(10, 15, 100, 20, 6)
+	_, top = popupPos(10, 15, completionBoxWidth, 6, 100, 20)
 	assert.Equal(t, 9, top, "아래에 자리가 없으면 커서 위다")
 
-	left, _ = completionBoxPos(95, 3, 100, 20, 6)
+	left, _ = popupPos(95, 3, completionBoxWidth, 6, 100, 20)
 	assert.Equal(t, 100-completionBoxWidth, left, "오른쪽 끝에서는 화면 안으로 민다")
 
-	left, _ = completionBoxPos(0, 3, 10, 20, 6)
+	left, _ = popupPos(0, 3, completionBoxWidth, 6, 10, 20)
 	assert.Equal(t, 0, left, "화면이 창보다 좁아도 음수로 가지 않는다")
 }
 

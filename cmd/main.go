@@ -55,7 +55,7 @@ func Run() error {
 		//
 		// 파일을 받는 플래그는 처음부터 있었고 「지정 하지 않으면 log 가 남지 않는다」는
 		// 것이 그때 적어 둔 뜻이다. 그 뜻대로 잇는다.
-		out, err := logOutput(conf.logFile)
+		out, err := openLogFile(conf.logFile)
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func Run() error {
 		//
 		// `:version` 과 `--version` 이 쓰는 그 줄 그대로다(buildinfo.Describe).
 		logrus.Info(buildinfo.Describe())
-		logrus.Infof("logrus level: %s, log file: %s", level, logFileName(conf.logFile))
+		logrus.Infof("logrus level: %s, log file: %s", level, conf.logFile)
 
 		callerPrettyfier := func(f *runtime.Frame) (string, string) {
 			/* https://github.com/sirupsen/logrus/issues/63#issuecomment-476486166 */
@@ -116,20 +116,11 @@ func Run() error {
 	return core.Run(ctx, conf.files)
 }
 
-// logFileName 은 로그가 어디로 가는지를 사람이 읽을 말로 적은 것이다.
-func logFileName(path string) string {
-	if path == "" {
-		return "없음(버림)"
-	}
-
-	return path
-}
-
-// logOutput 은 로그를 적을 곳이다. 경로가 비면 버리는 곳이다.
+// openLogFile 은 로그를 적을 곳이다. 경로가 비면 io.Discard 로 버린다.
 //
 // 파일은 이어 쓴다. 한글 입력기가 얽힌 버그처럼 여러 번 재현해서 견주는 일이 있어서,
 // 띄울 때마다 앞의 기록을 지우면 방금 잡은 것을 잃는다.
-func logOutput(path string) (io.Writer, error) {
+func openLogFile(path string) (io.Writer, error) {
 	if path == "" {
 		return io.Discard, nil
 	}

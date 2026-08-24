@@ -163,6 +163,29 @@ func (e editor) renderWithShowcmd(bottom, showcmd string) string {
 	return bottom + strings.Repeat(" ", pad) + showcmd
 }
 
+// trimLeftToWidth 는 너무 긴 글을 **왼쪽부터** 줄이고 접은 자리에 `…` 를 남긴다.
+// truncateToWidth 와 짝이고, **뒤가 살아남아야 하는 자리**가 이것을 쓴다.
+//
+// 두 곳이 쓴다 — `GOTO` 목록의 경로(파일 이름과 줄 번호가 뒤에 있다) 와 이름 바꾸기 창
+// (치고 있는 글자가 뒤에 있다) 이다. 무엇이 뒤에 오는지는 부르는 쪽이 알고, 여기는 자리만 잰다.
+func trimLeftToWidth(text string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	if screenWidthOf(text) <= width {
+		return text
+	}
+
+	// `…` 한 칸을 남겨 두고, 들어갈 때까지 앞에서 한 글자씩 뗀다.
+	kept := text
+	for len(kept) > 0 && screenWidthOf(kept) > width-1 {
+		size, _ := clusterAt([]byte(kept), 0, 0)
+		kept = kept[size:]
+	}
+
+	return "…" + kept
+}
+
 // truncateToWidth 는 화면 너비를 넘는 부분을 자른다.
 // statusBar 가 넘치면 터미널이 줄바꿈해서 화면이 밀린다.
 //

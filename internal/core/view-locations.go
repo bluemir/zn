@@ -58,7 +58,7 @@ func (m viewLocations) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
 		// model 이 오면 mode 가 바뀐 것이다. 정의를 또 물은 답이 오면 이 목록이 새 목록으로
 		// 갈리는 자리이기도 하다(job.go).
 		next, cmd := m.handleJob(msg)
@@ -237,30 +237,10 @@ func (m viewLocations) renderRow(target lsp.Location, selected bool) string {
 	head := " " + marker
 	place := fmt.Sprintf("%s:%d", shortenPath(target.Path()), target.Range.Start.Line+1)
 
-	return head + trimPathLeft(place, m.width-screenWidthOf(head))
-}
-
-// trimPathLeft 는 너무 긴 자리를 **왼쪽부터** 줄인다.
-//
-// 오른쪽부터 자르면 파일 이름과 줄 번호가 먼저 사라진다 — 목록에서 고르는 데 쓰는 것이
-// 바로 그 둘이라, 남는 것이 `/Users/bluemir/go/pkg/mod/charm.land/...` 처럼 어느 줄에나
-// 같은 앞머리뿐이게 된다. 앞을 `…` 로 접으면 뒤가 살아남는다.
-func trimPathLeft(place string, width int) string {
-	if width < 1 {
-		return ""
-	}
-	if screenWidthOf(place) <= width {
-		return place
-	}
-
-	// `…` 한 칸을 남겨 두고, 들어갈 때까지 앞에서 한 글자씩 뗀다.
-	kept := place
-	for len(kept) > 0 && screenWidthOf(kept) > width-1 {
-		size, _ := clusterAt([]byte(kept), 0, 0)
-		kept = kept[size:]
-	}
-
-	return "…" + kept
+	// **왼쪽부터 접는다.** 오른쪽부터 자르면 파일 이름과 줄 번호가 먼저 사라지는데, 목록에서
+	// 고르는 데 쓰는 것이 바로 그 둘이다 — 남는 것이 `/Users/bluemir/go/pkg/mod/...` 처럼
+	// 어느 줄에나 같은 앞머리뿐이게 된다(render-status-bar.go 의 trimLeftToWidth).
+	return head + trimLeftToWidth(place, m.width-screenWidthOf(head))
 }
 
 // renderBareStatusBar 는 트리가 없는 것으로 치고 그린 statusBar 다. `:jobs` 와 같은 이유다 —

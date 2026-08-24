@@ -270,6 +270,7 @@ var paletteCommands = []paletteCommand{
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
 	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters},
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
+	{name: "이름 바꾸기", hint: "rename symbol", alias: ":rename", run: runRename},
 	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
 }
 
@@ -297,6 +298,13 @@ func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	return back, tea.Batch(cmd, modeCmd)
+}
+
+// runRename 은 커서 자리의 이름을 바꾼다. normal mode 의 `\rn` 과 같은 자리로 간다(ADR-0067).
+//
+// 새 이름은 커서 옆에 뜨는 창에서 받는다(view-rename-input.go).
+func runRename(e *editor) (tea.Model, tea.Cmd) {
+	return renameInputMode(e)
 }
 
 func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {

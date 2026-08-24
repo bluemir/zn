@@ -61,7 +61,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
@@ -84,13 +84,15 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return normalModeError(m.editor, err)
 	}
 
-	// 인자를 받는 명령은 이 넷뿐이다. 나머지에 붙은 인자를 조용히 버리면
+	// 인자를 받는 명령은 이 다섯뿐이다. 나머지에 붙은 인자를 조용히 버리면
 	// `:qa foo` 가 foo 에 무언가를 한 것처럼 보인다.
 	//
 	// `:!` 의 인자는 파일 이름이 아니라 뜯지 않은 셸 줄이고, tokenRest 가 그것을 한 토큰으로
 	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다.
+	//
+	// `:rename` 의 인자만 파일 이름이 아니다 — 새 이름 하나다(ADR-0067).
 	switch cmd.name {
-	case "w", "e", "tabnew", "!":
+	case "w", "e", "tabnew", "!", "rename":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
@@ -209,6 +211,15 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		return runShell(m.editor, cmd.args[0])
+	case "rename":
+		// 이름을 대지 않았으면 커서 옆 창에서 받는다. `\rn` 과 같은 자리다(ADR-0067).
+		if len(cmd.args) == 0 {
+			return renameInputMode(m.editor)
+		}
+
+		model, next := normalMode(m.editor)
+
+		return model, tea.Batch(next, m.startRename(cmd.args[0]))
 	case "noh", "nohlsearch":
 		// 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. vim 과 같다.
 		m.search.highlight = false

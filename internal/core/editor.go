@@ -74,6 +74,10 @@ type editor struct {
 	goplsStarting bool
 	goplsFailed   bool
 
+	// goplsRoot 는 서버에게 준 뿌리, 곧 편집기를 연 자리다. 서버가 참조를 찾는 범위가
+	// 여기까지라, 이름 바꾸기가 이 밖의 파일을 거절하는 근거가 된다(rename.go, ADR-0067).
+	goplsRoot string
+
 	// completion 은 insert 에서 떠 있는 자동완성 목록이다. 비어 있으면 닫힌 것이다.
 	//
 	// completionSeq 는 물어본 차례다. 답이 그것을 싣고 와서, 그 사이에 다시 물었으면 낡은

@@ -89,6 +89,8 @@ func (e *editor) startGopls() tea.Cmd {
 		return nil
 	}
 
+	e.goplsRoot = root
+
 	return func() tea.Msg {
 		client, err := lsp.Start(ctx, root)
 

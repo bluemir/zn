@@ -66,7 +66,7 @@ func (m viewEditorEmpty) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
 		// 주기 tick 과 백그라운드 작업은 mode 와 무관하다. git 표시는 저장소 이야기라
 		// 보고 있는 파일이 없어도 돈다(ADR-0009, job.go).
 		next, cmd := m.handleJob(msg)

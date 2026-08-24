@@ -19,13 +19,13 @@ func Run(ctx context.Context, files []string) error {
 	}
 
 	// git 표시는 여기서 읽지 않는다. 첫 화면이 뜬 뒤 갱신 작업이 채운다(ADR-0030).
-	e := &editor{ctx: ctx, buffers: buffers}
+	editor := &editor{ctx: ctx, buffers: buffers}
 
 	// tab 이 없으면 활성 tab 도 없다. **-1 이라야** 첫 tab 이 0 번 자리에 생긴다 —
 	// tab 을 여는 길이 활성 tab 바로 뒤에 끼우는 것이라(openTab, newTab) 0 으로 두면
 	// 없는 tab 뒤를 가리킨다(ADR-0064).
-	if !e.hasTab() {
-		e.active = -1
+	if !editor.hasTab() {
+		editor.active = -1
 	}
 
 	// 박스 그리기 문자는 East Asian Width 가 Ambiguous 라 터미널마다 폭이 다르다.
@@ -34,20 +34,20 @@ func Run(ctx context.Context, files []string) error {
 	// tea.NewProgram 보다 먼저다. bubbletea 가 stdin 을 읽기 시작하면 답을 그쪽이 가져간다.
 	// 재는 일은 터미널을 직접 만지는 것이라 core 밖에 있다(internal/terminal).
 	// 잰 값은 특수문자 격자도 쓰므로 버리지 않고 남긴다(ADR-0056).
-	e.ambiguousWidth = terminal.ProbeAmbiguousWidth()
+	editor.ambiguousWidth = terminal.ProbeAmbiguousWidth()
 
 	switch {
-	case e.ambiguousWidth == 1:
-		e.boxChars = boxUnicode
+	case editor.ambiguousWidth == 1:
+		editor.boxChars = boxUnicode
 	default: // fallback option
-		e.boxChars = boxASCII
+		editor.boxChars = boxASCII
 	}
 
 	// tip 의 시작 자리를 흩는다. 늘 첫 문장부터면 편집기를 열 때마다 같은 것을 본다.
 	//
 	// 여는 순간 한 번뿐이다. 그리는 자리에서 굴리면 프레임마다 문장이 바뀌고, 검사는 editor 를
 	// 직접 세워서 이 줄을 지나지 않으므로 언제나 첫 문장을 본다(ADR-0061).
-	e.tipIndex = rand.IntN(len(assets.Tips))
+	editor.tipIndex = rand.IntN(len(assets.Tips))
 
 	// filetree 는 기본으로 열어둔다. `:tree` 로 닫는다.
 	//
@@ -55,7 +55,7 @@ func Run(ctx context.Context, files []string) error {
 	// 지운 디렉터리에서 실행하면 나는 오류이고, 파일은 인자로 이미 받았다.
 	// 화면이 좁으면 sidebarVisible 이 알아서 감추므로 여기서 크기는 보지 않는다.
 	if root, err := os.Getwd(); err == nil {
-		e.sidebar = openSidebar(root)
+		editor.sidebar = openSidebar(root)
 
 		// CLI 인자로 연 파일 자리를 갈 곳으로 세워 둔다. 인자가 없으면 갈 자리가 없어서
 		// 뿌리만 읽는다(ADR-0064).
@@ -63,18 +63,18 @@ func Run(ctx context.Context, files []string) error {
 		// 읽기를 시작하지는 않는다. 여기는 Program 이 뜨기 전이라 Cmd 를 낼 자리가 없다 —
 		// 첫 읽기는 첫 model 의 Init 이 startTree 로 시작하고, 트리는 그때부터
 		// 이 자리를 향해 한 층씩 내려간다(ADR-0032).
-		if e.hasTab() {
-			e.sidebar.setRevealTarget(e.activeBuffer().path)
+		if editor.hasTab() {
+			editor.sidebar.setRevealTarget(editor.activeBuffer().path)
 		}
 	}
 
 	// 언어 서버는 Go 파일을 열 때 뜬다(ADR-0051). 나가는 길에 내리는 자리는 여기 하나다 —
 	// Program 이 돌아온 뒤가 편집기의 마지막이다.
-	defer e.shutdownGopls()
+	defer editor.shutdownGopls()
 
 	// tab 이 없으면 normalMode 가 빈 화면을 준다. 여기서 가르지 않는다 — 편집 화면으로
 	// 가는 길이 다 그 함수를 지나므로 갈림길도 그 안에 있다(ADR-0064).
-	first, _ := normalMode(e)
+	first, _ := normalMode(editor)
 
 	// 들어오는 이벤트를 로그로 남긴다. `-vv` 와 `--log-file` 이 둘 다 있어야 실제로 쓰인다 —
 	// 그 전에는 첫 줄에서 곧바로 빠져나온다(trace.go, ADR-0050).

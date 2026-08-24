@@ -290,6 +290,11 @@ func prefixAction(prefix, key string) action {
 		case "d":
 			return actionGotoDefinition{}
 		}
+	case leaderKey + "r":
+		switch key {
+		case "n":
+			return actionRename{}
+		}
 	}
 
 	return nil
@@ -315,7 +320,7 @@ const leaderWon = "₩"
 // 참이고, 짝이 없는 `\x` 는 거짓이라 그 자리에서 아무 일도 없이 끝난다. 접두 키를 잘못
 // 짚었을 때 다음 키까지 삼키지 않는다.
 func expectsMoreKeys(prefix string) bool {
-	return prefix == leaderKey+"g"
+	return prefix == leaderKey+"g" || prefix == leaderKey+"r"
 }
 
 // normalState 는 normal mode 가 키를 받아가며 옮겨 다니는 상태다.

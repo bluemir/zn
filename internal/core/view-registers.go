@@ -127,7 +127,7 @@ func (m viewRegisters) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
 		next, cmd := m.handleJob(msg)
 		if next != nil {
 			// 다른 화면으로 넘어간다. 판을 닫지 않으면 편집 영역이 줄어든 채로 남아서

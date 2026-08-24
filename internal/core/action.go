@@ -556,6 +556,16 @@ func (c actionGotoDefinition) run(e *editor) (tea.Model, tea.Cmd) {
 	return gotoDefinition(back, e)
 }
 
+// actionRename 은 커서 자리의 이름을 바꾼다. `\rn` 이다(ADR-0067).
+//
+// 새 이름은 커서 옆에 뜨는 창에서 받는다(view-rename-input.go). 팔레트의 「이름 바꾸기」와
+// 인자 없는 `:rename` 도 같은 창으로 온다.
+type actionRename struct{}
+
+func (c actionRename) run(e *editor) (tea.Model, tea.Cmd) {
+	return renameInputMode(e)
+}
+
 // actionQuit 는 `ctrl+c` 다. `:qa` 와 같은 경로라 저장하지 않은 변경이 있으면 확인창이 뜬다.
 type actionQuit struct{}
 
