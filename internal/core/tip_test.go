@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -43,7 +44,11 @@ func TestTipsAreClean(t *testing.T) {
 		assert.NotEmpty(t, strings.TrimSpace(tip), "빈 문장은 자리만 먹는다")
 		assert.NotContains(t, tip, "\n", "아래 줄은 한 줄이다")
 		assert.NotContains(t, tip, "\t", "tab 은 폭이 자리에 따라 달라진다")
-		assert.NotContains(t, tip, "\x1b", "색을 넣지 않는다(truncateToWidth 가 ANSI 를 모른다)")
+		assert.NotContains(t, tip, "\x1b", "색은 그리는 쪽이 입힌다(styleTip). 문장은 글자만 든다")
+
+		// 한 줄에 한 문장뿐이라 끝을 알릴 것이 없고, 좁은 화면에서는 그 한 칸이
+		// 문장이 보이거나 마는 것을 가른다(assets.Tips 의 규칙).
+		assert.NotEqual(t, ".", tip[len(tip)-1:], "마침표를 붙이지 않는다: %q", tip)
 	}
 }
 
@@ -67,6 +72,18 @@ func TestTipShowsAtBottomRight(t *testing.T) {
 	assert.True(t, strings.HasSuffix(bottom, assets.Tips[0]), "오른쪽 끝에 붙는다: %q", bottom)
 	assert.True(t, strings.HasPrefix(bottom, "1:1"), "커서 위치는 그대로다: %q", bottom)
 	assert.LessOrEqual(t, screenWidthOf(bottom), 120, "화면을 넘지 않는다")
+}
+
+// tip 은 흐린 글씨다. 커서 위치와 같은 밝기로 서면 읽던 것을 끊는다(ADR-0061 §6).
+func TestTipIsDim(t *testing.T) {
+	var m tea.Model = newTestEditor("abc\n", 120, 3)
+
+	raw := rawBarOf(t, m)[1]
+	assert.True(t, strings.HasSuffix(raw, styleTip.Render(assets.Tips[0])), "%q", raw)
+
+	// 색을 입혀도 줄은 그만큼 어긋나지 않는다. escape 가 폭으로 세어지면 여기가 깨진다.
+	assert.Equal(t, screenWidthOf(ansi.Strip(raw)), screenWidthOfStyled(raw))
+	assert.LessOrEqual(t, screenWidthOfStyled(raw), 120)
 }
 
 // 접두 키를 치는 동안에는 그 키가 먹혔는지가 tip 보다 급하다.

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/buildinfo"
 )
 
@@ -84,6 +85,27 @@ func TestEmptyScreenKeepsScreenShape(t *testing.T) {
 	for i, row := range rows {
 		assert.LessOrEqual(t, screenWidthOf(ansi.Strip(row)), 80, "%d 번째 행이 넘친다", i)
 	}
+}
+
+// 빈 화면 tip 도 흐린 글씨다. 로고·버전보다 뒤로 물러나 있어야 한다(ADR-0061 §6).
+func TestEmptyScreenTipIsDim(t *testing.T) {
+	m := newEmptyEditor(80, 20)
+
+	rows := strings.Split(m.View().Content, "\n")
+
+	tip := ""
+	for _, row := range rows {
+		if strings.Contains(row, assets.Tips[0]) {
+			tip = row
+		}
+	}
+	require.NotEmpty(t, tip, "tip 줄이 있어야 한다")
+
+	assert.Contains(t, tip, styleTip.Render(assets.Tips[0]), "색을 입힌다")
+
+	// 가운데 정렬이 escape 를 폭으로 세면 tip 만 왼쪽으로 밀린다.
+	left := len(tip) - len(strings.TrimLeft(tip, " "))
+	assert.Equal(t, (80-screenWidthOf(assets.Tips[0]))/2, left, "%q", tip)
 }
 
 // statusBar 에서 파일에 딸린 것들이 사라진다. `[No Name]` 도 적지 않는다.

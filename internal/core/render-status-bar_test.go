@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/assets"
 )
 
 // barOf 는 statusBar 두 줄 중 편집 영역 아래 부분만 색을 뺀 글자로 돌려준다.
@@ -255,14 +257,30 @@ func TestStatusBarTopLineIsReversed(t *testing.T) {
 
 // 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.
 // `:` 를 칠 때 배경이 뜨지 않고 명령 결과와 오류도 평범한 글자로 읽힌다.
+//
+// 색이 붙는 자리는 오른쪽 끝 tip 하나다. 그것도 배경이 아니라 흐린 글자색이다(ADR-0061 §6).
 func TestStatusBarBottomLineIsPlain(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 3)
 
-	assert.NotContains(t, rawBarOf(t, m)[1], "\x1b[")
+	bottom := rawBarOf(t, m)[1]
+	before, _, _ := strings.Cut(bottom, "\x1b[")
+
+	assert.Equal(t, "1:1  (1 줄)", strings.TrimRight(before, " "), "커서 위치에는 색이 없다")
+	assert.Equal(t, styleTip.Render(assets.Tips[0]), bottom[len(before):], "색이 붙는 것은 tip 뿐이다")
 
 	m = send(m, ":", "w", "q")
 
 	assert.Equal(t, ":wq", rawBarOf(t, m)[1], "명령줄에도 색이 없다")
+}
+
+// truncateToWidth 는 escape 를 폭으로 세지 않는다. 세면 색을 입힌 줄이 그만큼 일찍 잘린다.
+func TestTruncateSkipsEscapes(t *testing.T) {
+	line := "가나" + styleTip.Render("다라")
+
+	assert.Equal(t, line, truncateToWidth(line, 8), "여덟 칸에 다 들어간다")
+	assert.Equal(t, "가나\x1b[38;5;244m다"+ansi.ResetStyle, truncateToWidth(line, 6),
+		"자를 때는 색을 끄고 끝낸다")
+	assert.Equal(t, "가", truncateToWidth(line, 3), "색이 시작되기 전에 잘리면 그대로다")
 }
 
 // 편집 내용에는 색이 가지 않는다.

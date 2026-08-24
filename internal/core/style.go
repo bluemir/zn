@@ -88,6 +88,15 @@ var (
 // 색만으로 갈래를 나타내지는 않는다. 목록이 오류 줄에 `!` 도 같이 찍는다(view-messages.go).
 var styleNoticeFailed = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 
+// styleTip 은 짧은 안내 문장(tip) 의 색이다. statusBar 아래 줄 오른쪽과 빈 화면 가운데에 선다.
+//
+// **눈에 덜 띄어야 한다.** tip 은 지금 하는 일이 아니라 다음에 해 볼 것이라서, 커서 위치나
+// 알림과 같은 밝기로 서면 읽던 것을 끊는다(ADR-0061).
+//
+// 상대 줄번호·sidebar 무시된 파일·팔레트 부가정보와 같은 244 다. 이 저장소가 「흐린 글씨」로
+// 이미 정해 둔 값이라, 새 회색을 하나 더 만들지 않는다(ADR-0005, ADR-0007).
+var styleTip = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
 // styleSyntax 는 토큰 갈래별 색이다.
 //
 // **색은 core 가 정한다** — syntax 패키지는 갈래만 주고 색을 모른다(internal/syntax).

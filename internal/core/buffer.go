@@ -271,6 +271,47 @@ func offsetAtScreenCol(line []byte, col int) int {
 	return len(line)
 }
 
+// escapeSizeAt 은 offset 에서 시작하는 ANSI escape 의 byte 길이다. escape 가 아니면 0 이다.
+//
+// **다 지은 화면 줄에만 쓴다.** 색을 입힌 글자는 escape 를 달고 오는데 그것은 화면에서 자리를
+// 차지하지 않으므로, 재거나 자를 때 지나쳐야 한다(ADR-0061).
+//
+// buffer 안의 글자에는 쓰지 않는다 — 파일에 든 ESC byte 는 색이 아니라 내용이다.
+func escapeSizeAt(line []byte, offset int) int {
+	if line[offset] != 0x1b || offset+1 >= len(line) || line[offset+1] != '[' {
+		return 0
+	}
+
+	// CSI 는 `@`~`~` 사이 글자에서 끝난다. lipgloss 가 내는 것은 색을 켜는 `\x1b[…m` 과 끄는 `\x1b[0m` 이다.
+	for i := offset + 2; i < len(line); i++ {
+		if line[i] >= '@' && line[i] <= '~' {
+			return i - offset + 1
+		}
+	}
+
+	// 끝을 못 찾으면 남은 것이 전부 escape 다. 반쪽짜리 escape 를 글자로 세면 폭이 늘어난다.
+	return len(line) - offset
+}
+
+// screenWidthOfStyled 는 색을 입힌 줄이 차지하는 화면 칸 수다. escape 는 폭 0 이다.
+func screenWidthOfStyled(text string) int {
+	line := []byte(text)
+
+	col := 0
+	for offset := 0; offset < len(line); {
+		if size := escapeSizeAt(line, offset); size > 0 {
+			offset += size
+			continue
+		}
+
+		size, width := clusterAt(line, offset, col)
+		col += width
+		offset += size
+	}
+
+	return col
+}
+
 // prevClusterStart 는 offset 직전 글자의 시작을 돌려준다. from 은 글자 경계여야 한다.
 //
 // grapheme cluster 는 뒤에서 앞으로 읽을 수 없어서 알려진 경계에서부터 훑는다.

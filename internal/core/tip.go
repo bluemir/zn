@@ -21,9 +21,9 @@ const tipGap = 2
 // 막지 않으면 알림과 배움이 한 줄에 같이 뜬다. 알림이 그 줄을 쓰고 다음 키에 걷히면 그때
 // 새 문장이 드러나는 것이 이 기능의 리듬이다(notice.go 의 record).
 //
-// **색을 입히지 않는다.** 아래 줄은 truncateToWidth 를 지나는데 그것이 ANSI 를 모르는 byte
-// 계산이라, 흐린 글씨로 만들면 escape 가 폭으로 세어져 줄이 어긋난다. 위 줄이 색을 쓸 수
-// 있는 것은 다 지은 줄을 통째로 감싸기 때문이다.
+// **흐린 글씨다(styleTip).** 눈에 덜 띄어야 tip 이지, 커서 위치와 같은 밝기로 서면 읽던 것을
+// 끊는다. 그러려고 아래 줄을 자르는 truncateToWidth 가 escape 를 지나치게 되었다 —
+// 색이 아니라 그 byte 계산이 이 자리를 오래 막고 있었다(ADR-0061 §6).
 func (e editor) renderWithTip(bottom, showcmd string) string {
 	if showcmd != "" {
 		return e.renderWithShowcmd(bottom, showcmd)
@@ -40,7 +40,7 @@ func (e editor) renderWithTip(bottom, showcmd string) string {
 		return bottom
 	}
 
-	return bottom + strings.Repeat(" ", room-screenWidthOf(tip)) + tip
+	return bottom + strings.Repeat(" ", room-screenWidthOf(tip)) + styleTip.Render(tip)
 }
 
 // fitTip 은 from 자리부터 한 바퀴 훑어 room 칸에 들어가는 첫 문장이다. 없으면 빈 문자열이다.

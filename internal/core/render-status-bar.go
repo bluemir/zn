@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // renderStatusBar 는 화면 아래 두 줄을 그린다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.
@@ -163,11 +165,35 @@ func (e editor) renderWithShowcmd(bottom, showcmd string) string {
 
 // truncateToWidth 는 화면 너비를 넘는 부분을 자른다.
 // statusBar 가 넘치면 터미널이 줄바꿈해서 화면이 밀린다.
+//
+// **색을 입힌 자리를 지난다.** 아래 줄 오른쪽 끝의 tip 이 흐린 글씨라(tip.go), escape 를 폭으로
+// 세면 줄이 그만큼 일찍 잘린다. 이 자리가 아래 줄에 색을 못 쓰게 하던 곳이다(ADR-0061).
 func truncateToWidth(s string, width int) string {
 	if width < 1 {
 		return s
 	}
 
 	line := []byte(s)
-	return string(line[:offsetAtScreenCol(line, width)])
+
+	col, styled := 0, false
+	for offset := 0; offset < len(line); {
+		if size := escapeSizeAt(line, offset); size > 0 {
+			offset, styled = offset+size, true
+			continue
+		}
+
+		size, w := clusterAt(line, offset, col)
+		if col+w > width {
+			// 색을 켠 채로 자르면 그 색이 줄 끝까지 번진다.
+			if styled {
+				return string(line[:offset]) + ansi.ResetStyle
+			}
+			return string(line[:offset])
+		}
+
+		col += w
+		offset += size
+	}
+
+	return s
 }

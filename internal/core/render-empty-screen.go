@@ -33,7 +33,7 @@ func (e editor) renderEmptyScreen() []string {
 	for _, line := range block {
 		// 뒤는 채우지 않는다. sidebar 는 왼쪽에 붙고 statusBar 는 따로라 오른쪽 빈 칸이
 		// 필요한 곳이 없다 — 편집 화면이 채움 행을 빈 문자열로 두는 것과 같다(renderScreen).
-		rows = append(rows, strings.Repeat(" ", max(0, (width-screenWidthOf(line))/2))+line)
+		rows = append(rows, strings.Repeat(" ", max(0, (width-screenWidthOfStyled(line))/2))+line)
 	}
 
 	for len(rows) < height {
@@ -74,8 +74,10 @@ func (e editor) emptyScreenBlock(width, height int) []string {
 		}
 	}
 
+	// tip 만 색이 붙는다. 흐린 글씨라 로고·버전보다 뒤로 물러난다(style.go 의 styleTip).
+	// 가운데로 미는 계산이 screenWidthOfStyled 인 것이 이 줄 때문이다.
 	if tip := fitTip(assets.Tips, e.tipIndex, width); tip != "" && len(block)+2 <= height {
-		block = append(block, "", tip)
+		block = append(block, "", styleTip.Render(tip))
 	}
 
 	if len(block) > height {
