@@ -101,6 +101,7 @@ func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 }
+
 // boxWidth 는 모달 박스의 너비다. 내용에 맞추되 터미널 너비를 넘지 않는다.
 func (m viewConfirmDiscard) boxWidth() int {
 	maxContent := screenWidthOf("저장하지 않은 변경이 있습니다.")

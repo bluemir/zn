@@ -336,3 +336,5 @@
 	- 마지막 tab 을 닫으면 다시 해당 화면표시
 - [ ] tab 를 드래그 해서 재정렬
 - [ ] git branch 전환 기능
+- [ ] jumplist 구현
+	- ctrl+o 구현
