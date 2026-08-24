@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -96,6 +97,10 @@ func (e *editor) goimports(dir string) *saveHook {
 }
 
 // findGoimports 는 그 자리에서 쓸 goimports 를 찾는다.
+//
+// **PATH 만 보지 않는다.** `go install` 은 `$GOBIN` 또는 `$GOPATH/bin` 에 넣고 그 자리가
+// PATH 에 없는 기계가 흔하다 — 이 기능을 만든 기계가 그랬다. gopls 를 찾는 자리가 같은 일을
+// 먼저 겪었다(lsp/client.go 의 findGopls, ADR-0051).
 func findGoimports(dir string) *saveHook {
 	if goToolDeclares(dir, "goimports") {
 		return &saveHook{name: "goimports", dir: dir, path: "go", args: []string{"tool", "goimports"}}
@@ -105,7 +110,48 @@ func findGoimports(dir string) *saveHook {
 		return &saveHook{name: "goimports", dir: dir, path: path}
 	}
 
+	for _, bin := range goInstallDirs() {
+		path := filepath.Join(bin, "goimports")
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			return &saveHook{name: "goimports", dir: dir, path: path}
+		}
+	}
+
 	return nil
+}
+
+// goInstallDirs 는 `go install` 이 실행 파일을 넣는 자리다.
+//
+// **환경 변수를 우리가 풀지 않고 go 에게 묻는다.** `GOBIN` 이 비면 `GOPATH/bin` 이고 `GOPATH`
+// 가 비면 `~/go/bin` 이라는 규칙은 go 의 것이라, 옮겨 적으면 판이 바뀔 때 어긋난다 —
+// tool 을 `go tool` 에게 물어 찾는 것과 같은 태도다(ADR-0065).
+//
+// go 가 없으면 빈 목록이다. 그때는 애초에 `go install` 로 깔 수 있는 것이 없다.
+func goInstallDirs() []string {
+	out, err := exec.Command("go", "env", "GOBIN", "GOPATH").Output()
+	if err != nil {
+		return nil
+	}
+
+	// **줄을 먼저 가른다.** `GOBIN` 이 비어 있으면 첫 줄이 빈 줄로 오는데, 통째로 다듬고
+	// 나누면 그 줄이 사라져서 GOPATH 를 GOBIN 으로 읽게 된다 — 이 기계가 그랬다.
+	lines := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+	if len(lines) < 2 {
+		return nil
+	}
+
+	if bin := strings.TrimSpace(lines[0]); bin != "" {
+		return []string{bin}
+	}
+
+	dirs := []string{}
+	for _, root := range filepath.SplitList(strings.TrimSpace(lines[1])) {
+		if root != "" {
+			dirs = append(dirs, filepath.Join(root, "bin"))
+		}
+	}
+
+	return dirs
 }
 
 // goToolDeclares 는 그 자리의 모듈이 그 tool 을 선언했는지다.

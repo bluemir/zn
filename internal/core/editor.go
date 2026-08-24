@@ -74,6 +74,15 @@ type editor struct {
 	goplsStarting bool
 	goplsFailed   bool
 
+	// completion 은 insert 에서 떠 있는 자동완성 목록이다. 비어 있으면 닫힌 것이다.
+	//
+	// completionSeq 는 물어본 차례다. 답이 그것을 싣고 와서, 그 사이에 다시 물었으면 낡은
+	// 답으로 버려진다. completionAsking 은 답을 기다리는 중인지고 — 글자마다 묻는 자리라
+	// 겹쳐 묻지 않으려고 둔다(completion.go, ADR-0066).
+	completion       completion
+	completionSeq    int
+	completionAsking bool
+
 	// saveHooks 는 폴더마다 찾아 둔 저장 포매터다. 없다고 판정한 것은 nil 로 담긴다 —
 	// 「아직 안 찾아봤다」와 「찾아봤는데 없다」가 갈려야 저장마다 다시 뒤지지 않는다.
 	//

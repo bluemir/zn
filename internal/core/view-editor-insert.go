@@ -44,6 +44,14 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		buf := m.activeBuffer()
 
+		// 목록이 떠 있는 동안에만 몇 키가 목록의 것이 된다. 떠 있지 않으면 이 자리는 없는 것과
+		// 같다 — insert 의 키는 늘 글자였고, 그 규칙이 목록이 없을 때 그대로 남는다(ADR-0066).
+		if m.completionOpen() {
+			if next, cmd, taken := m.completionKey(msg.String()); taken {
+				return next, cmd
+			}
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			// :qa 와 같은 경로다. 어느 tab 이든 저장하지 않은 변경이 있으면 확인창이 뜬다.
@@ -83,6 +91,11 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !buf.deleteIndentBackward(m.contentWidth()) {
 				buf.deleteBackward(m.contentWidth())
 			}
+		case "ctrl+space":
+			// 손으로 부르는 자리다. 글자를 넣지 않고 묻기만 한다 — VS Code 와 같은 키다.
+			// 이 키는 터미널에서 NUL 로 와서 `msg.Text` 가 비어 있고, 아래 default 가
+			// 그것을 걸러 내므로 여기서 따로 받는다.
+			return m, m.startCompletion()
 		case "tab":
 			buf.insertIndent(m.contentWidth())
 		case "shift+tab":
@@ -118,7 +131,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// 고친 것을 언어 서버에도 알려야 한다. 여기서 보내지 않고 예약만 한다 — 250ms
 		// 조용해지면 그때 한 번 간다(ADR-0051).
-		return m, m.scheduleLspTick()
+		return m, tea.Batch(m.scheduleLspTick(), m.completionAfter(msg))
 	case tea.MouseClickMsg:
 		switch mouse := msg.Mouse(); mouse.Button {
 		case tea.MouseLeft:
@@ -133,6 +146,10 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
+	case completionMsg:
+		// 답은 insert 만 받는다. 다른 mode 로 옮겨 간 뒤에 온 답은 아무도 받지 않고 버려지는데,
+		// 그때 기다리는 표시를 내리는 것은 closeCompletion 이 한다(completion.go).
+		return m, m.finishCompletion(msg)
 	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
@@ -149,10 +166,61 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// completionKey 는 목록이 떠 있는 동안 목록이 가로채는 키다.
+//
+// 가로챈 키는 taken 이 참이고 거기서 끝난다. 커서를 옆으로 옮기거나 mode 를 떠나는 키는
+// 목록만 닫고 **거짓을 준다** — 닫는 것과 원래 하던 일이 한 키에 같이 일어나야 한다.
+//
+// `esc` 는 목록만 닫는다. insert 에서 나가려면 한 번 더 눌러야 한다 — VS Code 도 vim 도 같다.
+// `enter`·`tab` 이 넣기인 것도 VS Code 를 따른 것이다.
+func (m viewEditorInsert) completionKey(key string) (tea.Model, tea.Cmd, bool) {
+	switch key {
+	case "up":
+		m.moveCompletion(-1)
+
+		return m, nil, true
+	case "down":
+		m.moveCompletion(1)
+
+		return m, nil, true
+	case "enter", "tab":
+		m.applyCompletion()
+
+		return m, nil, true
+	case "esc":
+		m.closeCompletion()
+
+		return m, nil, true
+	case "left", "right", "ctrl+c", "ctrl+p":
+		m.closeCompletion()
+	}
+
+	return m, nil, false
+}
+
+// completionAfter 는 키 하나를 처리하고 나서 목록을 어떻게 할지다.
+//
+// **부를 만한 글자가 아니면 닫는다.** 괄호나 빈칸을 치면 그 자리의 후보는 이미 뜻이 없다.
+// 지우기는 좁힌 것을 되돌리는 일이라, 목록이 떠 있었으면 다시 묻는다.
+func (m viewEditorInsert) completionAfter(msg tea.KeyPressMsg) tea.Cmd {
+	switch {
+	case completionTriggers(msg.Text):
+		return m.startCompletion()
+	case msg.String() == "backspace" && m.completionOpen():
+		return m.startCompletion()
+	}
+
+	m.closeCompletion()
+
+	return nil
+}
+
 func (m viewEditorInsert) View() tea.View {
 	// 커서가 글자 사이에 있으므로 막대다.
 	//
 	// showcmd 자리에 빈 문자열을 넘긴다. insert 에는 키 파서가 없어서 기다리는 접두 키라는 것이
 	// 없다 — 그래서 이 mode 에서는 그 칸이 늘 tip 자리다(tip.go).
-	return m.editorView(tea.CursorBar, "INSERT", m.renderWithTip(m.noticeOr(m.renderPosition()), ""))
+	view := m.editorView(tea.CursorBar, "INSERT", m.renderWithTip(m.noticeOr(m.renderPosition()), ""))
+
+	return m.overlayCompletion(view)
 }

@@ -222,6 +222,17 @@ func TestSaveAndQuitDoesNotAsk(t *testing.T) {
 	assert.False(t, m.editor.goimportsDeclined, "거절한 적도 없다 — 다음 `:w` 가 묻는다")
 }
 
+// `go env GOBIN GOPATH` 는 GOBIN 이 비면 **첫 줄을 빈 줄로** 준다. 통째로 다듬고 나누면
+// 그 줄이 사라져 GOPATH 를 GOBIN 으로 읽는다 — 이 기계에서 실제로 그렇게 어긋났다.
+func TestGoInstallDirsWhenGobinEmpty(t *testing.T) {
+	dirs := goInstallDirs()
+
+	require.NotEmpty(t, dirs, "go 가 있는 판에서는 적어도 하나는 나온다")
+	for _, dir := range dirs {
+		assert.True(t, strings.HasSuffix(dir, "bin"), "실행 파일이 들어가는 자리다: %q", dir)
+	}
+}
+
 func TestSplitFormatted(t *testing.T) {
 	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, splitFormatted([]byte("a\nb\n")))
 	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, splitFormatted([]byte("a\nb")),
