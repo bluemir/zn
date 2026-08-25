@@ -353,7 +353,7 @@ func TestPaletteStartsIndexingOnOpen(t *testing.T) {
 
 	require.IsType(t, viewPalette{}, next)
 	assert.NotNil(t, cmd, "인덱싱 작업이 시작된다")
-	assert.True(t, next.(viewPalette).jobRunning("파일 인덱싱"))
+	assert.True(t, next.(viewPalette).jobRunning("파일 인덱싱", nil))
 }
 
 // 인덱싱이 부은 파일도 치고 있는 패턴에 걸린다.

@@ -37,10 +37,19 @@ type jobProgress struct {
 // job 은 도는 작업 하나이자 끝난 작업 하나다. statusBar 와 `:jobs` 목록이 이것을 읽는다.
 // 채널은 여기 두지 않는다 — msg 가 들고 다닌다.
 //
-// name 은 화면에 찍히는 이름이자 신원이다. 같은 이름은 한 번에 하나만 돈다 —
-// 두 번째 요청은 새로 시작하지 않고 돌고 있는 것에 붙는다.
+// **신원은 name 과 args 를 합친 것이다.** 같은 신원은 한 번에 하나만 돈다 — 두 번째 요청은
+// 새로 시작하지 않고 돌고 있는 것에 붙는다.
+//
+// name 은 하는 일의 갈래이고 args 는 그 일이 무엇을 대상으로 하는지다. 갈랐기 때문에
+// 디렉터리 읽기가 경로마다 따로 돌면서도 목록에서는 이름 하나로 모인다. 이름에 경로를
+// 이어 붙이던 때는 신원이 곧 화면 글자라, 같은 일을 하는 작업들이 목록에서 서로 남이었다
+// (ADR-0075).
+//
+// args 가 빈 작업이 여섯이고(git 상태·파일 검사·gopls 설치·goimports 설치·파일 인덱싱·
+// 유니코드 훑기) 그것들은 신원이 곧 이름이라 한 번에 하나만 돈다.
 type job struct {
 	name        string
+	args        []string
 	done, total int
 	started     time.Time
 
@@ -52,6 +61,24 @@ type job struct {
 	finished time.Time
 	summary  string // 작업이 남긴 한 줄. "151,933 개" 처럼 무엇을 했는지다
 	err      error  // context.Canceled 면 취소, 그 밖이면 실패
+}
+
+// is 는 이 작업이 그 신원인지다. 이름과 인자가 모두 같아야 같은 작업이다.
+func (j job) is(name string, args []string) bool {
+	return j.name == name && slices.Equal(j.args, args)
+}
+
+// title 은 이름과 인자를 이은 한 줄이다.
+//
+// `:jobs` 목록은 이것을 쓰지 않는다 — 거기서는 이름이 부모 줄이고 인자가 자식 줄이라
+// 둘이 이미 갈려 있다. 목록 바깥에서 작업 하나를 가리켜야 하는 자리, 곧 실패 알림이 쓴다.
+// 인자를 떨구면 `디렉터리 읽기 실패` 가 어느 디렉터리인지 없이 알림 목록에 남는다.
+func (j job) title() string {
+	if len(j.args) == 0 {
+		return j.name
+	}
+
+	return j.name + " " + strings.Join(j.args, " ")
 }
 
 // label 은 끝난 작업의 상태와 요약이다. `:jobs` 목록이 진행 막대 자리에 대신 넣는다.
@@ -81,6 +108,7 @@ func (j job) elapsed(now time.Time) time.Duration {
 // 이름의 조각이 와도 마찬가지다.
 type jobProgressMsg struct {
 	name string
+	args []string
 	ch   <-chan jobProgress
 
 	jobProgress
@@ -89,19 +117,20 @@ type jobProgressMsg struct {
 // jobDoneMsg 는 채널이 닫혔다는 것이다. 작업이 끝났다.
 type jobDoneMsg struct {
 	name string
+	args []string
 }
 
 // waitJob 은 채널에서 조각 하나를 받아 msg 로 바꾸는 Cmd 다.
 //
 // 받을 때마다 다시 발행해야 다음 조각이 온다. handleJob 이 그것을 한다.
-func waitJob(name string, ch <-chan jobProgress) tea.Cmd {
+func waitJob(name string, args []string, ch <-chan jobProgress) tea.Cmd {
 	return func() tea.Msg {
 		progress, ok := <-ch
 		if !ok {
-			return jobDoneMsg{name: name}
+			return jobDoneMsg{name: name, args: args}
 		}
 
-		return jobProgressMsg{name: name, ch: ch, jobProgress: progress}
+		return jobProgressMsg{name: name, args: args, ch: ch, jobProgress: progress}
 	}
 }
 
@@ -116,15 +145,15 @@ func waitJob(name string, ch <-chan jobProgress) tea.Cmd {
 // 갈 곳 없는 goroutine 이 하나 뜬다.
 //
 // 작업마다 ctx 를 나눠 준다. 취소는 그것을 끊는 것이고, 편집기를 끝내면 루트가 끊겨 전부 정리된다.
-func (e *editor) startJob(name string, start func(context.Context) <-chan jobProgress) tea.Cmd {
-	if e.jobRunning(name) {
+func (e *editor) startJob(name string, args []string, start func(context.Context) <-chan jobProgress) tea.Cmd {
+	if e.jobRunning(name, args) {
 		return nil
 	}
 
 	ctx, cancel := context.WithCancel(e.rootContext())
-	e.putJob(job{name: name, started: time.Now(), cancel: cancel})
+	e.putJob(job{name: name, args: args, started: time.Now(), cancel: cancel})
 
-	return waitJob(name, start(ctx))
+	return waitJob(name, args, start(ctx))
 }
 
 // rootContext 는 작업들이 갈라져 나오는 뿌리다.
@@ -144,9 +173,9 @@ func (e editor) rootContext() context.Context {
 //
 // 취소했다는 것은 여기서 적는다. 작업이 알려주기를 기다리면, 조각을 보내다 끊긴 작업은
 // 아무 말 없이 채널만 닫아서 목록에 「끝남」으로 남는다.
-func (e *editor) cancelJob(name string) {
+func (e *editor) cancelJob(name string, args []string) {
 	for i := range e.jobs {
-		if e.jobs[i].name != name || e.jobs[i].cancel == nil {
+		if !e.jobs[i].is(name, args) || e.jobs[i].cancel == nil {
 			continue
 		}
 
@@ -216,9 +245,9 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 트리가 자식을 기다리며 멈춰 있었으면 여기서 다음 층으로 나아간다.
 		// apply 는 `func(*editor)` 라 Cmd 를 낼 수 없어서 이 자리가 그것을 대신한다(ADR-0032).
 		// 기다리는 것이 없으면 곧바로 nil 이라 다른 작업의 조각에는 얹히지 않는다.
-		return nil, tea.Batch(waitJob(msg.name, msg.ch), e.continueReveal())
+		return nil, tea.Batch(waitJob(msg.name, msg.args, msg.ch), e.continueReveal())
 	case jobDoneMsg:
-		e.finishJob(msg.name)
+		e.finishJob(msg.name, msg.args)
 
 		// 주기 작업이 끝났으면 여기서부터 cooldown 을 잰다. 주기를 잇는 자리가 한 곳이라는
 		// 규칙은 그대로고, 그 한 곳이 tick 받는 자리에서 작업 끝나는 자리로 옮겨온 것이다
@@ -244,7 +273,7 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 채널이 닫히는 것은 그 다음이라 finishJob 은 이미 적힌 것을 쓴다.
 func (e *editor) updateJob(msg jobProgressMsg) {
 	for i := range e.jobs {
-		if e.jobs[i].name != msg.name {
+		if !e.jobs[i].is(msg.name, msg.args) {
 			continue
 		}
 
@@ -259,9 +288,10 @@ func (e *editor) updateJob(msg jobProgressMsg) {
 		return
 	}
 
-	// 목록에 없는 이름이면 끼워 넣는다. 시작한 자리를 지나온 msg 여도 여기서 자리를 잡는다.
+	// 목록에 없는 신원이면 끼워 넣는다. 시작한 자리를 지나온 msg 여도 여기서 자리를 잡는다.
 	e.jobs = append(e.jobs, job{
 		name:    msg.name,
+		args:    msg.args,
 		done:    msg.done,
 		total:   msg.total,
 		started: time.Now(),
@@ -270,10 +300,10 @@ func (e *editor) updateJob(msg jobProgressMsg) {
 	})
 }
 
-// jobRunning 은 그 이름의 작업이 돌고 있는지다.
-func (e editor) jobRunning(name string) bool {
+// jobRunning 은 그 신원의 작업이 돌고 있는지다.
+func (e editor) jobRunning(name string, args []string) bool {
 	for _, running := range e.jobs {
-		if running.name == name {
+		if running.is(name, args) {
 			return true
 		}
 	}
@@ -281,10 +311,10 @@ func (e editor) jobRunning(name string) bool {
 	return false
 }
 
-// putJob 은 작업을 목록에 넣는다. 같은 이름이 있으면 갈아끼운다.
+// putJob 은 작업을 목록에 넣는다. 같은 신원이 있으면 갈아끼운다.
 func (e *editor) putJob(next job) {
 	for i := range e.jobs {
-		if e.jobs[i].name == next.name {
+		if e.jobs[i].is(next.name, next.args) {
 			e.jobs[i] = next
 
 			return
@@ -296,15 +326,21 @@ func (e *editor) putJob(next job) {
 
 // finishJob 은 끝난 작업을 도는 목록에서 끝난 목록으로 옮긴다.
 //
-// 끝난 목록은 이름당 마지막 결과 하나다. 개수 상한은 두지 않는다 — 이름은 코드에 있는 종류만큼만
-// 있다. 끝난 순서대로 쌓으면 주기적으로 도는 git 갱신이 목록을 자기 이름으로 뒤덮어서, 조용히
-// 실패한 다른 작업을 찾으라고 남겨둔 자리가 그것으로 다 찬다(ADR-0030).
+// **찾는 것은 신원(이름+인자) 이고, 끝난 목록에서 미는 것은 이름이다.** 끝난 목록은 이름당
+// 마지막 결과 하나이고, 개수 상한은 두지 않는다 — 이름은 코드에 있는 종류만큼만 있다. 끝난
+// 순서대로 쌓으면 주기적으로 도는 git 갱신이 목록을 자기 이름으로 뒤덮어서, 조용히 실패한 다른
+// 작업을 찾으라고 남겨둔 자리가 그것으로 다 찬다(ADR-0030).
+//
+// 이름에 경로를 이어 붙이던 때는 그 「이름은 종류만큼만」이 디렉터리 읽기에서 깨졌다 —
+// 펼친 디렉터리마다 이름이 달라서 끝난 목록에 한 줄씩 쌓였다. 갈라 놓으니 그 가정이 되돌아온다.
+// 지워지는 것은 어느 경로가 언제 끝났는지인데, 실패는 알림 목록에 통째로 남으므로 유실이 없다
+// (ADR-0053, ADR-0075).
 //
 // 실패는 statusBar 아래 줄로도 알린다 — 목록을 열어 보기 전에는 아무 일도 없던 것처럼 보이기
 // 때문이다. 취소는 알리지 않는다. 그만하라고 한 사람이 결과를 이미 안다.
-func (e *editor) finishJob(name string) {
+func (e *editor) finishJob(name string, args []string) {
 	for i, running := range e.jobs {
-		if running.name != name {
+		if !running.is(name, args) {
 			continue
 		}
 
@@ -317,7 +353,7 @@ func (e *editor) finishJob(name string) {
 		})...)
 
 		if running.err != nil && !errors.Is(running.err, context.Canceled) {
-			e.notifyFailure(running.name + " 실패: " + running.err.Error())
+			e.notifyFailure(running.title() + " 실패: " + running.err.Error())
 		}
 
 		return

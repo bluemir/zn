@@ -21,7 +21,7 @@ func newJobsView(t *testing.T, running, finished []job) viewJobs {
 	e.jobs = running
 	e.finished = finished
 
-	return viewJobs{editor: e}
+	return viewJobs{editor: e, expanded: map[string]bool{}}
 }
 
 // jobRowsOf 는 목록 행만 색을 빼고 돌려준다. 제목줄·키 안내·statusBar 는 뺀다.
@@ -58,7 +58,7 @@ func TestJobsListShowsRunningThenFinished(t *testing.T) {
 	rows := jobRowsOf(t, m)
 
 	require.Len(t, rows, 4)
-	assert.Contains(t, rows[0], "▸ 파일 인덱싱", "고른 자리는 첫 줄이다")
+	assert.Contains(t, rows[0], "▸   파일 인덱싱", "고른 자리는 첫 줄이다")
 	assert.Contains(t, rows[0], "⣿⣿⣿⣿⣄⣀⣀⣀⣀⣀")
 	assert.Contains(t, rows[0], "42%")
 	assert.Contains(t, rows[1], "끝남  12 개")
@@ -220,7 +220,9 @@ func TestJobsListStartsAtLeftEdge(t *testing.T) {
 	rows := jobRowsOf(t, jobsView(t, tree.editor))
 
 	require.NotEmpty(t, rows)
-	assert.True(t, strings.HasPrefix(rows[0], " ▸ 파일 인덱싱"), "행: %q", rows[0])
+	// 고른 줄 표시 뒤의 두 칸은 접힘 표시 자리다. 접을 것이 없는 줄도 그 칸을 비워 두어야
+	// 이름 줄과 막대가 세로로 줄이 맞는다(view-jobs.go 의 renderJobRow).
+	assert.True(t, strings.HasPrefix(rows[0], " ▸   파일 인덱싱"), "행: %q", rows[0])
 }
 
 // jobsView 는 그 editor 로 연 목록 화면이다.
@@ -240,7 +242,7 @@ func TestJobsHintSitsAboveStatusBar(t *testing.T) {
 	rows := strings.Split(m.View().Content, "\n")
 	hint := rows[len(rows)-statusBarHeight-jobsHintHeight]
 
-	assert.Contains(t, ansi.Strip(hint), "j/k 이동  x 취소  q 닫기")
+	assert.Contains(t, ansi.Strip(hint), "j/k 이동  enter 펼치기  x 취소  q 닫기")
 	assert.Contains(t, hint, "38;5;244", "흐린 글씨라 목록 내용과 갈린다")
 	assert.Empty(t, strings.TrimSpace(barOf(t, m)[1]), "알림이 없으면 아래 줄은 비어 있다")
 
@@ -248,4 +250,127 @@ func TestJobsHintSitsAboveStatusBar(t *testing.T) {
 	next := send(m, "x")
 	assert.Contains(t, barOf(t, next)[1], "이미 끝난 작업입니다")
 	assert.Contains(t, ansi.Strip(strings.Split(next.View().Content, "\n")[len(rows)-statusBarHeight-jobsHintHeight]), "q 닫기")
+}
+
+// 인자가 있는 작업은 이름 줄 하나로 모이고 열자마자는 접혀 있다. 이름 옆에 몇인지가 붙는다.
+func TestJobsListNestsJobsWithArgs(t *testing.T) {
+	started := time.Now().Add(-3 * time.Second)
+	m := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"docs"}, done: 1, total: 4, started: started, cancel: func() {}},
+		{name: dirJobName, args: []string{"internal/core"}, done: 2, total: 4, started: started, cancel: func() {}},
+	}, nil)
+
+	rows := jobRowsOf(t, m)
+
+	require.Len(t, rows, 1, "이름 줄 하나로 모인다")
+	assert.Contains(t, rows[0], "+ 디렉터리 읽기 (2)")
+	assert.NotContains(t, rows[0], "docs", "접혀 있으면 인자는 보이지 않는다")
+}
+
+// enter 로 펼치면 인자가 한 줄씩 선다. 다시 치면 접힌다.
+func TestJobsListExpandsOnEnter(t *testing.T) {
+	m := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"docs"}, done: 1, total: 4, started: time.Now(), cancel: func() {}},
+		{name: dirJobName, args: []string{"internal/core"}, done: 2, total: 4, started: time.Now(), cancel: func() {}},
+	}, nil)
+
+	opened := send(m, "enter")
+	rows := jobRowsOf(t, opened)
+
+	require.Len(t, rows, 3)
+	assert.Contains(t, rows[0], "− 디렉터리 읽기 (2)")
+	assert.Contains(t, rows[1], "docs")
+	assert.Contains(t, rows[2], "internal/core")
+
+	assert.Len(t, jobRowsOf(t, send(opened, "enter")), 1, "다시 치면 접힌다")
+}
+
+// 이름 줄의 막대는 자식을 더한 것이다. 하나라도 전체를 모르면 막대를 그리지 않는다.
+func TestJobsListParentSumsChildren(t *testing.T) {
+	summed := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"docs"}, done: 1, total: 4, started: time.Now(), cancel: func() {}},
+		{name: dirJobName, args: []string{"cmd"}, done: 2, total: 4, started: time.Now(), cancel: func() {}},
+	}, nil)
+
+	assert.Contains(t, jobRowsOf(t, summed)[0], "37%", "3/8 이다")
+
+	unknown := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"docs"}, done: 1, total: 4, started: time.Now(), cancel: func() {}},
+		{name: dirJobName, args: []string{"cmd"}, done: 2, started: time.Now(), cancel: func() {}},
+	}, nil)
+
+	row := jobRowsOf(t, unknown)[0]
+	assert.NotContains(t, row, "⣿", "아는 것만 더한 백분율은 거짓말이 된다")
+	assert.Contains(t, row, "3")
+}
+
+// 다 끝났으면 이름 줄이 마지막에 끝난 것의 상태와 요약을 든다.
+func TestJobsListParentShowsFinishedLabel(t *testing.T) {
+	m := newJobsView(t, nil,
+		[]job{{name: dirJobName, args: []string{"docs"}, started: time.Now(), finished: time.Now(), summary: "1,200 개"}})
+
+	assert.Contains(t, jobRowsOf(t, m)[0], "끝남  1,200 개")
+}
+
+// 이름 줄에서 `x` 는 그 이름으로 도는 것을 전부 끊는다. 하나만 끊으면 어느 것인지 알 수 없다.
+func TestJobsListCancelsWholeGroup(t *testing.T) {
+	stopped := []string{}
+	m := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"docs"}, started: time.Now(), cancel: func() { stopped = append(stopped, "docs") }},
+		{name: dirJobName, args: []string{"cmd"}, started: time.Now(), cancel: func() { stopped = append(stopped, "cmd") }},
+	}, nil)
+
+	send(m, "x")
+
+	assert.Equal(t, []string{"docs", "cmd"}, stopped)
+}
+
+// 펼친 자식에서 `x` 는 그것 하나만 끊는다.
+func TestJobsListCancelsOneChild(t *testing.T) {
+	stopped := []string{}
+	m := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"docs"}, started: time.Now(), cancel: func() { stopped = append(stopped, "docs") }},
+		{name: dirJobName, args: []string{"cmd"}, started: time.Now(), cancel: func() { stopped = append(stopped, "cmd") }},
+	}, nil)
+
+	send(send(m, "enter"), "j", "j", "x")
+
+	assert.Equal(t, []string{"cmd"}, stopped)
+}
+
+// 인자가 없으면 모을 것이 없다. 같은 이름이 도는 중과 끝난 것으로 둘 서는 자리가 그대로 남는다.
+func TestJobsListKeepsFlatRowsWithoutArgs(t *testing.T) {
+	started := time.Now()
+	m := newJobsView(t,
+		[]job{{name: gitJobName, done: 1, total: 2, started: started, cancel: func() {}}},
+		[]job{{name: gitJobName, started: started, finished: time.Now(), summary: "8 개"}})
+
+	rows := jobRowsOf(t, m)
+
+	require.Len(t, rows, 2, "접히지 않는다")
+	assert.NotContains(t, rows[0], "+", "접힘 표시가 없다")
+	assert.Contains(t, rows[1], "끝남  8 개")
+}
+
+// 이름이 길어도 상태 칸을 밀지 않는다. 경로가 이름에 붙어 있던 때가 이것으로 끝난다(ADR-0075).
+func TestJobsListKeepsStateColumnAligned(t *testing.T) {
+	m := newJobsView(t, []job{
+		{name: dirJobName, args: []string{"internal/core/very/deep/path"}, done: 1, total: 2, started: time.Now(), cancel: func() {}},
+		{name: "파일 인덱싱", done: 1, total: 2, started: time.Now(), cancel: func() {}},
+	}, nil)
+
+	rows := jobRowsOf(t, send(m, "enter"))
+
+	require.Len(t, rows, 3)
+	for _, row := range rows {
+		// 칸은 byte 자리가 아니라 화면 폭으로 잰다 — 한글이 한 글자에 세 byte 다.
+		assert.Equal(t, barColumnOf(rows[0]), barColumnOf(row), "행: %q", row)
+	}
+	assert.Contains(t, rows[1], "…", "긴 경로는 왼쪽부터 접는다")
+	assert.Contains(t, rows[1], "deep/path", "뒤쪽이 남는다")
+}
+
+// barColumnOf 는 막대가 시작하는 화면 칸이다.
+func barColumnOf(row string) int {
+	return screenWidthOf(row[:strings.Index(row, "⣿")])
 }

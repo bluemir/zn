@@ -235,7 +235,7 @@ func gotoDefinition(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	if e.gopls == nil {
-		if e.jobRunning(goplsJobName) {
+		if e.jobRunning(goplsJobName, nil) {
 			e.notify("gopls 를 설치하는 중입니다")
 
 			return nil, nil
@@ -267,7 +267,7 @@ func (e *editor) installGopls() tea.Cmd {
 		return nil
 	}
 
-	return e.startJob(goplsJobName, func(ctx context.Context) <-chan jobProgress {
+	return e.startJob(goplsJobName, nil, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress)
 
 		go func() {

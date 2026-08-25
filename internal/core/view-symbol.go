@@ -71,7 +71,7 @@ func symbolMode(e *editor) (tea.Model, tea.Cmd) {
 
 	cmd := tea.Cmd(nil)
 	if !e.symbolsIndexed {
-		cmd = e.startJob("유니코드 훑기", indexSymbols)
+		cmd = e.startJob("유니코드 훑기", nil, indexSymbols)
 	}
 
 	e.drawerHeight = e.symbolDrawerHeight()

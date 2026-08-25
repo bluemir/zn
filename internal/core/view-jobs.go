@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,7 +21,7 @@ import (
 // 여기서 치는 키가 편집기 키인 줄 알게 된다. 맨 위 제목줄이 그 자리를 대신하고, statusBar 만
 // 남겨 mode 와 git·알림이 늘 같은 자리에 있게 한다.
 func jobsMode(e *editor) (tea.Model, tea.Cmd) {
-	return viewJobs{editor: e}, nil
+	return viewJobs{editor: e, expanded: map[string]bool{}}, nil
 }
 
 type viewJobs struct {
@@ -28,6 +29,12 @@ type viewJobs struct {
 
 	selected int // rows 안의 자리
 	top      int // 화면 첫 행
+
+	// expanded 는 펼쳐 둔 이름들이다. 없는 이름은 접힌 것이라 열자마자는 전부 접혀 있다.
+	//
+	// editor 가 아니라 여기 산다 — 화면을 나가면 잊는 것이 맞다. 다시 열었을 때 접힘이
+	// 남아 있으면, 그 사이에 끝나고 사라진 작업 때문에 펼쳐 둔 자리가 빈 채로 선다(ADR-0002).
+	expanded map[string]bool
 
 	// state 는 키 나열을 동작 하나로 만드는 상태다.
 	// mode 안에서만 사는 상태라 editor 가 아니라 여기에 둔다(ADR-0002).
@@ -122,6 +129,10 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 		m.move(-1)
 
 		return m, nil
+	case "enter":
+		m.toggleSelected()
+
+		return m, nil
 	case "x":
 		m.cancelSelected()
 
@@ -133,6 +144,10 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 
 // cancelSelected 는 고른 작업에게 그만하라고 말한다.
 //
+// 이름 줄에서 누르면 그 이름으로 도는 것을 **전부** 끊는다. 접혀 있으면 무엇이 도는지 화면에
+// 없지만, 접힌 이름 줄을 골라 누른 손이 가리키는 것은 그 이름의 일 전부다 — 하나만 골라
+// 끊으면 어느 것이 끊겼는지 알 길이 없다.
+//
 // 끝난 작업을 고르고 눌렀으면 알리고 만다. 아무 일도 안 나면 키가 먹었는지 알 수 없다.
 //
 // 끊는 것은 ctx 를 취소하는 일이라 그 자리에서 끝난다 — 시작되는 작업이 없어서 Cmd 가 없다.
@@ -143,20 +158,179 @@ func (m *viewJobs) cancelSelected() {
 	}
 
 	selected := rows[m.selected]
-	if selected.cancel == nil {
-		m.notify("이미 끝난 작업입니다")
+	if selected.kind != jobRowParent {
+		if selected.job.cancel == nil {
+			m.notify("이미 끝난 작업입니다")
+
+			return
+		}
+
+		m.cancelJob(selected.job.name, selected.job.args)
 
 		return
 	}
 
-	m.cancelJob(selected.name)
+	stopped := 0
+	for _, member := range selected.group.members {
+		if member.cancel == nil {
+			continue
+		}
+
+		m.cancelJob(member.name, member.args)
+		stopped++
+	}
+
+	if stopped == 0 {
+		m.notify("이미 끝난 작업입니다")
+	}
 }
 
-// jobRows 는 목록에 그릴 작업들이다. 도는 것이 위, 끝난 것이 아래다.
-func (e editor) jobRows() []job {
-	rows := make([]job, 0, len(e.jobs)+len(e.finished))
-	rows = append(rows, e.jobs...)
-	rows = append(rows, e.finished...)
+// toggleSelected 는 이름 줄을 접거나 편다. 이름 줄이 아니면 아무 일도 하지 않는다.
+//
+// 접어도 고른 자리는 그대로다 — 자식은 이름 줄 뒤에 오므로 앞의 행 수가 바뀌지 않는다.
+func (m *viewJobs) toggleSelected() {
+	rows := m.jobRows()
+	if m.selected >= len(rows) || rows[m.selected].kind != jobRowParent {
+		return
+	}
+
+	name := rows[m.selected].group.name
+	m.expanded[name] = !m.expanded[name]
+	m.scrollTo()
+}
+
+// jobGroup 은 이름이 같은 작업들이다. 목록은 이것을 이름 줄 하나와 자식 여럿으로 편다.
+//
+// 도는 것이 앞, 끝난 것이 뒤다 — 목록 전체가 지키던 그 순서가 이름 안으로 들어왔다.
+// 끝난 것은 이름당 하나뿐이라(job.go 의 finishJob) 뒤에 붙는 것은 늘 하나 아니면 없다.
+type jobGroup struct {
+	name    string
+	members []job
+}
+
+// rollup 은 이름 줄이 찍을 알맹이다. 자식의 done·total 을 더하고 가장 이른 시작을 든다.
+//
+// **하나라도 전체를 모르면 total 은 0 이다.** 아는 것만 더한 백분율은 거짓말이 된다 —
+// renderJobBar 가 전체를 모를 때 막대를 아예 안 그리는 것과 같은 기준이다(job.go).
+//
+// 하나라도 돌고 있으면 끝난 것이 아니라서 finished 를 비운다. 다 끝났으면 마지막에 끝난 것의
+// 상태와 요약을 그대로 든다 — 끝난 것은 이름당 하나라 고를 것이 없다.
+func (g jobGroup) rollup() job {
+	rolled := job{name: g.name}
+
+	known, running := true, false
+	for i, member := range g.members {
+		rolled.done += member.done
+		rolled.total += member.total
+		if member.total <= 0 {
+			known = false
+		}
+
+		if i == 0 || member.started.Before(rolled.started) {
+			rolled.started = member.started
+		}
+
+		if member.finished.IsZero() {
+			running = true
+
+			continue
+		}
+
+		if member.finished.After(rolled.finished) {
+			rolled.finished = member.finished
+			rolled.summary, rolled.err = member.summary, member.err
+		}
+	}
+
+	if !known {
+		rolled.total = 0
+	}
+	if running {
+		rolled.finished, rolled.summary, rolled.err = time.Time{}, "", nil
+	}
+
+	return rolled
+}
+
+// jobGroup 은 그 이름으로 도는 것과 끝난 것을 모은 것이다. 도는 것이 앞이다.
+func (e editor) jobGroup(name string) jobGroup {
+	group := jobGroup{name: name}
+
+	for _, running := range e.jobs {
+		if running.name == name {
+			group.members = append(group.members, running)
+		}
+	}
+	for _, done := range e.finished {
+		if done.name == name {
+			group.members = append(group.members, done)
+		}
+	}
+
+	return group
+}
+
+// jobRowKind 는 목록 한 행의 갈래다.
+type jobRowKind int
+
+const (
+	// jobRowPlain 은 인자 없는 작업 한 줄이다. 접을 것이 없다.
+	jobRowPlain jobRowKind = iota
+	// jobRowParent 는 이름 줄이다. `+`/`−` 로 접고 편다.
+	jobRowParent
+	// jobRowChild 는 펼친 이름 줄 아래의 작업 하나다. 이름 자리에 인자가 온다.
+	jobRowChild
+)
+
+// jobRow 는 목록의 한 행이다. 이름 줄이면 group 이, 그 밖이면 job 이 알맹이다.
+type jobRow struct {
+	kind  jobRowKind
+	group jobGroup
+	job   job
+}
+
+// jobRows 는 목록에 그릴 행들이다. 도는 것이 위, 끝난 것이 아래다.
+//
+// **인자가 있는 작업만 이름 줄 아래로 모인다.** 인자가 없으면 모을 것이 없어서 도는 것 위·
+// 끝난 것 아래의 차례가 그대로 남는다 — 같은 이름이 둘 서는 일은 인자가 없어도 있다.
+// 다시 도는 git 갱신 아래에 지난 결과가 그대로 남아 있는 자리가 그것이다(ADR-0030).
+//
+// 모으는 자를 개수가 아니라 인자로 삼는다. 개수로 가르면 디렉터리 하나를 읽는 동안 평평하던
+// 줄이 둘째가 시작되며 접혀서, 같은 작업이 화면에서 자리를 옮긴다(ADR-0075).
+func (m viewJobs) jobRows() []jobRow {
+	rows := make([]jobRow, 0, len(m.jobs)+len(m.finished))
+	nested := map[string]bool{}
+
+	put := func(member job) {
+		if len(member.args) == 0 {
+			rows = append(rows, jobRow{kind: jobRowPlain, job: member})
+
+			return
+		}
+
+		if nested[member.name] {
+			return
+		}
+		nested[member.name] = true
+
+		group := m.jobGroup(member.name)
+		rows = append(rows, jobRow{kind: jobRowParent, group: group})
+
+		if !m.expanded[member.name] {
+			return
+		}
+
+		for _, child := range group.members {
+			rows = append(rows, jobRow{kind: jobRowChild, job: child})
+		}
+	}
+
+	for _, running := range m.jobs {
+		put(running)
+	}
+	for _, done := range m.finished {
+		put(done)
+	}
 
 	return rows
 }
@@ -192,8 +366,15 @@ func (m *viewJobs) scrollTo() {
 	}
 }
 
-// jobNameWidth 는 이름 칸의 폭이다. 이름이 짧아도 진행 막대가 세로로 줄이 맞아야 읽힌다.
-const jobNameWidth = 16
+// 이름 칸의 폭이다. 이름이 짧아도 진행 막대가 세로로 줄이 맞아야 읽힌다.
+//
+// jobNameWidth 는 `디렉터리 읽기 (3)` 처럼 개수까지 붙은 이름 줄을 담는다. 자식은 그 안에서
+// jobChildIndent 만큼 더 들어가고 인자 칸이 그만큼 좁아진다 — 상태 칸이 어느 갈래에서나
+// 같은 열에서 시작한다.
+const (
+	jobNameWidth   = 18
+	jobChildIndent = 2
+)
 
 func (m viewJobs) View() tea.View {
 	rows := m.jobRows()
@@ -216,7 +397,7 @@ func (m viewJobs) View() tea.View {
 	}
 
 	screen := append([]string{m.renderTitle()}, body...)
-	screen = append(screen, styleDetail.Render(" j/k 이동  x 취소  q 닫기"))
+	screen = append(screen, styleDetail.Render(" j/k 이동  enter 펼치기  x 취소  q 닫기"))
 	screen = append(screen, m.renderBareStatusBar()...)
 
 	view := newView(screen)
@@ -271,32 +452,58 @@ func (m viewJobs) renderTitle() string {
 	return reverse.Width(m.width).Render(truncateToWidth(label, m.width))
 }
 
-// renderJobRow 는 작업 한 줄이다.
+// renderJobRow 는 목록 한 줄이다.
 //
-//	▸ 파일 인덱싱      ⣿⣿⣿⣿⣄⣀⣀⣀⣀⣀  42%   0:03
-//	  파일 인덱싱      끝남  151,933 개         0:12
+//	▸ − 디렉터리 읽기 (3)  ⣿⣿⣄⣀⣀⣀⣀⣀⣀⣀   30%   0:03
+//	      internal/core    ⣿⣿⣄⣀⣀⣀⣀⣀⣀⣀   30%   0:03
+//	      docs/adr         끝남  1,200 개         0:00
+//	      cmd              ⣿⣿⣿⣿⣿⣿⣄⣀⣀⣀   62%   0:01
+//	    파일 인덱싱        ⣿⣿⣿⣄⣀⣀⣀⣀⣀⣀   42%   0:01
 //
 // 도는 것은 막대와 백분율, 끝난 것은 상태와 요약이 같은 칸에 온다. 전체를 모르는 동안에는
-// statusBar 와 같이 개수만 찍는다(job.go).
-func (m viewJobs) renderJobRow(running job, selected bool, now time.Time) string {
+// statusBar 와 같이 개수만 찍는다(job.go). 이름 줄은 자식을 더한 것이다(jobGroup.rollup).
+//
+// 접힘 표시는 `+`/`−` 다. 트리의 `▸`/`▾` 를 쓰면 고른 줄 표시(`▸ `) 와 글자가 겹쳐서 한 행에
+// 같은 화살표가 둘 선다 — 이 화면은 트리와 달리 고른 줄을 반전이 아니라 표시로 가른다(ADR-0075).
+func (m viewJobs) renderJobRow(row jobRow, selected bool, now time.Time) string {
 	marker := "  "
 	if selected {
 		marker = "▸ "
 	}
 
-	state := running.label()
-	if running.finished.IsZero() {
-		if running.total > 0 {
-			state = fmt.Sprintf("%s  %3d%%", renderBar(running.done, running.total), 100*running.done/running.total)
+	fold, name, shown := "  ", "", row.job
+	switch row.kind {
+	case jobRowParent:
+		fold = "+ "
+		if m.expanded[row.group.name] {
+			fold = "− "
+		}
+
+		shown = row.group.rollup()
+		name = padTo(truncateToWidth(fmt.Sprintf("%s (%d)", row.group.name, len(row.group.members)), jobNameWidth), jobNameWidth)
+	case jobRowChild:
+		// 인자가 이름 자리에 온다. **왼쪽부터 접는다** — 경로에서 어느 디렉터리인지를 말해
+		// 주는 것은 뒤쪽이라, 오른쪽부터 자르면 어느 줄에나 같은 앞머리만 남는다
+		// (view-locations.go 와 같은 까닭이다).
+		body := jobNameWidth - jobChildIndent
+		name = strings.Repeat(" ", jobChildIndent) + padTo(trimLeftToWidth(strings.Join(row.job.args, " "), body), body)
+	default:
+		name = padTo(truncateToWidth(row.job.name, jobNameWidth), jobNameWidth)
+	}
+
+	state := shown.label()
+	if shown.finished.IsZero() {
+		if shown.total > 0 {
+			state = fmt.Sprintf("%s  %3d%%", renderBar(shown.done, shown.total), 100*shown.done/shown.total)
 		} else {
-			state = formatCount(running.done)
+			state = formatCount(shown.done)
 		}
 	}
 
-	row := " " + marker + padTo(running.name, jobNameWidth) + " " + state + "   " + formatElapsed(running.elapsed(now))
+	line := " " + marker + fold + name + " " + state + "   " + formatElapsed(shown.elapsed(now))
 
 	// 화면 전체를 쓰므로 편집 영역이 아니라 화면 너비로 자른다.
-	return truncateToWidth(row, m.width)
+	return truncateToWidth(line, m.width)
 }
 
 // formatElapsed 는 걸린 시간이다. 분과 초만 본다 — 그보다 오래 도는 작업은 아직 없고,

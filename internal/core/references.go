@@ -43,7 +43,7 @@ func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	if e.gopls == nil {
-		if e.jobRunning(goplsJobName) {
+		if e.jobRunning(goplsJobName, nil) {
 			e.notify("gopls 를 설치하는 중입니다")
 
 			return nil, nil

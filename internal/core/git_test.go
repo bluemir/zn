@@ -24,7 +24,7 @@ func TestGitTickStartsJob(t *testing.T) {
 	m, cmd := tickOf(m)
 
 	require.NotNil(t, cmd, "갱신 작업의 첫 조각을 받을 Cmd 가 나오지 않는다")
-	assert.True(t, m.(viewEditorNormal).jobRunning(gitJobName))
+	assert.True(t, m.(viewEditorNormal).jobRunning(gitJobName, nil))
 }
 
 // 갱신이 아직 도는 중이면 다음 tick 은 새로 시작하지 않는다.
@@ -172,7 +172,7 @@ func TestOpenPathsEmitGitRefresh(t *testing.T) {
 			_, cmd := open(m.editor)
 
 			require.NotNil(t, cmd, "갱신 Cmd 가 밖으로 나오지 않는다")
-			assert.True(t, m.jobRunning(gitJobName))
+			assert.True(t, m.jobRunning(gitJobName, nil))
 		})
 	}
 }
@@ -186,7 +186,7 @@ func TestTreeEnterEmitsGitRefresh(t *testing.T) {
 	_, cmd := viewSidebar{editor: m.editor}.enter()
 
 	require.NotNil(t, cmd, "갱신 Cmd 가 밖으로 나오지 않는다")
-	assert.True(t, m.jobRunning(gitJobName))
+	assert.True(t, m.jobRunning(gitJobName, nil))
 }
 
 // tab 을 오가는 것에는 git 이 붙지 않는다. `gt` 마다 프로세스가 뜨면 ADR-0009 의 출발점이 깨진다.
@@ -197,7 +197,7 @@ func TestSwitchingTabsDoesNotRefresh(t *testing.T) {
 	model := send(m, "g", "t")
 
 	require.IsType(t, viewEditorNormal{}, model)
-	assert.False(t, model.(viewEditorNormal).jobRunning(gitJobName))
+	assert.False(t, model.(viewEditorNormal).jobRunning(gitJobName, nil))
 }
 
 // 끊긴 갱신이 읽어온 것은 "저장소가 아니다" 와 구별되지 않는다.
@@ -225,23 +225,23 @@ func jobRunningIn(t *testing.T, m tea.Model, name string) bool {
 
 	switch v := m.(type) {
 	case viewEditorNormal:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewEditorInsert:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewEditorCommand:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewEditorSearch:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewEditorVisual:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewPalette:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewJobs:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewSidebar:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	case viewConfirmDiscard:
-		return v.jobRunning(name)
+		return v.jobRunning(name, nil)
 	default:
 		t.Fatalf("editor 를 든 mode 가 아니다: %T", m)
 

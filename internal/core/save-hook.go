@@ -317,7 +317,7 @@ const goimportsJobName = "goimports 설치"
 // 「이 파일에 돌릴 것이 있는가」는 보지 않는다 — 그것은 errHookNotInstalled 가 이미 말해 주고,
 // 여기서 다시 확장자를 보면 표가 두 자리에 있게 된다.
 func (e *editor) askGoimports() bool {
-	return !e.goimportsDeclined && !e.jobRunning(goimportsJobName)
+	return !e.goimportsDeclined && !e.jobRunning(goimportsJobName, nil)
 }
 
 // installGoimports 는 go install 로 goimports 를 설치하는 백그라운드 작업을 시작한다.
@@ -329,7 +329,7 @@ func (e *editor) installGoimports() tea.Cmd {
 		return nil
 	}
 
-	return e.startJob(goimportsJobName, func(ctx context.Context) <-chan jobProgress {
+	return e.startJob(goimportsJobName, nil, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress)
 
 		go func() {

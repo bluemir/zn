@@ -183,7 +183,7 @@ func TestBackgroundFailureIsRecorded(t *testing.T) {
 	e.putJob(job{name: "git 상태"})
 	e.jobs[0].err = errors.New("exit status 128")
 
-	e.finishJob("git 상태")
+	e.finishJob("git 상태", nil)
 
 	require.Len(t, e.notices, 1)
 	assert.True(t, e.notices[0].failed)
@@ -195,9 +195,9 @@ func TestBackgroundFailureIsRecorded(t *testing.T) {
 func TestCancelledJobIsNotRecorded(t *testing.T) {
 	e := &editor{}
 	e.putJob(job{name: "파일 인덱싱"})
-	e.cancelJob("파일 인덱싱")
+	e.cancelJob("파일 인덱싱", nil)
 
-	e.finishJob("파일 인덱싱")
+	e.finishJob("파일 인덱싱", nil)
 
 	assert.Empty(t, e.notice)
 	assert.Empty(t, e.notices)

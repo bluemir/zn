@@ -189,8 +189,8 @@ func TestStartJobKeepsOneOfEachName(t *testing.T) {
 		return ch
 	}
 
-	require.NotNil(t, e.startJob("파일 인덱싱", start))
-	assert.Nil(t, e.startJob("파일 인덱싱", start), "이미 돌고 있으면 Cmd 도 주지 않는다")
+	require.NotNil(t, e.startJob("파일 인덱싱", nil, start))
+	assert.Nil(t, e.startJob("파일 인덱싱", nil, start), "이미 돌고 있으면 Cmd 도 주지 않는다")
 
 	assert.Equal(t, 1, started, "채널조차 만들지 않는다")
 	assert.Len(t, e.jobs, 1)
@@ -241,7 +241,7 @@ func TestWaitJobTurnsChannelIntoMessages(t *testing.T) {
 	ch := make(chan jobProgress, 1)
 	ch <- jobProgress{done: 3, total: 10}
 
-	msg := waitJob("파일 인덱싱", ch)()
+	msg := waitJob("파일 인덱싱", nil, ch)()
 
 	require.IsType(t, jobProgressMsg{}, msg)
 	progress := msg.(jobProgressMsg)
@@ -251,7 +251,7 @@ func TestWaitJobTurnsChannelIntoMessages(t *testing.T) {
 
 	close(ch)
 
-	assert.Equal(t, jobDoneMsg{name: "파일 인덱싱"}, waitJob("파일 인덱싱", ch)())
+	assert.Equal(t, jobDoneMsg{name: "파일 인덱싱"}, waitJob("파일 인덱싱", nil, ch)())
 }
 
 // 진행 표시가 붙어도 statusBar 는 화면 너비를 넘지 않는다. 넘치면 터미널이 줄바꿈해 화면이 밀린다.

@@ -128,7 +128,7 @@ func (e *editor) scheduleGitTick() tea.Cmd {
 //
 // 결과는 apply 가 editor 에 넣는다 — Update 안에서 불리므로 잠금이 필요 없다(job.go).
 func (e *editor) startGitRefresh() tea.Cmd {
-	return e.startJob(gitJobName, func(ctx context.Context) <-chan jobProgress {
+	return e.startJob(gitJobName, nil, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress, 1)
 
 		go func() {

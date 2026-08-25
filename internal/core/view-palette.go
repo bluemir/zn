@@ -44,7 +44,7 @@ func paletteMode(e *editor) (tea.Model, tea.Cmd) {
 	//
 	// 앞서 모아둔 목록이 있으면 그것을 보면서 시작한다. 새 조각이 오면 통째로 갈린다 —
 	// 빈 목록에서 시작하면 열 때마다 화면이 한 번 번쩍인다.
-	cmd := e.startJob("파일 인덱싱", func(ctx context.Context) <-chan jobProgress {
+	cmd := e.startJob("파일 인덱싱", nil, func(ctx context.Context) <-chan jobProgress {
 		return indexFiles(ctx, root)
 	})
 

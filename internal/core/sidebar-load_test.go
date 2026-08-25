@@ -82,7 +82,7 @@ func TestTreeExpandIsAsync(t *testing.T) {
 	assert.True(t, docs.expanded, "펼침 표시는 기다리지 않는다")
 	assert.True(t, docs.loading)
 	assert.Contains(t, names(m.sidebar.rows()), "2:… 읽는 중")
-	assert.True(t, m.jobRunning(dirJobName(m.sidebar.root, docs.path)))
+	assert.True(t, m.jobRunning(dirJobName, dirJobArgs(m.sidebar.root, docs.path)))
 
 	settle(t, m, cmd)
 
@@ -99,7 +99,7 @@ func TestTreeCollapseCancelsLoad(t *testing.T) {
 	cmd := m.expandNode(docs)
 	require.NotNil(t, cmd)
 
-	name := dirJobName(m.sidebar.root, docs.path)
+	args := dirJobArgs(m.sidebar.root, docs.path)
 	m.collapseNode(docs)
 
 	settle(t, m, cmd)
@@ -107,9 +107,10 @@ func TestTreeCollapseCancelsLoad(t *testing.T) {
 	assert.False(t, docs.expanded, "늦게 온 결과가 도로 펼치지 않는다")
 	assert.Empty(t, docs.children)
 
-	assert.False(t, m.jobRunning(name))
+	assert.False(t, m.jobRunning(dirJobName, args))
 	require.Len(t, m.finished, 1)
-	assert.Equal(t, name, m.finished[0].name)
+	assert.Equal(t, dirJobName, m.finished[0].name)
+	assert.Equal(t, args, m.finished[0].args)
 	assert.ErrorIs(t, m.finished[0].err, context.Canceled)
 }
 
@@ -227,8 +228,8 @@ func TestTreeNoticeRowIsNotMarkedActive(t *testing.T) {
 func TestDirJobName(t *testing.T) {
 	root := filepath.Join("/tmp", "zn")
 
-	assert.Equal(t, "디렉터리 읽기 internal/core", dirJobName(root, filepath.Join(root, "internal", "core")))
-	assert.Equal(t, "디렉터리 읽기 zn", dirJobName(root, root), "뿌리는 그 이름으로 적는다")
+	assert.Equal(t, []string{"internal/core"}, dirJobArgs(root, filepath.Join(root, "internal", "core")))
+	assert.Equal(t, []string{"zn"}, dirJobArgs(root, root), "뿌리는 그 이름으로 적는다")
 }
 
 // 트리를 다시 열면(`:tree`) 앞서 읽던 것이 도착해도 새 트리를 망가뜨리지 않는다.

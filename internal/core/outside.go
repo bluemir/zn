@@ -86,7 +86,7 @@ func (e *editor) startOutsideCheck() tea.Cmd {
 		mtime = buf.diskTime
 	}
 
-	return e.startJob(fileJobName, func(ctx context.Context) <-chan jobProgress {
+	return e.startJob(fileJobName, nil, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress, 1)
 
 		go func() {

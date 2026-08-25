@@ -8,17 +8,23 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// dirJobName 은 디렉터리 읽기 작업의 이름이자 신원이다.
+// dirJobName 은 디렉터리 읽기 작업의 이름이다. 여러 디렉터리를 읽어도 이름은 이것 하나다.
+const dirJobName = "디렉터리 읽기"
+
+// dirJobArgs 는 그 작업이 어느 디렉터리를 읽는지다. 이름과 합쳐 신원이 된다(job.go).
 //
-// 경로가 들어가야 디렉터리마다 따로 돌고(같은 이름은 한 번에 하나만 돈다) 접을 때 그것만 끊는다.
+// 인자가 들어가야 디렉터리마다 따로 돌고(같은 신원은 한 번에 하나만 돈다) 접을 때 그것만 끊는다.
 // 뿌리 기준 상대 경로라 `:jobs` 에서 어디를 읽는지가 읽힌다.
-func dirJobName(root, path string) string {
+//
+// 이것을 이름에 이어 붙이던 때는 목록에서 디렉터리마다 남남이었다 — 이름 칸을 넘겨 상태·시간
+// 칸을 밀었고, 끝난 목록이 이름당 하나라는 규칙이 펼친 수만큼 줄을 쌓았다(ADR-0075).
+func dirJobArgs(root, path string) []string {
 	rel, err := filepath.Rel(root, path)
 	if err != nil || rel == "." {
 		rel = filepath.Base(path)
 	}
 
-	return "디렉터리 읽기 " + rel
+	return []string{rel}
 }
 
 // expandNode 는 디렉터리를 펼치고 자식을 읽는 작업을 시작한다.
@@ -40,7 +46,7 @@ func (e *editor) expandNode(node *treeNode) tea.Cmd {
 	// 노드가 아니라 경로를 넘긴다. 결과가 도착할 때 이 포인터는 이미 없을 수 있다.
 	dir := node.path
 
-	return e.startJob(dirJobName(e.sidebar.root, dir), func(ctx context.Context) <-chan jobProgress {
+	return e.startJob(dirJobName, dirJobArgs(e.sidebar.root, dir), func(ctx context.Context) <-chan jobProgress {
 		return readDirJob(ctx, dir)
 	})
 }
@@ -48,7 +54,7 @@ func (e *editor) expandNode(node *treeNode) tea.Cmd {
 // collapseNode 는 디렉터리를 접는다. 읽는 중이었으면 그 작업도 끊는다.
 func (e *editor) collapseNode(node *treeNode) {
 	if node.loading {
-		e.cancelJob(dirJobName(e.sidebar.root, node.path))
+		e.cancelJob(dirJobName, dirJobArgs(e.sidebar.root, node.path))
 	}
 
 	node.expanded = false

@@ -78,7 +78,7 @@ func TestFinishedJobsKeepLastPerName(t *testing.T) {
 
 	for i := range 25 {
 		e.jobs = append(e.jobs, job{name: gitJobName, done: i, started: time.Now()})
-		e.finishJob(gitJobName)
+		e.finishJob(gitJobName, nil)
 	}
 
 	require.Len(t, e.finished, 1)
@@ -91,7 +91,7 @@ func TestFinishedJobsKeepEveryName(t *testing.T) {
 
 	for _, name := range []string{"파일 인덱싱", gitJobName, "파일 인덱싱"} {
 		e.jobs = append(e.jobs, job{name: name, started: time.Now()})
-		e.finishJob(name)
+		e.finishJob(name, nil)
 	}
 
 	require.Len(t, e.finished, 2)
@@ -109,7 +109,7 @@ func TestCancelJobStopsOnlyThatJob(t *testing.T) {
 		{name: "여러 파일 검색", cancel: func() { searched = true }},
 	}
 
-	e.cancelJob("파일 인덱싱")
+	e.cancelJob("파일 인덱싱", nil)
 
 	assert.True(t, indexed)
 	assert.False(t, searched)
@@ -122,7 +122,7 @@ func TestStartJobDerivesFromEditorContext(t *testing.T) {
 	e := editor{ctx: root}
 
 	var given context.Context
-	e.startJob("파일 인덱싱", func(ctx context.Context) <-chan jobProgress {
+	e.startJob("파일 인덱싱", nil, func(ctx context.Context) <-chan jobProgress {
 		given = ctx
 		ch := make(chan jobProgress)
 		close(ch)
@@ -142,14 +142,14 @@ func TestCancelJobCutsTheJobContext(t *testing.T) {
 	e := editor{}
 
 	var given context.Context
-	e.startJob("파일 인덱싱", func(ctx context.Context) <-chan jobProgress {
+	e.startJob("파일 인덱싱", nil, func(ctx context.Context) <-chan jobProgress {
 		given = ctx
 
 		return make(chan jobProgress)
 	})
 	require.NoError(t, given.Err())
 
-	e.cancelJob("파일 인덱싱")
+	e.cancelJob("파일 인덱싱", nil)
 
 	assert.ErrorIs(t, given.Err(), context.Canceled)
 }
@@ -171,10 +171,56 @@ func TestCancelledJobStaysCancelledWhenJobSaysNothing(t *testing.T) {
 	e := editor{}
 
 	e.jobs = []job{{name: "파일 인덱싱", cancel: func() {}}}
-	e.cancelJob("파일 인덱싱")
-	e.finishJob("파일 인덱싱")
+	e.cancelJob("파일 인덱싱", nil)
+	e.finishJob("파일 인덱싱", nil)
 
 	require.Len(t, e.finished, 1)
 	assert.Equal(t, "취소됨", e.finished[0].label())
 	assert.Empty(t, e.notice, "취소는 알리지 않는다")
+}
+
+// 이름이 같아도 인자가 다르면 다른 작업이라 나란히 돈다. 디렉터리 읽기가 그렇다.
+func TestJobsWithSameNameRunPerArgs(t *testing.T) {
+	e := editor{}
+
+	docs := e.startJob(dirJobName, []string{"docs"}, emptyJob)
+	core := e.startJob(dirJobName, []string{"internal/core"}, emptyJob)
+	again := e.startJob(dirJobName, []string{"docs"}, emptyJob)
+
+	assert.NotNil(t, docs)
+	assert.NotNil(t, core, "인자가 다르면 새로 시작한다")
+	assert.Nil(t, again, "인자까지 같으면 돌고 있는 것에 붙는다")
+	assert.Len(t, e.jobs, 2)
+}
+
+// emptyJob 은 곧바로 닫히는 채널이다. 시작되었는지만 보는 시험이 쓴다.
+func emptyJob(context.Context) <-chan jobProgress {
+	ch := make(chan jobProgress)
+	close(ch)
+
+	return ch
+}
+
+// 끝난 목록은 인자가 달라도 이름당 하나다. 펼친 디렉터리마다 한 줄씩 쌓이던 것이 이것으로 끝난다.
+//
+// 지워지는 것은 어느 경로가 언제 끝났는지인데, 실패는 알림 목록에 통째로 남는다(ADR-0075).
+func TestFinishedJobsKeepLastPerNameAcrossArgs(t *testing.T) {
+	e := editor{}
+
+	for _, dir := range []string{"docs", "internal/core", "cmd"} {
+		e.jobs = append(e.jobs, job{name: dirJobName, args: []string{dir}, started: time.Now()})
+		e.finishJob(dirJobName, []string{dir})
+	}
+
+	require.Len(t, e.finished, 1)
+	assert.Equal(t, []string{"cmd"}, e.finished[0].args, "마지막 것만 남는다")
+}
+
+// 실패 알림에는 인자가 같이 간다. 이름만 남기면 어느 디렉터리가 실패했는지 알 길이 없다.
+func TestFailedJobNoticeCarriesArgs(t *testing.T) {
+	e := editor{}
+	e.jobs = append(e.jobs, job{name: dirJobName, args: []string{"internal/core"}, err: errors.New("permission denied")})
+	e.finishJob(dirJobName, []string{"internal/core"})
+
+	assert.Equal(t, "디렉터리 읽기 internal/core 실패: permission denied", e.notice)
 }
