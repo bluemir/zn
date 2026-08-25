@@ -310,8 +310,13 @@ func (m viewJumps) View() tea.View {
 
 // hint 는 statusBar 아래 줄에 적는 말이다. `GOTO` 판과 같은 자리다(ADR-0069).
 func (m viewJumps) hint() string {
-	return fmt.Sprintf("되돌아간 자리 %d 개  ● 지금  j/k 둘러보기  enter 확정  esc 취소",
-		len(m.jumps.places))
+	// 담긴 것이 없으면 둘러볼 것도 없다. 먹지 않는 키를 권하지 않는다.
+	if len(m.jumps.places) == 0 {
+		return "되돌아간 자리 0 개  esc 닫기"
+	}
+
+	// 개수는 아랫 테두리가 든다(ADR-0079). 여기 남는 것은 표시의 뜻과 키다.
+	return "되돌아간 자리  ● 지금  j/k 둘러보기  enter 확정  esc 취소"
 }
 
 // renderDrawer 는 판 전체를 화면 행 문자열로 만든다. 각 행이 정확히 textWidth() 칸이다.
@@ -324,7 +329,10 @@ func (m viewJumps) renderDrawer() string {
 
 	rows := []string{chars.topLeft + line + chars.topRight}
 	rows = append(rows, m.renderListRows(inner)...)
-	rows = append(rows, chars.bottomLeft+line+chars.bottomRight)
+
+	// 아랫 테두리가 몇 번째를 보고 있는지 든다. 여기는 아래 줄이 개수만 적고 있어서
+	// 「지금 어느 것을 보는가」가 아예 없었다(render-drawer-count.go, ADR-0079).
+	rows = append(rows, renderCountBorder(chars, width, m.selected+1, len(m.jumps.places)))
 
 	return strings.Join(rows, "\n")
 }

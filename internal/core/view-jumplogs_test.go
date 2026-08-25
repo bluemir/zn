@@ -85,8 +85,9 @@ func TestJumplogsScrollsThroughLongLog(t *testing.T) {
 	assert.Equal(t, len(m.logs.places)-1, m.selected)
 	assert.Equal(t, len(m.logs.places)-height, m.top)
 
-	// 아래 줄이 몇 번째인지 알려 준다 — 목록만으로는 어디쯤인지 모른다.
-	assert.Contains(t, m.hint(), "60/60")
+	// 아랫 테두리가 몇 번째인지 알려 준다 — 목록만으로는 어디쯤인지 모른다(ADR-0079).
+	assert.Contains(t, lastLine(ansi.Strip(m.renderDrawer())), "60/60")
+	assert.NotContains(t, m.hint(), "60/60", "아래 줄에는 적지 않는다")
 }
 
 // **최근이 맨 위다.** 브라우저 방문 기록과 같고, 되돌아간 자리 판과는 방향이 반대다.

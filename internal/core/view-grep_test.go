@@ -271,10 +271,22 @@ func TestGrepHintCountsPosition(t *testing.T) {
 
 	assert.Contains(t, m.hint(), `"func\s+a"`, "친 그대로 적는다")
 	assert.NotContains(t, m.hint(), `\\s`)
-	assert.Contains(t, m.hint(), "1/3")
+
+	// **몇 번째인지는 아랫 테두리가 든다.** 숫자가 설명하는 대상 옆에 있어야 한다(ADR-0079).
+	assert.NotContains(t, m.hint(), "1/3", "아래 줄에는 적지 않는다")
+
+	bottom := lastLine(ansi.Strip(m.renderDrawer()))
+	assert.Contains(t, bottom, "1/3")
 
 	next, _ := m.press("j")
-	assert.Contains(t, next.(viewGrep).hint(), "2/3")
+	assert.Contains(t, lastLine(ansi.Strip(next.(viewGrep).renderDrawer())), "2/3")
+}
+
+// lastLine 은 판의 아랫 테두리 줄이다.
+func lastLine(text string) string {
+	rows := strings.Split(text, "\n")
+
+	return rows[len(rows)-1]
 }
 
 // 상한에 닿았으면 아래 줄이 그것을 적는다. 조용히 자르면 「이게 전부」로 읽힌다.

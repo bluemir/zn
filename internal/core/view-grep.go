@@ -410,20 +410,18 @@ func (m viewGrep) View() tea.View {
 
 // hint 는 statusBar 아래 줄에 적는 말이다.
 //
-// 몇 번째를 보고 있는지를 같이 적는다. 담는 것이 수천 개라 목록만으로는 어디쯤인지 모른다 —
-// 방문한 자리 판과 같은 까닭이다(ADR-0074).
+// **몇 번째인지는 적지 않는다.** 그것은 아랫 테두리가 든다 — 숫자가 설명하는 대상 옆에 있는
+// 것이 낫고, 여기는 그만큼 키 안내에 자리를 넘긴다(ADR-0079).
 func (m viewGrep) hint() string {
 	if m.filtering {
 		return "거르기: " + m.filter
 	}
 
-	rows := len(m.rows())
-	if rows == 0 {
+	if len(m.rows()) == 0 {
 		return m.label() + "  " + m.emptyReason() + "  esc 닫기"
 	}
 
-	return fmt.Sprintf("%s %d/%d  j/k 둘러보기  enter 확정  / 거르기  esc 취소",
-		m.label(), m.selected+1, rows)
+	return m.label() + "  j/k 둘러보기  enter 확정  / 거르기  esc 취소"
 }
 
 // label 은 무엇을 찾았는지다.
@@ -466,7 +464,10 @@ func (m viewGrep) renderDrawer() string {
 
 	rows := []string{chars.topLeft + line + chars.topRight}
 	rows = append(rows, m.renderListRows(inner)...)
-	rows = append(rows, chars.bottomLeft+line+chars.bottomRight)
+
+	// 아랫 테두리가 몇 번째를 보고 있는지 든다. 담는 것이 보이는 것보다 훨씬 많아서
+	// 목록만으로는 어디쯤인지 모른다(render-drawer-count.go, ADR-0079).
+	rows = append(rows, renderCountBorder(chars, width, m.selected+1, len(m.rows())))
 
 	return strings.Join(rows, "\n")
 }

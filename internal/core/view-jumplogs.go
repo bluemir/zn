@@ -291,15 +291,14 @@ func (m viewJumplogs) View() tea.View {
 
 // hint 는 statusBar 아래 줄에 적는 말이다.
 //
-// 몇 번째를 보고 있는지를 같이 적는다. 담는 것이 256 개라 목록만으로는 어디쯤인지 모른다 —
-// 다른 판들은 열여섯 줄 안에 다 들어가서 그 값이 필요 없었다.
+// **몇 번째인지는 적지 않는다.** ADR-0074 가 그것을 여기 둔 것을 아랫 테두리로 옮겼다 —
+// 숫자가 설명하는 대상 옆에 있는 것이 낫다(ADR-0079).
 func (m viewJumplogs) hint() string {
 	if len(m.logs.places) == 0 {
 		return "방문한 자리 0 개  esc 닫기"
 	}
 
-	return fmt.Sprintf("방문한 자리 %d/%d  j/k 둘러보기  enter 확정  esc 취소",
-		m.selected+1, len(m.logs.places))
+	return "방문한 자리  j/k 둘러보기  enter 확정  esc 취소"
 }
 
 // renderDrawer 는 판 전체를 화면 행 문자열로 만든다. 각 행이 정확히 textWidth() 칸이다.
@@ -312,7 +311,9 @@ func (m viewJumplogs) renderDrawer() string {
 
 	rows := []string{chars.topLeft + line + chars.topRight}
 	rows = append(rows, m.renderListRows(inner)...)
-	rows = append(rows, chars.bottomLeft+line+chars.bottomRight)
+
+	// 아랫 테두리가 몇 번째를 보고 있는지 든다(render-drawer-count.go, ADR-0079).
+	rows = append(rows, renderCountBorder(chars, width, m.selected+1, len(m.logs.places)))
 
 	return strings.Join(rows, "\n")
 }
