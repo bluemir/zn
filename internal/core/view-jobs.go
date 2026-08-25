@@ -129,6 +129,26 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 		m.move(-1)
 
 		return m, nil
+	case "pgdown":
+		// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
+		m.move(pageRows(pageFull, m.listHeight()))
+
+		return m, nil
+	case "pgup":
+		m.move(-pageRows(pageFull, m.listHeight()))
+
+		return m, nil
+	case "home":
+		// 이 판에는 `g`·`G` 가 아직 없어서 처음·끝으로 가는 키가 이 둘뿐이다.
+		m.selected = 0
+		m.scrollTo()
+
+		return m, nil
+	case "end":
+		m.selected = len(m.jobRows()) - 1
+		m.scrollTo()
+
+		return m, nil
 	case "enter":
 		m.toggleSelected()
 

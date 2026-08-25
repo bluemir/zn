@@ -239,6 +239,48 @@ func (buf *Buffer) deleteBackward(width int) {
 	buf.updateDesiredCol(width)
 }
 
+// deleteForward 는 커서 자리 글자를 지운다. 줄 끝이면 다음 줄을 끌어올려 붙인다.
+// insert mode 의 `delete` 다 — deleteBackward 의 거울이다.
+//
+// normal 에는 걸지 않았다. 그 자리에는 `x` 가 이미 있고 register 에 담는 것까지 정해져 있다.
+func (buf *Buffer) deleteForward(width int) {
+	line := buf.lines[buf.cursorLine]
+
+	if buf.cursorCol < len(line) {
+		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. clusterSize 가 글자 경계를 준다.
+		to := buf.cursorCol + clusterSize(line, buf.cursorCol)
+
+		rest := make([]byte, 0, len(line)-(to-buf.cursorCol))
+		rest = append(rest, line[:buf.cursorCol]...)
+		rest = append(rest, line[to:]...)
+
+		buf.beginEdit(buf.cursorLine, 1)
+		buf.replaceLines(buf.cursorLine, 1, [][]byte{rest})
+		buf.updateDesiredCol(width)
+
+		return
+	}
+
+	// 줄 끝이다. 마지막 줄이면 끌어올 것이 없다.
+	if buf.cursorLine == len(buf.lines)-1 {
+		return
+	}
+
+	next := buf.lines[buf.cursorLine+1]
+
+	joined := make([]byte, 0, len(line)+len(next))
+	joined = append(joined, line...)
+	joined = append(joined, next...)
+
+	// 두 줄을 건드리므로 열린 구간이 있으면 범위가 넓어진다. deleteBackward 와 같다.
+	buf.beginEdit(buf.cursorLine, 2)
+	buf.replaceLines(buf.cursorLine, 2, [][]byte{joined})
+	buf.growEdit(-1)
+
+	// 커서는 제자리다 — 이은 자리가 곧 커서 자리다.
+	buf.updateDesiredCol(width)
+}
+
 // trimTrailingSpace 는 모든 줄 끝의 공백과 tab 을 지운다. 지운 줄 수를 돌려준다.
 //
 // 지우는 것은 `' '` 와 `'\t'` 뿐이다. 유니코드 공백(NBSP 등) 은 건드리지 않는다 —

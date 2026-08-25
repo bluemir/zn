@@ -924,3 +924,86 @@ func TestWrapWithTab(t *testing.T) {
 	// tab(4 칸) + "abcd" 를 너비 6 에 넣으면 ab 까지만 들어간다
 	assert.Equal(t, []int{0, 3}, wrapOffsets([]byte("\tabcd"), 6))
 }
+
+// moveRowStart, moveRowEnd 는 **화면 행** 안에서 양끝으로 간다. `home` 과 `end` 다.
+//
+// 줄 단위(`0`·`$`) 와 갈린다 — `↑`·`↓` 가 화면 행을 세는 것과 같은 가름이다(ADR-0076).
+func TestMoveRowStartEndStayInTheScreenRow(t *testing.T) {
+	// 폭 10 이라 첫 줄이 화면 행 셋이다: 0-9, 10-19, 20-24.
+	buf := newBuffer("test.txt", []byte(strings.Repeat("a", 25)+"\nsecond\n"))
+	const width = 10
+
+	buf.moveTo(0, 14, width) // 가운데 행
+
+	buf.moveRowStart(width)
+	assert.Equal(t, 0, buf.cursorLine)
+	assert.Equal(t, 10, buf.cursorCol, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
+
+	buf.moveTo(0, 14, width)
+	buf.moveRowEnd(width)
+	assert.Equal(t, 20, buf.cursorCol, "지금 행의 끝이다. 줄 맨 끝(25) 이 아니다")
+}
+
+// 마지막 행에서 `end` 는 줄 끝이다. 뒤에 이어지는 행이 없다.
+func TestMoveRowEndOnLastRowIsLineEnd(t *testing.T) {
+	buf := newBuffer("test.txt", []byte(strings.Repeat("a", 25)+"\n"))
+	const width = 10
+
+	buf.moveTo(0, 22, width)
+	buf.moveRowEnd(width)
+
+	assert.Equal(t, 25, buf.cursorCol)
+}
+
+// 접히지 않은 줄에서는 `0`·`$` 와 같은 자리다.
+func TestMoveRowStartEndMatchLineOnUnwrappedLine(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("hello world\n"))
+
+	buf.moveTo(0, 5, wide)
+	buf.moveRowStart(wide)
+	assert.Equal(t, 0, buf.cursorCol)
+
+	buf.moveRowEnd(wide)
+	assert.Equal(t, len("hello world"), buf.cursorCol)
+}
+
+// deleteForward 는 커서 자리 글자를 지운다. insert mode 의 `delete` 다.
+func TestDeleteForward(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("abc\n"))
+
+	buf.deleteForward(wide)
+	assert.Equal(t, "bc", string(buf.lines[0]))
+	assert.Equal(t, 0, buf.cursorCol, "커서는 제자리다")
+}
+
+// 한글·이모지도 한 글자로 지운다. clusterSize 가 글자 경계를 준다.
+func TestDeleteForwardDeletesWholeCluster(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("한글x\n"))
+
+	buf.deleteForward(wide)
+	assert.Equal(t, "글x", string(buf.lines[0]), "3 byte 를 한 번에 지운다")
+}
+
+// 줄 끝에서는 다음 줄을 끌어올려 붙인다. deleteBackward 가 앞 줄과 합치는 것의 거울이다.
+func TestDeleteForwardJoinsNextLine(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("ab\ncd\n"))
+
+	buf.moveLineEnd(1, wide)
+	buf.deleteForward(wide)
+
+	require.Len(t, buf.lines, 1)
+	assert.Equal(t, "abcd", string(buf.lines[0]))
+	assert.Equal(t, 2, buf.cursorCol, "이은 자리가 곧 커서 자리다")
+}
+
+// 마지막 줄 끝에서는 끌어올 것이 없어서 아무 일도 하지 않는다.
+func TestDeleteForwardAtEndOfBufferDoesNothing(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("ab\n"))
+
+	buf.moveLineEnd(1, wide)
+	buf.deleteForward(wide)
+
+	require.Len(t, buf.lines, 1)
+	assert.Equal(t, "ab", string(buf.lines[0]))
+	assert.False(t, buf.dirty, "바꾼 것이 없으면 dirty 도 서지 않는다")
+}

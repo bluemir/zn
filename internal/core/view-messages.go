@@ -129,12 +129,21 @@ func (m viewMessages) run(key string) (tea.Model, tea.Cmd) {
 		m.move(-1)
 
 		return m, nil
-	case "g":
+	case "pgdown":
+		// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
+		m.move(pageRows(pageFull, m.listHeight()))
+
+		return m, nil
+	case "pgup":
+		m.move(-pageRows(pageFull, m.listHeight()))
+
+		return m, nil
+	case "g", "home":
 		m.selected = 0
 		m.scrollTo()
 
 		return m, nil
-	case "G":
+	case "G", "end":
 		m.selected = len(m.notices) - 1
 		m.scrollTo()
 

@@ -95,6 +95,24 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.move(1)
 
 			return m, nil
+		case "pgdown":
+			// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
+			m.move(pageRows(pageFull, m.paletteListRows()))
+
+			return m, nil
+		case "pgup":
+			m.move(-pageRows(pageFull, m.paletteListRows()))
+
+			return m, nil
+		case "home":
+			// 치는 중이라 `g`·`G` 를 둘 수 없다 — 그 글자가 걸러낼 말의 일부다.
+			m.move(-len(m.hits))
+
+			return m, nil
+		case "end":
+			m.move(len(m.hits))
+
+			return m, nil
 		case "ctrl+p":
 			// 여는 키를 다시 눌러도 아무 일도 하지 않는다. 이동은 화살표뿐이다.
 			return m, nil

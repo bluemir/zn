@@ -194,15 +194,21 @@ func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 		if act.count > 0 {
 			m.sidebar.selected = act.count - 1
 		}
+	case "home":
+		// 숫자를 보지 않는다. `gg`·`G` 는 숫자를 행 번호로 받는데(`20G`) 이 키에는 숫자를
+		// 붙여 치는 손버릇이 없고, 받으면 같은 일을 하는 길이 두 벌이 된다.
+		m.sidebar.selected = 0
+	case "end":
+		m.sidebar.selected = len(m.sidebar.rows()) - 1
 	case "ctrl+d":
 		// 반 화면·한 화면 이동이다. 고른 항목과 화면이 같이 내려가므로 커서가 트리 안 같은
 		// 자리에 남는다 — 휠이 화면만 굴리는 것과 갈린다(ADR-0062, ADR-0063).
 		m.sidebar.movePage(pageDown, pageHalf, act.count, m.sidebarHeight())
 	case "ctrl+u":
 		m.sidebar.movePage(pageUp, pageHalf, act.count, m.sidebarHeight())
-	case "ctrl+f":
+	case "ctrl+f", "pgdown":
 		m.sidebar.movePage(pageDown, pageFull, act.count, m.sidebarHeight())
-	case "ctrl+b":
+	case "ctrl+b", "pgup":
 		m.sidebar.movePage(pageUp, pageFull, act.count, m.sidebarHeight())
 	case "enter":
 		return m.enter()

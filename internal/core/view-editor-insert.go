@@ -91,6 +91,10 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !buf.deleteIndentBackward(m.contentWidth()) {
 				buf.deleteBackward(m.contentWidth())
 			}
+		case "delete":
+			// 커서 자리 글자를 지운다. 들여쓰기 단위로 묶지 않는다 — 뒤쪽 공백은
+			// 들여쓰기가 아니라 줄 끝 공백이고, 그것을 한 번에 지우는 것은 별개 결정이다.
+			buf.deleteForward(m.contentWidth())
 		case "ctrl+space":
 			// 손으로 부르는 자리다. 글자를 넣지 않고 묻기만 한다 — VS Code 와 같은 키다.
 			// 이 키는 터미널에서 NUL 로 와서 `msg.Text` 가 비어 있고, 아래 default 가
@@ -100,7 +104,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			buf.insertIndent(m.contentWidth())
 		case "shift+tab":
 			buf.outdentLine(m.contentWidth())
-		case "up", "down", "left", "right":
+		case "up", "down", "left", "right", "home", "end", "pgup", "pgdown":
 			// 커서를 옮기면 undo 구간이 끊긴다. vim 과 같다.
 			buf.endEdit()
 
@@ -113,6 +117,14 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				buf.moveLeft(1, m.contentWidth())
 			case "right":
 				buf.moveRight(1, m.contentWidth())
+			case "home":
+				buf.moveRowStart(m.contentWidth())
+			case "end":
+				buf.moveRowEnd(m.contentWidth())
+			case "pgdown":
+				buf.movePage(pageDown, pageFull, 1, m.contentWidth(), m.textHeight())
+			case "pgup":
+				buf.movePage(pageUp, pageFull, 1, m.contentWidth(), m.textHeight())
 			}
 		default:
 			// Text 는 출력 가능한 문자에만 채워진다. Enter·Tab 같은 특수 키와

@@ -137,6 +137,23 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.move(m.symbolColumns())
 
 			return m, nil
+		case "pgdown":
+			// 격자라 한 화면이 행 수 곱 칸 수다. 세는 자는 다른 판과 같다(page.go).
+			m.move(pageRows(pageFull, m.symbolDrawerHeight()) * m.symbolColumns())
+
+			return m, nil
+		case "pgup":
+			m.move(-pageRows(pageFull, m.symbolDrawerHeight()) * m.symbolColumns())
+
+			return m, nil
+		case "home":
+			m.move(-len(m.hits))
+
+			return m, nil
+		case "end":
+			m.move(len(m.hits))
+
+			return m, nil
 		case "ctrl+p":
 			// 팔레트를 여는 키다. 여기서는 아무 일도 하지 않는다 — 팔레트가 자기 키에
 			// 그렇게 하는 것과 같다(ADR-0011).

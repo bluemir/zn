@@ -229,6 +229,25 @@ func (motionRowDown) span(Buffer, int, int) (motionRange, bool) {
 	return motionRange{}, false
 }
 
+// motionRowStart, motionRowEnd 는 `home` 과 `end` 다. 화면 행의 양끝이라 `0`·`$` 와 갈린다
+// (buffer.go 의 moveRowStart).
+//
+// operator 뒤에는 받지 않는다 — `↑`·`↓` 와 같은 까닭이고 같은 자리에 산다. 잡을 범위를
+// 정하려면 「화면 행 단위 범위」가 무엇인지부터 정해야 하는데, 그것이 아직 없다(ADR-0013).
+type motionRowStart struct{}
+
+func (motionRowStart) move(buf *Buffer, count, width int) { buf.moveRowStart(width) }
+func (motionRowStart) span(Buffer, int, int) (motionRange, bool) {
+	return motionRange{}, false
+}
+
+type motionRowEnd struct{}
+
+func (motionRowEnd) move(buf *Buffer, count, width int) { buf.moveRowEnd(width) }
+func (motionRowEnd) span(Buffer, int, int) (motionRange, bool) {
+	return motionRange{}, false
+}
+
 // motionChangeWord 는 `c` 뒤에 온 `w`·`W` 다. **`cw` 는 `ce` 다.**
 //
 // 커서가 공백 아닌 글자 위면 단어 뒤 공백을 남기고 단어 끝까지만 바꾼다. 단어 하나를 갈아

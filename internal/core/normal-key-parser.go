@@ -193,6 +193,10 @@ func motionFor(op, key string) (moveMotion, bool) {
 		return motionRowUp{}, true
 	case "down":
 		return motionRowDown{}, true
+	case "home":
+		return motionRowStart{}, true
+	case "end":
+		return motionRowEnd{}, true
 	}
 
 	return nil, false
@@ -247,9 +251,10 @@ func standaloneAction(key string, count int) action {
 		return actionPage{direction: pageDown, span: pageHalf, count: count}
 	case "ctrl+u":
 		return actionPage{direction: pageUp, span: pageHalf, count: count}
-	case "ctrl+f":
+	case "ctrl+f", "pgdown":
+		// `pgdown` 도 여기다. 키 이름이 뜻하는 그대로 한 화면이고 vim 도 그렇게 묶었다.
 		return actionPage{direction: pageDown, span: pageFull, count: count}
-	case "ctrl+b":
+	case "ctrl+b", "pgup":
 		return actionPage{direction: pageUp, span: pageFull, count: count}
 	case "u":
 		return actionUndo{}

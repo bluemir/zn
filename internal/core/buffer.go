@@ -526,6 +526,32 @@ func (buf *Buffer) moveLineEnd(n, width int) {
 	buf.updateDesiredCol(width)
 }
 
+// moveRowStart, moveRowEnd 는 **화면 행** 안에서 양끝으로 간다. `home` 과 `end` 다.
+//
+// 줄 단위(`0`·`$`) 와 갈리는 자리다 — wrap 된 긴 줄에서 이 둘은 지금 보고 있는 행의 끝까지만
+// 간다. `↑`·`↓` 가 화면 행을 세는 것과 같은 가름이다(ADR-0006): 글자 키는 논리 줄이고
+// 화살표와 특수 키는 눈에 보이는 행이다. 접히지 않은 줄에서는 `0`·`$` 와 같은 자리다.
+//
+// 행의 끝은 **다음 행이 시작하는 자리 바로 앞**이다. 그 자리에 서면 다음 글자가 다음 행
+// 첫 칸이라, 줄 끝에서 `$` 가 서는 자리(줄 길이) 와 결이 같다 — normal 에서는
+// clampToNormal 이 마지막 글자 위로 끌어온다.
+func (buf *Buffer) moveRowStart(width int) {
+	offsets := wrapOffsets(buf.lines[buf.cursorLine], width)
+	start, _ := rowRange(buf.lines[buf.cursorLine], offsets, rowIndexAt(offsets, buf.cursorCol))
+
+	buf.cursorCol = start
+	buf.updateDesiredCol(width)
+}
+
+func (buf *Buffer) moveRowEnd(width int) {
+	line := buf.lines[buf.cursorLine]
+	offsets := wrapOffsets(line, width)
+	_, end := rowRange(line, offsets, rowIndexAt(offsets, buf.cursorCol))
+
+	buf.cursorCol = end
+	buf.updateDesiredCol(width)
+}
+
 // moveToLine 은 그 줄의 첫 글자로 간다. vim 의 gg, G 다. 범위를 넘으면 양끝으로 맞춘다.
 func (buf *Buffer) moveToLine(line, width int) {
 	buf.cursorLine = min(max(line, 0), len(buf.lines)-1)
