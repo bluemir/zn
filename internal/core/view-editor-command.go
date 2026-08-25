@@ -216,7 +216,8 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 		return runShell(m.editor, cmd.args[0])
 	case "grep":
-		// 패턴을 대지 않았으면 아래 줄에서 받는다. `:rename` 과 같은 손이다(ADR-0077).
+		// 패턴을 대지 않았으면 박스에서 받는다. 팔레트로 들어올 때와 같은 자리다 —
+		// 어느 길로 왔는지는 친 사람이 알고 무엇을 치는지는 같다(ADR-0077, ADR-0078 §7).
 		if len(cmd.args) == 0 {
 			return grepInputMode(m.editor)
 		}
