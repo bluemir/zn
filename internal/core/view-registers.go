@@ -78,7 +78,7 @@ type registerRow struct {
 func (m viewRegisters) rows() []registerRow {
 	rows := make([]registerRow, 0, len(registerNames))
 	for _, name := range registerNames {
-		if reg := m.registerNamed(name); reg.filled() {
+		if reg := m.registers.byName(name); reg.filled() {
 			rows = append(rows, registerRow{name: name, reg: reg})
 		}
 	}

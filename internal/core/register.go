@@ -16,20 +16,44 @@ import (
 // 이름을 대는 것은 「이 것을 거기 둔다」는 뜻이라, 모아 둔 `"a` 를 쓰는 사이에 링이 조용한
 // 편이 도리어 낫다. vim 과 같다 — 링 설명의 전제가 「다른 register 를 지정하지 않은 한」이다.
 
+// registerSet 은 register 셋을 한 덩이로 든 것이다. editor 가 이것 하나를 든다.
+//
+// 셋을 갈라 두지 않은 것은 담는 규칙이 셋에 걸쳐 있어서다 — `y` 하나가 무명과 `"0` 을 같이
+// 채우고, `d` 는 무명과 숫자 링을 같이 민다. 어느 자리에 들어가는지를 아는 곳이 이 파일
+// 하나여야 한다는 것이 아래 함수 넷의 전제다(ADR-0058).
+type registerSet struct {
+	// unnamed 는 vim 의 무명 register 다. 이름을 대지 않은 붙여넣기가 읽는 자리라 숫자
+	// register 와 겹치는 값을 들고 있다 — 겹쳐 두는 까닭은 위에 적었다.
+	unnamed register
+
+	// numbered 는 숫자 register `"0`~`"9` 다. 자리가 곧 이름이라 map 이 아니다.
+	//
+	// `"0` 은 복사한 것만 들어가고 `"1` 부터가 지운 것의 링이다. 지울 때마다 한 칸씩 밀려
+	// `"9` 에서 떨어져 나간다.
+	numbered [10]register
+
+	// named 는 문자 register `"a`~`"z` 다. 손으로 이름을 대서 담는 자리라 저절로 밀리지
+	// 않는다. 대문자(`"A`) 는 같은 자리에 뒤로 잇는다.
+	//
+	// 여기는 배열이 아니라 map 이다. 스물여섯 자리를 늘 들고 있을 값이 없고, `"-`·`"+` 처럼
+	// 글자가 아닌 이름이 뒤에 올 자리이기도 하다.
+	named map[string]register
+}
+
 // storeYank 는 복사한 것을 담는다. 이름이 비어 있으면 무명과 `"0` 이다.
 //
 // 이름이 없을 때 숫자 링을 밀지 않는 것은 `"0` 이 「마지막으로 복사한 것」이라 지운 것들과
 // 섞이지 않아야 하기 때문이다 — 지우다 덮어버리는 일을 없애려고 넣은 것이 그 갈라짐이다.
-func (e *editor) storeYank(reg register, name string) {
-	e.register = reg
+func (regs *registerSet) storeYank(reg register, name string) {
+	regs.unnamed = reg
 
 	if name == "" {
-		e.numbered[0] = reg
+		regs.numbered[0] = reg
 
 		return
 	}
 
-	e.storeNamed(reg, name)
+	regs.storeNamed(reg, name)
 }
 
 // storeDelete 는 지우거나 바꾼 것을 담는다. 이름이 비어 있으면 무명과 `"1` 이고,
@@ -41,39 +65,39 @@ func (e *editor) storeYank(reg register, name string) {
 // 그 무게보다 작다. 그래서 `x` 를 세 번 치면 `"1` `"2` `"3` 이 글자 하나씩이 된다(ADR-0058).
 //
 // `"0` 은 건드리지 않는다. 복사 전용이다.
-func (e *editor) storeDelete(reg register, name string) {
-	e.register = reg
+func (regs *registerSet) storeDelete(reg register, name string) {
+	regs.unnamed = reg
 
 	if name != "" {
-		e.storeNamed(reg, name)
+		regs.storeNamed(reg, name)
 
 		return
 	}
 
 	// `"9` 는 떨어져 나간다. 뒤에서부터 옮겨야 덮이지 않는다.
 	for at := 9; at > 1; at-- {
-		e.numbered[at] = e.numbered[at-1]
+		regs.numbered[at] = regs.numbered[at-1]
 	}
-	e.numbered[1] = reg
+	regs.numbered[1] = reg
 }
 
 // storeNamed 는 이름 있는 register 에 담는다. **대문자면 덮지 않고 뒤에 잇는다**(ADR-0058).
 //
 // `"A` 는 `"a` 와 같은 자리이고 담는 법만 다르다. 그래서 자리를 소문자로 맞춘다 — 대문자를
 // 따로 두면 `"ap` 가 `"A` 로 모은 것을 못 본다.
-func (e *editor) storeNamed(reg register, name string) {
-	if e.named == nil {
-		e.named = map[string]register{}
+func (regs *registerSet) storeNamed(reg register, name string) {
+	if regs.named == nil {
+		regs.named = map[string]register{}
 	}
 
 	lower := strings.ToLower(name)
 	if lower == name {
-		e.named[lower] = reg
+		regs.named[lower] = reg
 
 		return
 	}
 
-	e.named[lower] = appendRegister(e.named[lower], reg)
+	regs.named[lower] = appendRegister(regs.named[lower], reg)
 }
 
 // appendRegister 는 뒤에 잇는다. `"A` 가 부른다.
@@ -108,7 +132,7 @@ func appendRegister(base, extra register) register {
 	return register{lines: append(lines, extra.lines[1:]...)}
 }
 
-// registerNamed 는 이름으로 고른 register 다. 이름이 비어 있으면 무명이다.
+// byName 은 이름으로 고른 register 다. 이름이 비어 있으면 무명이다.
 //
 // **아직 없는 이름은 빈 것이다.** 무명으로 떨어뜨리지 않는다 — `"q` 를 친 손은 무명을
 // 부탁한 것이 아니라서, 엉뚱한 것을 붙이는 것보다 아무 일도 하지 않는 편이 낫다. 빈
@@ -116,15 +140,15 @@ func appendRegister(base, extra register) register {
 //
 // 대문자는 소문자와 같은 자리다. `"Ap` 도 `"ap` 와 같은 것을 붙인다 — 대문자로 갈리는 것은
 // 담을 때뿐이다(storeNamed).
-func (e editor) registerNamed(name string) register {
+func (regs registerSet) byName(name string) register {
 	if name == "" {
-		return e.register
+		return regs.unnamed
 	}
 	if at, ok := keyDigit(name); ok {
-		return e.numbered[at]
+		return regs.numbered[at]
 	}
 
-	return e.named[strings.ToLower(name)]
+	return regs.named[strings.ToLower(name)]
 }
 
 // registerWritable 은 그 이름에 담을 수 있는지다.

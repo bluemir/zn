@@ -172,13 +172,13 @@ func TestDeleteFillsRegister(t *testing.T) {
 
 	after, ok := send(m, "d", "w").(viewEditorNormal)
 	require.True(t, ok)
-	assert.Equal(t, [][]byte{[]byte("foo ")}, after.register.lines)
-	assert.False(t, after.register.linewise)
+	assert.Equal(t, [][]byte{[]byte("foo ")}, after.registers.unnamed.lines)
+	assert.False(t, after.registers.unnamed.linewise)
 
 	after, ok = send(after, "d", "d").(viewEditorNormal)
 	require.True(t, ok)
-	assert.Equal(t, [][]byte{[]byte("bar")}, after.register.lines)
-	assert.True(t, after.register.linewise, "줄 단위로 지웠다")
+	assert.Equal(t, [][]byte{[]byte("bar")}, after.registers.unnamed.lines)
+	assert.True(t, after.registers.unnamed.linewise, "줄 단위로 지웠다")
 }
 
 // 여러 줄에 걸친 글자 단위 지우기는 줄이 합쳐진다.

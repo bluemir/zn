@@ -448,7 +448,7 @@ func TestNormalKeyParserRegisterSwallowsOthers(t *testing.T) {
 }
 
 // 아직 없는 이름도 이름이다. 무르지 않아야 뒤의 `p` 가 무명을 붙이지 않는다 —
-// 그 register 가 비어서 붙여넣기가 조용히 끝난다(register.go 의 registerNamed).
+// 그 register 가 비어서 붙여넣기가 조용히 끝난다(register.go 의 byName).
 func TestNormalKeyParserUnknownRegisterIsStillAName(t *testing.T) {
 	built, state := pressAll(`"`, "a", "p")
 

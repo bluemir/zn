@@ -116,7 +116,7 @@ func TestReadOnlyAllowsMovingAndYanking(t *testing.T) {
 	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 
 	send(m, "y", "y")
-	assert.Len(t, e.register.lines, 1)
+	assert.Len(t, e.registers.unnamed.lines, 1)
 	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 }
 

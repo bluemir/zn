@@ -293,7 +293,7 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	removed := buf.deleteLines(from, to, m.contentWidth())
-	m.storeDelete(removed, "")
+	m.registers.storeDelete(removed, "")
 	m.scrollToCursor()
 
 	return normalModeMessage(m.editor, fmt.Sprintf("%d 줄 지웠습니다", len(removed.lines)))
@@ -312,7 +312,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	}
 
 	copied := buf.yankLines(from, to)
-	m.storeYank(copied, "")
+	m.registers.storeYank(copied, "")
 
 	return normalModeMessage(m.editor, copied.copiedMessage())
 }

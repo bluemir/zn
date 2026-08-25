@@ -123,8 +123,8 @@ func TestYankFillsRegister(t *testing.T) {
 			after, ok := send(m, test.keys...).(viewEditorNormal)
 			require.True(t, ok)
 
-			assert.Equal(t, test.want, after.register.lines)
-			assert.Equal(t, test.linewise, after.register.linewise)
+			assert.Equal(t, test.want, after.registers.unnamed.lines)
+			assert.Equal(t, test.linewise, after.registers.unnamed.linewise)
 			assert.Equal(t, []string{"foo bar", "baz"}, linesOf(after.buffers[after.active]), "파일은 그대로다")
 			assert.False(t, after.buffers[after.active].dirty, "복사는 파일을 바꾸지 않는다")
 		})

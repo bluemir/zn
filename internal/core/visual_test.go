@@ -103,8 +103,8 @@ func TestVisualYankFillsRegister(t *testing.T) {
 		after, ok := send(newTestEditor("foo bar\nbaz", 80, 20), "l", "l", "v", "h", "h", "y").(viewEditorNormal)
 		require.True(t, ok)
 
-		assert.Equal(t, [][]byte{[]byte("foo")}, after.register.lines)
-		assert.False(t, after.register.linewise)
+		assert.Equal(t, [][]byte{[]byte("foo")}, after.registers.unnamed.lines)
+		assert.False(t, after.registers.unnamed.linewise)
 		assert.Equal(t, []string{"foo bar", "baz"}, linesOf(after.buffers[after.active]), "파일은 그대로다")
 		assert.False(t, after.buffers[after.active].dirty)
 		assert.Equal(t, 0, after.buffers[after.active].cursorCol, "커서는 범위의 시작이다")
@@ -114,8 +114,8 @@ func TestVisualYankFillsRegister(t *testing.T) {
 		after, ok := send(newTestEditor("foo bar\nbaz", 80, 20), "V", "j", "y").(viewEditorNormal)
 		require.True(t, ok)
 
-		assert.Equal(t, [][]byte{[]byte("foo bar"), []byte("baz")}, after.register.lines)
-		assert.True(t, after.register.linewise)
+		assert.Equal(t, [][]byte{[]byte("foo bar"), []byte("baz")}, after.registers.unnamed.lines)
+		assert.True(t, after.registers.unnamed.linewise)
 	})
 
 	t.Run("줄 단위로 복사한 것은 줄로 붙는다", func(t *testing.T) {
@@ -251,14 +251,14 @@ func TestVisualRegisterName(t *testing.T) {
 		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "a", "y")
 
 		require.IsType(t, viewEditorNormal{}, m, "담고 나면 normal 로 돌아온다")
-		assert.Equal(t, "foo bar⏎", previewOf(m.(viewEditorNormal).registerNamed("a")))
+		assert.Equal(t, "foo bar⏎", previewOf(m.(viewEditorNormal).registers.byName("a")))
 	})
 
 	t.Run("숫자 이름에는 담지 못한다", func(t *testing.T) {
 		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "1", "y")
 
 		assert.IsType(t, viewEditorVisual{}, m, "아무 일도 없이 visual 에 머문다")
-		assert.False(t, m.(viewEditorVisual).registerNamed("1").filled())
+		assert.False(t, m.(viewEditorVisual).registers.byName("1").filled())
 	})
 
 	t.Run("이름을 실은 이동은 없다", func(t *testing.T) {
@@ -266,8 +266,8 @@ func TestVisualRegisterName(t *testing.T) {
 
 		// `j` 가 버려지므로 고른 것은 첫 줄뿐이고, 이름도 같이 버려져서 무명에만 담긴다.
 		require.IsType(t, viewEditorNormal{}, m)
-		assert.Equal(t, "foo⏎", previewOf(m.(viewEditorNormal).register))
-		assert.False(t, m.(viewEditorNormal).registerNamed("a").filled())
+		assert.Equal(t, "foo⏎", previewOf(m.(viewEditorNormal).registers.unnamed))
+		assert.False(t, m.(viewEditorNormal).registers.byName("a").filled())
 	})
 
 	t.Run("글자 하나가 아닌 키는 이름을 무른다", func(t *testing.T) {
@@ -289,6 +289,6 @@ func TestVisualRegisterName(t *testing.T) {
 		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "ㅁ", "y")
 
 		require.IsType(t, viewEditorNormal{}, m)
-		assert.Equal(t, "foo bar⏎", previewOf(m.(viewEditorNormal).registerNamed("a")))
+		assert.Equal(t, "foo bar⏎", previewOf(m.(viewEditorNormal).registers.byName("a")))
 	})
 }

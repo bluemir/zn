@@ -30,7 +30,7 @@ func registersOf(t *testing.T, m tea.Model) map[string]string {
 
 	out := map[string]string{}
 	for _, name := range registerNames {
-		if reg := here.registerNamed(name); reg.filled() {
+		if reg := here.registers.byName(name); reg.filled() {
 			out[registerLabel(name)] = previewOf(reg)
 		}
 	}
@@ -116,8 +116,8 @@ func TestEmptyChangeKeepsRing(t *testing.T) {
 	here, ok := after.(viewEditorInsert)
 	require.True(t, ok)
 
-	assert.Equal(t, "word⏎", previewOf(here.registerNamed("1")))
-	assert.Equal(t, "word⏎", previewOf(here.register), "무명도 그대로다")
+	assert.Equal(t, "word⏎", previewOf(here.registers.byName("1")))
+	assert.Equal(t, "word⏎", previewOf(here.registers.unnamed), "무명도 그대로다")
 }
 
 // visual 의 지우기·복사도 같은 자리에 담는다. normal 과 같은 길을 지난다.
@@ -156,8 +156,8 @@ func TestRingKeepsLinewise(t *testing.T) {
 	here, ok := after.(viewEditorNormal)
 	require.True(t, ok)
 
-	assert.False(t, here.registerNamed("1").linewise, "`dw` 는 글자 단위다")
-	assert.True(t, here.registerNamed("0").linewise, "`yy` 는 줄 단위다")
+	assert.False(t, here.registers.byName("1").linewise, "`dw` 는 글자 단위다")
+	assert.True(t, here.registers.byName("0").linewise, "`yy` 는 줄 단위다")
 }
 
 // 이름을 대면 그 자리에 담는다. `"ayy` `"add` 가 문자 register 의 본체다(ADR-0058).
@@ -245,8 +245,8 @@ func TestUppercaseRegisterAppends(t *testing.T) {
 			here, ok := after.(viewEditorNormal)
 			require.True(t, ok)
 
-			assert.Equal(t, test.want, previewOf(here.registerNamed("a")))
-			assert.Equal(t, test.linewise, here.registerNamed("a").linewise)
+			assert.Equal(t, test.want, previewOf(here.registers.byName("a")))
+			assert.Equal(t, test.linewise, here.registers.byName("a").linewise)
 		})
 	}
 }
@@ -263,7 +263,7 @@ func TestAppendDoesNotTouchBuffer(t *testing.T) {
 
 	here, ok := after.(viewEditorNormal)
 	require.True(t, ok)
-	assert.Equal(t, "one two ", previewOf(here.registerNamed("a")))
+	assert.Equal(t, "one two ", previewOf(here.registers.byName("a")))
 }
 
 // 대문자로 담은 것도 소문자로 붙인다. 대문자로 갈리는 것은 담을 때뿐이다.
@@ -273,8 +273,8 @@ func TestUppercaseNameIsTheSamePlace(t *testing.T) {
 	here, ok := m.(viewEditorNormal)
 	require.True(t, ok)
 
-	assert.Equal(t, "one⏎", previewOf(here.registerNamed("a")))
-	assert.Equal(t, "one⏎", previewOf(here.registerNamed("A")), "`\"Ap` 도 같은 것을 붙인다")
+	assert.Equal(t, "one⏎", previewOf(here.registers.byName("a")))
+	assert.Equal(t, "one⏎", previewOf(here.registers.byName("A")), "`\"Ap` 도 같은 것을 붙인다")
 }
 
 // visual 에서도 이름을 댈 수 있다. 범위를 눈으로 고른 뒤 어디에 넣을지 고르는 손이다(ADR-0058).

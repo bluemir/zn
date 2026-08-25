@@ -85,7 +85,7 @@ func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	if deleted, ok := e.activeBuffer().deleteByMotion(c.motion, c.count, e.contentWidth()); ok {
-		e.storeDelete(deleted, c.reg)
+		e.registers.storeDelete(deleted, c.reg)
 	}
 	e.scrollToCursor()
 
@@ -101,7 +101,7 @@ type actionYank struct {
 
 func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 	if yanked, ok := e.activeBuffer().yankByMotion(c.motion, c.count, e.contentWidth()); ok {
-		e.storeYank(yanked, c.reg)
+		e.registers.storeYank(yanked, c.reg)
 		e.notify(yanked.copiedMessage())
 	}
 	e.scrollToCursor()
@@ -133,7 +133,7 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 	// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
 	// 숫자 링도 밀지 않는다 — 담기지 않은 것이 링을 흔들면 `"1` 이 뜻을 잃는다(ADR-0058).
 	if len(removed.lines) > 0 {
-		e.storeDelete(removed, c.reg)
+		e.registers.storeDelete(removed, c.reg)
 	}
 
 	next, cmd := insertMode(e)
@@ -267,7 +267,7 @@ func (c actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
 
 	if area, ok := buf.selectionRange(); ok {
 		if deleted, cut := buf.deleteRange(area, e.contentWidth()); cut {
-			e.storeDelete(deleted, c.reg)
+			e.registers.storeDelete(deleted, c.reg)
 		}
 	}
 	e.scrollToCursor()
@@ -283,7 +283,7 @@ func (c actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 
 	if area, ok := buf.selectionRange(); ok {
 		if yanked, copied := buf.yankRange(area, e.contentWidth()); copied {
-			e.storeYank(yanked, c.reg)
+			e.registers.storeYank(yanked, c.reg)
 			e.notify(yanked.copiedMessage())
 		}
 	}
@@ -313,7 +313,7 @@ func (c actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 	// 지운 것과 이어 친 글자가 한 번의 `u` 로 함께 돌아간다. changeRange 가 구간을 열어 둔다.
 	if removed, changed := buf.changeRange(area, e.contentWidth()); changed {
 		if len(removed.lines) > 0 {
-			e.storeDelete(removed, c.reg)
+			e.registers.storeDelete(removed, c.reg)
 		}
 	}
 
@@ -377,7 +377,7 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteAfter(e.registerNamed(c.reg), max(c.count, 1), e.contentWidth())
+	e.activeBuffer().pasteAfter(e.registers.byName(c.reg), max(c.count, 1), e.contentWidth())
 	e.scrollToCursor()
 
 	return nil, nil
@@ -395,7 +395,7 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteBefore(e.registerNamed(c.reg), max(c.count, 1), e.contentWidth())
+	e.activeBuffer().pasteBefore(e.registers.byName(c.reg), max(c.count, 1), e.contentWidth())
 	e.scrollToCursor()
 
 	return nil, nil

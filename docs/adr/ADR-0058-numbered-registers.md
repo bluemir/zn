@@ -181,6 +181,11 @@ mode 는 `REGISTERS` 다.
 
 ## 결과
 
+> **나중에 이름만 바뀌었다.** 셋을 `registerSet` 하나로 묶어 `editor.registers` 가 들고,
+> 무명은 그 안의 `unnamed` 이다. `storeYank`/`storeDelete`/`storeNamed`/`byName`(옛
+> `registerNamed`) 이 `*editor` 대신 그 struct 를 받는다. 세 갈래로 나눈 것도, 무엇이
+> 어디에 담기는지도 그대로다 — 아래의 결정은 살아 있다.
+
 **무명을 그대로 남겼다.** `editor.register` 는 없애지 않고 `numbered [10]register` 와
 `named map[string]register` 를 옆에 더했다. 이름을 대지 않은 `p` 가 읽는 자리가 무명이고,
 그것을 이름 쪽으로 옮기면 「이름 없음」을 뜻하는 자리를 따로 정해야 한다. 덕분에 register 를
