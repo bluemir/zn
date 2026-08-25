@@ -274,6 +274,7 @@ var paletteCommands = []paletteCommand{
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
 	{name: "사용처로 가기", hint: "go to references", run: runGotoReferences},
 	{name: "이름 바꾸기", hint: "rename symbol", alias: ":rename", run: runRename},
+	{name: "프로젝트 검색", hint: "search in project", alias: ":grep", run: runGrepModal},
 	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
 }
 

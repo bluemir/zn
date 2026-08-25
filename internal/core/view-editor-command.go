@@ -92,13 +92,16 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	//
 	// `:rename` 의 인자만 파일 이름이 아니다 — 새 이름 하나다(ADR-0067).
 	switch cmd.name {
-	case "w", "e", "tabnew", "!", "rename":
+	case "w", "e", "tabnew", "!", "rename", "grep":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
 		}
 	}
 	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
+	//
+	// `:grep` 과 `:!` 의 인자는 파일 이름이 아니라 뜯지 않은 한 줄이라 tokenRest 가
+	// 늘 한 토큰으로 주므로 여기 걸릴 수 없다(ADR-0045, ADR-0077).
 	if len(cmd.args) > 1 {
 		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
 	}
@@ -212,6 +215,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		return runShell(m.editor, cmd.args[0])
+	case "grep":
+		// 패턴을 대지 않았으면 아래 줄에서 받는다. `:rename` 과 같은 손이다(ADR-0077).
+		if len(cmd.args) == 0 {
+			return grepInputMode(m.editor)
+		}
+
+		return runGrep(m.editor, cmd.args[0])
 	case "rename":
 		// 이름을 대지 않았으면 커서 옆 창에서 받는다. `\rn` 과 같은 자리다(ADR-0067).
 		if len(cmd.args) == 0 {

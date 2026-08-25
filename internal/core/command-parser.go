@@ -110,6 +110,16 @@ type commandArgs struct {
 }
 
 func (s commandArgs) consume(t token) commandState {
+	// 뒤를 통째로 받는 자리가 **공백뿐이면** 인자가 아니다. `:grep ` 도 `:grep   ` 도
+	// `:grep` 과 같아야 한다 — 그것을 인자로 세면 「패턴을 댔다」가 되어 물어보는 길로 못 가고,
+	// 공백 두 칸을 찾는 정규식이 되어 온 저장소가 걸린다. 오타일 가능성이 훨씬 크다.
+	//
+	// 공백을 정말 찾아야 하면 `\s` 나 `[ ]` 로 쓴다. 이름 자리의 `!` 가 빈 경우를
+	// commandName 에서 이미 가르고, 여기는 그것을 공백까지로 넓힌 것이다(ADR-0045, ADR-0077).
+	if t.kind == tokenKindShell && strings.TrimSpace(t.text) == "" {
+		return s
+	}
+
 	s.cmd.args = append(s.cmd.args, t.text)
 
 	return s
@@ -212,8 +222,8 @@ func (s tokenHead) consume(ch rune) (token, tokenizerState) {
 	case isRangeChar(ch):
 		return token{}, tokenRange{buf: []rune{ch}}
 	default:
-		// 맨 앞이 아니게 되었다. 그 글자부터는 여느 자리와 같다.
-		return tokenPlain{}.consume(ch)
+		// 맨 앞이 아니게 되었다. 그 글자부터가 이름 자리다.
+		return tokenName{}.consume(ch)
 	}
 }
 
@@ -252,9 +262,9 @@ func (s tokenRange) consume(ch rune) (token, tokenizerState) {
 		return token{text: string(s.buf), kind: tokenKindRange}, tokenRest{}
 	}
 
-	// 여느 자리로 넘긴다 — 빈 buf 로 시작하는 tokenPlain 은 글자 하나에 토큰을 내지 않으므로
+	// 이름 자리로 넘긴다 — 빈 buf 로 시작하는 tokenName 은 글자 하나에 토큰을 내지 않으므로
 	// 그쪽 토큰은 늘 비어 있다.
-	_, next := tokenPlain{}.consume(ch)
+	_, next := tokenName{}.consume(ch)
 
 	return token{text: string(s.buf), kind: tokenKindRange}, next
 }
@@ -275,6 +285,52 @@ func (s tokenRest) consume(ch rune) (token, tokenizerState) {
 
 func (s tokenRest) end() (token, error) {
 	return token{text: string(s.buf), kind: tokenKindShell}, nil
+}
+
+// tokenName 은 이름 토큰을 모으는 자리다. tokenPlain 과 같이 끊되, **이름이 끝났을 때 그
+// 이름이 뒤를 통째로 받는 것이면 tokenRest 로 넘긴다.**
+//
+// ADR-0045 는 「뜻이 갈리는 것은 자리뿐」으로 두었다. `!` 는 자리로 알 수 있어서 그것으로
+// 되었는데 정규식 패턴은 그렇지 않다 — `:e pat` 의 pat 은 파일 이름이라 뜯어야 하고
+// `:grep pat` 의 pat 은 통째여야 한다. 자리가 같고 이름만 다르다.
+//
+// **`\` 가 그 갈림을 강제한다.** tokenEscaped 가 `\d` 를 `d` 로 만들어 버려서, 뜯은 뒤에
+// 다시 이으면 `\d+` 가 `d+` 가 된다 — 정규식이 조용히 다른 뜻이 된다(ADR-0077).
+type tokenName struct {
+	buf []rune
+}
+
+func (s tokenName) consume(ch rune) (token, tokenizerState) {
+	switch ch {
+	case ' ', '\t':
+		// 모으는 중이 아니면 이름 앞의 공백이라 흘려보낸다.
+		if len(s.buf) == 0 {
+			return token{}, s
+		}
+
+		if takesRawArgument(string(s.buf)) {
+			return token{text: string(s.buf)}, tokenRest{}
+		}
+
+		return token{text: string(s.buf)}, tokenPlain{}
+	case '"', '\\':
+		// 이름에는 따옴표도 `\` 도 없다. 이름 자리가 아니었던 것으로 보고 여느 자리로 넘긴다.
+		return tokenPlain{buf: s.buf}.consume(ch)
+	default:
+		return token{}, tokenName{buf: append(s.buf, ch)}
+	}
+}
+
+func (s tokenName) end() (token, error) {
+	return token{text: string(s.buf)}, nil
+}
+
+// takesRawArgument 는 이름 뒤를 뜯지 않고 통째로 넘기는 명령이다.
+//
+// 하나뿐이라 표를 두지 않았다. 둘째가 오면(`:vimgrep` 같은 것) 그때 표로 모은다.
+// force 표시(`!`) 는 여기서 떼고 본다 — `:grep!` 도 패턴을 통째로 받아야 한다.
+func takesRawArgument(name string) bool {
+	return strings.TrimSuffix(name, "!") == "grep"
 }
 
 // tokenPlain 은 따옴표 밖이다. 공백을 만나면 토큰이 끝난다.

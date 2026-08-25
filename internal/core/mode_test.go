@@ -90,6 +90,10 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 	case viewSidebar:
 		// 트리에 포커스가 있어도 편집 영역은 옆에 그려져 있다. 그 buffer 를 볼 자리다.
 		return v.buffers[v.active]
+	case viewGrep:
+		// 검색 결과는 화면을 통째로 덮지만 buffer 는 그대로 있다. 커서를 옮기지 않았음을
+		// 보는 자리가 이것이다(ADR-0077).
+		return v.buffers[v.active]
 	default:
 		t.Fatalf("편집 화면이 아니다: %T", m)
 		return Buffer{}

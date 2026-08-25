@@ -160,3 +160,61 @@ func TestParseCommandPassesTokenizeError(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "따옴표가 닫히지 않았습니다", err.Error())
 }
+
+// `:grep` 뒤는 뜯지 않고 통째로 한 토큰이다. 정규식이 오는 자리다(ADR-0077).
+func TestTokenizeGrepTakesRawArgument(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []token
+	}{
+		{name: "빈 칸이 있어도 한 토큰", input: `grep func New`,
+			want: []token{{text: "grep"}, {text: "func New", kind: tokenKindShell}}},
+		{name: "`\\` 가 살아남는다", input: `grep func\s+New`,
+			want: []token{{text: "grep"}, {text: `func\s+New`, kind: tokenKindShell}}},
+		{name: "따옴표도 글자다", input: `grep "a b"`,
+			want: []token{{text: "grep"}, {text: `"a b"`, kind: tokenKindShell}}},
+		{name: "force 표시도 통째로 받는다", input: `grep! \d+`,
+			want: []token{{text: "grep!"}, {text: `\d+`, kind: tokenKindShell}}},
+		{name: "이름만", input: `grep`, want: words("grep")},
+		{name: "이름 뒤 공백뿐", input: `grep `,
+			want: []token{{text: "grep"}, {text: "", kind: tokenKindShell}}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := tokenize(test.input)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+// 다른 이름은 그대로 뜯는다. 통째로 받는 것은 `grep` 하나뿐이다.
+func TestTokenizeOtherNamesStillSplit(t *testing.T) {
+	got, err := tokenize(`e a\b c`)
+
+	require.NoError(t, err)
+	assert.Equal(t, words("e", "ab", "c"), got, "`\\` 가 먹히고 공백으로 끊긴다")
+}
+
+// 뒤가 비어 있으면 인자가 아니다. `:grep ` 는 `:grep` 과 같아야 한다.
+func TestParseGrepEmptyRawArgumentIsNotAnArgument(t *testing.T) {
+	for _, input := range []string{"grep", "grep ", "grep   "} {
+		cmd, err := parseCommand(input)
+
+		require.NoError(t, err, input)
+		assert.Equal(t, "grep", cmd.name, input)
+		assert.Empty(t, cmd.args, input)
+	}
+}
+
+// 패턴을 대면 인자 하나로 온다.
+func TestParseGrepKeepsPatternWhole(t *testing.T) {
+	cmd, err := parseCommand(`grep func\s+New(`)
+
+	require.NoError(t, err)
+	assert.Equal(t, "grep", cmd.name)
+	assert.Equal(t, []string{`func\s+New(`}, cmd.args)
+}
