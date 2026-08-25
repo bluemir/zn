@@ -282,12 +282,35 @@ func TestNormalKeyParserOperatorShowcmd(t *testing.T) {
 	}
 }
 
-// leader(`\`) 는 접두 키가 두 키인 유일한 자리다. `\gd` 가 정의로 간다(ADR-0051).
+// `ctrl+o` 와 `tab` 이 되돌아오기다(ADR-0070).
+//
+// **`ctrl+i` 는 `tab` 으로 온다.** 터미널이 그 둘을 같은 바이트(0x09) 로 주고
+// bubbletea 가 그것을 `tab` 이라 이름 붙인다(ultraviolet 의 key_table.go 를 보고 넣었다).
+// normal mode 에 `tab` 이 비어 있어서 부딪히는 것은 없다.
+func TestNormalKeyParserJumps(t *testing.T) {
+	built, state := pressAll("ctrl+o")
+	assert.Equal(t, actionJumpBack{}, built)
+	assert.Equal(t, normalStart{}, state)
+
+	built, state = pressAll("tab")
+	assert.Equal(t, actionJumpForward{}, built)
+	assert.Equal(t, normalStart{}, state)
+}
+
+// leader(`\`) 는 접두 키가 두 키인 유일한 자리다. `\gd` 가 정의로, `\gr` 이 사용처로
+// 간다(ADR-0051, ADR-0068).
 func TestNormalKeyParserLeader(t *testing.T) {
 	t.Run("\\gd 는 정의로 간다", func(t *testing.T) {
 		built, state := pressAll("\\", "g", "d")
 
 		assert.Equal(t, actionGotoDefinition{}, built)
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	t.Run("\\gr 은 사용처로 간다", func(t *testing.T) {
+		built, state := pressAll("\\", "g", "r")
+
+		assert.Equal(t, actionGotoReferences{}, built)
 		assert.Equal(t, normalStart{}, state)
 	})
 
@@ -358,6 +381,10 @@ func TestNormalKeyParserLeaderInHangul(t *testing.T) {
 	// 한글 상태로 친 `\gd` 는 `g`·`d` 자리가 `ㅎ`·`ㅇ` 로 온다. 파서가 되돌린다.
 	built, _ = pressAll("₩", "ㅎ", "ㅇ")
 	assert.Equal(t, actionGotoDefinition{}, built)
+
+	// `\gr` 도 같다. `r` 자리는 `ㄱ` 이다.
+	built, _ = pressAll("₩", "ㅎ", "ㄱ")
+	assert.Equal(t, actionGotoReferences{}, built)
 }
 
 // `"` 는 register 이름 한 개를 기다린다. 이름을 받는 동작은 붙여넣기 둘뿐이다(ADR-0058).

@@ -269,7 +269,10 @@ var paletteCommands = []paletteCommand{
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
 	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters},
+	{name: "되돌아간 자리", hint: "jump list", alias: ":jumps", run: runJumps},
+	{name: "방문한 자리", hint: "jump logs", alias: ":jumplogs", run: runJumplogs},
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
+	{name: "사용처로 가기", hint: "go to references", run: runGotoReferences},
 	{name: "이름 바꾸기", hint: "rename symbol", alias: ":rename", run: runRename},
 	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
 }
@@ -293,6 +296,18 @@ func (c paletteCommand) detail() string {
 func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
 	back, modeCmd := normalMode(e)
 	model, cmd := gotoDefinition(back, e)
+	if model != nil {
+		return model, cmd
+	}
+
+	return back, tea.Batch(cmd, modeCmd)
+}
+
+// runGotoReferences 는 커서 자리의 사용처를 찾는다. normal mode 의 `\gr` 과 같은 자리로
+// 간다(ADR-0068). 정의로 가기와 같은 손이다.
+func runGotoReferences(e *editor) (tea.Model, tea.Cmd) {
+	back, modeCmd := normalMode(e)
+	model, cmd := gotoReferences(back, e)
 	if model != nil {
 		return model, cmd
 	}

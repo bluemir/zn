@@ -93,11 +93,12 @@ func (e editor) emptyScreenBlock(width, height int) []string {
 // **자르지 않는다.** 반쯤 잘린 아스키 아트는 로고로 읽히지 않으면서 자리는 다 차지한다.
 // 폭과 높이 둘 다 본다 — 낮은 화면에서 위아래가 잘린 원소 칸은 테두리만 남는다.
 //
-// Ambiguous 폭이 한 칸으로 확인된 터미널에서만 박스와 블록 문자를 쓴다. 재지 못했거나 두
-// 칸이면 ASCII 로 내린다 — tabline 의 구분선과 같은 갈림이다(ADR-0028).
+// 박스와 블록 문자를 쓸지는 테두리에 되묻는다. boxChars 를 고르는 조건이 「Ambiguous 를 한
+// 칸으로 그린다고 확인됐다」 하나뿐이라(core.Run) 둘은 같은 갈림이고, 그래서 잰 값을 따로
+// 들고 다니지 않는다(ADR-0028, ADR-0072).
 func (e editor) fitLogo(width, height int) []string {
 	logo := assets.LogoASCII
-	if e.ambiguousWidth == 1 {
+	if e.boxChars == boxUnicode {
 		logo = assets.Logo
 	}
 

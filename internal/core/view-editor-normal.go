@@ -6,6 +6,21 @@ import (
 
 // viewEditorNormal 은 normal mode 다. 커서가 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
 func normalMode(e *editor) (tea.Model, tea.Cmd) {
+	// **하단 drawer 는 여기서 닫힌다.** 판을 연 mode 마다 나가는 길에서 지우면 한 곳은
+	// 반드시 빠뜨리고, 그때 편집 영역이 줄어든 채로 굳는다 — statusBar 위에 빈 띠가 남고
+	// 마우스 행 계산도 어긋난다. 아래의 `hasTab` 과 똑같은 까닭이라 같은 자리에 둔다
+	// (ADR-0056, ADR-0064, ADR-0069).
+	//
+	// 판에서 판으로 넘어가는 길(정의 후보를 보다 사용처 답이 오는 자리) 은 여기를 지나지
+	// 않는다 — 그쪽은 새 판이 자기 높이를 잡는다.
+	if e.drawerHeight != 0 {
+		e.drawerHeight = 0
+
+		if e.hasTab() {
+			e.scrollToCursor()
+		}
+	}
+
 	// **볼 파일이 없으면 빈 화면이다.** 편집 화면으로 돌아오는 길이 백 곳 남짓인데 전부
 	// 이 함수를 지나므로 여기 하나로 가른다 — 각자 고치면 한 곳은 반드시 빠뜨리고, 그
 	// 한 곳이 tab 없이 normal 로 들어가 다음 프레임에 터진다(ADR-0064).
@@ -126,7 +141,7 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		//

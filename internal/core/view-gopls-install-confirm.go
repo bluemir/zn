@@ -8,7 +8,7 @@ import (
 )
 
 // goplsInstallConfirmMode 는 gopls 가 없을 때 설치 여부를 묻는 모달 화면이다.
-// `\gd` 또는 팔레트의 「정의로 가기」에서 들어온다.
+// `\gd`·`\gr` 또는 팔레트의 「정의로 가기」·「사용처로 가기」에서 들어온다.
 func goplsInstallConfirmMode(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	return viewGoplsInstallConfirm{editor: e, parent: parent}, nil
 }
@@ -50,7 +50,7 @@ func (m viewGoplsInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
 		next, cmd := m.handleJob(msg)
 		if next != nil {
 			return next, cmd

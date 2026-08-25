@@ -365,7 +365,13 @@ func (e *editor) finishDefinition(msg definitionMsg) (tea.Model, tea.Cmd) {
 
 		return nil, nil
 	case 1:
-		return nil, e.jumpTo(msg.locations[0])
+		// 뛰기 전 자리를 이력에 담는다. 판이 열리는 쪽은 판이 담는다(view-locations.go, ADR-0070).
+		e.recordJump()
+
+		cmd := e.jumpTo(msg.locations[0])
+		e.arrive()
+
+		return nil, cmd
 	}
 
 	return locationsMode(e, "정의 후보", msg.locations)

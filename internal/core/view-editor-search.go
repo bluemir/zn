@@ -91,7 +91,7 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
@@ -231,9 +231,16 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 		wrapped = wrapped || result.wrapped
 	}
 
+	// **찾은 것을 확인한 뒤에 담는다.** 못 찾으면 커서가 그대로라 담을 것도 없다.
+	// 여기가 `/` `?` `n` `N` `*` `#` 이 모두 지나는 자리다(ADR-0070).
+	e.recordJump()
+
 	buf.moveTo(line, col, width)
 	buf.clampToNormal(width)
 	e.scrollToCursor()
+
+	// 닿은 자리도 방문 기록에 남는다. 떠난 자리는 위의 recordJump 가 남겼다(ADR-0074).
+	e.arrive()
 
 	if wrapped {
 		e.notify(wrapMessage(direction))

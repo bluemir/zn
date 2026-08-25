@@ -20,12 +20,10 @@ func newEmptyEditor(width, height int) viewEditorEmpty {
 	return viewEditorEmpty{
 		editor: &editor{
 			boxChars: boxUnicode,
-			// Ambiguous 를 한 칸으로 그리는 터미널을 가정한다. 원소 칸의 폭이 그때 고정된다(ADR-0028).
-			ambiguousWidth: 1,
-			buffers:        nil,
-			active:         -1,
-			width:          width,
-			height:         height + tablineHeight + statusBarHeight,
+			buffers:  nil,
+			active:   -1,
+			width:    width,
+			height:   height + tablineHeight + statusBarHeight,
 		},
 	}
 }

@@ -37,7 +37,13 @@ func locationsFixture(t *testing.T) (viewLocations, []string) {
 	buf, err := OpenBuffer(paths[0])
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 80, height: 20}
+	// 테두리를 unicode 로 두는 것은 다른 두 판의 시험과 같은 약속이다(ADR-0028, ADR-0056).
+	e := &editor{
+		boxChars: boxUnicode,
+		buffers:  []Buffer{buf},
+		width:    80,
+		height:   20,
+	}
 
 	model, _ := locationsMode(e, "정의 후보", locations)
 
@@ -86,8 +92,51 @@ func TestLocationsMovesInHangul(t *testing.T) {
 	assert.Equal(t, 0, m.selected)
 }
 
-// enter 는 고른 자리를 새 tab 으로 열고 normal 로 돌아간다.
-func TestLocationsOpensSelected(t *testing.T) {
+// 판은 편집 영역의 행을 가져간다. 화면을 통째로 쓰지 않는다(ADR-0069).
+func TestLocationsTakesDrawerRows(t *testing.T) {
+	m, _ := locationsFixture(t)
+
+	// 셋이면 목록 세 줄에 테두리 둘이다.
+	assert.Equal(t, 3, m.locationsRows())
+	assert.Equal(t, 5, m.drawerHeight)
+	assert.Equal(t, m.paneHeight()-5, m.textHeight(), "편집 영역이 그만큼 줄어든다")
+}
+
+// 담긴 것이 많아도 열여섯 줄에서 멈춘다. 판이 화면을 다 먹으면 간 자리가 안 보인다.
+func TestLocationsStopsAtMaxRows(t *testing.T) {
+	m := manyLocationsFixture(t, 40, 80, 40)
+
+	assert.Equal(t, locationsMaxRows, m.locationsRows())
+}
+
+// **`j`/`k` 가 커서를 실제로 그 자리로 옮겨 보여준다**(ADR-0073).
+func TestLocationsPreviewsWhileMoving(t *testing.T) {
+	m, paths := locationsFixture(t)
+
+	require.Equal(t, paths[0], m.activeBuffer().path)
+	require.Equal(t, 0, m.activeBuffer().cursorLine, "여는 것만으로는 옮기지 않는다")
+
+	next, _ := m.press("j")
+	m = next.(viewLocations)
+
+	assert.Equal(t, 1, m.selected)
+	assert.Equal(t, paths[1], m.activeBuffer().path, "그 자리를 보여준다")
+	assert.Equal(t, 2, m.activeBuffer().cursorLine)
+	assert.Empty(t, m.jumps.places, "확정 전이라 이력에 담기지 않는다")
+
+	next, _ = m.press("j")
+	m = next.(viewLocations)
+	assert.Equal(t, paths[2], m.activeBuffer().path)
+
+	// 아래 끝에서 멈추면 커서도 그대로다.
+	next, _ = m.press("j")
+	m = next.(viewLocations)
+	assert.Equal(t, 2, m.selected)
+	assert.Equal(t, paths[2], m.activeBuffer().path)
+}
+
+// enter 는 **판을 닫으며 확정한다**(ADR-0073).
+func TestLocationsConfirmsAndCloses(t *testing.T) {
 	m, paths := locationsFixture(t)
 
 	next, _ := m.press("j")
@@ -95,26 +144,42 @@ func TestLocationsOpensSelected(t *testing.T) {
 
 	model, cmd := m.press("enter")
 
-	assert.IsType(t, viewEditorNormal{}, model)
+	require.IsType(t, viewEditorNormal{}, model, "판이 닫혀야 한다")
+	assert.Zero(t, model.(viewEditorNormal).drawerHeight)
 	assert.NotNil(t, cmd)
 
-	require.Len(t, m.buffers, 2)
 	assert.Equal(t, paths[1], m.activeBuffer().path)
 	assert.Equal(t, 2, m.activeBuffer().cursorLine)
 	assert.Equal(t, 5, m.activeBuffer().cursorCol)
 }
 
-// q 와 esc 는 고르지 않고 나간다. tab 도 커서도 그대로다.
-func TestLocationsLeaves(t *testing.T) {
+// **q 와 esc 는 취소다.** 둘러본 것이 없던 일이 되어 판을 열기 전 자리로 돌아가고,
+// 둘러보느라 연 tab 도 닫힌다(ADR-0073).
+func TestLocationsCancelRestoresOrigin(t *testing.T) {
 	for _, key := range []string{"q", "esc"} {
 		t.Run(key, func(t *testing.T) {
-			m, _ := locationsFixture(t)
+			m, paths := locationsFixture(t)
+
+			pane := m.paneHeight()
+
+			// 둘러본다. 커서가 실제로 움직이고 tab 도 열린다.
+			next, _ := m.press("j")
+			m = next.(viewLocations)
+			next, _ = m.press("j")
+			m = next.(viewLocations)
+			require.Len(t, m.buffers, 3, "미리보기가 tab 을 열었다")
 
 			model, _ := m.press(key)
 
-			assert.IsType(t, viewEditorNormal{}, model)
-			assert.Len(t, m.buffers, 1, "tab 이 늘지 않는다")
-			assert.Equal(t, 0, m.activeBuffer().cursorLine)
+			require.IsType(t, viewEditorNormal{}, model)
+			assert.Zero(t, model.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
+			assert.Equal(t, pane, model.(viewEditorNormal).textHeight(),
+				"편집 영역이 돌아와야 한다")
+
+			assert.Len(t, m.buffers, 1, "둘러보며 연 tab 이 닫힌다")
+			assert.Equal(t, paths[0], m.activeBuffer().path, "열기 전 파일로 돌아온다")
+			assert.Equal(t, 0, m.activeBuffer().cursorLine, "열기 전 줄로 돌아온다")
+			assert.Empty(t, m.jumps.places, "아무 데도 안 갔으니 이력도 비어 있다")
 		})
 	}
 }
@@ -130,14 +195,16 @@ func TestLocationsIgnoresUnknownKeys(t *testing.T) {
 	assert.Equal(t, 0, model.(viewLocations).selected)
 }
 
-// 목록이 화면보다 길면 고른 자리를 따라 스크롤한다.
-func TestLocationsScrolls(t *testing.T) {
+// manyLocationsFixture 는 같은 파일의 여러 줄이 든 판이다. 높이 계산과 스크롤을 재는 데 쓴다.
+func manyLocationsFixture(t *testing.T, count, width, height int) viewLocations {
+	t.Helper()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "many.go")
 	require.NoError(t, os.WriteFile(path, []byte("package main\n"), 0644))
 
-	locations := make([]lsp.Location, 0, 40)
-	for i := range 40 {
+	locations := make([]lsp.Location, 0, count)
+	for i := range count {
 		locations = append(locations, lsp.Location{
 			URI:   "file://" + path,
 			Range: lsp.Range{Start: lsp.Position{Line: i}},
@@ -147,13 +214,27 @@ func TestLocationsScrolls(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+	e := &editor{
+		boxChars: boxUnicode,
+		buffers:  []Buffer{buf},
+		width:    width,
+		height:   height,
+	}
 	model, _ := locationsMode(e, "정의 후보", locations)
-	m := model.(viewLocations)
 
-	height := m.listHeight()
+	return model.(viewLocations)
+}
+
+// 목록이 판보다 길면 고른 자리를 따라 스크롤한다.
+func TestLocationsScrolls(t *testing.T) {
+	locations := 40
+
+	// 낮은 화면이라 남는 자리가 최대치보다 작다. 조용히 감추지 않고 훑게 한다.
+	m := manyLocationsFixture(t, locations, 80, 12)
+
+	height := m.locationsRows()
 	require.Greater(t, height, 0)
-	require.Less(t, height, len(locations), "화면보다 목록이 길어야 재는 뜻이 있다")
+	require.Less(t, height, locations, "판보다 목록이 길어야 재는 뜻이 있다")
 
 	// 화면 끝까지는 top 이 움직이지 않는다.
 	for range height - 1 {
@@ -170,25 +251,40 @@ func TestLocationsScrolls(t *testing.T) {
 	// 맨 끝으로 가면 마지막 화면이 된다.
 	next, _ = m.press("G")
 	m = next.(viewLocations)
-	assert.Equal(t, len(locations)-height, m.top)
+	assert.Equal(t, locations-height, m.top)
 }
 
 // 화면에 제목과 개수와 고른 표시가 보인다.
+//
+// 「무엇을 고르는 중이고 몇 개인가」는 판 안이 아니라 statusBar 아래 줄에 있다 — 판에
+// 제목줄을 두면 목록에 쓸 행이 하나 줄고, 낮은 화면에서는 그 한 줄이 목록의 절반이다.
 func TestLocationsView(t *testing.T) {
 	m, _ := locationsFixture(t)
 
 	view := m.View()
 	content := ansi.Strip(view.Content)
 
-	assert.Contains(t, content, "정의 후보  3 개")
+	assert.Contains(t, content, "정의 후보 3 개")
 	assert.Contains(t, content, "▸ ")
 	// 경로가 화면보다 길면 왼쪽이 접히고 파일 이름과 줄 번호가 남는다.
 	assert.Contains(t, content, "first.go:3", "줄 번호는 1 부터 센다")
 	assert.Contains(t, content, "GOTO")
-	assert.Contains(t, content, "enter 열기")
+	assert.Contains(t, content, "enter 확정")
 
 	require.NotNil(t, view.Cursor)
 	assert.Equal(t, tea.CursorBlock, view.Cursor.Shape)
+}
+
+// 판의 모든 행이 정확히 편집 영역 폭이다. 한 행이라도 넘치면 그 아래가 통째로 밀린다.
+// 기호 판·register 판과 같은 검사다.
+func TestLocationsDrawerWidth(t *testing.T) {
+	for _, width := range []int{40, 60, 80, 120} {
+		m := manyLocationsFixture(t, 20, width, 20)
+
+		for i, row := range strings.Split(m.renderDrawer(), "\n") {
+			assert.Equal(t, m.textWidth(), ansi.StringWidth(row), "폭 %d 의 %d 행: %q", width, i, row)
+		}
+	}
 }
 
 // 저장소 안의 파일은 상대 경로로, 홈 아래의 것은 `~` 로 줄여 적는다.
@@ -232,4 +328,60 @@ func TestTrimLeftToWidth(t *testing.T) {
 	assert.True(t, strings.HasSuffix(korean, ".go:12"))
 
 	assert.Equal(t, "", trimLeftToWidth(place, 0))
+}
+
+// **판을 열기 전 자리 하나만 이력에 담는다.** 몇 군데를 둘러봤든 `ctrl+o` 한 번이면
+// 물어보던 자리로 돌아온다(ADR-0070, ADR-0073).
+//
+// 커서는 확정할 때 이미 둘러보던 곳에 가 있으므로, 담기는 것은 **적어 둔 자리**여야 한다.
+func TestLocationsRecordsOriginOnConfirm(t *testing.T) {
+	m, paths := locationsFixture(t)
+
+	require.Equal(t, paths[0], m.activeBuffer().path)
+	require.Equal(t, 0, m.activeBuffer().cursorLine)
+	require.Empty(t, m.jumps.places, "판을 여는 것만으로는 담지 않는다")
+
+	// 세 군데를 둘러보고 마지막에서 확정한다.
+	next, _ := m.press("j")
+	m = next.(viewLocations)
+	next, _ = m.press("j")
+	m = next.(viewLocations)
+	require.Empty(t, m.jumps.places, "둘러보는 동안에는 담기지 않는다")
+
+	model, _ := m.press("enter")
+	require.IsType(t, viewEditorNormal{}, model)
+
+	require.Len(t, m.jumps.places, 1, "둘러본 만큼이 아니라 하나다")
+	assert.Equal(t, paths[0], m.jumps.places[0].path, "판을 열기 전 자리다")
+	assert.Equal(t, 0, m.jumps.places[0].line)
+
+	// `ctrl+o` 한 번이면 물어보던 자리다.
+	m.jumpBack()
+
+	assert.Equal(t, paths[0], m.activeBuffer().path)
+	assert.Equal(t, 0, m.activeBuffer().cursorLine)
+}
+
+// **자모 하나가 키 여럿으로 풀릴 때 미리보기 Cmd 를 흘리지 않는다.**
+//
+// `접` 은 두벌식에서 `w`·`j`·`q` 다 — `j` 가 미리보기를 태우고 `q` 가 그 자리에서 나간다.
+// 예전에는 나가는 길이 앞서 모은 Cmd 를 버렸는데, 그 안에 「파일을 연 뒤 언어 서버를
+// 띄우는」 Cmd 가 있다. startGopls 는 이미 `goplsStarting` 을 세워 두므로 버리면 서버가
+// 영영 뜨지 않는다(ADR-0008, ADR-0051).
+func TestLocationsKeepsPreviewCmdWhenLeavingMidKey(t *testing.T) {
+	m, paths := locationsFixture(t)
+
+	require.Equal(t, []string{"w", "j", "q"}, expandHangul("접"), "두벌식 자리를 먼저 확인한다")
+
+	model, cmd := m.press("접")
+
+	require.IsType(t, viewEditorNormal{}, model, "`q` 로 나가야 한다")
+
+	// `j` 의 미리보기가 Go 파일을 열면서 서버를 띄우기 시작했다. 그 Cmd 가 같이 나와야 한다.
+	require.True(t, m.goplsStarting, "미리보기가 서버를 띄우기 시작한 상태여야 재는 뜻이 있다")
+	assert.NotNil(t, cmd, "그 Cmd 를 흘리면 goplsStarting 이 참으로 굳어 서버가 영영 안 뜬다")
+
+	// 나가는 길은 취소라 판을 열기 전 자리로 돌아온다.
+	assert.Equal(t, paths[0], m.activeBuffer().path)
+	assert.Equal(t, 0, m.activeBuffer().cursorLine)
 }

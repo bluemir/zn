@@ -255,6 +255,11 @@ func standaloneAction(key string, count int) action {
 		return actionUndo{}
 	case "ctrl+r":
 		return actionRedo{}
+	case "ctrl+o":
+		return actionJumpBack{}
+	case "tab":
+		// `ctrl+i` 다. 터미널이 그 둘을 같은 바이트로 주므로 이름이 `tab` 이다(ADR-0070).
+		return actionJumpForward{}
 	}
 
 	return nil
@@ -289,6 +294,8 @@ func prefixAction(prefix, key string) action {
 		switch key {
 		case "d":
 			return actionGotoDefinition{}
+		case "r":
+			return actionGotoReferences{}
 		}
 	case leaderKey + "r":
 		switch key {

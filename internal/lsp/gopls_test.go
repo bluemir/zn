@@ -193,6 +193,88 @@ func TestGoplsDefinitionInComment(t *testing.T) {
 }
 
 // 닫은 파일은 서버도 잊는다. tab 을 닫은 뒤 그 파일의 저장 안 된 편집이 남아 있으면 안 된다.
+// 사용처를 물으면 쓰는 자리들이 오고 **선언 자리는 오지 않는다**.
+//
+// `includeDeclaration: false` 를 gopls 가 실제로 지키는지 여기서 잰다. 지키지 않으면
+// 「사용처를 찾지 못했습니다」가 거짓말이 된다 — 아무도 안 쓰는 이름이 1 개로 오기 때문이다
+// (ADR-0068).
+func TestGoplsReferencesExcludesDeclaration(t *testing.T) {
+	client, root := startForTest(t)
+
+	path := filepath.Join(root, "internal/core/core.go")
+	lines := readLines(t, path)
+
+	require.NoError(t, client.Open(path, lines))
+
+	decl := findLine(t, lines, "func openBuffers(")
+	column := UTF16Column(lines[decl], indexIn(lines[decl], "openBuffers"))
+
+	locations, err := client.References(path, Position{Line: decl, Character: column})
+	require.NoError(t, err)
+	require.NotEmpty(t, locations, "부르는 자리가 있는 함수다")
+
+	for _, at := range locations {
+		if at.Path() == path {
+			assert.NotEqual(t, decl, at.Range.Start.Line, "선언 자리는 목록에 없어야 한다")
+		}
+	}
+
+	// 부르는 자리가 목록에 있다. 같은 파일 안의 그것이다.
+	call := findLine(t, lines, "buffers, err := openBuffers(files)")
+	found := false
+	for _, at := range locations {
+		if at.Path() == path && at.Range.Start.Line == call {
+			found = true
+		}
+	}
+	assert.True(t, found, "부르는 자리가 목록에 있어야 한다")
+}
+
+// 쓰는 자리에서 물어도 선언에서 물은 것과 같은 목록이 온다.
+// 「커서를 어디에 두어야 하나」를 사용자가 고민하지 않아도 된다는 뜻이다.
+func TestGoplsReferencesFromUseSite(t *testing.T) {
+	client, root := startForTest(t)
+
+	path := filepath.Join(root, "internal/core/core.go")
+	lines := readLines(t, path)
+
+	require.NoError(t, client.Open(path, lines))
+
+	decl := findLine(t, lines, "func openBuffers(")
+	fromDecl, err := client.References(path, Position{
+		Line:      decl,
+		Character: UTF16Column(lines[decl], indexIn(lines[decl], "openBuffers")),
+	})
+	require.NoError(t, err)
+
+	call := findLine(t, lines, "buffers, err := openBuffers(files)")
+	fromCall, err := client.References(path, Position{
+		Line:      call,
+		Character: UTF16Column(lines[call], indexIn(lines[call], "openBuffers")),
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, fromDecl, fromCall)
+}
+
+// 아무도 쓰지 않는 이름은 빈 목록이다. 화면의 「사용처를 찾지 못했습니다」가 이 자리다.
+func TestGoplsReferencesForUnusedName(t *testing.T) {
+	client, root := startForTest(t)
+
+	path := filepath.Join(root, "internal/core/zz_unused_for_test.go")
+	lines := splitLines("package core\n\nfunc nobodyCallsThisEver() {}")
+
+	require.NoError(t, client.Open(path, lines))
+	t.Cleanup(func() { _ = client.Close(path) })
+
+	locations, err := client.References(path, Position{
+		Line:      2,
+		Character: UTF16Column(lines[2], indexIn(lines[2], "nobodyCallsThisEver")),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, locations)
+}
+
 func TestGoplsCloseForgets(t *testing.T) {
 	client, root := startForTest(t)
 

@@ -196,6 +196,10 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 정의를 물은 답이다. 후보가 하나면 그 자리로 뛰고(mode 그대로) 여럿이면 고르는
 		// 화면을 연다 — mode 를 바꾸는 유일한 작업 결과다(ADR-0051).
 		return e.finishDefinition(msg)
+	case referencesMsg:
+		// 사용처를 물은 답이다. 하나면 그 자리로 뛰고 여럿이면 고르는 화면을 연다 —
+		// 정의와 같은 길이고 같은 화면이다(references.go, ADR-0068).
+		return e.finishReferences(msg)
 	case renameMsg:
 		// 이름을 물은 답이다. 여기서 파일을 고치고 쓴다(rename.go, ADR-0067).
 		// mode 는 바꾸지 않는다 — 어느 화면에서 답이 오든 그 화면 그대로다.

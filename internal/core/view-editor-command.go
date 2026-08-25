@@ -61,7 +61,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
@@ -199,6 +199,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		if err != nil {
 			return normalModeError(m.editor, err)
 		}
+		m.arrive()
 
 		model, next := normalMode(m.editor)
 
@@ -231,6 +232,12 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "messages", "mes":
 		// vim 이 `:mes` 를 줄임말로 받는다. 여기도 같게 둔다(ADR-0053).
 		return messagesMode(m.editor)
+	case "jumplogs":
+		// 방문 기록이다. `:jumps`(되돌아간 자리) 와 다른 것이라 이름도 갈랐다(ADR-0074).
+		return jumplogsMode(m.editor)
+	case "jumps":
+		// vim 과 같은 이름이다. `!` 는 이 명령에서 뜻이 없다(ADR-0070).
+		return jumpsMode(m.editor)
 	case "registers", "reg":
 		// vim 이 `:reg` 를 줄임말로 받는다. `!` 는 이 명령에서 뜻이 없다(ADR-0058).
 		return registersMode(m.editor)

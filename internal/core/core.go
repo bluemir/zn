@@ -13,6 +13,19 @@ import (
 )
 
 func Run(ctx context.Context, files []string) error {
+	// 터미널이 East Asian Width 가 Ambiguous 인 글자를 몇 칸으로 그리는지 잰다. 박스 그리기
+	// 문자가 그 갈래라 어느 쪽을 쓸지가 여기서 갈리고(ADR-0028), 폭 계산 전체가 그 답에
+	// 맞춰 선다(ADR-0072).
+	//
+	// tea.NewProgram 보다 먼저다. bubbletea 가 stdin 을 읽기 시작하면 답을 그쪽이 가져간다.
+	// 재는 일은 터미널을 직접 만지는 것이라 core 밖에 있다(internal/terminal).
+	ambiguousWidth := terminal.ProbeAmbiguousWidth()
+
+	// 두 칸으로 그리는 터미널이면 눈금을 켜고 처음부터 다시 시작한다 — **아래로 돌아오지
+	// 않는다.** 그 눈금은 x/ansi 의 전역이고 그것을 읽는 init() 이 여기보다 먼저 지나가서,
+	// 이미 뜬 프로세스에서는 켤 방법이 없다(ADR-0072).
+	terminal.RestartForAmbiguousWidth(ambiguousWidth)
+
 	buffers, err := openBuffers(files)
 	if err != nil {
 		return err
@@ -28,16 +41,8 @@ func Run(ctx context.Context, files []string) error {
 		editor.active = -1
 	}
 
-	// 박스 그리기 문자는 East Asian Width 가 Ambiguous 라 터미널마다 폭이 다르다.
-	// 한 칸으로 확인된 터미널에서만 쓰고, 두 칸이거나 재지 못했으면 ASCII 로 내린다(ADR-0028).
-	//
-	// tea.NewProgram 보다 먼저다. bubbletea 가 stdin 을 읽기 시작하면 답을 그쪽이 가져간다.
-	// 재는 일은 터미널을 직접 만지는 것이라 core 밖에 있다(internal/terminal).
-	// 잰 값은 특수문자 격자도 쓰므로 버리지 않고 남긴다(ADR-0056).
-	editor.ambiguousWidth = terminal.ProbeAmbiguousWidth()
-
 	switch {
-	case editor.ambiguousWidth == 1:
+	case ambiguousWidth == 1:
 		editor.boxChars = boxUnicode
 	default: // fallback option
 		editor.boxChars = boxASCII

@@ -171,14 +171,17 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
 		// 다른 mode 와 같이 공용 처리에 넘기고, 여기서만 목록을 다시 거른다.
 		// 훑기가 끝나면 후보가 한꺼번에 늘어나므로 치고 있던 패턴에 새것도 걸려야 한다.
 		next, cmd := m.handleJob(msg)
 		if next != nil {
-			// 다른 화면으로 넘어간다(`정의 후보` 목록 등). 판을 닫지 않으면 편집 영역이
-			// 줄어든 채로 남아서 statusBar 위에 빈 띠가 생기고 마우스 행 계산도 어긋난다.
-			m.closeDrawer()
+			// 다른 화면으로 넘어간다. 넣던 것을 끝내고 커서를 normal 자리로 되돌린다.
+			//
+			// **판 높이는 여기서 지우지 않는다.** 넘어가는 곳이 또 판이면(정의 후보·사용처
+			// 목록) 그쪽이 방금 잡은 높이를 우리가 지우게 된다. 판이 아닌 곳으로 가는
+			// 길은 normalMode 가 지운다(ADR-0069).
+			m.finishEdit()
 
 			return next, cmd
 		}
@@ -193,26 +196,24 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// closeDrawer 는 판을 닫고 커서를 normal 자리로 되돌린다.
+// finishEdit 는 넣던 것을 끝내고 커서를 normal 자리로 되돌린다.
 //
 // insert mode 의 `esc` 와 똑같다(view-editor-insert.go). 넣은 것이 있으면 마지막 글자 위에
 // 서고, 아무것도 안 넣었으면 `a<Esc>` 처럼 열기 전 자리로 돌아온다.
 //
-// **이 mode 를 떠나는 모든 길이 이것을 지나야 한다.** drawerHeight 를 남기고 나가면 편집
-// 영역이 줄어든 채로 굳는다 — 되돌릴 길이 판을 다시 열었다 닫는 것뿐이다.
-func (m viewSymbol) closeDrawer() {
+// **이 mode 를 떠나는 모든 길이 이것을 지나야 한다.** 판 높이를 지우는 것은 여기가 아니라
+// normalMode 다 — 판에서 판으로 넘어가는 길이 생기면서 갈렸다(ADR-0069).
+func (m viewSymbol) finishEdit() {
 	buf := m.activeBuffer()
-
-	m.drawerHeight = 0
 
 	buf.endEdit()
 	buf.moveLeft(1, m.contentWidth())
 	m.scrollToCursor()
 }
 
-// leave 는 판을 닫고 normal 로 돌아간다.
+// leave 는 판을 닫고 normal 로 돌아간다. 판 높이는 normalMode 가 지운다.
 func (m viewSymbol) leave() (tea.Model, tea.Cmd) {
-	m.closeDrawer()
+	m.finishEdit()
 
 	return normalMode(m.editor)
 }
@@ -408,12 +409,13 @@ func (m viewSymbol) renderGridRows(inner int) []string {
 
 // renderCell 은 격자 한 칸이다. 글자를 놓고 남은 자리를 채워 늘 symbolCellWidth 칸이다.
 //
-// 폭은 symbolWidth 가 잰다. Ambiguous 글자를 한 칸으로 세면 두 칸으로 그리는 터미널에서
-// 그 행부터 통째로 밀린다(ADR-0028).
+// 폭은 화면의 나머지와 같은 자로 잰다. Ambiguous 글자(`→ ± × °`) 를 두 칸으로 그리는
+// 터미널에서는 screenWidthOf 가 이미 두 칸으로 답한다 — 눈금을 시작할 때 터미널에 맞춰
+// 놓았기 때문이고, 그 전에는 이 자리에만 있던 특례가 그 일을 했다(ADR-0072, ADR-0056).
 func (m viewSymbol) renderCell(at int) string {
 	entry := m.symbols[m.hits[at].index]
 
-	pad := strings.Repeat(" ", max(symbolCellWidth-m.symbolWidth(entry.Char), 0))
+	pad := strings.Repeat(" ", max(symbolCellWidth-screenWidthOf(entry.Char), 0))
 
 	// 고른 칸은 반전만 쓴다. 색을 섞으면 안쪽의 색 초기화가 반전까지 꺼버린다(view-palette.go).
 	if at == m.selected {
@@ -433,7 +435,7 @@ func (m viewSymbol) renderNameRow(inner int) string {
 		return side + " " + strings.Repeat(" ", inner) + " " + side
 	}
 
-	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-m.symbolWidth(entry.Char), 0))
+	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-screenWidthOf(entry.Char), 0))
 
 	// 맞은 자리는 label() 안의 offset 이라 paletteRow 가 그대로 갈라 준다.
 	row := paletteRow{

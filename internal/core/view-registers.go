@@ -127,13 +127,12 @@ func (m viewRegisters) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
 		next, cmd := m.handleJob(msg)
 		if next != nil {
-			// 다른 화면으로 넘어간다. 판을 닫지 않으면 편집 영역이 줄어든 채로 남아서
-			// statusBar 위에 빈 띠가 생긴다(view-symbol.go 와 같은 자리다).
-			m.closeDrawer()
-
+			// 다른 화면으로 넘어간다. **판 높이는 여기서 지우지 않는다** — 넘어가는 곳이
+			// 또 판이면(정의 후보·사용처 목록) 그쪽이 방금 잡은 높이를 우리가 지우게 된다.
+			// 판이 아닌 곳으로 가는 길은 normalMode 가 지운다(ADR-0069).
 			return next, cmd
 		}
 
@@ -196,21 +195,11 @@ func (m viewRegisters) run(key string) (tea.Model, tea.Cmd) {
 	}
 }
 
-// closeDrawer 는 판을 닫고 편집 영역을 되돌린다.
-//
-// **이 mode 를 떠나는 모든 길이 이것을 지나야 한다.** drawerHeight 를 남기고 나가면 편집
-// 영역이 줄어든 채로 굳는다(view-symbol.go 의 같은 이름과 같은 이유다).
-//
-// 저쪽과 달리 커서를 옮기지 않는다. 판을 여는 동안 편집도 이동도 하지 않았다.
-func (m viewRegisters) closeDrawer() {
-	m.drawerHeight = 0
-	m.scrollToCursor()
-}
-
 // leave 는 판을 닫고 normal 로 돌아간다.
+//
+// 닫는 일 자체는 normalMode 가 한다(ADR-0069). 기호 판과 달리 여기서 할 것이 남지 않는다 —
+// 판을 여는 동안 편집도 이동도 하지 않았다.
 func (m viewRegisters) leave() (tea.Model, tea.Cmd) {
-	m.closeDrawer()
-
 	return normalMode(m.editor)
 }
 

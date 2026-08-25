@@ -5,7 +5,6 @@ import (
 	"unicode"
 
 	"golang.org/x/text/unicode/runenames"
-	"golang.org/x/text/width"
 
 	"github.com/bluemir/zn/internal/assets"
 )
@@ -96,27 +95,4 @@ func namedSymbol(r rune) bool {
 	}
 
 	return runenames.Name(r) != ""
-}
-
-// symbolWidth 는 그 글자가 격자에서 차지하는 칸 수다.
-//
-// screenWidthOf 를 그대로 쓰지 않는 것은 East Asian Width 가 Ambiguous 인 글자 때문이다.
-// `→ ± × °` 가 그 갈래인데 폭 계산은 늘 한 칸으로 세고(clusterAt), 두 칸으로 그리는
-// 터미널에서는 격자가 통째로 밀린다. 시작할 때 재둔 값이 그 자리를 메운다
-// (ADR-0028, ADR-0056).
-//
-// 재지 못했으면(0) 두 칸으로 본다. 좁게 잡으면 행이 넘쳐서 그 아래가 통째로 밀리고,
-// 넓게 잡으면 칸 사이가 조금 벌어질 뿐이다 — 틀리는 쪽을 고른다. 재지 못한 터미널이
-// 테두리를 ASCII 로 내리는 것과 같은 태도다(ADR-0028).
-func (e editor) symbolWidth(char string) int {
-	properties, size := width.LookupString(char)
-	if size != len(char) || properties.Kind() != width.EastAsianAmbiguous {
-		return screenWidthOf(char)
-	}
-
-	if e.ambiguousWidth == 1 {
-		return 1
-	}
-
-	return 2
 }

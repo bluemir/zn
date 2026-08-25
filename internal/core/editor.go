@@ -140,14 +140,11 @@ type editor struct {
 
 	// boxChars 는 테두리·구분선에 쓸 글자다. 시작할 때 터미널을 재서 core.Run 이 넣어주고
 	// 그 뒤로 바뀌지 않는다(ADR-0028).
-	boxChars boxSet
-
-	// ambiguousWidth 는 이 터미널이 East Asian Width 가 Ambiguous 인 글자를 몇 칸으로
-	// 그리는지다. boxChars 와 같은 자리에서 같이 잰다(ADR-0028).
 	//
-	// 폭 계산(clusterAt) 은 이것을 보지 않고 늘 한 칸으로 센다. 특수문자 격자만 본다 —
-	// `→ ± × °` 가 그 갈래라 두 칸으로 그리는 터미널에서는 칸이 통째로 밀린다(ADR-0056).
-	ambiguousWidth int
+	// **잰 폭은 따로 들고 있지 않는다.** unicode 묶음은 Ambiguous 를 한 칸으로 그린다고
+	// 확인된 터미널에서만 고르므로 이 묶음이 곧 그 답이고, 폭 계산은 시작할 때 터미널에
+	// 맞춰 둔 눈금이 이미 답한다(ADR-0072).
+	boxChars boxSet
 
 	// symbols 는 특수문자 drawer 가 고르는 글자 목록이다. 여는 순간 큐레이션 표로 채우고
 	// 훑는 작업이 나머지를 이어 붙인다(symbol.go).
@@ -157,6 +154,15 @@ type editor struct {
 	// (ADR-0011, ADR-0056).
 	symbols        []assets.Symbol
 	symbolsIndexed bool
+
+	// jumps 는 뛰어다닌 자리의 이력이다. `ctrl+o`·`ctrl+i` 가 이것을 오간다.
+	//
+	// **tab 마다가 아니라 편집기 하나가 든다.** 되돌아오는 것이 파일을 넘어야 뜻이 있고,
+	// tab 을 닫고 돌아오는 길도 있어야 한다(jumplist.go, ADR-0070).
+	jumps jumpList
+
+	// logs 는 방문 기록이다. jumps 와 달리 앞쪽을 버리지 않고 최근이 앞이다(jumplog.go, ADR-0074).
+	logs jumpLog
 
 	// drawerHeight 는 하단 drawer 가 편집 영역에서 가져간 행 수다. 0 이면 닫힌 것이다.
 	// 여는 mode 가 세우고 나갈 때 되돌린다(docs/spec.md, ADR-0056).

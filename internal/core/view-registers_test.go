@@ -121,22 +121,28 @@ func TestRegistersLeaveRestoresText(t *testing.T) {
 	}
 }
 
-// 다른 화면으로 넘어가도 판이 닫힌다. 특수문자 판과 같은 자리다(view-symbol.go).
-func TestRegistersClosesWhenJobChangesMode(t *testing.T) {
+// 다른 판으로 넘어가면 자리를 그 판에게 넘긴다. 특수문자 판과 같은 자리다(ADR-0069).
+func TestRegistersHandsDrawerToNextDrawer(t *testing.T) {
 	m := newRegistersView(t, 80, 20)
 	require.NotZero(t, m.drawerHeight)
 
-	before := m.paneHeight()
+	pane := m.paneHeight()
 
 	next, _ := m.Update(definitionMsg{locations: []lsp.Location{
 		{URI: "file:///a.go"},
 		{URI: "file:///b.go"},
 	}})
 
-	require.IsType(t, viewLocations{}, next, "다른 화면으로 넘어가야 하는 시험이다")
+	list, ok := next.(viewLocations)
+	require.True(t, ok, "다른 판으로 넘어가야 하는 시험이다")
 
-	assert.Zero(t, m.drawerHeight, "판이 닫혀야 한다")
-	assert.Equal(t, before, m.textHeight(), "편집 영역이 돌아와야 한다")
+	assert.Equal(t, list.locationsDrawerHeight(), m.drawerHeight, "새 판의 높이여야 한다")
+	assert.Equal(t, pane-list.locationsDrawerHeight(), m.textHeight())
+
+	back, _ := normalMode(m.editor)
+	require.IsType(t, viewEditorNormal{}, back)
+	assert.Zero(t, back.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
+	assert.Equal(t, pane, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
 }
 
 // 화면이 낮으면 들어가는 만큼만 그리고 `j`/`k` 로 훑는다. 조용히 감추지 않는다.

@@ -556,6 +556,18 @@ func (c actionGotoDefinition) run(e *editor) (tea.Model, tea.Cmd) {
 	return gotoDefinition(back, e)
 }
 
+// actionGotoReferences 는 커서 자리의 이름을 쓰는 자리들을 찾는다. `\gr` 이다(ADR-0068).
+//
+// 정의로 가기와 같이 답을 기다리지 않는다. 저장소 전체를 훑는 일이라 첫 요청이 1 초 가까이
+// 걸린다 — 답이 오면 그때 목록을 열거나 곧바로 뛴다(references.go 의 finishReferences).
+type actionGotoReferences struct{}
+
+func (c actionGotoReferences) run(e *editor) (tea.Model, tea.Cmd) {
+	back, _ := normalMode(e)
+
+	return gotoReferences(back, e)
+}
+
 // actionRename 은 커서 자리의 이름을 바꾼다. `\rn` 이다(ADR-0067).
 //
 // 새 이름은 커서 옆에 뜨는 창에서 받는다(view-rename-input.go). 팔레트의 「이름 바꾸기」와
@@ -564,6 +576,22 @@ type actionRename struct{}
 
 func (c actionRename) run(e *editor) (tea.Model, tea.Cmd) {
 	return renameInputMode(e)
+}
+
+// actionJumpBack 은 `ctrl+o` 다. 뛰기 전 자리로 되돌아간다(ADR-0070).
+type actionJumpBack struct{}
+
+func (c actionJumpBack) run(e *editor) (tea.Model, tea.Cmd) {
+	return nil, e.jumpBack()
+}
+
+// actionJumpForward 는 `ctrl+i` 다. 되돌아온 것을 앞으로 되짚는다.
+//
+// 받는 이름이 `tab` 인 것은 터미널에서 그 둘이 같은 바이트라서다(jumplist.go 의 jumpForward).
+type actionJumpForward struct{}
+
+func (c actionJumpForward) run(e *editor) (tea.Model, tea.Cmd) {
+	return nil, e.jumpForward()
 }
 
 // actionQuit 는 `ctrl+c` 다. `:qa` 와 같은 경로라 저장하지 않은 변경이 있으면 확인창이 뜬다.

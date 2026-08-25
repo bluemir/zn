@@ -26,13 +26,12 @@ func newTestEditor(data string, width, height int) viewEditorNormal {
 func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
 	return viewEditorNormal{
 		editor: &editor{
+			// 테두리는 unicode 로 둔다. 폭 눈금은 시험에서 정하지 못한다 — 시작할 때
+			// 터미널에 맞추는 것이고(ADR-0072) 시험은 tty 가 아니라서 늘 한 칸 쪽이다.
 			boxChars: boxUnicode,
-			// 테두리를 unicode 로 두는 것과 같은 약속이다. Ambiguous 를 한 칸으로 그리는
-			// 터미널을 가정해야 격자 폭이 고정된다(ADR-0028, ADR-0056).
-			ambiguousWidth: 1,
-			buffers:        []Buffer{newBuffer(path, []byte(data))},
-			width:          width,
-			height:         height + tablineHeight + statusBarHeight,
+			buffers:  []Buffer{newBuffer(path, []byte(data))},
+			width:    width,
+			height:   height + tablineHeight + statusBarHeight,
 		},
 	}
 }

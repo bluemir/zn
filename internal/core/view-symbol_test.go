@@ -353,26 +353,36 @@ func TestSymbolNoMatchRowFitsNarrowBox(t *testing.T) {
 	}
 }
 
-// 다른 화면으로 넘어가도 판이 닫힌다.
+// 다른 판으로 넘어가면 자리를 그 판에게 넘긴다.
 //
-// 판을 열어 둔 채 mode 가 갈리면 편집 영역이 줄어든 채로 굳는다 — statusBar 위에 빈 띠가
-// 남고 마우스 행 계산이 어긋난다.
-func TestSymbolClosesWhenJobChangesMode(t *testing.T) {
+// **예전에는 여기서 판을 닫았다.** 넘어가는 곳이 전체 화면이었기 때문인데, 정의 후보와
+// 사용처가 하단 판이 되면서(ADR-0069) 닫으면 **새 판이 방금 잡은 높이를 우리가 지우게**
+// 된다 — 판이 열린 채로 편집 영역만 온전해져서 목록이 편집 내용을 덮는다.
+//
+// 판이 아닌 곳으로 나가는 길은 normalMode 가 닫는다(아래).
+func TestSymbolHandsDrawerToNextDrawer(t *testing.T) {
 	m := newSymbolView(t, 80, 20)
 	require.NotZero(t, m.drawerHeight)
 
-	before := m.paneHeight()
+	pane := m.paneHeight()
 
-	// 정의 후보가 여럿이면 handleJob 이 목록 화면을 돌려준다(gopls.go).
+	// 정의 후보가 여럿이면 handleJob 이 목록 판을 돌려준다(gopls.go).
 	next, _ := m.Update(definitionMsg{locations: []lsp.Location{
 		{URI: "file:///a.go"},
 		{URI: "file:///b.go"},
 	}})
 
-	require.IsType(t, viewLocations{}, next, "다른 화면으로 넘어가야 하는 시험이다")
+	list, ok := next.(viewLocations)
+	require.True(t, ok, "다른 판으로 넘어가야 하는 시험이다")
 
-	assert.Zero(t, m.drawerHeight, "판이 닫혀야 한다")
-	assert.Equal(t, before, m.textHeight(), "편집 영역이 돌아와야 한다")
+	assert.Equal(t, list.locationsDrawerHeight(), m.drawerHeight, "새 판의 높이여야 한다")
+	assert.Equal(t, pane-list.locationsDrawerHeight(), m.textHeight())
+
+	// 그 판에서 나가면 닫힌다. 닫는 자리가 normalMode 하나다.
+	back, _ := normalMode(m.editor)
+	require.IsType(t, viewEditorNormal{}, back)
+	assert.Zero(t, back.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
+	assert.Equal(t, pane, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
 }
 
 // 읽기 전용 파일은 고치지 않는다.

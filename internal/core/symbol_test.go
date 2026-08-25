@@ -113,33 +113,15 @@ func TestCuratedSymbolsAreWellFormed(t *testing.T) {
 	}
 }
 
-// 폭은 늘 한 칸이거나 두 칸이다. 0 이 나오면 격자 칸 계산이 무너진다.
-func TestSymbolWidthIsNeverZero(t *testing.T) {
-	for _, ambiguous := range []int{0, 1, 2} {
-		e := editor{ambiguousWidth: ambiguous}
+// 큐레이션한 글자는 전부 격자 한 칸 안에 들어간다. 칸보다 넓으면 그 행이 통째로 밀린다.
+//
+// 폭은 화면의 나머지와 같은 자로 잰다. 예전에는 이 자리에만 Ambiguous 특례(symbolWidth) 가
+// 있었는데, 눈금을 시작할 때 터미널에 맞추기로 하면서 없앴다(ADR-0072).
+func TestCuratedSymbolsFitOneCell(t *testing.T) {
+	for _, entry := range assets.CuratedSymbols {
+		got := screenWidthOf(entry.Char)
 
-		for _, entry := range assets.CuratedSymbols {
-			got := e.symbolWidth(entry.Char)
-
-			assert.GreaterOrEqual(t, got, 1, "%q 의 폭이 0 이다", entry.Char)
-			assert.LessOrEqual(t, got, symbolCellWidth, "%q 가 칸보다 넓다", entry.Char)
-		}
-	}
-}
-
-// Ambiguous 글자는 잰 값을 따른다. 재지 못했으면 넓게 잡는다(ADR-0028).
-func TestSymbolWidthFollowsProbe(t *testing.T) {
-	narrow := editor{ambiguousWidth: 1}
-	wide := editor{ambiguousWidth: 2}
-	unknown := editor{ambiguousWidth: 0}
-
-	assert.Equal(t, 1, narrow.symbolWidth("→"))
-	assert.Equal(t, 2, wide.symbolWidth("→"))
-	assert.Equal(t, 2, unknown.symbolWidth("→"), "재지 못했으면 넓게 잡는다")
-
-	// Ambiguous 가 아닌 것은 잰 값과 무관하다.
-	for _, e := range []editor{narrow, wide, unknown} {
-		assert.Equal(t, 1, e.symbolWidth("$"))
-		assert.Equal(t, 2, e.symbolWidth("😀"))
+		assert.GreaterOrEqual(t, got, 1, "%q 의 폭이 0 이다", entry.Char)
+		assert.LessOrEqual(t, got, symbolCellWidth, "%q 가 칸보다 넓다", entry.Char)
 	}
 }
