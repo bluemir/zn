@@ -58,6 +58,20 @@ func (e *editor) here() (jumpPlace, bool) {
 	return jumpPlace{path: buf.path, line: buf.cursorLine, col: buf.cursorCol}, true
 }
 
+// jumpMotion 은 되돌아오기 이력에 담는 이동인지다.
+//
+// 자는 **한 번에 여러 줄을 건너뛰는가**이지 파일을 넘는가가 아니다 — vim 의 기준과 같다
+// (`:help jump-motions`, ADR-0082). 그래서 `w`·`}` 같은 이동은 들지 않고, 화면을 굴리는
+// `ctrl+d`·`ctrl+f` 도 들지 않는다(그쪽은 애초에 motion 이 아니다, ADR-0062).
+func jumpMotion(mo moveMotion) bool {
+	switch mo.(type) {
+	case motionToLastLine, motionToFirstLine:
+		return true
+	}
+
+	return false
+}
+
 // recordJump 는 지금 자리를 이력에 남긴다. **뛰기 직전에** 부른다.
 //
 // 담는 것은 「뛴 곳」이 아니라 「뛰기 전 자리」다. `ctrl+o` 가 데려다줄 곳이 그것이다.
@@ -65,6 +79,8 @@ func (e *editor) here() (jumpPlace, bool) {
 // 부르는 자리는 넷이다 — 정의·사용처가 곧바로 뛸 때(gopls.go, references.go), `GOTO` 판에서
 // 처음 뛸 때(view-locations.go), 검색이 옮길 때(view-editor-search.go 의 jumpToMatch).
 // 되짚는 이동(goToPlace) 은 부르지 않는다.
+//
+// 파일 안에서 멀리 뛰는 것(`G`·`gg`·`:번호`) 은 이쪽이 아니라 recordJumpMove 로 간다.
 func (e *editor) recordJump() {
 	place, ok := e.here()
 	if !ok {
@@ -72,6 +88,24 @@ func (e *editor) recordJump() {
 	}
 
 	e.recordJumpFrom(place)
+}
+
+// recordJumpMove 는 **파일 안에서 멀리 뛴 것**을 담는다. `G`·`gg`·`:번호` 가 쓴다(ADR-0082).
+// 다른 부르는 자리와 달리 **뛴 뒤에** 부르고, 떠난 자리를 받는다.
+//
+// 뒤에 부르는 것은 **아무 데도 가지 않았으면 담지 않기** 위해서다 — 파일 끝에서 `G` 를 또
+// 치거나 이미 서 있는 줄에 `3G` 로 가는 것이 그런 자리인데, 그것을 담으면 `ctrl+o` 한 번이
+// 제자리걸음이 된다. 파일을 넘는 뛰기는 커서가 반드시 움직여서 이 물음이 없었다.
+//
+// 닿은 자리는 방문 기록에도 남는다. 떠난 자리는 recordJumpFrom 이 남긴다(ADR-0074).
+func (e *editor) recordJumpMove(from jumpPlace) {
+	to, ok := e.here()
+	if !ok || to.sameLine(from) {
+		return
+	}
+
+	e.recordJumpFrom(from)
+	e.recordVisit(to)
 }
 
 // recordJumpFrom 은 **적어 둔 자리**를 담는다. 둘러보는 판이 쓴다 — 확정할 때는 커서가 이미

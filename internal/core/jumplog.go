@@ -56,6 +56,8 @@ func (e *editor) recordVisit(place jumpPlace) {
 //   - 정의·사용처가 곧바로 뛸 때(gopls.go, references.go) 와 판에서 확정할 때(view-locations.go)
 //   - 검색이 옮길 때(view-editor-search.go 의 jumpToMatch)
 //   - `ctrl+o`·`ctrl+i` 와 두 판의 확정(jumplist.go, view-jumps.go, view-jumplogs.go)
+//   - 파일 안에서 멀리 뛸 때(`G`·`gg`·`:번호`). 그쪽은 arrive 가 아니라 recordJumpMove 가
+//     떠난 자리와 닿은 자리를 같이 남긴다(ADR-0082)
 //   - 파일을 여는 세 문 — 트리·팔레트·`:e`(view-sidebar.go, view-palette.go, view-editor-command.go)
 //
 // 떠난 자리는 여기가 아니라 recordJumpFrom 이 같이 남긴다. 그쪽이 「뛰기 직전」이 모이는

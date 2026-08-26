@@ -334,6 +334,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 // 건드린 줄이고, 커서는 늘 그 자리에 남는다.
 //
 // 칸은 첫 비공백이다. 줄 번호로 뛰는 것은 `gg`·`G` 와 같은 일이라 그쪽 규칙을 따른다.
+// 되돌아오기 이력에 담는 것도 같은 까닭으로 같다(ADR-0082).
 func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
@@ -342,10 +343,16 @@ func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
 		return normalModeError(m.editor, err)
 	}
 
+	from, jumping := m.here()
+
 	buf.cursorLine = to
 	buf.moveLineFirstNonBlank(m.contentWidth())
 	buf.clampToNormal(m.contentWidth())
 	m.scrollToCursor()
+
+	if jumping {
+		m.recordJumpMove(from)
+	}
 
 	return normalMode(m.editor)
 }

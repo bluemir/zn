@@ -43,6 +43,8 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}
 	case "ctrl+b":
 		return tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}
+	case "ctrl+o":
+		return tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl}
 	case "delete":
 		return tea.KeyPressMsg{Code: tea.KeyDelete}
 	case "home":

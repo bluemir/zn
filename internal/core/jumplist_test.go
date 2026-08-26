@@ -3,6 +3,8 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -237,4 +239,118 @@ func TestFailedSearchDoesNotRecord(t *testing.T) {
 
 	assert.Empty(t, e.jumps.places)
 	assert.Equal(t, "찾을 수 없음: zzz", e.notice)
+}
+
+// jumpText 는 스무 줄짜리 본문이다. `G`·`gg` 가 멀리 뛰는 것을 보려면 화면보다 길어야 한다.
+func jumpText() string {
+	lines := []string{}
+	for i := 1; i <= 20; i++ {
+		lines = append(lines, "line "+strconv.Itoa(i))
+	}
+
+	return strings.Join(lines, "\n") + "\n"
+}
+
+// `G` 와 `gg` 가 이력에 담기고 `ctrl+o` 가 뛰기 전 줄로 되돌아간다(ADR-0082).
+func TestGotoLineMotionsRecordJump(t *testing.T) {
+	m := newTestEditorFile("main.txt", jumpText(), 80, 10)
+	e := m.editor
+
+	// 5 번째 줄에서 `G` 로 끝까지 뛴다.
+	next := send(m, "5", "j")
+	require.Equal(t, 5, e.activeBuffer().cursorLine)
+
+	next = send(next, "G")
+	require.Equal(t, 19, e.activeBuffer().cursorLine, "마지막 줄이다")
+	require.Len(t, e.jumps.places, 1)
+	assert.Equal(t, 5, e.jumps.places[0].line, "뛰기 전 자리가 담긴다")
+
+	// `gg` 로 첫 줄까지 뛰면 또 담긴다.
+	next = send(next, "g", "g")
+	require.Equal(t, 0, e.activeBuffer().cursorLine)
+	require.Len(t, e.jumps.places, 2)
+	assert.Equal(t, 19, e.jumps.places[1].line)
+
+	// `ctrl+o` 두 번이면 처음 자리다.
+	next = send(next, "ctrl+o")
+	assert.Equal(t, 19, e.activeBuffer().cursorLine)
+
+	send(next, "ctrl+o")
+	assert.Equal(t, 5, e.activeBuffer().cursorLine)
+}
+
+// 줄 번호를 준 `10gg`·`3G` 도 담는다. 숫자가 붙어도 멀리 뛰는 것은 같다.
+func TestGotoLineWithCountRecordsJump(t *testing.T) {
+	m := newTestEditorFile("main.txt", jumpText(), 80, 10)
+	e := m.editor
+
+	next := send(m, "1", "0", "g", "g")
+	require.Equal(t, 9, e.activeBuffer().cursorLine, "10 번째 줄이다")
+	require.Len(t, e.jumps.places, 1)
+	assert.Equal(t, 0, e.jumps.places[0].line)
+
+	send(next, "3", "G")
+	require.Equal(t, 2, e.activeBuffer().cursorLine)
+	require.Len(t, e.jumps.places, 2)
+	assert.Equal(t, 9, e.jumps.places[1].line)
+}
+
+// 아무 데도 가지 않았으면 담지 않는다. 파일 끝에서 `G` 를 또 치는 자리다 —
+// 담으면 `ctrl+o` 한 번이 제자리걸음이 된다.
+func TestGotoLineInPlaceDoesNotRecord(t *testing.T) {
+	m := newTestEditorFile("main.txt", jumpText(), 80, 10)
+	e := m.editor
+
+	next := send(m, "G")
+	require.Len(t, e.jumps.places, 1)
+
+	next = send(next, "G")
+	assert.Len(t, e.jumps.places, 1, "이미 마지막 줄이라 담을 것이 없다")
+
+	// 이력이 하나뿐이라 `ctrl+o` 한 번이 처음 자리로 간다.
+	send(next, "ctrl+o")
+	assert.Equal(t, 0, e.activeBuffer().cursorLine)
+}
+
+// 고르는 중의 `G` 는 담지 않는다. 뛰는 것이 아니라 범위를 늘리는 것이다.
+func TestVisualGotoLineDoesNotRecordJump(t *testing.T) {
+	m := newTestEditorFile("main.txt", jumpText(), 80, 10)
+	e := m.editor
+
+	next := send(m, "5", "j", "v", "G")
+	require.IsType(t, viewEditorVisual{}, next)
+	require.Equal(t, 19, e.activeBuffer().cursorLine, "범위가 끝까지 늘었다")
+
+	assert.Empty(t, e.jumps.places)
+}
+
+// `:5` 도 담는다. 줄 번호로 뛰는 것은 `gg`·`G` 와 같은 일이다.
+func TestGoToLineCommandRecordsJump(t *testing.T) {
+	m := newTestEditorFile("main.txt", jumpText(), 80, 10)
+	e := m.editor
+
+	next := send(m, "G")
+	require.Equal(t, 19, e.activeBuffer().cursorLine)
+
+	next = send(next, ":", "5", "enter")
+	require.IsType(t, viewEditorNormal{}, next)
+	require.Equal(t, 4, e.activeBuffer().cursorLine, "5 번째 줄이다")
+
+	require.Len(t, e.jumps.places, 2)
+	assert.Equal(t, 19, e.jumps.places[1].line)
+
+	send(next, "ctrl+o")
+	assert.Equal(t, 19, e.activeBuffer().cursorLine)
+}
+
+// 떠난 자리와 닿은 자리가 둘 다 방문 기록에 남는다. 최근이 위다(ADR-0074).
+func TestGotoLineRecordsVisits(t *testing.T) {
+	m := newTestEditorFile("main.txt", jumpText(), 80, 10)
+	e := m.editor
+
+	send(m, "5", "j", "G")
+
+	require.Len(t, e.logs.places, 2)
+	assert.Equal(t, 19, e.logs.places[0].line, "닿은 자리가 맨 앞이다")
+	assert.Equal(t, 5, e.logs.places[1].line, "떠난 자리다")
 }

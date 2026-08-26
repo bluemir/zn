@@ -33,12 +33,26 @@ type actionMove struct {
 func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
+	// 멀리 뛰는 이동(`G`·`gg`) 은 되돌아오기 이력에 담는다(ADR-0082). 담는 것은 뛰기 전
+	// 자리이므로 옮기기 전에 적어 둔다.
+	//
+	// **고르는 중이면 담지 않는다.** visual 의 `G` 는 뛰는 것이 아니라 범위를 늘리는 것이라
+	// `ctrl+o` 로 돌아갈 일이 아니다. 그 mode 를 물을 자리가 여기밖에 없어서 selection 을 본다.
+	from, jumping := jumpPlace{}, false
+	if jumpMotion(c.motion) && !buf.selection.active {
+		from, jumping = e.here()
+	}
+
 	c.motion.move(buf, c.count, e.contentWidth())
 
 	// normal mode 의 커서는 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
 	// 왼쪽으로 가는 이동에는 걸릴 것이 없지만 나누어 둘 이유도 없다.
 	buf.clampToNormal(e.contentWidth())
 	e.scrollToCursor()
+
+	if jumping {
+		e.recordJumpMove(from)
+	}
 
 	return nil, nil
 }
