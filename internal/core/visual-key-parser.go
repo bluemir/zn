@@ -12,7 +12,7 @@ import (
 // 먹기 때문이다 — visual 에서 `d` 는 다음 키를 기다리지 않고 그 자리에서 끝난다. sidebarState 가
 // 갈린 것과 같은 이유다(ADR-0006, ADR-0037).
 //
-// 기다리는 모양은 숫자 접두, 접두 키(`g`), register 이름 셋이라 상태가 넷이다. operator 가
+// 기다리는 모양은 숫자 접두, 접두 키(`g`·leader), register 이름 셋이라 상태가 넷이다. operator 가
 // 없어서 normalState 의 partial 도, 글자 하나를 받는 normalReplace 도 여기에는 없다.
 // 이름은 partial 대신 상태마다 `reg` 로 들고 다닌다 — 들 것이 그것 하나라서다(ADR-0058).
 type visualState interface {
@@ -86,6 +86,21 @@ func visualAction(key string, count int) action {
 	return nil
 }
 
+// visualPrefixAction 은 visual 의 접두 키 조합이 가리키는 동작이다. 없으면 nil 이다.
+//
+// **normal 의 prefixAction 을 나눠 쓰지 않는다.** 그 표에 있는 것은 `gt`·`\gd` 처럼 visual 이
+// 받지 않는 것이 대부분이라, 나눠 쓰면 「visual 이 안 받는다」를 거르는 자리가 그 표에 하나
+// 생긴다. visualAction 이 normal 의 standaloneAction 과 갈려 있는 것과 같은 자리다(ADR-0037).
+//
+// 지금 한 줄뿐이다. `gg` 는 motion 이라 prefixMotion 쪽으로 가고 여기 오지 않는다(ADR-0085).
+func visualPrefixAction(prefix, key string) action {
+	if prefix == leaderKey && key == "c" {
+		return actionVisualCat{}
+	}
+
+	return nil
+}
+
 // visualWithRegister 는 이름을 실은 동작이다. 이름을 받지 않는 동작이면 버린다.
 //
 // normal 쪽 `partial.built` 와 같은 규칙이고 통과하는 갈래만 다르다 — visual 에는 붙여넣기가
@@ -137,6 +152,14 @@ func (s visualStart) press(key string) ([]action, visualState) {
 		return nil, visualPending{reg: s.reg, prefix: key}
 	}
 
+	// **visual 이 leader 를 받는 첫 자리다.** 여기까지 visual 의 키는 전부 한 글자였다 —
+	// 고른 범위 위에서 하는 일이 몇 안 되어서다(ADR-0037). `\c` 가 normal 과 같은 손으로
+	// 불려야 해서 여는데, 한 글자 키를 새로 가져오면 vim 이 그 자리에 쓸 것을 영영 닫는다
+	// (ADR-0085). 한글 자판의 원화 기호도 여기서 leader 다 — 문 앞에서 `\` 로 맞춘다(ADR-0008).
+	if key == leaderKey || key == leaderWon {
+		return nil, visualPending{reg: s.reg, prefix: leaderKey}
+	}
+
 	if key == `"` {
 		// 뒤에 register 이름 한 개가 붙는다.
 		return nil, visualRegister{}
@@ -183,6 +206,12 @@ func (s visualCount) press(key string) ([]action, visualState) {
 		return nil, visualPending{reg: s.reg, prefix: key, count: s.count}
 	}
 
+	// leader 도 같이 받는다. 여기 없으면 `2\c` 의 `\` 가 버려지고 **뒤의 `c` 가 고른 것을
+	// 지운다** — 숫자를 친 손이 낼 수 있는 사고라 두 상태가 같이 알아야 한다.
+	if key == leaderKey || key == leaderWon {
+		return nil, visualPending{reg: s.reg, prefix: leaderKey, count: s.count}
+	}
+
 	if key == `"` {
 		return nil, visualRegister{count: s.count}
 	}
@@ -227,10 +256,14 @@ func (s visualRegister) press(key string) ([]action, visualState) {
 
 func (s visualRegister) showcmd() string { return countString(s.count) + `"` }
 
-// visualPending 은 `g` 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
+// visualPending 은 `g` 나 leader 처럼 뒤에 키가 하나 더 붙는 접두 키를 먹은 뒤다.
 //
 // 다음 키가 무엇이든 여기서 끝난다. 짝이 없는 조합은 아무 일도 하지 않는다 —
 // `gt` 는 visual 이 받지 않으므로 여기서 버려진다.
+//
+// **normal 과 달리 leader 도 두 키에서 끝난다.** 그쪽은 `\gd` 처럼 세 키짜리가 있어서
+// expectsMoreKeys 가 어디서 끝나는지를 따로 정하는데, visual 이 받는 leader 조합은 `\c`
+// 하나뿐이라 그 판단이 설 자리가 없다. 셋째 키가 필요한 날 그때 같이 온다(ADR-0085).
 type visualPending struct {
 	reg    string
 	prefix string
@@ -253,7 +286,9 @@ func (s visualPending) press(key string) ([]action, visualState) {
 		return one(actionMove{motion: mo, count: s.count}), visualStart{}
 	}
 
-	return nil, visualStart{}
+	// 이동이 아닌 조합이다. 이름을 실을 수 없는 동작이면 visualWithRegister 가 버린다 —
+	// `"a\c` 는 담는 일이 아니라서 아무 일도 하지 않는다(ADR-0058).
+	return one(visualWithRegister(visualPrefixAction(s.prefix, key), s.reg)), visualStart{}
 }
 
 func (s visualPending) showcmd() string {

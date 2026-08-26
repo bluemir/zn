@@ -109,7 +109,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	// 줄 범위를 받는 것은 이들뿐이다. 이름 없는 것(`:5`) 은 그 줄로 가는 것이다.
 	// 나머지에 붙은 범위를 조용히 버리면 `:1,5w` 가 그 줄만 쓴 것처럼 보인다.
 	switch cmd.name {
-	case "d", "y", "s", "substitute", "":
+	case "d", "y", "s", "substitute", "cat", "":
 	default:
 		if cmd.lines != (lineRange{}) {
 			return normalModeMessage(m.editor, "이 명령은 줄 범위를 받지 않습니다: "+m.input)
@@ -121,7 +121,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	//
 	// 인자 없는 `:e` 는 다시 읽는 것이라 여기 든다. 인자가 있으면 새로 여는 것이라 지나간다.
 	switch cmd.name {
-	case "d", "y", "s", "substitute", "w", "wq", "x":
+	case "d", "y", "s", "substitute", "cat", "w", "wq", "x":
 		if m.refuseNoBuffer() {
 			return normalMode(m.editor)
 		}
@@ -159,6 +159,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		return m.substitute(cmd)
+	case "cat":
+		// 파일을 건드리지 않으므로 읽기 전용도 그대로 낸다. `:y` 와 같은 자리다.
+		return m.cat(cmd)
 	case "w":
 		return m.write(cmd)
 	case "wq", "x":
@@ -333,6 +336,26 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	m.registers.storeYank(copied, "")
 
 	return normalModeMessage(m.editor, copied.copiedMessage())
+}
+
+// cat 은 `:[범위]cat` 이다. 그 줄들을 평문으로 터미널에 낸다(ADR-0085).
+//
+// **범위를 치지 않으면 화면에 보이는 줄들이다.** `:d`·`:y` 는 그때 커서 줄 하나인데 여기만
+// 갈린다 — 「보고 있는 것을 그대로 낸다」가 이 기능의 뜻이고, 커서 줄 하나를 내는 것은
+// 부탁받은 적 없는 일이다. 파일 전체는 `:%cat` 이다.
+func (m viewEditorCommand) cat(cmd command) (tea.Model, tea.Cmd) {
+	if cmd.lines == (lineRange{}) {
+		return runCat(m.editor, m.visibleRange())
+	}
+
+	buf := m.activeBuffer()
+
+	from, to, err := cmd.lines.resolve(*buf)
+	if err != nil {
+		return normalModeError(m.editor, err)
+	}
+
+	return runCat(m.editor, motionRange{startLine: from, endLine: to, targetLine: from, linewise: true})
 }
 
 // substitute 는 `:[범위]s/찾을 것/바꿀 글/flag` 다. 범위를 치지 않았으면 커서 줄 하나다.

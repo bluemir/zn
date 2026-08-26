@@ -600,6 +600,35 @@ func (c actionSearchWord) run(e *editor) (tea.Model, tea.Cmd) {
 
 // ── mode 와 화면 ──
 
+// actionCat 은 화면에 보이는 줄들을 평문으로 낸다. `\c` 다(ADR-0085).
+//
+// 볼 파일이 없으면 여기까지 오지 않는다 — 빈 화면이 실행 앞에서 거른다(allowedWithoutTab).
+type actionCat struct{}
+
+func (c actionCat) run(e *editor) (tea.Model, tea.Cmd) {
+	return runCat(e, e.visibleRange())
+}
+
+// actionVisualCat 은 고른 범위를 평문으로 낸다. visual 의 `\c` 다(ADR-0085).
+//
+// 커서는 범위의 시작으로 간다. 파일을 건드리지 않는 것은 `y` 와 같고 커서 자리도 같다 —
+// 어느 쪽 끝에서 골랐든 나온 자리가 하나여야 한다(ADR-0037).
+type actionVisualCat struct{}
+
+func (c actionVisualCat) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+
+	area, ok := buf.selectionRange()
+	if !ok {
+		return normalMode(e)
+	}
+
+	buf.moveToRangeStart(area, e.contentWidth())
+	e.scrollToCursor()
+
+	return runCat(e, area)
+}
+
 // actionGotoDefinition 은 커서 자리의 정의로 간다. `\gd` 다(ADR-0051).
 //
 // 답을 기다리지 않는다 — 물어보는 Cmd 를 내고 돌아온다. 첫 요청은 서버가 모듈을 훑는 동안

@@ -311,6 +311,13 @@ func prefixAction(prefix, key string) action {
 		case "n":
 			return actionRename{}
 		}
+	case leaderKey:
+		// leader 조합 중 두 키짜리는 이것 하나다. 나머지 셋은 `\g`·`\r` 을 지나 세 키다 —
+		// 어디서 끝나는지는 expectsMoreKeys 가 정한다(ADR-0085).
+		switch key {
+		case "c":
+			return actionCat{}
+		}
 	}
 
 	return nil

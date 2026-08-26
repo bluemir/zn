@@ -275,6 +275,7 @@ var paletteCommands = []paletteCommand{
 	{name: "사용처로 가기", hint: "go to references", run: runGotoReferences},
 	{name: "이름 바꾸기", hint: "rename symbol", alias: ":rename", run: runRename},
 	{name: "프로젝트 검색", hint: "search in project", alias: ":grep", run: runGrepInput},
+	{name: "화면을 평문으로 내보내기", hint: "cat screen", alias: ":cat", run: runCatScreen},
 	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
 }
 
@@ -321,6 +322,16 @@ func runGotoReferences(e *editor) (tea.Model, tea.Cmd) {
 // 새 이름은 커서 옆에 뜨는 창에서 받는다(view-rename-input.go).
 func runRename(e *editor) (tea.Model, tea.Cmd) {
 	return renameInputMode(e)
+}
+
+// runCatScreen 은 화면에 보이는 줄들을 평문으로 낸다. `\c`·`:cat` 과 같은 자리로 간다
+// (ADR-0085).
+func runCatScreen(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	return runCat(e, e.visibleRange())
 }
 
 func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
