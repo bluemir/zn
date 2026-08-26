@@ -84,6 +84,9 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 		return v.buffers[v.active]
 	case viewEditorSearch:
 		return v.buffers[v.active]
+	case viewEditorSubstitute:
+		// `:s///c` 가 물어보는 동안에도 편집 화면 그대로다. 바뀐 줄과 커서를 보는 자리다.
+		return v.buffers[v.active]
 	case viewPalette:
 		return v.buffers[v.active]
 	case viewSymbol:

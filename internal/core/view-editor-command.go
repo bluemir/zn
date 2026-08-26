@@ -84,15 +84,15 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return normalModeError(m.editor, err)
 	}
 
-	// 인자를 받는 명령은 이 다섯뿐이다. 나머지에 붙은 인자를 조용히 버리면
+	// 인자를 받는 명령은 이들뿐이다. 나머지에 붙은 인자를 조용히 버리면
 	// `:qa foo` 가 foo 에 무언가를 한 것처럼 보인다.
 	//
 	// `:!` 의 인자는 파일 이름이 아니라 뜯지 않은 셸 줄이고, tokenRest 가 그것을 한 토큰으로
-	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다.
+	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다. `:grep` 과 `:s` 도 같다.
 	//
 	// `:rename` 의 인자만 파일 이름이 아니다 — 새 이름 하나다(ADR-0067).
 	switch cmd.name {
-	case "w", "e", "tabnew", "!", "rename", "grep":
+	case "w", "e", "tabnew", "!", "rename", "grep", "s", "substitute":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
@@ -100,16 +100,16 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	}
 	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
 	//
-	// `:grep` 과 `:!` 의 인자는 파일 이름이 아니라 뜯지 않은 한 줄이라 tokenRest 가
-	// 늘 한 토큰으로 주므로 여기 걸릴 수 없다(ADR-0045, ADR-0077).
+	// `:grep`·`:s`·`:!` 의 인자는 파일 이름이 아니라 뜯지 않은 한 줄이라 tokenRest 가
+	// 늘 한 토큰으로 주므로 여기 걸릴 수 없다(ADR-0045, ADR-0077, ADR-0084).
 	if len(cmd.args) > 1 {
 		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
 	}
 
-	// 줄 범위를 받는 것은 이 셋뿐이다. 이름 없는 것(`:5`) 은 그 줄로 가는 것이다.
+	// 줄 범위를 받는 것은 이들뿐이다. 이름 없는 것(`:5`) 은 그 줄로 가는 것이다.
 	// 나머지에 붙은 범위를 조용히 버리면 `:1,5w` 가 그 줄만 쓴 것처럼 보인다.
 	switch cmd.name {
-	case "d", "y", "":
+	case "d", "y", "s", "substitute", "":
 	default:
 		if cmd.lines != (lineRange{}) {
 			return normalModeMessage(m.editor, "이 명령은 줄 범위를 받지 않습니다: "+m.input)
@@ -121,7 +121,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	//
 	// 인자 없는 `:e` 는 다시 읽는 것이라 여기 든다. 인자가 있으면 새로 여는 것이라 지나간다.
 	switch cmd.name {
-	case "d", "y", "w", "wq", "x":
+	case "d", "y", "s", "substitute", "w", "wq", "x":
 		if m.refuseNoBuffer() {
 			return normalMode(m.editor)
 		}
@@ -152,6 +152,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		return m.deleteLines(cmd)
 	case "y":
 		return m.yankLines(cmd)
+	case "s", "substitute":
+		// `:y` 와 달리 파일을 고치므로 읽기 전용은 여기서 걸린다(readonly.go).
+		if m.refuseReadOnly() {
+			return normalMode(m.editor)
+		}
+
+		return m.substitute(cmd)
 	case "w":
 		return m.write(cmd)
 	case "wq", "x":
@@ -326,6 +333,51 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	m.registers.storeYank(copied, "")
 
 	return normalModeMessage(m.editor, copied.copiedMessage())
+}
+
+// substitute 는 `:[범위]s/찾을 것/바꿀 글/flag` 다. 범위를 치지 않았으면 커서 줄 하나다.
+//
+// 커서는 마지막으로 바꾼 줄의 첫 비공백으로 간다. 줄로 뛰는 것은 `:5`·`gg`·`G` 와 같은
+// 일이라 그쪽 규칙을 따른다(goToLine).
+func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
+	buf := m.activeBuffer()
+
+	// 범위를 먼저 푼다. 없는 줄을 댔으면 패턴이 옳은지 보기 전에 걸려야 한다 — `:d` 와 같다.
+	from, to, err := cmd.lines.resolve(*buf)
+	if err != nil {
+		return normalModeError(m.editor, err)
+	}
+
+	if len(cmd.args) == 0 {
+		return normalModeMessage(m.editor, "바꿀 것을 대지 않았습니다")
+	}
+
+	sub, err := parseSubstitute(cmd.args[0])
+	if err != nil {
+		return normalModeError(m.editor, err)
+	}
+
+	// **찾은 것이 마지막 검색이 된다.** `n` 으로 남은 자리를 훑을 수 있고, 물어보며 바꾸는
+	// 동안 화면에 칠해지는 것도 이것이다 — 그쪽에 그릴 것을 따로 만들지 않았다. vim 과 같다
+	// (ADR-0010, ADR-0084).
+	m.search = searchState{input: sub.input, pattern: sub.pattern, direction: searchForward, highlight: true}
+
+	if sub.confirm {
+		return substituteMode(m.editor, sub, from, to)
+	}
+
+	changes, lines, last := buf.substitute(sub, from, to)
+	if changes == 0 {
+		// 못 찾은 것은 실패가 아니라 결과다. 검색이 쓰는 문구를 그대로 쓴다.
+		return normalModeMessage(m.editor, "찾을 수 없음: "+sub.input)
+	}
+
+	buf.cursorLine = last
+	buf.moveLineFirstNonBlank(m.contentWidth())
+	buf.clampToNormal(m.contentWidth())
+	m.scrollToCursor()
+
+	return normalModeMessage(m.editor, substituteMessage(changes, lines))
 }
 
 // goToLine 은 이름 없이 범위만 친 것이다. `:5` 로 그 줄로 간다.

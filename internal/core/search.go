@@ -49,8 +49,15 @@ type searchState struct {
 // 패턴 안에 flag 로 읽힐 `/` 를 넣어야 하면 `\/` 로 막는다. 그 `\/` 는 정규식에서도
 // `/` 한 글자를 뜻하므로 뗄 필요 없이 그대로 넘긴다.
 func parseSearchPattern(input string) (*regexp.Regexp, error) {
-	pattern, flags := splitSearchFlags(input)
+	return compilePattern(splitSearchFlags(input))
+}
 
+// compilePattern 은 flag 를 얹어 정규식을 만든다. `/` 검색과 `:s` 치환이 같이 쓴다.
+//
+// `:s` 는 flag 자리가 뒤가 아니라 셋째 구분자 뒤라 뗄 자리가 다르고, 제 것(`g`·`c`) 을
+// 먼저 걷어내고 남은 것을 준다. **모르는 flag 를 걸러내는 자리는 그래도 여기 하나다** —
+// 둘로 나뉘면 `/pat/z` 와 `:s/a/b/z` 가 다른 말을 한다(ADR-0084).
+func compilePattern(pattern, flags string) (*regexp.Regexp, error) {
 	// flag 는 정규식 앞에 붙이는 Go 의 문법으로 옮긴다.
 	prefix := ""
 	for _, flag := range flags {

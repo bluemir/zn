@@ -317,7 +317,28 @@ func (s tokenName) consume(ch rune) (token, tokenizerState) {
 		// 이름에는 따옴표도 `\` 도 없다. 이름 자리가 아니었던 것으로 보고 여느 자리로 넘긴다.
 		return tokenPlain{buf: s.buf}.consume(ch)
 	default:
+		// `:s` 는 이름과 인자 사이에 공백이 없다. **이름 다음 글자가 곧 구분자다**
+		// (`:%s/a/b/g`). 공백을 기다리면 그 줄이 통째로 한 토큰이 되고, 그때 `\/` 가
+		// tokenEscaped 를 지나 `/` 가 되어 정규식이 조용히 다른 뜻이 된다 — `:grep` 을
+		// 통째로 넘기게 만든 것과 같은 까닭이다(ADR-0077, ADR-0084).
+		if takesDelimitedArgument(string(s.buf)) && isSubstituteDelimiter(ch) {
+			return token{text: string(s.buf)}, tokenRest{buf: []rune{ch}}
+		}
+
 		return token{}, tokenName{buf: append(s.buf, ch)}
+	}
+}
+
+// takesDelimitedArgument 는 이름 **다음 글자**가 구분자인 명령이다.
+//
+// `:s` 하나이고 줄임말과 온 이름 둘 다다. force 표시(`!`) 를 떼고 보지 않는다 —
+// `:s!a!b!` 의 그 `!` 는 강제가 아니라 구분자다.
+func takesDelimitedArgument(name string) bool {
+	switch name {
+	case "s", "substitute":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -327,10 +348,19 @@ func (s tokenName) end() (token, error) {
 
 // takesRawArgument 는 이름 뒤를 뜯지 않고 통째로 넘기는 명령이다.
 //
-// 하나뿐이라 표를 두지 않았다. 둘째가 오면(`:vimgrep` 같은 것) 그때 표로 모은다.
-// force 표시(`!`) 는 여기서 떼고 본다 — `:grep!` 도 패턴을 통째로 받아야 한다.
+// 정규식을 받는 것들이다. `\` 가 그 갈림을 강제한다 — 뜯은 뒤에 다시 이으면 `\d+` 가
+// `d+` 가 된다(ADR-0077). force 표시(`!`) 는 여기서 떼고 본다 — `:grep!` 도 패턴을
+// 통째로 받아야 한다.
+//
+// `:s` 는 이름과 붙여 쓰는 것이 보통이라 그쪽 갈림은 takesDelimitedArgument 가 하고,
+// 여기 있는 것은 띄어 쓴 `:s /a/b/` 를 받기 위해서다.
 func takesRawArgument(name string) bool {
-	return strings.TrimSuffix(name, "!") == "grep"
+	switch strings.TrimSuffix(name, "!") {
+	case "grep", "s", "substitute":
+		return true
+	default:
+		return false
+	}
 }
 
 // tokenPlain 은 따옴표 밖이다. 공백을 만나면 토큰이 끝난다.

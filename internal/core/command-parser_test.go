@@ -191,12 +191,49 @@ func TestTokenizeGrepTakesRawArgument(t *testing.T) {
 	}
 }
 
-// 다른 이름은 그대로 뜯는다. 통째로 받는 것은 `grep` 하나뿐이다.
+// 다른 이름은 그대로 뜯는다. 통째로 받는 것은 정규식이 오는 둘뿐이다.
 func TestTokenizeOtherNamesStillSplit(t *testing.T) {
 	got, err := tokenize(`e a\b c`)
 
 	require.NoError(t, err)
 	assert.Equal(t, words("e", "ab", "c"), got, "`\\` 가 먹히고 공백으로 끊긴다")
+}
+
+// `:s` 는 이름 **다음 글자**가 구분자다. 공백이 없이 이름이 끝나는 유일한 자리다(ADR-0084).
+func TestTokenizeSubstituteTakesDelimitedArgument(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []token
+	}{
+		{name: "이름 바로 뒤", input: `s/a/b/g`,
+			want: []token{{text: "s"}, {text: "/a/b/g", kind: tokenKindShell}}},
+		{name: "온 이름", input: `substitute/a/b/`,
+			want: []token{{text: "substitute"}, {text: "/a/b/", kind: tokenKindShell}}},
+		{name: "범위가 앞에 붙는다", input: `%s/a/b/`,
+			want: []token{{text: "%", kind: tokenKindRange}, {text: "s"}, {text: "/a/b/", kind: tokenKindShell}}},
+		{name: "`\\` 가 살아남는다", input: `s/a\/b/c/`,
+			want: []token{{text: "s"}, {text: `/a\/b/c/`, kind: tokenKindShell}}},
+		{name: "구분자는 아무 글자나", input: `s#a#b#`,
+			want: []token{{text: "s"}, {text: "#a#b#", kind: tokenKindShell}}},
+		{name: "`!` 도 구분자다", input: `s!a!b!`,
+			want: []token{{text: "s"}, {text: "!a!b!", kind: tokenKindShell}}},
+		{name: "띄어 쓰면 여느 통째로 받는 이름과 같다", input: `s /a/b/`,
+			want: []token{{text: "s"}, {text: "/a/b/", kind: tokenKindShell}}},
+		{name: "이름만", input: `s`, want: words("s")},
+
+		// 영문자·숫자는 구분자가 아니다. 이름이 아직 안 끝난 것이다.
+		{name: "이름이 이어진다", input: `sort a`, want: words("sort", "a")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := tokenize(test.input)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
 }
 
 // 뒤가 비어 있으면 인자가 아니다. `:grep ` 는 `:grep` 과 같아야 한다.
