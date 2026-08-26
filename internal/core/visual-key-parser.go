@@ -43,10 +43,19 @@ func pressExpandedVisual(state visualState, keys []string) ([]action, visualStat
 // 무시한다 — `3d` 가 `d` 와 같고 되풀이할 것이 없다.
 //
 // `:` `/` `gt` `ctrl+p` `ctrl+w` 는 여기 없다. 짝이 없는 조합이 아무 일도 하지 않는 것과 같다.
+//
+// **`ctrl+p` 는 재 보고 안 두기로 했다.** 팔레트는 `normalMode` 를 지나지 않아서 고른 범위를
+// 놓지 않는데, 팔레트의 「화면을 평문으로 내보내기」는 화면을 낸다 — 골라 둔 것이 상자 뒤로
+// 칠해진 채 화면 전체가 나온다. 팔레트로 다른 파일을 열면 유령 강조도 남는다(ADR-0037).
 func visualAction(key string, count int) action {
 	switch key {
 	case "ctrl+c":
 		return actionQuit{}
+	case "ctrl+z":
+		// 편집기 밖으로 나가는 손짓이라 mode 를 가리지 않는다. `ctrl+c` 와 같은 갈래인데
+		// 여태 이것만 빠져 있었다 — 둘 다 고른 것을 건드리지 않고, 셸에서 `fg` 로 올라오면
+		// 고른 그대로 이어 간다(ADR-0023, ADR-0037).
+		return actionSuspend{}
 	case "ctrl+d":
 		// 고른 범위가 커서를 따라 자란다. 이동 키를 친 것과 같다 — 화면 단위 이동이 motion 이
 		// 아니라 홀로 서는 동작인 것은 화면 높이가 있어야 정해지기 때문이다(ADR-0062).

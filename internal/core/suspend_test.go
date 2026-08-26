@@ -37,6 +37,31 @@ func TestSuspendFromSidebar(t *testing.T) {
 	assert.IsType(t, viewSidebar{}, next)
 }
 
+// visual 에서도 내려간다. 올라오면 고른 것이 그대로다 — 종료가 아니라 멈춤이다.
+func TestSuspendFromVisualMode(t *testing.T) {
+	var model tea.Model = send(newTestEditor("abc\ndef\n", 40, 5), "V", "j")
+	require.IsType(t, viewEditorVisual{}, model)
+
+	next, cmd := model.Update(key("ctrl+z"))
+
+	require.NotNil(t, cmd, "ctrl+z 는 멈추라는 cmd 를 낸다")
+	assert.IsType(t, tea.SuspendMsg{}, cmd())
+	assert.IsType(t, viewEditorVisual{}, next, "mode 는 그대로다")
+	assert.True(t, bufferOf(t, next).selection.active, "고른 것도 그대로다")
+}
+
+// **`ctrl+p` 는 여전히 안 받는다.** 팔레트가 고른 범위를 놓지 않아서, 골라 둔 것이 상자 뒤로
+// 칠해진 채 화면 전체를 내는 명령이 돈다 — 보이는 것과 하는 것이 어긋난다(ADR-0037).
+func TestVisualStillIgnoresPalette(t *testing.T) {
+	var model tea.Model = send(newTestEditor("abc\ndef\n", 40, 5), "V", "j")
+
+	next, cmd := model.Update(key("ctrl+p"))
+
+	assert.Nil(t, cmd)
+	assert.IsType(t, viewEditorVisual{}, next)
+	assert.True(t, bufferOf(t, next).selection.active)
+}
+
 // insert mode 에서는 내려가지 않는다. 글자로 들어가지도 않는다.
 func TestSuspendIgnoredInInsertMode(t *testing.T) {
 	var model tea.Model = send(newTestEditor("abc\n", 40, 5), "i")
