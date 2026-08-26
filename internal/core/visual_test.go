@@ -156,7 +156,8 @@ func TestVisualChange(t *testing.T) {
 
 // visual 이 받지 않는 키는 아무 일도 하지 않고 그대로 머문다.
 func TestVisualIgnoresUnboundKeys(t *testing.T) {
-	for _, k := range []string{":", "/", "?", "ctrl+p", "ctrl+w", "i", "o", "p", "u"} {
+	// `u` 는 여기 없다 — visual 에서는 소문자로 맞추는 키다(ADR-0083).
+	for _, k := range []string{":", "/", "?", "ctrl+p", "ctrl+w", "i", "o", "p"} {
 		t.Run(k, func(t *testing.T) {
 			m := send(newTestEditor("foo bar\nbaz", 80, 20), "v", k)
 

@@ -69,6 +69,12 @@ func visualAction(key string, count int) action {
 		return actionVisualYank{}
 	case "c":
 		return actionVisualChange{}
+	case "~":
+		return actionVisualChangeCase{kind: caseToggle}
+	case "U":
+		return actionVisualChangeCase{kind: caseUpper}
+	case "u":
+		return actionVisualChangeCase{kind: caseLower}
 	case ">":
 		return actionVisualIndent{direction: indentRight}
 	case "<":

@@ -230,6 +230,27 @@ func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
 	return nil, nil
 }
 
+// actionChangeCase 는 `~` 다. 커서 자리 글자의 대소문자를 뒤집고 오른쪽으로 간다.
+//
+// **operator 갈래(`g~`·`gu`·`gU`) 는 두지 않았다.** 대문자·소문자로 맞추는 것은 visual 의
+// `U`·`u` 로 간다 — 범위를 눈으로 고른 뒤에 치는 길이다 (ADR-0083).
+type actionChangeCase struct {
+	kind  caseKind
+	count int
+}
+
+func (c actionChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
+	e.activeBuffer().changeCaseChars(c.kind, c.count, e.contentWidth())
+	e.scrollToCursor()
+
+	return nil, nil
+}
+
 // ── visual ──
 //
 // visual 의 동작은 operator 와 달리 뒤에 motion 을 기다리지 않는다. 고른 범위가 이미 있어서
@@ -369,6 +390,28 @@ func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
 
 	if area, ok := buf.selectionRange(); ok {
 		buf.reindentLines(area.startLine, area.endLine, e.contentWidth())
+	}
+	e.scrollToCursor()
+
+	return normalMode(e)
+}
+
+// actionVisualChangeCase 는 visual 의 `~`·`u`·`U` 다. 고른 범위의 대소문자를 바꾼다.
+//
+// normal 의 `~` 와 달리 커서를 밀지 않는다 — 범위가 이미 정해져 있어서 훑어 갈 것이 없고,
+// 커서는 다른 visual 동작과 같이 범위의 시작으로 간다.
+type actionVisualChangeCase struct{ kind caseKind }
+
+func (c actionVisualChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
+	buf := e.activeBuffer()
+
+	if area, ok := buf.selectionRange(); ok {
+		buf.changeCaseRange(area, c.kind, e.contentWidth())
 	}
 	e.scrollToCursor()
 

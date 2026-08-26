@@ -243,6 +243,10 @@ func standaloneAction(key string, count int) action {
 	case "x":
 		// `dl` 과 같다. 줄 끝을 넘지 않으므로 다음 줄이 끌려 올라오지 않는다. vim 과 같다.
 		return actionDelete{motion: motionRight{}, count: count}
+	case "~":
+		// 대문자·소문자로 **맞추는** 것은 visual 의 `U`·`u` 다. operator 갈래(`g~`·`gu`·`gU`)
+		// 를 두지 않았다(ADR-0083).
+		return actionChangeCase{kind: caseToggle, count: count}
 	case "p":
 		return actionPasteAfter{count: count}
 	case "P":
