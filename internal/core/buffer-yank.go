@@ -1,9 +1,6 @@
 package core
 
-import (
-	"fmt"
-	"unicode/utf8"
-)
+// 복사하는 것들이다. `y`·`yy` 다. 지우기와 범위 잡는 법이 같아서 모양이 나란하다 (ADR-0017).
 
 // yankByMotion 은 motion 이 가리키는 범위를 register 에 담는다. `y` 뒤에 붙은 키가 motion 이다.
 //
@@ -67,33 +64,4 @@ func (buf *Buffer) moveToRangeStart(area motionRange, width int) {
 	}
 
 	buf.clampToNormal(width)
-}
-
-// copiedMessage 는 `y` 가 statusBar 아래 줄에 띄우는 알림이다. 다음 키를 누르면 사라진다.
-//
-// 복사는 화면에 아무 자국을 남기지 않는다 — 지우기와 달리 글자가 그대로 있어서, 손이 친 `y`
-// 가 먹었는지 범위를 어디까지 잡았는지 볼 길이 없다. 그래서 한 줄짜리도 알린다.
-// vim 은 `report` 만큼 넘을 때만 알리지만, 그 기준은 "파일이 크게 바뀌었다" 는 경고 쪽이다.
-//
-// 줄 단위면 줄 수, 글자 단위면 글자 수다. 붙여넣기가 줄로 들어갈지 글자로 들어갈지가 곧
-// 이 갈래라, 알림이 그것을 같이 보여 준다.
-func (reg register) copiedMessage() string {
-	if reg.linewise {
-		return fmt.Sprintf("%d 줄 복사되었습니다", len(reg.lines))
-	}
-
-	return fmt.Sprintf("%d 글자 복사되었습니다", reg.charCount())
-}
-
-// charCount 는 글자 단위 register 에 담긴 글자 수다. byte 가 아니라 rune 으로 센다 —
-// 한글 한 자가 3 글자로 세어지면 안 된다.
-//
-// 여러 줄에 걸친 것이면 사이의 줄바꿈도 한 글자다. 담긴 그대로가 붙여넣기로 나가는 글자다.
-func (reg register) charCount() int {
-	count := max(len(reg.lines)-1, 0)
-	for _, line := range reg.lines {
-		count += utf8.RuneCount(line)
-	}
-
-	return count
 }

@@ -161,10 +161,10 @@ func TestJSONKeepsStateOnEmptyLine(t *testing.T) {
 
 func TestDetectJSON(t *testing.T) {
 	for _, path := range []string{"package.json", "tsconfig.jsonc", "a.json5", "b.hjson", "A.JSON"} {
-		assert.Equal(t, jsonNormal{}, Detect(path), path)
+		assert.Equal(t, jsonNormal{}, LanguageFor(path).State(), path)
 	}
 
-	assert.Nil(t, Detect("jsonfile"), "이름에 json 이 들었을 뿐이다")
+	assert.Nil(t, LanguageFor("jsonfile").State(), "이름에 json 이 들었을 뿐이다")
 }
 
 func TestJSONIndent(t *testing.T) {
@@ -193,7 +193,7 @@ func TestJSONIndent(t *testing.T) {
 		})
 	}
 
-	rule := IndentFor("package.json")
+	rule := LanguageFor("package.json").Indent()
 	assert.Equal(t, 1, rule.Close([]byte("}")), "닫는 괄호는 한 단계 나온다")
 	assert.Equal(t, 0, rule.Close([]byte(`"a": 1`)))
 }

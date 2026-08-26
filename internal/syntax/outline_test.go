@@ -14,10 +14,10 @@ import (
 func outlineOf(t *testing.T, path, line string) (int, bool) {
 	t.Helper()
 
-	rule := OutlineFor(path)
+	rule := LanguageFor(path).Outline()
 	require.NotNil(t, rule, "%s 에 뼈대 규칙이 없다", path)
 
-	state := Detect(path)
+	state := LanguageFor(path).State()
 	require.NotNil(t, state, "%s 를 훑을 수 없다", path)
 
 	tokens, _ := state.Lex([]byte(line))
@@ -31,8 +31,8 @@ func TestOutlineForEveryLanguage(t *testing.T) {
 		assert.NotNil(t, rule.outline, "%v 에 뼈대 규칙이 없다", rule.aliases)
 	}
 
-	assert.Nil(t, OutlineFor("notes.txt"), "모르는 확장자는 규칙이 없다")
-	assert.NotNil(t, OutlineFor("Dockerfile.dev"), "이름 뒤에 붙는 것도 dockerfile 이다")
+	assert.Nil(t, LanguageFor("notes.txt").Outline(), "모르는 확장자는 규칙이 없다")
+	assert.NotNil(t, LanguageFor("Dockerfile.dev").Outline(), "이름 뒤에 붙는 것도 dockerfile 이다")
 }
 
 // 제목이 아래 글을 거느리고, 깊이는 `#` 개수다.
@@ -66,9 +66,9 @@ func TestOutlineMarkdownHeading(t *testing.T) {
 // 원문을 `#` 로 훑으면 python 주석이 제목이 되어, 코드 블록을 지날 때마다 엉뚱한 줄이
 // 화면 위에 붙는다. 토큰을 보는 것이 그것을 막는다(ADR-0040).
 func TestOutlineMarkdownIgnoresFence(t *testing.T) {
-	rule := OutlineFor("doc.md")
+	rule := LanguageFor("doc.md").Outline()
 
-	state := Detect("doc.md")
+	state := LanguageFor("doc.md").State()
 	_, state = state.Lex([]byte("```py"))
 
 	line := []byte("# 주석이지 제목이 아니다")
@@ -153,9 +153,9 @@ func TestOutlineDepthCountsColumns(t *testing.T) {
 // 시작해도 「가장 바깥」이 아니다. 이것이 없으면 raw string 안에 왼쪽 끝으로 붙여 쓴 SQL 한
 // 줄이 그 위의 함수를 통째로 가린다(ADR-0049).
 func TestOutlineDepthIsDeepForText(t *testing.T) {
-	rule := OutlineFor("main.go")
+	rule := LanguageFor("main.go").Outline()
 
-	state := Detect("main.go")
+	state := LanguageFor("main.go").State()
 	_, state = state.Lex([]byte("const q = `"))
 
 	line := []byte("SELECT *")

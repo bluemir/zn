@@ -77,6 +77,7 @@ func moveOn(m moveMotion, buf Buffer, count, width int) Buffer {
 type motionLeft struct{}
 
 func (motionLeft) move(buf *Buffer, count, width int) { buf.moveLeft(max(count, 1), width) }
+
 func (m motionLeft) span(buf Buffer, count, width int) (motionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
@@ -85,6 +86,7 @@ func (m motionLeft) span(buf Buffer, count, width int) (motionRange, bool) {
 type motionRight struct{}
 
 func (motionRight) move(buf *Buffer, count, width int) { buf.moveRight(max(count, 1), width) }
+
 func (m motionRight) span(buf Buffer, count, width int) (motionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
@@ -93,6 +95,7 @@ func (m motionRight) span(buf Buffer, count, width int) (motionRange, bool) {
 type motionLineStart struct{}
 
 func (motionLineStart) move(buf *Buffer, count, width int) { buf.moveLineStart(width) }
+
 func (m motionLineStart) span(buf Buffer, count, width int) (motionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
@@ -101,6 +104,7 @@ func (m motionLineStart) span(buf Buffer, count, width int) (motionRange, bool) 
 type motionFirstNonBlank struct{}
 
 func (motionFirstNonBlank) move(buf *Buffer, count, width int) { buf.moveLineFirstNonBlank(width) }
+
 func (m motionFirstNonBlank) span(buf Buffer, count, width int) (motionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
@@ -109,6 +113,7 @@ func (m motionFirstNonBlank) span(buf Buffer, count, width int) (motionRange, bo
 type motionLineEnd struct{}
 
 func (motionLineEnd) move(buf *Buffer, count, width int) { buf.moveLineEnd(max(count, 1), width) }
+
 func (m motionLineEnd) span(buf Buffer, count, width int) (motionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
@@ -119,6 +124,7 @@ type motionWordBack struct{ kind wordKind }
 func (m motionWordBack) move(buf *Buffer, count, width int) {
 	buf.moveWordBackward(max(count, 1), m.kind, width)
 }
+
 func (m motionWordBack) span(buf Buffer, count, width int) (motionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
@@ -132,6 +138,7 @@ type motionWordEnd struct{ kind wordKind }
 func (m motionWordEnd) move(buf *Buffer, count, width int) {
 	buf.moveWordEnd(max(count, 1), m.kind, width)
 }
+
 func (m motionWordEnd) span(buf Buffer, count, width int) (motionRange, bool) {
 	moved := moveOn(m, buf, count, width)
 	moved.includeCursorCluster()
@@ -149,6 +156,7 @@ type motionWordForward struct{ kind wordKind }
 func (m motionWordForward) move(buf *Buffer, count, width int) {
 	buf.moveWordForward(max(count, 1), m.kind, width)
 }
+
 func (m motionWordForward) span(buf Buffer, count, width int) (motionRange, bool) {
 	moved := buf
 	moved.wordForwardToDelete(max(count, 1), m.kind, width)
@@ -162,6 +170,7 @@ func (m motionWordForward) span(buf Buffer, count, width int) (motionRange, bool
 type motionLineDown struct{}
 
 func (motionLineDown) move(buf *Buffer, count, width int) { buf.moveDownLine(max(count, 1)) }
+
 func (m motionLineDown) span(buf Buffer, count, width int) (motionRange, bool) {
 	// 이미 마지막 줄이면 갈 곳이 없어서 아무 일도 하지 않는다.
 	// 줄이 모자라기만 한 것은 파일 끝까지다. vim 과 같다.
@@ -176,6 +185,7 @@ func (m motionLineDown) span(buf Buffer, count, width int) (motionRange, bool) {
 type motionLineUp struct{}
 
 func (motionLineUp) move(buf *Buffer, count, width int) { buf.moveUpLine(max(count, 1)) }
+
 func (m motionLineUp) span(buf Buffer, count, width int) (motionRange, bool) {
 	if buf.cursorLine == 0 {
 		return motionRange{}, false
@@ -197,6 +207,7 @@ func (motionToLastLine) move(buf *Buffer, count, width int) {
 
 	buf.moveToLine(line, width)
 }
+
 func (m motionToLastLine) span(buf Buffer, count, width int) (motionRange, bool) {
 	return lineSpan(buf, moveOn(m, buf, count, width))
 }
@@ -207,6 +218,7 @@ type motionToFirstLine struct{}
 func (motionToFirstLine) move(buf *Buffer, count, width int) {
 	buf.moveToLine(max(count, 1)-1, width)
 }
+
 func (m motionToFirstLine) span(buf Buffer, count, width int) (motionRange, bool) {
 	return lineSpan(buf, moveOn(m, buf, count, width))
 }
@@ -215,16 +227,21 @@ func (m motionToFirstLine) span(buf Buffer, count, width int) (motionRange, bool
 
 // motionRowUp, motionRowDown 은 `↑` 와 `↓` 다. 화면 행 단위라 줄 단위와 갈려서
 // operator 뒤에는 받지 않는다 — `d↑` 를 어떻게 잡을지는 아직 정하지 않았다(ADR-0013).
+//
+// **홀로 쓸 때는 count 를 받는다.** `3↑` 가 세 행이다 — `3j` 가 세 줄인 것과 같다.
+// operator 를 안 받는 것과는 다른 물음이고, ADR-0013 이 정한 것은 그쪽뿐이다 (ADR-0081).
 type motionRowUp struct{}
 
-func (motionRowUp) move(buf *Buffer, count, width int) { buf.moveUp(1, width) }
+func (motionRowUp) move(buf *Buffer, count, width int) { buf.moveUpRow(max(count, 1), width) }
+
 func (motionRowUp) span(Buffer, int, int) (motionRange, bool) {
 	return motionRange{}, false
 }
 
 type motionRowDown struct{}
 
-func (motionRowDown) move(buf *Buffer, count, width int) { buf.moveDown(1, width) }
+func (motionRowDown) move(buf *Buffer, count, width int) { buf.moveDownRow(max(count, 1), width) }
+
 func (motionRowDown) span(Buffer, int, int) (motionRange, bool) {
 	return motionRange{}, false
 }
@@ -237,6 +254,7 @@ func (motionRowDown) span(Buffer, int, int) (motionRange, bool) {
 type motionRowStart struct{}
 
 func (motionRowStart) move(buf *Buffer, count, width int) { buf.moveRowStart(width) }
+
 func (motionRowStart) span(Buffer, int, int) (motionRange, bool) {
 	return motionRange{}, false
 }
@@ -244,6 +262,7 @@ func (motionRowStart) span(Buffer, int, int) (motionRange, bool) {
 type motionRowEnd struct{}
 
 func (motionRowEnd) move(buf *Buffer, count, width int) { buf.moveRowEnd(width) }
+
 func (motionRowEnd) span(Buffer, int, int) (motionRange, bool) {
 	return motionRange{}, false
 }
@@ -298,4 +317,19 @@ func (motionWholeLines) span(buf Buffer, count, width int) (motionRange, bool) {
 		targetLine: end, targetCol: buf.cursorCol,
 		linewise: true,
 	}, true
+}
+
+// motionRange 는 operator 가 motion 으로 잡은 범위다. `d` 와 `y` 가 같이 쓴다.
+//
+// 글자 단위면 (startLine, startCol) 부터 (endLine, endCol) **앞까지** 이고,
+// 줄 단위면 [startLine, endLine] 줄 전체다.
+//
+// targetLine/targetCol 은 motion 이 커서를 둔 자리다. 앞으로 가는 motion 이면 범위의 끝,
+// 뒤로 가는 motion 이면 범위의 시작이다. 지우기는 제 커서 규칙이 있어서 쓰지 않고 복사가 쓴다 —
+// vim 의 `yk` 는 칸을 지키고 `ygg` 는 첫 비공백으로 가는데, 그 차이가 곧 motion 이 둔 자리다.
+type motionRange struct {
+	startLine, startCol   int
+	endLine, endCol       int
+	targetLine, targetCol int
+	linewise              bool
 }

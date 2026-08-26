@@ -1,8 +1,8 @@
 package core
 
-import (
-	"unicode/utf8"
-)
+import "unicode/utf8"
+
+// 글자를 덮어쓰는 것들이다. vim 의 `r` 다. 지우고 넣는 것이 아니라 그 자리를 갈아끼운다.
 
 // replacementText 는 `r` 뒤에 붙은 키가 파일에 넣을 글자면 그것을 준다.
 //

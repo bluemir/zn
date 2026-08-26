@@ -186,7 +186,7 @@ func TestYAMLBlockScalarModifiers(t *testing.T) {
 
 func TestDetectYAML(t *testing.T) {
 	for _, path := range []string{"a.yaml", ".github/workflows/ci.yml", "A.YAML"} {
-		assert.Equal(t, yamlNormal{}, Detect(path), path)
+		assert.Equal(t, yamlNormal{}, LanguageFor(path).State(), path)
 	}
 }
 
@@ -224,9 +224,9 @@ func TestYAMLIndent(t *testing.T) {
 
 // yaml 은 들여쓰기가 곧 뜻이라 `=` 로 되짚지 않는다. markdown 과 같은 까닭이다.
 func TestYAMLDoesNotReindent(t *testing.T) {
-	assert.False(t, IndentFor("a.yaml").Reindents())
-	assert.False(t, IndentFor("a.yaml").TabIndentsLine([]byte("  - 항목")))
-	assert.Equal(t, []byte("  "), IndentFor("a.yaml").Unit())
+	assert.False(t, LanguageFor("a.yaml").Indent().Reindents())
+	assert.False(t, LanguageFor("a.yaml").Indent().TabIndentsLine([]byte("  - 항목")))
+	assert.Equal(t, []byte("  "), LanguageFor("a.yaml").Indent().Unit())
 }
 
 // 뼈대는 값 없는 키다. 깊은 설정 파일에서 지금 어느 키 안인지가 화면 위에 남는다.

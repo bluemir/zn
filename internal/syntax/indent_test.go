@@ -13,10 +13,10 @@ import (
 func nextOf(t *testing.T, path, line string) (int, string) {
 	t.Helper()
 
-	state := Detect(path)
+	state := LanguageFor(path).State()
 	require.NotNil(t, state, "언어를 알아보지 못했다: %s", path)
 
-	rule := IndentFor(path)
+	rule := LanguageFor(path).Indent()
 	require.NotNil(t, rule, "들여쓰기 규칙이 없다: %s", path)
 
 	tokens, _ := state.Lex([]byte(line))
@@ -32,8 +32,8 @@ func TestIndentForEveryLanguage(t *testing.T) {
 		assert.NotEmpty(t, rule.indent.Unit(), "%v 의 관례 단계가 비었다", rule.aliases)
 	}
 
-	assert.Nil(t, IndentFor("notes.txt"), "모르는 확장자는 규칙이 없다")
-	assert.NotNil(t, IndentFor("Dockerfile.dev"), "이름 뒤에 붙는 것도 dockerfile 이다")
+	assert.Nil(t, LanguageFor("notes.txt").Indent(), "모르는 확장자는 규칙이 없다")
+	assert.NotNil(t, LanguageFor("Dockerfile.dev").Indent(), "이름 뒤에 붙는 것도 dockerfile 이다")
 }
 
 // `=` 로 다시 들여쓸 수 없는 언어는 markdown 과 yaml 이다.
@@ -71,7 +71,7 @@ func TestCloseLooksOnlyAtTheStartOfTheLine(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rule := IndentFor(test.path)
+			rule := LanguageFor(test.path).Indent()
 			require.NotNil(t, rule)
 			assert.Equal(t, test.want, rule.Close([]byte(test.head)))
 		})

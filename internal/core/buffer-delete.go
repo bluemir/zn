@@ -1,27 +1,6 @@
 package core
 
-// register 는 지우거나 복사한 내용이다. vim 의 무명 register 에 해당한다.
-//
-// 줄 단위였는지를 같이 들고 있어야 붙여넣기가 줄로 넣을지 글자로 넣을지 정할 수 있다(ADR-0017).
-type register struct {
-	lines    [][]byte // 줄 단위면 그 줄들, 글자 단위면 조각을 줄로 끊은 것
-	linewise bool
-}
-
-// motionRange 는 operator 가 motion 으로 잡은 범위다. `d` 와 `y` 가 같이 쓴다.
-//
-// 글자 단위면 (startLine, startCol) 부터 (endLine, endCol) **앞까지** 이고,
-// 줄 단위면 [startLine, endLine] 줄 전체다.
-//
-// targetLine/targetCol 은 motion 이 커서를 둔 자리다. 앞으로 가는 motion 이면 범위의 끝,
-// 뒤로 가는 motion 이면 범위의 시작이다. 지우기는 제 커서 규칙이 있어서 쓰지 않고 복사가 쓴다 —
-// vim 의 `yk` 는 칸을 지키고 `ygg` 는 첫 비공백으로 가는데, 그 차이가 곧 motion 이 둔 자리다.
-type motionRange struct {
-	startLine, startCol   int
-	endLine, endCol       int
-	targetLine, targetCol int
-	linewise              bool
-}
+// 지우는 것들이다. `d`·`x`·`dd` 다. 지운 것은 register 로 나간다 (ADR-0017).
 
 // deleteByMotion 은 motion 이 가리키는 범위를 지운다.
 //

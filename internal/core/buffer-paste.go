@@ -1,8 +1,8 @@
 package core
 
-import (
-	"bytes"
-)
+import "bytes"
+
+// 붙여넣는 것들이다. `p`·`P` 다. register 가 줄 단위인지 글자 단위인지에 따라 갈린다 (ADR-0018).
 
 // pasteAfter 는 register 를 커서 뒤에 붙인다. vim 의 `p` 다.
 //

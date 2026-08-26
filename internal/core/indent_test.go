@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/syntax"
 )
 
 // writeEditorconfig 는 새 디렉터리에 `.editorconfig` 를 놓고 그 안의 파일 경로를 준다.
@@ -52,7 +54,7 @@ func TestEditorconfigDecidesTheUnit(t *testing.T) {
 			path := writeEditorconfig(t, test.body, test.file)
 
 			// 파일 안은 비워 둔다. 잴 것이 없어야 `.editorconfig` 와 언어 기본값이 갈린다.
-			assert.Equal(t, test.want, string(resolveIndentUnit(path, [][]byte{{}})))
+			assert.Equal(t, test.want, string(resolveIndentUnit(path, syntax.LanguageFor(path), [][]byte{{}})))
 		})
 	}
 }
@@ -97,7 +99,7 @@ func TestIndentUnitFallsBackToTheLanguage(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := writeEditorconfig(t, "", test.file)
-			assert.Equal(t, test.want, string(resolveIndentUnit(path, [][]byte{{}})))
+			assert.Equal(t, test.want, string(resolveIndentUnit(path, syntax.LanguageFor(path), [][]byte{{}})))
 		})
 	}
 }

@@ -1,5 +1,8 @@
 package core
 
+// 바꾸는 것들이다. `c`·`cc` 다. 지우고 insert 로 들어가는 것이라 지우기와 나란한데,
+// `cc` 만 줄을 없애지 않고 들여쓰기를 남긴다 — vim 과 같다 (ADR-0017).
+
 // changeByMotion 은 motion 이 가리키는 범위를 바꾼다. `c` 뒤에 붙은 키가 motion 이다.
 //
 // 지우고 insert mode 로 들어가는 것이 `d` 와 다른 전부라 범위 계산도 register 도 같이 쓴다.
@@ -94,16 +97,4 @@ func (buf *Buffer) changeLines(from, to, width int) register {
 	buf.updateDesiredCol(width)
 
 	return register{lines: removed, linewise: true}
-}
-
-// leadingBlank 는 줄 앞의 공백과 tab 이다.
-//
-// 줄은 제자리에서 바뀌지 않으므로(ADR-0001) 잘라낸 조각을 그대로 새 줄로 써도 된다.
-func leadingBlank(line []byte) []byte {
-	col := 0
-	for col < len(line) && (line[col] == ' ' || line[col] == '\t') {
-		col++
-	}
-
-	return line[:col]
 }

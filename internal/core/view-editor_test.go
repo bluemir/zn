@@ -154,7 +154,7 @@ func TestViewEditorCursorPosition(t *testing.T) {
 	buf.moveRight(1, m.width)
 	assert.Equal(t, tea.Position{X: left + 2, Y: 1}, m.View().Cursor.Position)
 
-	buf.moveDown(1, m.width)
+	buf.moveDownRow(1, m.width)
 	assert.Equal(t, tea.Position{X: left + 2, Y: 2}, m.View().Cursor.Position)
 }
 
@@ -163,7 +163,7 @@ func TestViewEditorCursorAfterScroll(t *testing.T) {
 	m := newTestEditor(strings.Repeat("line\n", 100), 80, 10)
 	buf := &m.buffers[0]
 
-	buf.moveDown(20, m.width)
+	buf.moveDownRow(20, m.width)
 	buf.scrollTo(m.width, m.textHeight())
 
 	require.Equal(t, 11, buf.top)
@@ -178,7 +178,7 @@ func TestViewEditorCursorInWrappedLine(t *testing.T) {
 	buf.moveRight(1, m.width)
 	assert.Equal(t, tea.Position{X: 1, Y: 1}, m.View().Cursor.Position)
 
-	buf.moveDown(1, m.width)
+	buf.moveDownRow(1, m.width)
 	assert.Equal(t, tea.Position{X: 1, Y: 2}, m.View().Cursor.Position, "같은 줄의 두 번째 행")
 }
 

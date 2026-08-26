@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -215,49 +214,6 @@ func firstLine(text string, fallback error) string {
 	}
 
 	return line
-}
-
-// applySaveHook 은 저장하기 직전에 buffer 를 포매터가 낸 글로 갈아끼운다.
-// 한 줄로 무엇을 했는지 준다 — 부르는 쪽이 저장 문구에 붙인다(ADR-0052).
-//
-// **실패하면 buffer 를 건드리지 않고 까닭만 준다. 저장은 그대로 간다.** 편집 중의 Go 는 거의
-// 언제나 문법이 깨져 있어서, 여기서 저장을 막으면 고치다 만 파일을 둘 곳이 없어진다.
-//
-// 읽기 전용 파일은 손대지 않는다. 쓰기가 어차피 실패하는데 buffer 만 바뀌면 되돌릴 길도
-// 없다 — applyFileFormat 과 같은 자리다(editorconfig.go).
-func (buf *Buffer) applySaveHook(hook *saveHook, width int) string {
-	if hook == nil || buf.readOnly {
-		return ""
-	}
-
-	// 마지막 줄바꿈을 붙여 넘긴다. buffer 는 그것을 내용이 아니라 사실로 들고 있어서
-	// (finalLineEnding) 붙이지 않으면 포매터가 마지막 줄만 다르게 본다.
-	in := append(bytes.Join(buf.lines, []byte{'\n'}), '\n')
-
-	out, err := hook.run(in)
-	if err != nil {
-		return hook.name + ": " + err.Error()
-	}
-
-	next := splitFormatted(out)
-	if equalLines(buf.lines, next) {
-		return ""
-	}
-
-	changed := countChangedLines(buf.lines, next)
-	grew := len(next) - len(buf.lines)
-
-	buf.replaceAll(next, width)
-
-	note := fmt.Sprintf("%s: %d 줄 맞춤", hook.name, changed)
-	switch {
-	case grew > 0:
-		note += fmt.Sprintf(", %d 줄 늘어남", grew)
-	case grew < 0:
-		note += fmt.Sprintf(", %d 줄 줄어듦", -grew)
-	}
-
-	return note
 }
 
 // splitFormatted 는 포매터가 낸 글을 buffer 의 줄로 나눈다.

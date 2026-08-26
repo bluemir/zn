@@ -110,9 +110,9 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			switch msg.String() {
 			case "up":
-				buf.moveUp(1, m.contentWidth())
+				buf.moveUpRow(1, m.contentWidth())
 			case "down":
-				buf.moveDown(1, m.contentWidth())
+				buf.moveDownRow(1, m.contentWidth())
 			case "left":
 				buf.moveLeft(1, m.contentWidth())
 			case "right":

@@ -393,3 +393,27 @@
 - [ ] visual 의 `o`(양끝 바꾸기)·`p`(고른 자리를 register 로 바꾸기)·`r`(한 글자로 덮기) 를 넣을지 정한다.
 	-  `p` 는 지우기와 붙여넣기를 한 되돌리기 구간으로 묶어야 하고, `r` 은 글자 하나를 기다리는 상태가 visual 쪽에도 필요하다
 	- 그 상태는 `visualRegister` 가 본을 만들어 두었다 (ADR-0017, ADR-0018, ADR-0037, ADR-0058)
+- [ ] `Buffer` 메서드 이름을 갈래로 정리한다. 110개가 20개 파일에 흩어져 있고 아래는 훑어서 나온 어긋남 목록이다. 고칠지는 항목마다 따로 정한다
+	- [ ] `replace*` 접두 하나에 갈래가 셋 산다 — `replaceLines`(lines 를 갈아끼우는 유일한 저수준 기본기, undo·syntax 캐시가 여기 걸리고 22곳이 부른다) · `replaceIndented`(indent-range 전용 중간층) · `replaceAll`(파일 내용 통째 교체) · `replaceChar`·`replaceWithNewline`(vim `r` 키). `buf.replace` 를 치면 「밖에서 부르면 안 되는 기본기」와 「`r` 키」가 자동완성 한 줄에 섞인다. 못 건드리는 쪽이 어디인지가 먼저다 — `r` 이 vim 어휘라면 저수준 쪽 이름을 비켜야 한다
+	- [x] `moveUp`/`moveUpRow`/`moveUpLine` 에서 축 둘이 이름칸 하나에서 부딪히던 것. 넷 다 접미를 달고 넷 다 n 을 받게 해서 이름에 남은 축이 「Row 냐 Line 이냐」 하나가 되었다. 고치다 **`↑`·`↓` 가 홀로 쓸 때 count 를 버리고 있던 것**이 드러나서(`3j` 는 세 줄인데 `3↑` 는 한 행이었다) 같이 고쳤다 — ADR-0013 이 정한 것은 operator 뒤(`d↑`) 뿐이었고 홀로 쓸 때는 어디에도 없었다. 화살표에 숫자를 붙이는 손이 드물어 눈에 안 띄던 종류다 (ADR-0006, ADR-0013, ADR-0081)
+		- 두 낱말(「논리 줄」·「화면 행」) 의 뜻과 어느 키가 어느 쪽인지는 `buffer-move.go` 머리글에 있다. 저장소가 이미 그 둘만 쓰고 있었는데(코드 26 개 파일 + ADR 넷) 뜻을 적어 둔 자리가 없었다
+		- [ ] `home`·`end` 는 count 를 그대로 버린다. 화면 행의 시작으로 세 번 가는 것이 한 번 가는 것과 같은 자리라 셈이 뜻을 갖지 않아서다 — `$` 가 받는 것은 「n 줄 아래의 끝」이라는 다른 뜻이 있어서다. 뜻을 줄지 정한다 (ADR-0081)
+	- [ ] 커서를 놓는 어휘가 둘이다 — `moveTo`·`moveToLine`·`moveToRangeStart` 와 `placeCursorInLine`·`placeCursorInRow`. 갈리는 축은 실재한다(`placeCursorIn*` 는 `desiredCol` 을 읽어서 놓고 `moveTo*` 는 놓은 뒤 다시 쓴다) 인데, 이름은 그것 대신 「move/place」라는 뜻 없는 차이로 보인다
+	- [ ] exported 여섯(`OpenBuffer`·`Save`·`SaveForce`·`SaveTo`·`SaveToForce`·`Reload`) 의 규칙이 없다. 재 보니 `core` 패키지의 외부 접점은 `core.Run` 하나이고 이 여섯은 전부 패키지 안에서만 불린다 — 대문자일 근거가 지금은 없다. 내린다면 `Buffer` type 자체도 같이 본다
+	- [ ] `saveTo`/`SaveTo`/`SaveToForce` 는 대소문자 한 글자가 「검사를 하느냐」를 가른다. 눈으로 안 갈린다. 같은 구조인 `Save`/`SaveForce` 쪽은 알맹이 이름이 `formatAndWrite` 로 아예 달라서, 한 구조에 이름 짓는 법이 둘이다 (ADR-0024)
+	- [ ] `checkNotChangedOutside` 만 부정형이라 `if err := ...; err != nil` 이 이중부정이 된다. 짝인 `checkOutside` 는 긍정형이다 (ADR-0015)
+	- [ ] `wordForwardToDelete`·`wordEndToChange` 는 이름이 「누가 쓰는지」다. 나머지 108개는 「무엇을 하는지」다. `dw` 가 `w` 와, `cw` 가 `e` 와 다른 것은 vim 의 사실이라 존재는 옳고 이름만 남은 문제다
+	- [ ] `apply*` 넷의 뜻이 둘이다 — `applyUndo`·`applyRedo`(이력 항목 하나를 적용, `bool`) 와 `applyFileFormat`·`applySaveHook`(바깥 규칙으로 buffer 를 맞춤, 알림 `string`) (ADR-0052)
+	- 어긋나지 않은 것도 적어 둔다 — 다시 훑을 때 여기를 건너뛴다. motion 3짝이 완전 대칭이고(`{delete,yank,change}` × `{ByMotion,Range,Lines}`) 새 operator 가 올 자리가 이름에 이미 그려져 있다. `Force` 접미는 bool 인자를 피한 것이다. `nextPos`/`prevPos`, `findForward`/`findBackward`, `openLineBelow`/`openLineAbove` 가 다 반대말로 선다
+- [ ] 대소문자 전환 키 추가
+- [x] `Buffer` 의 책임 경계를 본 첫 건 — 언어는 경로가 아니라 제 필드가 든다. `buf.path` 가 「어디에 쓰는가」와 「어떤 문법인가」를 겸하고 있었고, 캐시 둘(`syntaxCache`·`indentUnit`) 이 그 겸직 위에서 「경로가 달라지면 다시 고른다」로 적혀 있었다 — 정말 지키려던 것은 언어 쪽이다. `syntax` 가 표 한 줄을 `Language` 로 내보내고(`LanguageFor(path)` 하나가 경로를 언어로 읽는 유일한 문이다) `Buffer` 는 `newBuffer` 에서 한 번 골라 든다. `syntaxCache` 는 키를 잃고 `resolveIndentUnit` 은 인자 셋이 근거 셋과 하나씩 짝지어졌다 (ADR-0080)
+	- [ ] `isGoFile`(`gopls.go`) 을 `syntax` 표로 끌어올지 정한다. 지금은 `strings.HasSuffix(path, ".go")` 로 따로 답해서 언어를 알아보는 법이 저장소에 둘이다. 합치지 않은 것은 그것이 답하는 물음이 「gopls 에게 알릴 파일인가」라 표의 물음과 다르기 때문이다 — 합치면 방금 `path` 에서 걷어낸 겸직을 표에 다시 만든다. 언어 지원과 LSP 지원이 실제로 어긋나는 날이 가르는 자리다 (ADR-0051, ADR-0080)
+	- [ ] `:saveas` 처럼 **이름 있는** buffer 의 이름을 갈아치우는 길이 생기면 그 자리도 언어를 다시 고르고 문법 캐시를 버려야 한다. 지금 `saveTo` 가 그 한 자리이고 거기 적어 두었다 (ADR-0024, ADR-0080)
+	- [ ] 다음으로 볼 자리 둘을 미뤄 두었다 — `insertCompletion` 이 `lsp.CompletionItem` 을 받는 것(Buffer 표면에서 `internal/lsp` 를 아는 유일한 메서드다) 과 `applySaveHook` 이 자식 프로세스를 돌리는 것(`Save` 주석은 「buffer 는 그것을 들 자리가 아니다」라고 이미 선을 그었는데 **드는 것**만 밖에 있고 **돌리는 것**은 안에 있다) (ADR-0051, ADR-0052)
+	- [ ] 화면 크기를 아는 일곱(`stickyAt`·`movePage`·`scrollTo`·`scrollBy`·`visibleRows`·`cursorScreenPos`·`positionAt`) 이 화면 분할이 올 때 커서·`top`·`selection` 과 같이 나갈 짐이다. `width` 를 받는 71 개는 wrap 때문이라 안 나간다 — 짐은 `height` 쪽만이다. 그중 `stickyAt` 만 사정이 다르다: `clampTop`·`scrollBy` 가 머리줄 높이만큼 여백을 두려고 부르므로 「스크롤이 머리줄을 알아야 하는가」를 먼저 정해야 한다 (ADR-0049, ADR-0037)
+- [ ] insert mode 에서 shift + 화살표로 visual mode 진입
+- [x] `Buffer` 메서드 110 개를 갈래별 파일로 나눴다. **규칙은 「`buffer-*.go` 에는 Buffer 의 메서드만 둔다」** — 여러 갈래가 나눠 쓰는 type·도우미와 다른 receiver 의 메서드는 접두 없는 파일에 남는다. 그래서 `register`·`motionRange` 는 register.go·motion.go 로, 줄을 화면에서 재는 열넷은 cluster.go 로, 무엇이 한 단어인지는 word.go 로 갔다. `sidebar.movePage`·`editor.searchMatches`·`editor.startSelection` 은 원래 파일에 남았다. 파일마다 무엇을 드는지 머리글을 달았다
+	- 1,074 줄짜리 `buffer.go` 가 다섯으로 갈렸다 — 남은 것은 type 과 태어나는 자리(213 줄) 이고 `buffer-move.go`(19)·`buffer-screen.go`(10)·`buffer-save.go`(10)·`buffer-reload.go`(4) 가 나왔다. **높이를 받는 열이 `buffer-screen.go` 하나에 모인 것이 소득이다** — 화면 분할이 올 때 나갈 짐이 파일 하나로 보인다
+	- `insertCompletion` 은 한 메서드짜리 `buffer-completion.go` 로 뒀다. 갈래로는 편집이라 `buffer-edit.go` 가 맞는데, 그러면 `internal/lsp` import 가 편집의 알맹이 파일로 들어온다 — 밖으로 뺄지 정할 때까지 그 import 를 한 파일에 가둔다 (ADR-0080)
+	- [ ] `buffer_test.go`(1,009 줄) 는 그대로 두었다. 커서·스크롤·저장을 한 파일에서 시험하는데 제품 코드가 셋으로 갈렸다. 시험을 같이 가를지 정한다 — 지워진 다섯(change·delete·edit·paste·replace) 의 짝은 이름만 맞춰 두었다
+	- [ ] `buffer.go` 에 없는 함수(`newBufferReadOnly`) 의 주석이 남아 있다. 이번 이동 전부터 있던 것이고 지금은 `OpenBuffer` 위에 떠 있다 — 읽기 전용 표시를 어디서 붙이는지 적어 둔 글이라 지울지 `detectReadOnly` 로 옮길지 정한다

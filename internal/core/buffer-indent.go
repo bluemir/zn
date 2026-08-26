@@ -1,0 +1,302 @@
+package core
+
+import (
+	"bytes"
+
+	"github.com/bluemir/zn/internal/syntax"
+)
+
+// 들여쓰기를 buffer 에 적용하는 자리다. 무엇을 한 단계로 삼는지(indent.go) 와 언어별 규칙
+// (internal/syntax) 은 밖에 있고, 여기는 그것으로 줄을 들이고 내는 일만 한다 (ADR-0047, ADR-0048).
+
+// indentText 는 이 파일의 한 단계다.
+func (buf *Buffer) indentText() []byte {
+	if buf.indent.set && buf.indent.path == buf.path {
+		return buf.indent.text
+	}
+
+	buf.indent = indentUnit{path: buf.path, set: true, text: resolveIndentUnit(buf.path, buf.language, buf.lines)}
+
+	return buf.indent.text
+}
+
+// indentForNewLine 은 새 줄이 가질 들여쓰기다.
+//
+// head 는 새 줄 **바로 위에 남을 내용** 이다. 줄 끝에서 가르면 그 줄 전체지만 줄 가운데서
+// 가르면 커서 앞까지다 — `func f() {|}` 에서 Enter 를 치면 위에 남는 것이 `func f() {` 라
+// 새 줄이 들어가야 한다. 줄 전체를 보면 괄호가 닫혀 있어서 그것을 놓친다.
+//
+// at 은 head 가 있는 줄이다. 문법 토큰을 그 줄에서 가져온다.
+//
+// 언어를 모르는 파일이면 앞 줄의 들여쓰기를 그대로 잇는다. vim 의 `autoindent` 다.
+func (buf *Buffer) indentForNewLine(at int, head []byte) []byte {
+	base := leadingBlank(head)
+
+	rule := buf.language.Indent()
+	if rule == nil || at < 0 || at >= len(buf.lines) {
+		return base
+	}
+
+	// 토큰이 있어야 문자열·주석 안의 괄호를 거른다. 커서가 있는 줄은 화면 안이라 이미 훑여
+	// 있는 것이 보통이지만, 담아둔 것이 없으면(첫 키, 방금 고친 줄) 여기서 채운다.
+	//
+	// 토큰의 자리가 줄 전체 기준이라 head 보다 뒤일 수 있다. codeBytes 가 넘는 자리를 잘라
+	// 낸다(syntax/indent.go).
+	buf.lexSyntaxTo(at)
+
+	level, prefix := rule.Next(head, buf.syntaxTokens(at))
+
+	return appendIndentLevel(base, buf.indentText(), level, prefix)
+}
+
+// insertNewLine 은 커서 자리에서 줄을 가르고 새 줄에 이 파일의 규칙이 정한 들여쓰기를 넣는다.
+//
+// insert 를 **한 번**만 부른다. 그것이 여러 줄을 이미 한 되돌리기 구간으로 다루므로(edit.go)
+// Enter 와 들여쓰기가 `u` 한 번에 같이 사라지고, 커서도 들여쓰기 다음 칸에 알아서 선다.
+func (buf *Buffer) insertNewLine(width int) {
+	line := buf.lines[buf.cursorLine]
+	indent := buf.indentForNewLine(buf.cursorLine, line[:buf.cursorCol])
+
+	buf.insert(concat([]byte{'\n'}, indent), width)
+}
+
+// reindentClosing 은 방금 친 글자가 그 줄을 닫는 줄로 만들었으면 한 단계 당긴다.
+//
+// insert mode 에서 글자를 넣기 **전에** 부른다. typed 는 이제 넣을 것이고, Enter 면 `\n` 이다 —
+// 낱말로 닫는 언어가 낱말이 끝났음을 그것으로 안다(syntax.Indent).
+//
+// **친 글자가 답을 바꾼 순간에만 움직인다.** Close 는 「줄 앞에 이것이 있으면 나온 줄이다」라
+// 앞부분만 보므로 `}` 뒤에 무엇을 더 쳐도 계속 1 이다. 친 것 앞뒤를 견주면 `}` 를 치는
+// 그 한 번만 걸리고, 이어 치는 글자에는 줄이 또 당겨지지 않는다.
+//
+// 화면에 이미 있는 글자가 움직이는 자리는 여기 하나뿐이라 좁게 잡는다.
+func (buf *Buffer) reindentClosing(typed []byte, width int) {
+	rule := buf.language.Indent()
+	if rule == nil {
+		return
+	}
+
+	line := buf.lines[buf.cursorLine]
+	indent := leadingBlank(line)
+	if buf.cursorCol < len(indent) || buf.cursorCol > len(line) {
+		return
+	}
+
+	before := line[len(indent):buf.cursorCol]
+	head := concat(before, typed)
+	if rule.Close(head) <= rule.Close(before) {
+		return
+	}
+
+	unit := buf.indentText()
+	pulled := shiftBlank(indent, unit, -blankColumns(unit))
+	if len(pulled) == len(indent) {
+		return
+	}
+
+	next := concat(pulled, line[len(indent):])
+
+	// 열린 구간이 넓어질 뿐이라 이어 치는 글자와 한 번의 `u` 로 같이 돌아간다.
+	buf.beginEdit(buf.cursorLine, 1)
+	buf.replaceLines(buf.cursorLine, 1, [][]byte{next})
+
+	buf.cursorCol -= len(indent) - len(pulled)
+	buf.updateDesiredCol(width)
+}
+
+// insertIndent 는 `tab` 키다. 커서를 **다음 단위 경계**까지 민다.
+//
+// 한 단위를 그대로 넣지 않고 경계까지 채우는 것은, 어긋난 자리에서 tab 을 한 번 치면 다시
+// 맞게 되돌아오기 때문이다. 들여쓰기가 스스로 가지런해진다.
+//
+// 단위가 tab 이면 tab 하나를 넣는다 — 그때 한 단위는 화면 tab 폭과 같아서 글자 하나가
+// 정확히 다음 경계까지 민다. space 면 모자란 칸만큼 넣는다.
+//
+// markdown 의 목록 줄에서는 커서 자리가 아니라 줄 전체가 한 단계 들어간다(syntax.Indent).
+func (buf *Buffer) insertIndent(width int) {
+	line := buf.lines[buf.cursorLine]
+
+	if rule := buf.language.Indent(); rule != nil && rule.TabIndentsLine(line) {
+		buf.shiftLines(buf.cursorLine, buf.cursorLine, indentRight, width)
+		return
+	}
+
+	unit := buf.indentText()
+	step := blankColumns(unit)
+
+	if unit[0] == '\t' {
+		buf.insert([]byte{'\t'}, width)
+		return
+	}
+
+	col := screenColAt(line, buf.cursorCol)
+	buf.insert(makeBlank(step-col%step, false), width)
+}
+
+// outdentLine 은 `shift+tab` 이다. 지금 줄을 한 단계 내어쓴다.
+//
+// insert mode 에서 내어쓰는 유일한 길이다. 이것이 없으면 `esc` 로 나가 `<<` 를 치고 다시
+// 들어와야 한다.
+func (buf *Buffer) outdentLine(width int) {
+	before := len(leadingBlank(buf.lines[buf.cursorLine]))
+	col := buf.cursorCol
+
+	buf.shiftLines(buf.cursorLine, buf.cursorLine, indentLeft, width)
+
+	// shiftLines 는 커서를 들여쓰기 다음에 세운다. insert 에서는 치던 자리를 지켜야 하므로
+	// 줄어든 만큼 왼쪽으로 옮긴다. 들여쓰기 안에 있었으면 그 끝에 선다.
+	after := len(leadingBlank(buf.lines[buf.cursorLine]))
+
+	buf.cursorCol = max(col+after-before, after)
+	buf.updateDesiredCol(width)
+}
+
+// deleteIndentBackward 는 커서 앞이 공백뿐일 때의 `backspace` 다. 한 칸이 아니라 **앞 단위
+// 경계까지** 지운다. 지울 것이 없으면 false 이고 그때는 보통 backspace 다.
+//
+// space 로 들여쓴 파일에서 tab 한 번이 넣은 것을 backspace 네 번으로 지우는 어긋남을 없앤다.
+// 커서 앞에 글자가 하나라도 있으면 걸리지 않는다 — 글 가운데 공백은 들여쓰기가 아니다.
+func (buf *Buffer) deleteIndentBackward(width int) bool {
+	line := buf.lines[buf.cursorLine]
+	if buf.cursorCol < 1 || buf.cursorCol > len(leadingBlank(line)) {
+		return false
+	}
+
+	blank := line[:buf.cursorCol]
+	step := blankColumns(buf.indentText())
+
+	// 경계에 서 있으면 한 단계 앞으로, 아니면 바로 앞 경계로 간다.
+	cols := blankColumns(blank)
+	target := (cols - 1) / step * step
+
+	pulled := makeBlank(target, blank[0] == '\t')
+	if len(pulled) >= len(blank) {
+		return false
+	}
+
+	buf.beginEdit(buf.cursorLine, 1)
+	buf.replaceLines(buf.cursorLine, 1, [][]byte{concat(pulled, line[buf.cursorCol:])})
+
+	buf.cursorCol = len(pulled)
+	buf.updateDesiredCol(width)
+
+	return true
+}
+
+// shiftLines 는 [from, to] 를 한 단계 밀거나 당긴다. `>` `<` 가 쓴다.
+//
+// 언어를 보지 않는다 — 손으로 미는 것이라 규칙이 끼어들 자리가 없다. 규칙으로 다시 계산하는
+// 것은 reindentLines 다.
+//
+// 재는 것은 화면 칸이다(blankColumns). space 로 들여쓴 줄이 tab 파일에 섞여 있어도 한 단계는
+// 한 단계다 — 칸 수만 맞추고 그 줄이 쓰던 글자는 그대로 둔다(shiftBlank).
+//
+// **빈 줄은 건드리지 않는다.** 밀면 줄 끝 공백만 남고, 당길 것은 애초에 없다. vim 과 같다.
+func (buf *Buffer) shiftLines(from, to int, direction indentDirection, width int) {
+	unit := buf.indentText()
+
+	by := blankColumns(unit)
+	if direction == indentLeft {
+		by = -by
+	}
+
+	next := make([][]byte, 0, to-from+1)
+	for _, line := range buf.lines[from : to+1] {
+		indent := leadingBlank(line)
+		if len(indent) == len(line) {
+			next = append(next, line)
+			continue
+		}
+
+		next = append(next, concat(shiftBlank(indent, unit, by), line[len(indent):]))
+	}
+
+	buf.replaceIndented(from, to, next, width)
+}
+
+// reindentLines 는 [from, to] 를 언어 규칙이 정한 자리로 다시 들여쓴다. `=` 가 쓴다.
+//
+// 기준은 **범위 바로 위 줄의 지금 들여쓰기** 다. 그 줄은 건드리지 않는다 — 고른 것 밖이고,
+// 규칙은 절대 자리를 모르고 앞 줄과의 차이만 안다.
+//
+// 규칙이 없는 파일과 markdown 은 아무 일도 하지 않는다(syntax.Indent 의 Reindents).
+func (buf *Buffer) reindentLines(from, to, width int) {
+	rule := buf.language.Indent()
+	if rule == nil || !rule.Reindents() {
+		return
+	}
+
+	buf.lexSyntaxTo(to)
+	unit := buf.indentText()
+
+	// prev 는 마지막으로 자리를 정한 줄이다. 줄 내용과 토큰은 **원래 것**이고 들여쓰기만 새것이다.
+	// Next 는 「이 줄이 블록을 여는가」만 보므로 앞이 몇 칸이었는지와 무관하다.
+	var prevLine []byte
+	var prevTokens []syntax.Token
+	var prevIndent []byte
+
+	if from > 0 {
+		prevLine = buf.lines[from-1]
+		prevTokens = buf.syntaxTokens(from - 1)
+		prevIndent = leadingBlank(prevLine)
+	}
+
+	next := make([][]byte, 0, to-from+1)
+	for i := from; i <= to; i++ {
+		line := buf.lines[i]
+		body := line[len(leadingBlank(line)):]
+
+		// 빈 줄은 비운 채로 둔다. 들여쓰기를 붙이면 줄 끝 공백이 된다.
+		// 앞 줄 자리는 그대로 이어 간다 — 빈 줄 하나가 블록을 끊지 않는다.
+		if len(body) < 1 {
+			next = append(next, []byte{})
+			continue
+		}
+
+		level, prefix := rule.Next(prevLine, prevTokens)
+		indent := appendIndentLevel(prevIndent, unit, level, prefix)
+
+		// 줄 전체를 넘긴다. 「이 줄이 닫는 줄인가」는 앞부분만 보므로 끝을 알릴 것이 없지만,
+		// 낱말로 닫는 언어는 낱말이 끝났음을 알아야 해서 줄끝을 붙인다.
+		if rule.Close(concat(body, []byte{'\n'})) > 0 {
+			indent = shiftBlank(indent, unit, -blankColumns(unit))
+		}
+
+		next = append(next, concat(indent, body))
+
+		prevLine, prevTokens, prevIndent = line, buf.syntaxTokens(i), indent
+	}
+
+	buf.replaceIndented(from, to, next, width)
+}
+
+// replaceIndented 는 다시 들여쓴 줄들을 갈아끼운다. shiftLines 와 reindentLines 가 나눠 쓴다.
+//
+// 바뀐 것이 없으면 손대지 않는다. 그냥 갈아끼우면 dirty 가 서고 redo 가 날아간다 —
+// trimTrailingSpace 와 같은 자리다(edit.go).
+//
+// 커서는 첫 줄의 들여쓰기 다음이다. vim 과 같다.
+func (buf *Buffer) replaceIndented(from, to int, next [][]byte, width int) {
+	same := true
+	for i, line := range next {
+		if !bytes.Equal(line, buf.lines[from+i]) {
+			same = false
+			break
+		}
+	}
+	if same {
+		return
+	}
+
+	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
+	buf.endEdit()
+	buf.beginEdit(from, to-from+1)
+
+	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
+	buf.replaceLines(from, to-from+1, next)
+	buf.endEdit()
+
+	buf.cursorLine = from
+	buf.cursorCol = len(leadingBlank(buf.lines[from]))
+	buf.updateDesiredCol(width)
+}

@@ -452,6 +452,25 @@ func TestNormalModeVerticalUnitDiffersFromArrows(t *testing.T) {
 	assert.Equal(t, 1, cursorLineOf(t, m), "j 는 wrap 된 줄을 한 번에 건넌다")
 }
 
+// `↑`·`↓` 도 홀로 쓸 때는 count 를 받는다. `3j` 가 세 줄이듯 `3↓` 는 세 행이다 (ADR-0081).
+//
+// operator 뒤에 안 받는 것(`d↓`) 과는 다른 물음이다 — ADR-0013 이 정한 것은 그쪽뿐이었는데
+// 홀로 쓸 때까지 count 를 버리고 있었다.
+func TestNormalModeArrowsTakeCount(t *testing.T) {
+	// 폭 10 이라 첫 줄이 화면 행 세 개다. 3↓ 는 그 셋을 지나 둘째 줄에 닿는다.
+	data := strings.Repeat("a", 25) + "\nsecond\n"
+
+	m := send(newTestEditor(data, 10, 10), "3", "down")
+	assert.Equal(t, 1, cursorLineOf(t, m), "3↓ 는 화면 행 셋이라 다음 논리 줄로 넘어간다")
+
+	m = send(newTestEditor(data, 10, 10), "2", "down")
+	assert.Equal(t, 0, cursorLineOf(t, m), "2↓ 는 아직 첫 줄의 셋째 화면 행이다")
+
+	m = send(m, "2", "up")
+	assert.Equal(t, 0, cursorLineOf(t, m), "2↑ 로 첫 행에 돌아온다")
+	assert.Equal(t, 0, cursorColOf(t, m), "줄 처음이다")
+}
+
 // 단어 이동은 normal mode 의 clamp 를 지나 마지막 글자 위에 선다.
 func TestNormalModeWordMotions(t *testing.T) {
 	var m tea.Model = newTestEditor("foo bar.baz\nsecond line\n", 40, 5)

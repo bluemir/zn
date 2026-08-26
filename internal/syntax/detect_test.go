@@ -26,7 +26,7 @@ func TestDetect(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, Detect(test.path))
+			assert.Equal(t, test.want, LanguageFor(test.path).State())
 		})
 	}
 }
@@ -54,7 +54,7 @@ func TestDetectShell(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, Detect(test.path))
+			assert.Equal(t, test.want, LanguageFor(test.path).State())
 		})
 	}
 }

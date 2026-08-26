@@ -187,7 +187,7 @@ func emittedKinds(t *testing.T) map[syntax.Kind]bool {
 
 	kinds := map[syntax.Kind]bool{}
 	for _, sample := range samples {
-		state := syntax.Detect(sample.path)
+		state := syntax.LanguageFor(sample.path).State()
 		require.NotNil(t, state, "%s 를 알아보지 못했습니다", sample.path)
 
 		for _, line := range strings.Split(sample.data, "\n") {
@@ -441,7 +441,10 @@ func TestSyntaxDetectsWhenPathAppears(t *testing.T) {
 	require.NotContains(t, contentRowsOf(t, m)[0],
 		styleSyntax[syntax.KindKeyword].Render("func"), "이름이 없으면 강조하지 않는다")
 
+	// 이름과 언어를 같이 넣는다. 이름만 넣어서는 언어가 바뀌지 않는 것이 ADR-0080 의 요점이고,
+	// 실제로 이름이 붙는 자리(saveTo) 도 둘을 같이 넣는다.
 	m.activeBuffer().path = "main.go"
+	m.activeBuffer().language = syntax.LanguageFor("main.go")
 
 	assert.Contains(t, contentRowsOf(t, m)[0],
 		styleSyntax[syntax.KindKeyword].Render("func"), "이름이 붙으면 강조한다")

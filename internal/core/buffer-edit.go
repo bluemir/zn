@@ -1,8 +1,9 @@
 package core
 
-import (
-	"bytes"
-)
+import "bytes"
+
+// 줄을 갈아끼우는 자리다. **replaceLines 가 `buf.lines` 를 바꾸는 유일한 함수**이고,
+// 되돌리기 구간(beginEdit…endEdit) 과 문법 캐시가 거기 하나에 걸린다 (ADR-0001, ADR-0033).
 
 // replaceLines 는 lines 의 [at, at+count) 를 with 로 갈아끼우고 원래 있던 줄들을 돌려준다.
 //
