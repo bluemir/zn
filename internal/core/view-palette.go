@@ -197,12 +197,35 @@ func (m viewPalette) labels() []string {
 		return m.files
 	}
 
-	labels := make([]string, 0, len(paletteCommands))
-	for _, command := range paletteCommands {
+	commands := m.commands()
+
+	labels := make([]string, 0, len(commands))
+	for _, command := range commands {
 		labels = append(labels, command.label())
 	}
 
 	return labels
+}
+
+// commands 는 지금 성립하는 명령들이다.
+//
+// **목록도 고르는 것도 그리는 것도 이것을 지난다.** 셋이 같은 것을 보아야 hits 의 자리가
+// 어긋나지 않는다 — 하나만 걸러 놓으면 고른 줄과 도는 명령이 갈린다.
+//
+// 성립하지 않는 것은 목록에서 뺀다(paletteCommand.when). 열린 파일이 없는 화면에서는
+// 여기 든 열여섯 중 절반이 「열린 파일이 없습니다」로 끝나던 것들이다.
+func (m viewPalette) commands() []paletteCommand {
+	available := make([]paletteCommand, 0, len(paletteCommands))
+
+	for _, command := range paletteCommands {
+		if command.when != nil && !command.when(m.editor) {
+			continue
+		}
+
+		available = append(available, command)
+	}
+
+	return available
 }
 
 // filter 는 입력으로 목록을 다시 거른다. 입력이 바뀌었으므로 고른 자리는 처음으로 돌아간다.
@@ -251,24 +274,46 @@ func (m *viewPalette) scrollTo() {
 
 // run 은 고른 것을 실행한다.
 func (m viewPalette) run() (tea.Model, tea.Cmd) {
+	kind, line := m.kind()
+
 	// 셸은 고른 것이 아니라 친 것을 실행한다. 그래서 hits 를 보기 전에 갈린다.
 	// 아무것도 치지 않았으면 가만히 있는다 — 고를 것이 없을 때와 같다.
-	if kind, line := m.kind(); kind == paletteKindShell {
-		if line == "" {
-			return m, nil
-		}
-
-		return runShell(m.editor, line)
+	if kind == paletteKindShell && line == "" {
+		return m, nil
+	}
+	if kind != paletteKindShell && len(m.hits) == 0 {
+		return m, nil
 	}
 
-	if len(m.hits) == 0 {
-		return m, nil
+	// **여기서부터는 반드시 팔레트를 떠난다. 고른 범위를 놓는 자리다.**
+	//
+	// visual 에서 `ctrl+p` 로 열었으면 고른 것이 살아 있고 상자 뒤로 칠해져 있다(ADR-0037).
+	// 무엇을 고르든 이 문을 지나므로 놓는 자리도 여기 하나다 — `esc` 는 normalMode 가 놓는다.
+	//
+	// 놓지 않으면 셋이 어긋난다. 커서를 옮기며 둘러보는 판(되돌아간 자리) 에서 강조가 커서를
+	// 따라 널뛰고, 특수문자 판은 고른 것이 칠해진 채 커서 뒤에 글자를 넣으며, 다른 파일을 열면
+	// normalMode 가 **새 buffer 만** 지워서 원래 tab 에 유령 강조가 남는다.
+	// **tab 이 바뀌기 전이라 지우는 buffer 가 언제나 옳다.**
+	if m.hasTab() {
+		m.activeBuffer().selection = selection{}
+	}
+
+	if kind == paletteKindShell {
+		return runShell(m.editor, line)
 	}
 
 	index := m.hits[m.selected].index
 
-	if kind, _ := m.kind(); kind == paletteKindCommand {
-		return paletteCommands[index].run(m.editor)
+	if kind == paletteKindCommand {
+		commands := m.commands()
+
+		// 고른 뒤에 성립하지 않게 되었다. 지금은 팔레트가 열린 동안 조건이 바뀌지 않지만,
+		// 자리를 벗어난 채 집으면 그 자리에서 터진다.
+		if index >= len(commands) {
+			return normalMode(m.editor)
+		}
+
+		return commands[index].run(m.editor)
 	}
 
 	return m.openFile(m.files[index])
@@ -413,7 +458,7 @@ func (m viewPalette) renderListRows(inner int) []string {
 
 		row := paletteRow{positions: hit.positions, selected: i == m.selected}
 		if kind == paletteKindCommand {
-			command := paletteCommands[hit.index]
+			command := m.commands()[hit.index]
 			row.left, row.right = command.name, command.detail()
 		} else {
 			row.left = m.files[hit.index]

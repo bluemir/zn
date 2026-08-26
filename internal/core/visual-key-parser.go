@@ -42,11 +42,8 @@ func pressExpandedVisual(state visualState, keys []string) ([]action, visualStat
 // 숫자를 보는 것은 반 화면 이동뿐이다. 나머지는 고른 범위가 이미 정해져 있어서 count 를 그냥
 // 무시한다 — `3d` 가 `d` 와 같고 되풀이할 것이 없다.
 //
-// `:` `/` `gt` `ctrl+p` `ctrl+w` 는 여기 없다. 짝이 없는 조합이 아무 일도 하지 않는 것과 같다.
-//
-// **`ctrl+p` 는 재 보고 안 두기로 했다.** 팔레트는 `normalMode` 를 지나지 않아서 고른 범위를
-// 놓지 않는데, 팔레트의 「화면을 평문으로 내보내기」는 화면을 낸다 — 골라 둔 것이 상자 뒤로
-// 칠해진 채 화면 전체가 나온다. 팔레트로 다른 파일을 열면 유령 강조도 남는다(ADR-0037).
+// `:` `/` `gt` `gT` `ctrl+w` 는 여기 없다. 짝이 없는 조합이 아무 일도 하지 않는 것과 같다.
+// `:` 는 `'<,'>` 가 서기 전에는 고른 범위를 명령줄에 실을 길이 없어서 따로 걸린 자리다.
 func visualAction(key string, count int) action {
 	switch key {
 	case "ctrl+c":
@@ -56,6 +53,11 @@ func visualAction(key string, count int) action {
 		// 여태 이것만 빠져 있었다 — 둘 다 고른 것을 건드리지 않고, 셸에서 `fg` 로 올라오면
 		// 고른 그대로 이어 간다(ADR-0023, ADR-0037).
 		return actionSuspend{}
+	case "ctrl+p":
+		// **고른 것을 두고 연다.** 팔레트는 화면 위에 얹히는 상자라 고른 범위가 그 뒤로
+		// 그대로 칠해져 있다 — VS Code 가 선택을 둔 채 오버레이를 띄우는 것과 같은 그림이다.
+		// 놓는 자리는 무엇을 고르는 순간이고 그것이 한 곳이다(view-palette.go 의 run).
+		return actionOpenPalette{}
 	case "ctrl+d":
 		// 고른 범위가 커서를 따라 자란다. 이동 키를 친 것과 같다 — 화면 단위 이동이 motion 이
 		// 아니라 홀로 서는 동작인 것은 화면 높이가 있어야 정해지기 때문이다(ADR-0062).

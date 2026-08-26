@@ -170,13 +170,14 @@ func TestPaletteSwitchesToCommandsWithAngle(t *testing.T) {
 	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
 
 	m = send(m, ">")
-	assert.Len(t, m.(viewPalette).hits, len(paletteCommands))
+	// tab 이 하나뿐이라 「다른 tab 모두 닫기」는 목록에 없다(paletteCommand.when).
+	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-1)
 
 	m = send(m, "t", "r", "e", "e")
 	require.NotEmpty(t, m.(viewPalette).hits)
 	// 이어진 `tree` 를 그대로 품은 것이 가장 앞이다. 자모가 흩어져 걸린 것들
 	// (`regis`t`e`r 처럼) 도 목록에 남지만 점수가 낮다.
-	assert.Equal(t, "파일 트리 열기/닫기", paletteCommands[m.(viewPalette).hits[0].index].name)
+	assert.Equal(t, "파일 트리 열기/닫기", m.(viewPalette).commands()[m.(viewPalette).hits[0].index].name)
 
 	m = send(m, "backspace", "backspace", "backspace", "backspace", "backspace")
 	assert.Len(t, m.(viewPalette).hits, 2, "파일 목록으로 돌아온다")
@@ -400,4 +401,94 @@ func TestPaletteReopenKeepsIndexedFiles(t *testing.T) {
 
 	require.IsType(t, viewPalette{}, again)
 	assert.Equal(t, []string{"main.go", "edit.go"}, again.(viewPalette).files)
+}
+
+// visual 에서도 `ctrl+p` 로 연다. **고른 것을 두고 연다** — 상자 뒤로 그대로 칠해져 있다.
+func TestPaletteOpensFromVisualKeepingSelection(t *testing.T) {
+	var m tea.Model = send(newTestEditor("foo bar\nbaz\n", 80, 20), "v", "l", "l")
+	require.IsType(t, viewEditorVisual{}, m)
+
+	m = send(m, "ctrl+p")
+
+	require.IsType(t, viewPalette{}, m)
+	assert.True(t, bufferOf(t, m).selection.active, "고른 것이 살아 있다")
+
+	// 상자가 그 줄의 대부분을 덮어서 왼쪽 한 칸만 남는다. 그 한 칸이 선택 색이면 된다.
+	assert.Contains(t, contentRowsOf(t, m)[0], styleSelection.Render("f"), "상자 뒤로 칠해져 있다")
+}
+
+// **고르는 순간 놓는다.** 무엇을 고르든 이 문을 지나므로 놓는 자리가 하나다.
+func TestPaletteReleasesSelectionWhenPicking(t *testing.T) {
+	var m tea.Model = send(newTestEditor("foo bar\nbaz\n", 80, 20), "v", "l", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = typeInto(m, ">tree")
+	m = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.False(t, bufferOf(t, m).selection.active)
+}
+
+// `esc` 로 물러도 놓는다. normalMode 가 이미 놓는 자리다(ADR-0037).
+func TestPaletteReleasesSelectionOnEscape(t *testing.T) {
+	var m tea.Model = send(newTestEditor("foo bar\n", 80, 20), "v", "l", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(m, "esc")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.False(t, bufferOf(t, m).selection.active)
+}
+
+// 다른 파일을 열어도 **원래 tab 에 유령 강조가 남지 않는다.**
+// normalMode 는 새 buffer 만 지우므로, 놓는 자리가 tab 이 바뀌기 전이어야 한다.
+func TestPaletteReleasesSelectionBeforeOpeningAnotherFile(t *testing.T) {
+	var m tea.Model = send(newPaletteView(t, 80, 20, "editor.go"), "esc")
+	m = send(m, "v", "l")
+	require.IsType(t, viewEditorVisual{}, m)
+
+	from := m.(viewEditorVisual).active
+
+	m = send(m, "ctrl+p")
+	m = send(m, "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	normal := m.(viewEditorNormal)
+	require.NotEqual(t, from, normal.active, "다른 tab 으로 갔다")
+	assert.False(t, normal.buffers[from].selection.active, "떠나온 tab 에 강조가 남지 않는다")
+}
+
+// 성립하지 않는 명령은 목록에 뜨지 않는다. 볼 파일이 없는 화면이 그 자리다.
+func TestPaletteHidesCommandsThatDoNotHold(t *testing.T) {
+	e := &editor{width: 80, height: 24, boxChars: boxUnicode, active: -1}
+	m := viewPalette{editor: e, input: ">"}
+	m.filter()
+
+	names := make([]string, 0, len(m.commands()))
+	for _, command := range m.commands() {
+		names = append(names, command.name)
+	}
+
+	assert.NotContains(t, names, "화면을 평문으로 내보내기")
+	assert.NotContains(t, names, "특수문자 넣기")
+	assert.NotContains(t, names, "정의로 가기")
+	assert.Contains(t, names, "작업 목록", "파일과 무관한 것은 그대로 뜬다")
+	assert.Contains(t, names, "프로젝트 검색", "빈 화면에서도 띄우기로 한 것이다")
+}
+
+// 읽기 전용 파일에서는 고치는 명령이 빠진다. 거절하는 조건을 그대로 옮겨 적은 결과다.
+func TestPaletteHidesEditingCommandsOnReadOnly(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "a.go")
+	m.activeBuffer().readOnly = true
+	m.input = ">"
+	m.filter()
+
+	names := make([]string, 0, len(m.commands()))
+	for _, command := range m.commands() {
+		names = append(names, command.name)
+	}
+
+	assert.NotContains(t, names, "줄 끝 공백 지우기")
+	assert.NotContains(t, names, "특수문자 넣기")
+	assert.Contains(t, names, "화면을 평문으로 내보내기", "내보내는 것은 파일을 안 건드린다")
 }

@@ -521,7 +521,8 @@ func pickCloseOtherTabs(t *testing.T, m tea.Model) tea.Model {
 	palette := viewPalette{editor: v.editor, input: "> close other"}
 	palette.filter()
 
-	require.Equal(t, "다른 tab 모두 닫기", paletteCommands[palette.hits[palette.selected].index].name)
+	require.NotEmpty(t, palette.hits, "목록에 떠 있어야 고른다")
+	require.Equal(t, "다른 tab 모두 닫기", palette.commands()[palette.hits[palette.selected].index].name)
 
 	return send(palette, "enter")
 }
@@ -540,15 +541,15 @@ func TestCloseOtherTabsKeepsActiveTab(t *testing.T) {
 	assert.Equal(t, "2 개의 tab 을 닫았습니다", v.notice)
 }
 
-// tab 이 하나뿐이면 닫을 것이 없다. 확인창도 뜨지 않는다.
+// tab 이 하나뿐이면 닫을 것이 없다. **목록에 아예 뜨지 않는다** — 골라 놓고 거절하는 것보다
+// 고를 수 없는 편이 낫다(paletteCommand.when).
 func TestCloseOtherTabsWithSingleTab(t *testing.T) {
-	var m tea.Model = newTabsEditor("a.txt")
+	v := newTabsEditor("a.txt")
 
-	m = pickCloseOtherTabs(t, m)
+	palette := viewPalette{editor: v.editor, input: "> close other"}
+	palette.filter()
 
-	require.IsType(t, viewEditorNormal{}, m)
-	assert.Len(t, m.(viewEditorNormal).buffers, 1)
-	assert.Equal(t, "닫을 다른 tab 이 없습니다", m.(viewEditorNormal).notice)
+	assert.Empty(t, palette.hits)
 }
 
 // 보고 있지 않은 tab 의 변경을 잃게 되므로 묻는다.

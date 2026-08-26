@@ -257,26 +257,45 @@ type paletteCommand struct {
 	// run 은 editor 를 포인터로 받는다. normalMode·commandMode·quitAll 과 같은 서명이고,
 	// 여기서 고친 것이 곧 다음 화면의 상태다(ADR-0026).
 	run func(e *editor) (tea.Model, tea.Cmd)
+
+	// when 은 지금 이 명령이 성립하는지다. 거짓이면 **목록에 아예 뜨지 않는다.**
+	//
+	// VS Code 의 `when` 절과 같은 자리다 — 골라 놓고 거절하는 것보다 고를 수 없는 편이 낫다.
+	// `:` 명령이 반대로 반드시 알리는 것(ADR-0064) 과 어긋나지 않는다: 이름을 대고 친 것은
+	// 답을 받아야 하고, 목록에서 고르는 것은 애초에 없으면 될 일이다.
+	//
+	// **거절하는 조건을 그대로 옮겨 적는다.** 목록에 뜬 것을 고르면 거절당하지 않는다는 것이
+	// 이 칸이 지키는 약속이라, 두 자리가 갈리면 약속이 깨진다. nil 이면 언제나 성립한다.
+	when func(e *editor) bool
 }
+
+// whenBuffer 는 볼 파일이 있어야 성립하는 명령이다. 그쪽 refuseNoBuffer 와 같은 조건이다.
+func whenBuffer(e *editor) bool { return e.hasTab() }
+
+// whenWritable 은 고칠 파일이 있어야 성립하는 명령이다. refuseNoBuffer + refuseReadOnly 다.
+func whenWritable(e *editor) bool { return e.hasTab() && !e.activeBuffer().readOnly }
+
+// whenOtherTabs 는 닫을 다른 tab 이 있어야 성립한다.
+func whenOtherTabs(e *editor) bool { return len(e.buffers) > 1 }
 
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
-	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace},
-	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile},
-	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs},
+	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace, when: whenWritable},
+	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile, when: whenBuffer},
+	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs, when: whenOtherTabs},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
-	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters},
-	{name: "되돌아간 자리", hint: "jump list", alias: ":jumps", run: runJumps},
-	{name: "방문한 자리", hint: "jump logs", alias: ":jumplogs", run: runJumplogs},
-	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition},
-	{name: "사용처로 가기", hint: "go to references", run: runGotoReferences},
-	{name: "이름 바꾸기", hint: "rename symbol", alias: ":rename", run: runRename},
+	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters, when: whenBuffer},
+	{name: "되돌아간 자리", hint: "jump list", alias: ":jumps", run: runJumps, when: whenBuffer},
+	{name: "방문한 자리", hint: "jump logs", alias: ":jumplogs", run: runJumplogs, when: whenBuffer},
+	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition, when: whenBuffer},
+	{name: "사용처로 가기", hint: "go to references", run: runGotoReferences, when: whenBuffer},
+	{name: "이름 바꾸기", hint: "rename symbol", alias: ":rename", run: runRename, when: whenBuffer},
 	{name: "프로젝트 검색", hint: "search in project", alias: ":grep", run: runGrepInput},
-	{name: "화면을 평문으로 내보내기", hint: "cat screen", alias: ":cat", run: runCatScreen},
-	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol},
+	{name: "화면을 평문으로 내보내기", hint: "cat screen", alias: ":cat", run: runCatScreen, when: whenBuffer},
+	{name: "특수문자 넣기", hint: "insert symbol", run: runInsertSymbol, when: whenWritable},
 }
 
 // label 은 화면에 보이는 것 전부를 이어 붙인 것이다. 매칭이 이것을 본다.
