@@ -314,6 +314,7 @@
 	- [x] go definition (ADR-0051)
 	- [x] close other tabs (ADR-0016)
 	- [ ] close right tabs
+	- [ ] close all tabs
 	- [x] search in project (ADR-0077)
 - 언어 특화 기능
 	- markdown

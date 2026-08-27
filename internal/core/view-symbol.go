@@ -42,7 +42,7 @@ func (e editor) symbolDrawerHeight() int {
 	return e.symbolGridRows() + symbolFrame
 }
 
-// symbolMode 는 팔레트의 「특수문자 넣기」로 여는 하단 drawer 다.
+// symbolMode 는 `:symbols` 와 팔레트의 「특수문자 넣기」로 여는 하단 drawer 다.
 //
 // 편집 화면 아래에 붙어서 편집 영역의 행을 가져간다. 얹지 않는 것은 넣는 자리인 커서가
 // 그 밑에 가려지면 안 되기 때문이다 — 연속으로 넣는 것이 이 mode 의 쓰임새다(ADR-0056).

@@ -262,6 +262,12 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "registers", "reg":
 		// vim 이 `:reg` 를 줄임말로 받는다. `!` 는 이 명령에서 뜻이 없다(ADR-0058).
 		return registersMode(m.editor)
+	case "symbols":
+		// 다른 판들과 달리 팔레트로만 열 수 있던 자리다. 줄임말은 두지 않았다 —
+		// vim 에 없는 명령이라 따를 줄임말도 없다. `!` 는 뜻이 없다(ADR-0056).
+		//
+		// 볼 파일과 고칠 수 있는지는 symbolMode 가 본다. 넣는 자리라 그쪽 알림이 맞다.
+		return symbolMode(m.editor)
 	case "version":
 		// `!` 는 이 명령에서 뜻이 없다. 찍기만 한다.
 		// CLI 의 `--version` 과 같은 줄이다(buildinfo.Describe).

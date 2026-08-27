@@ -547,7 +547,7 @@ statusBar 에서 사라지는 것은 파일에 딸린 것들이다. 파일 경�
 있어야 하는 명령과 팔레트 항목은 「열린 파일이 없습니다」 를 적고 물러난다. 키는 눌러 본
 것이지만 이쪽은 골라서 부른 것이라 아무 일도 안 나면 편집기가 먹지 않는 것으로 읽힌다.
 
-하단 drawer 를 쓰는 것(`:registers`, 특수문자 넣기) 은 되지 않는다 — drawer 는 편집 맥락에
+하단 drawer 를 쓰는 것(`:registers`, `:symbols`) 은 되지 않는다 — drawer 는 편집 맥락에
 딸린 자리이고(위 「UI 구성」) 특수문자는 넣을 커서가 없다. 화면을 통째로 쓰는 `:jobs`·
 `:messages` 는 편집기 틀을 쓰지 않아서 그냥 열린다. 경계는 「drawer 냐 판이냐」 하나다.
 
@@ -1078,6 +1078,7 @@ normal mode 에서 `:` 로 들어간다. 치는 명령은 statusBar 의 아래 �
 :jobs | 백그라운드 작업 목록을 연다. 도는 것과 최근에 끝난 것이 함께 보이고 `x` 로 취소한다
 :messages, :mes | 지나간 알림 목록을 연다. 아래 「알림 목록」 참고
 :registers, :reg | 담긴 register 를 하단 drawer 에 보인다. 아래 「register 목록」 참고
+:symbols | 특수문자를 이름으로 찾아 넣는 하단 drawer 를 연다. 아래 「특수문자 mode」 참고
 :noh, :nohlsearch | 검색 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다
 :version | 이름·버전·빌드시각·go 런타임을 아래 줄에 찍는다. 버그 신고에 그대로 붙일 수 있다
 :q | 지금 보고 있는 tab 을 닫는다. 마지막 tab 을 닫으면 빈 화면이고, 그 화면에서 다시 치면 종료다
@@ -1390,8 +1391,9 @@ Go 의 `\b` 가 ASCII 기준이라 아무것도 찾지 못한다. 그래서 `한
 
 ### 특수문자 mode
 
-command palette 의 `>` 목록에서 「특수문자 넣기」로 들어간다. 편집 영역 아래에 하단 drawer 가
-펼쳐지고 이름으로 걸러 격자에서 고른다. statusBar 의 mode 는 `SYMBOL` 이다(ADR-0056).
+`:symbols` 나 command palette 의 `>` 목록에서 「특수문자 넣기」로 들어간다. 편집 영역 아래에
+하단 drawer 가 펼쳐지고 이름으로 걸러 격자에서 고른다. statusBar 의 mode 는 `SYMBOL` 이다
+(ADR-0056).
 
 ```
 │ 200  0 line 200                                     │  ← 커서 줄은 늘 판 위에 남는다
@@ -1711,7 +1713,7 @@ cwd 가 뿌리다. sidebar 트리와 같은 기준이라 무엇을 찾는지 화
 register 목록 | `registers :registers` | `:registers` 와 같다. 담긴 register 를 하단 drawer 에 보인다
 화면을 평문으로 내보내기 | `cat screen` | normal 의 `\c`·`:cat` 과 같다. 위 「평문으로 내보내기」 참고
 정의로 가기 | `go to definition` | normal 의 `\gd` 와 같다. 커서 자리의 정의로 뛴다(ADR-0051)
-특수문자 넣기 | `insert symbol` | 하단 drawer 를 열어 이름으로 찾은 글자를 커서 뒤에 넣는다(ADR-0056)
+특수문자 넣기 | `insert symbol :symbols` | `:symbols` 와 같다. 하단 drawer 를 열어 이름으로 찾은 글자를 커서 뒤에 넣는다(ADR-0056)
 
 「줄 끝 공백 지우기」는 활성 buffer 만 건드린다. 지우는 것은 `' '` 와 `'\t'` 뿐이고
 유니코드 공백(NBSP 등) 은 그대로 둔다 — 눈에 보이지 않는 글자가 조용히 사라지는 편이 더 나쁘다.

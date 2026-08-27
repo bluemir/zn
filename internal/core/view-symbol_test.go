@@ -85,6 +85,32 @@ func TestSymbolOpensFromPalette(t *testing.T) {
 	assert.Contains(t, barOf(t, m)[0], "SYMBOL")
 }
 
+// `:symbols` 로도 연다. 다른 판들과 달리 한동안 팔레트로만 열 수 있었다(ADR-0056).
+func TestSymbolOpensFromCommand(t *testing.T) {
+	m := runCommand(newTestEditor("abc\n", 80, 20), "symbols")
+
+	assert.IsType(t, viewSymbol{}, m)
+	assert.Contains(t, barOf(t, m)[0], "SYMBOL")
+}
+
+// 인자도 줄 범위도 받지 않는다. 조용히 버리면 그것에 무언가를 한 것처럼 보인다.
+func TestSymbolCommandTakesNothing(t *testing.T) {
+	m := runCommand(newTestEditor("abc\n", 80, 20), "symbols foo")
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "알 수 없는 명령")
+
+	m = runCommand(newTestEditor("abc\n", 80, 20), "1,5symbols")
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Contains(t, barOf(t, m)[1], "줄 범위를 받지 않습니다")
+}
+
+// 빈 화면에서는 열지 않는다. 넣을 커서가 없다(ADR-0064).
+func TestSymbolCommandRefusesEmptyScreen(t *testing.T) {
+	m := runCommand(newEmptyEditor(80, 20), "symbols")
+
+	assert.IsType(t, viewEditorEmpty{}, m)
+}
+
 // 판을 얹어도 화면이 커지면 안 된다. 커지면 터미널이 줄을 흘려서 아래가 통째로 밀린다.
 func TestSymbolDoesNotGrowScreen(t *testing.T) {
 	plain := newTestEditor("a\nb\n", 80, 20)
