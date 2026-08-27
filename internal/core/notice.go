@@ -156,5 +156,5 @@ func (e *editor) record(entry notice) {
 	//
 	// 아래 줄이 이 알림에 덮여 있는 동안 바뀌므로 눈앞에서 글자가 갈리지 않는다. 다음 키에
 	// 알림이 걷히면 그때 새 문장이 드러난다(tip.go 의 renderWithTip, ADR-0061).
-	e.tipIndex++
+	e.nextTip()
 }

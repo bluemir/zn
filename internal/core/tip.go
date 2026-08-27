@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math/rand/v2"
 	"strings"
 
 	"github.com/bluemir/zn/internal/assets"
@@ -59,4 +60,24 @@ func fitTip(list []string, from, room int) string {
 	}
 
 	return ""
+}
+
+// tipStride 는 다음 문장으로 건너뛸 최대 칸이다.
+//
+// 1 이면 목록 순서 그대로 돌고, 목록 길이만큼이면 아무 데나 뛰는 것과 같다. 스물은 그 사이다 —
+// 순서가 눈에 띄게 흩어지면서, 뛰는 폭이 목록보다 훨씬 작아서 아주 오래 안 나오는 문장이
+// 생기지 않는다.
+const tipStride = 20
+
+// nextTip 은 다음 문장으로 넘어간다. 알림이 날 때마다 한 번이다(notice.go 의 record).
+//
+// **한 칸씩이 아니라 한두 자리에서 스무 자리까지 건너뛴다.** 순서대로 돌면 편집기를 열어 둔
+// 동안 목록의 차례가 그대로 드러나서 다음에 무엇이 올지 보인다. 무작위로 흩는 쪽인데,
+// 목록을 한 바퀴 안에 다 보여준다는 약속은 하지 않는다 — tip 은 보조 수단이라 어떤 문장이
+// 두 번 나오고 어떤 것이 늦게 나오는 것이 값으로 치이지 않는다.
+//
+// **적어도 한 칸은 간다.** 그래서 같은 문장이 잇달아 두 번 서지 않는다. 씨앗을 따로 심지
+// 않는 것은 math/rand/v2 의 전역 난수가 프로세스마다 저절로 갈리기 때문이다.
+func (e *editor) nextTip() {
+	e.tipIndex += 1 + rand.IntN(tipStride)
 }

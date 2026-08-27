@@ -260,7 +260,9 @@ func TestStatusBarTopLineIsReversed(t *testing.T) {
 //
 // 색이 붙는 자리는 오른쪽 끝 tip 하나다. 그것도 배경이 아니라 흐린 글자색이다(ADR-0061 §6).
 func TestStatusBarBottomLineIsPlain(t *testing.T) {
-	var m tea.Model = newTestEditor("abc\n", 40, 3)
+	// tip 이 설 만큼 넓게 연다. 좁으면 아예 붙지 않아서(fitTip) 색이 하나도 없는 줄이 된다 —
+	// 그것은 이 검사가 보려는 것이 아니다.
+	var m tea.Model = newTestEditor("abc\n", 120, 3)
 
 	bottom := rawBarOf(t, m)[1]
 	before, _, _ := strings.Cut(bottom, "\x1b[")

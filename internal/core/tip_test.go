@@ -52,17 +52,48 @@ func TestTipsAreClean(t *testing.T) {
 	}
 }
 
-// 80 칸에 트리를 열면 편집 영역이 48 칸이고 커서 위치를 빼면 35 칸쯤 남는다.
-// 그 자리에 보일 문장이 하나도 없으면 이 기능이 트리를 쓰는 동안 없는 것과 같다.
-func TestTipsFitNarrowScreen(t *testing.T) {
-	fits := 0
+// 좁은 화면에서 긴 문장이 그냥 지나가는 것은 값으로 치지 않는다 — 요즘 터미널은 대개
+// 160 칸을 넘고 tip 은 보조 수단이다. 그래도 **어디에도 못 뜨는 문장은 없어야 한다.**
+//
+// 160 칸에 트리(32) 를 열면 편집 영역이 128 칸이고 커서 위치와 띄우는 칸을 빼면 110 칸쯤
+// 남는다. 100 을 상한으로 두면 그 화면에는 하나도 빠짐없이 뜬다.
+func TestTipsFitWideScreen(t *testing.T) {
 	for _, tip := range assets.Tips {
-		if screenWidthOf(tip) <= 35 {
-			fits++
-		}
+		assert.LessOrEqual(t, screenWidthOf(tip), 100, "어느 화면에도 못 뜬다: %q", tip)
+	}
+}
+
+// 다음 자리는 한 칸 뒤가 아니라 무작위로 건너뛴 자리다(ADR-0061 §4).
+//
+// **적어도 한 칸은 간다.** 그래서 같은 문장이 잇달아 두 번 서지 않는다.
+func TestNextTipJumpsForward(t *testing.T) {
+	e := newTestEditor("abc\n", 120, 3).editor
+
+	steps := map[int]int{}
+	for range 500 {
+		before := e.tipIndex
+		e.nextTip()
+
+		step := e.tipIndex - before
+		assert.GreaterOrEqual(t, step, 1, "제자리에 서지 않는다")
+		assert.LessOrEqual(t, step, tipStride, "목록 밖으로 튀지 않는다")
+		steps[step]++
 	}
 
-	assert.Greater(t, fits, len(assets.Tips)/2, "절반 이상은 좁은 화면에서도 보여야 한다")
+	assert.Greater(t, len(steps), 1, "늘 같은 칸만큼 가면 순서가 그대로 드러난다")
+}
+
+// 오래 켜 두어도 목록 전체가 돈다. 한 바퀴 안에 다 나오지는 않지만 못 나오는 문장은 없다.
+func TestNextTipReachesEveryTip(t *testing.T) {
+	e := newTestEditor("abc\n", 120, 3).editor
+
+	seen := map[string]bool{}
+	for range 100 * len(assets.Tips) {
+		seen[assets.Tips[e.tipIndex%len(assets.Tips)]] = true
+		e.nextTip()
+	}
+
+	assert.Len(t, seen, len(assets.Tips), "안 나온 문장이 있다")
 }
 
 func TestTipShowsAtBottomRight(t *testing.T) {
@@ -108,6 +139,8 @@ func TestTipHiddenWhenNarrow(t *testing.T) {
 }
 
 // 알림이 그 줄을 쓰는 동안에는 비켜서고, 걷히면 다음 문장이 드러난다.
+//
+// 다음 자리가 무작위라(nextTip) 어느 문장인지는 대지 않는다. 볼 것은 「갈렸다」다.
 func TestTipAdvancesAfterNotice(t *testing.T) {
 	m := newTestEditor("abc\n", 120, 3)
 	m.notify("떴다")
@@ -117,11 +150,12 @@ func TestTipAdvancesAfterNotice(t *testing.T) {
 	bottom := barOf(t, model)[1]
 	assert.Contains(t, bottom, "떴다")
 	assert.NotContains(t, bottom, assets.Tips[0], "알림과 배움이 한 줄에 같이 뜨지 않는다")
-	assert.NotContains(t, bottom, assets.Tips[1])
 
-	// 다음 키에 알림이 걷힌다. 그때 보이는 것은 다음 문장이다.
+	// 다음 키에 알림이 걷힌다. 그때 보이는 것은 다른 문장이다.
 	model = send(model, "l")
-	assert.True(t, strings.HasSuffix(barOf(t, model)[1], assets.Tips[1]), "%q", barOf(t, model)[1])
+	next := barOf(t, model)[1]
+	assert.Contains(t, assets.Tips, tipOf(t, next), "목록에 있는 문장이다")
+	assert.NotEqual(t, assets.Tips[0], tipOf(t, next), "알림 하나에 한 번 넘어간다")
 }
 
 // 알림을 내는 실제 경로 하나로도 넘어가는지 본다.
@@ -132,7 +166,20 @@ func TestTipAdvancesOnCommandNotice(t *testing.T) {
 	require.Contains(t, barOf(t, m)[1], "zz")
 
 	m = send(m, "l")
-	assert.True(t, strings.HasSuffix(barOf(t, m)[1], assets.Tips[1]), "%q", barOf(t, m)[1])
+	assert.NotEqual(t, assets.Tips[0], tipOf(t, barOf(t, m)[1]))
+}
+
+// tipOf 는 아래 줄 오른쪽 끝에 붙은 tip 만 떼어낸다. 왼쪽은 커서 위치와 줄 수다.
+func tipOf(t *testing.T, bottom string) string {
+	t.Helper()
+
+	for _, tip := range assets.Tips {
+		if strings.HasSuffix(bottom, tip) {
+			return tip
+		}
+	}
+
+	return ""
 }
 
 func TestTipShowsInInsertAndVisual(t *testing.T) {
