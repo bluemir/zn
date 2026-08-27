@@ -9,12 +9,12 @@
 
 | 쓰임 | 부르는 곳 |
 | --- | --- |
-| **디스크 신원** — 어디에 쓰는가 | `os.ReadFile`·`os.WriteFile`·`Reload`·`checkOutside`·`saveTo` |
-| **언어 신원** — 어떤 문법인가 | `syntax.Detect`·`syntax.IndentFor`·`syntax.OutlineFor`·`resolveIndentUnit` |
+| **디스크 신원**(어디에 쓰는가) | `os.ReadFile`·`os.WriteFile`·`Reload`·`checkOutside`·`saveTo` |
+| **언어 신원**(어떤 문법인가) | `syntax.Detect`·`syntax.IndentFor`·`syntax.OutlineFor`·`resolveIndentUnit` |
 
 겸직이 눈에 띈 것은 **캐시 둘이 `path` 를 키로 잡고 있어서**다. `syntaxCache.path` 와
 `indentUnit.path` 가 「경로가 달라지면 다시 고른다」고 적혀 있는데, 정말 지키려는 것은
-「**언어가** 달라졌나」다. 지금은 맞아떨어진다 — 이름 없는 buffer 가 `:w foo.go` 로 이름을
+「**언어가** 달라졌나」다. 지금은 맞아떨어진다. 이름 없는 buffer 가 `:w foo.go` 로 이름을
 받는 순간 언어도 그때 정해지므로 두 물음의 답이 같다. **우연히 맞은 것**이지 그렇게 정한
 것이 아니고, 그런 자리는 언젠가 갈린다.
 
@@ -24,7 +24,7 @@
 
 ## 1. `syntax` 가 표 한 줄을 `Language` 로 내보낸다
 
-찾을 것은 이미 한 자리에 모여 있었다 — `languageRule` 이 그 줄이고, `state`·`indent`·
+찾을 것은 이미 한 자리에 모여 있었다. `languageRule` 이 그 줄이고, `state`·`indent`·
 `outline` 세 칸이 언어별 값이다. **없던 것을 만드는 것이 아니라 있던 것에 이름을 붙여
 내보내는 것이다.**
 
@@ -60,9 +60,9 @@ type Buffer struct {
 만들 값이 없다.
 
 **이름은 빈 것에서 이름으로만 바뀐다.** `saveTo` 가 `buf.path` 를 건드리는 것은 이름 없는
-buffer 가 처음 저장될 때뿐이다(ADR-0024 — 이름 있는 buffer 의 `:w <파일>` 은 사본만 쓴다).
+buffer 가 처음 저장될 때뿐이다(ADR-0024. 이름 있는 buffer 의 `:w <파일>` 은 사본만 쓴다).
 그래서 언어도 nil 에서 한 번 정해지고 그 뒤로 안 바뀐다. `:saveas` 가 들어오면 그 자리가
-늘어나므로 거기서 같이 고쳐야 한다 — `saveTo` 에 적어 두었다.
+늘어나므로 거기서 같이 고쳐야 한다. `saveTo` 에 적어 두었다.
 
 ## 3. `syntaxCache` 는 키를 잃는다
 
@@ -75,16 +75,16 @@ type syntaxCache struct {
 ```
 
 `start` 는 이제 `buf.language.State()` 에서 **파생된다.** 필드 하나를 읽는 일이라 `lexSyntaxTo`
-가 부를 때마다 그냥 다시 담는다 — 표를 훑던 때는 담아 둘 값이 있었지만 지금은 없다.
+가 부를 때마다 그냥 다시 담는다. 표를 훑던 때는 담아 둘 값이 있었지만 지금은 없다.
 
 담아둔 줄들을 버리는 것은 이름이 바뀌는 그 한 자리(`saveTo`) 가 한다. 캐시가 스스로
 「내가 다른 언어의 것인가」를 물을 필요가 없어졌다.
 
-주석 한 줄이 사라진다 — 「이 비교 하나로 『아직 안 봤다』와 『강조하지 않는 파일이다』가
+주석 한 줄이 사라진다. 「이 비교 하나로 『아직 안 봤다』와 『강조하지 않는 파일이다』가
 갈린다」. 두 사실을 한 비교에 겹쳐 두었던 것인데, 언어를 미리 고르면 「아직 안 봤다」가
 아예 없다.
 
-## 4. `indentUnit` 은 그대로 `path` 를 든다 — 대칭이 아닌 것이 맞다
+## 4. `indentUnit` 은 그대로 `path` 를 든다. 대칭이 아닌 것이 맞다
 
 나눠 놓고 보니 캐시 둘의 사정이 다르다.
 
@@ -108,7 +108,7 @@ func resolveIndentUnit(path string, lang *syntax.Language, lines [][]byte) []byt
 겸직을 아무나 다시 만들 수 있고, 그것을 막는 것은 규율뿐이다.
 
 `LanguageFor(path).State()` 로 바뀌므로 글자는 늘지만, **경로를 언어로 읽는 일이 한 줄에
-한 번만 일어난다.** 시험 24 자리가 같이 바뀐다 — 기계적인 치환이다.
+한 번만 일어난다.** 시험 24 자리가 같이 바뀐다. 기계적인 치환이다.
 
 `languageByName`(코드펜스의 ```` ```go ````) 은 그대로 둔다. 그것은 경로가 아니라 사람이
 적은 이름을 보는 다른 문이고, 안에서 `Language` 를 쓴다.
@@ -116,7 +116,7 @@ func resolveIndentUnit(path string, lang *syntax.Language, lines [][]byte) []byt
 ## 고르지 않은 것
 
 - **`isGoFile` 을 표로 끌어오기.** `gopls.go` 가 `strings.HasSuffix(path, ".go")` 로 따로
-  답한다 — 언어를 알아보는 법이 저장소에 둘이고, `ruleFor` 의 주석이 스스로 「이름을 보는
+  답한다. 언어를 알아보는 법이 저장소에 둘이고, `ruleFor` 의 주석이 스스로 「이름을 보는
   법이 갈리면 한쪽만 아는 언어가 생긴다」고 적어 둔 그 일이다. 그래도 합치지 않았다:
   그것이 답하는 물음은 「gopls 에게 알릴 파일인가」이고 표가 답하는 것은 「강조·들여쓰기·
   뼈대 규칙이 있는 언어인가」다. **합치면 표가 물음 둘에 답하게 되어, 방금 `path` 에서

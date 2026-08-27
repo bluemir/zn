@@ -72,14 +72,13 @@ type 마다 두면 그 mode 안에서만 존재한다.
 
 ## 대안
 
-**`mode` enum 필드 + `Update` 안에서 분기** — 처음 구현한 방식이다. 공용 상태를 넘길 필요가 없고
-"지금 어느 mode 냐" 를 필드로 읽을 수 있다. 하지만 mode 별 상태가 공용 구조체에 쌓이고,
-mode 가 늘 때 분기가 `Update` 와 `View` 양쪽에서 늘어난다.
-
-**mode 를 interface 로 두고 `viewEditor` 가 들고 있기** — `viewEditor` 는 하나로 두고
-키 처리만 갈아끼운다. 공용 상태를 넘길 필요가 없어진다. 다만 bubbletea 가 이미 `tea.Model` 로
-같은 일을 하고 있어서 그 위에 한 겹을 더 얹는 것이 된다. interface 는 반드시 필요하기 전에는
-도입하지 않는다는 원칙에도 어긋난다.
+- **`mode` enum 필드 + `Update` 안에서 분기**
+	- 처음 구현한 방식이다. 공용 상태를 넘길 필요가 없고 "지금 어느 mode 냐" 를 필드로 읽을 수 있다.
+	- mode 별 상태가 공용 구조체에 쌓이고, mode 가 늘 때 분기가 `Update` 와 `View` 양쪽에서 늘어난다.
+- **mode 를 interface 로 두고 `viewEditor` 가 들고 있기**
+	- `viewEditor` 는 하나로 두고 키 처리만 갈아끼운다. 공용 상태를 넘길 필요가 없어진다.
+	- bubbletea 가 이미 `tea.Model` 로 같은 일을 하고 있어서 그 위에 한 겹을 더 얹는 것이 된다.
+	- interface 는 반드시 필요하기 전에는 도입하지 않는다는 원칙에도 어긋난다.
 
 ## 이 ADR 이 정하지 않는 것
 

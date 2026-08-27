@@ -5,9 +5,9 @@
 
 ## 맥락
 
-화면을 만드는 함수가 스무 곳 넘게 있는데 이름이 전부 **결과물의 명사**다 — `tabline`,
+화면을 만드는 함수가 스무 곳 넘게 있는데 이름이 전부 **결과물의 명사**다. `tabline`,
 `statusBar`, `screenRows`, `lineNumber`, `jobBar`, `sidebar.cells`, `viewPalette.box`,
-`viewJobs.title`. 갈래로는 잘 묶이지만 「그리는 일이 어디어디서 일어나는가」를 찾으려면
+`viewJobs.title` 이 그렇다. 갈래로는 잘 묶이지만 「그리는 일이 어디어디서 일어나는가」를 찾으려면
 갈래를 먼저 알아야 한다. 이름만 보고는 값을 고르는 함수인지 글자를 만드는 함수인지도 모른다.
 
 동시에 `view` 라는 낱말이 이미 깔려 있다. bubbletea 가 `View() tea.View` 를 요구하고
@@ -26,7 +26,7 @@
 **반환 타입으로 가른다.**
 
 **`tea.View` 를 만들면 `View` 로 끝난다.** bubbletea 와 맞닿는 경계에만 붙는 이름이다.
-셋뿐이다 — `View()`(인터페이스), `editorView`, `screenView`.
+셋뿐이다. `View()`(인터페이스), `editorView`, `screenView` 다.
 
 **화면에 나갈 글자를 만들면 `render` 로 시작한다.** `string`·`[]string` 을 만드는 것과,
 글자를 담은 struct 를 만드는 것(`tabline` 의 `tablineRow`)이 여기다.
@@ -35,13 +35,13 @@
 하나를 고른다), `viewPalette.labels`(목록 데이터), `activePath` 는 글자를 만들지 않는다.
 
 **receiver 가 갈래를 말하면 이름에 대상을 또 넣지 않는다.** `viewPalette.renderBox`,
-`treeRow.render` 다. receiver 가 `editor` 면 갈래 정보가 없으므로 대상을 붙인다 —
-`renderTabline`, `renderStatusBar`, `renderScreen`.
+`treeRow.render` 다. receiver 가 `editor` 면 갈래 정보가 없으므로 대상을 붙인다.
+`renderTabline`, `renderStatusBar`, `renderScreen` 이 그렇다.
 
 **`render` 는 `editorView` 가 된다.** `tea.View` 를 만드니 경계 쪽이다.
 
 **파일 이름은 그리는 코드만 든 파일에만 `render-` 를 붙인다.** 지금은 `render-row.go` 와
-`render-status-bar.go` 둘이다. 그리기와 상태가 섞인 파일은 갈래 이름 그대로다 —
+`render-status-bar.go` 둘이다. 그리기와 상태가 섞인 파일은 갈래 이름 그대로다.
 `tabline.go` 는 `renderTabline` 옆에 `layoutTabs`·`scrollTabsTo` 가 살고, `sidebar.go` 도
 트리를 읽고 고르는 코드가 `renderCells` 와 같이 산다. 접두를 맞추자고 갈래를 두 파일로
 찢지는 않는다.
@@ -62,7 +62,7 @@
 `editorView` 가 되면 그 겹침이 사라진다.
 
 **자동완성이 그리는 것 전부를 모은다.** 갈래로 묶는 이득은 method 라면 receiver 가 이미
-준다 — `viewPalette.renderBox` 는 앞에 `viewPalette` 가 있어서 갈래를 잃지 않는다. free
+준다. `viewPalette.renderBox` 는 앞에 `viewPalette` 가 있어서 갈래를 잃지 않는다. free
 function 과 `editor` method 만 대상을 이름에 붙이면 된다.
 
 **이미 그쪽으로 가 있던 자리가 있다.** `renderParts`(render-row.go) 와 파일 이름
@@ -83,7 +83,7 @@ function 과 `editor` method 만 대상을 이름에 붙이면 된다.
 - `sidebar`: `cells`→`renderCells`, `treeRow.cell`→`treeRow.render`
 - free function: `drawBar`→`renderBar`, `highlightRow`→`renderRow`,
   `highlightMatches`→`renderMatches`
-- `screenView` 와 `renderParts` 는 그대로다 — 이미 규칙에 맞다
+- `screenView` 와 `renderParts` 는 그대로다. 이미 규칙에 맞다
 - 파일 이름: `status-bar.go`→`render-status-bar.go`(테스트 파일까지). 그리는 코드만 든
   파일이 이것과 `render-row.go` 둘뿐이라 옮길 자리도 하나였다
 
@@ -96,19 +96,20 @@ function 과 `editor` method 만 대상을 이름에 붙이면 된다.
 
 ## 대안
 
-**전부 `view` 로 통일** — bubbletea 어휘를 그대로 넓히는 것이라 새로 들일 낱말이 없다.
-고르지 않은 이유는 `tea.View` 와 글자 조각을 같은 낱말로 부르게 되어 지금의 겹침이 그대로
-남기 때문이다. `screenView` 가 `tea.View` 를 만들고 `tablineView` 가 string 을 만들면,
-이름만 보고는 무엇이 나오는지 여전히 모른다.
-
-**지금처럼 결과물 명사를 유지** — 갈래로 묶이고 이름이 짧다. 고르지 않은 이유는 그 이득이
-method 에서는 receiver 와 겹치고(`viewPalette.box` 의 `viewPalette`), free function 과
-`editor` method 에서는 그리는 자리를 한눈에 모을 길이 없기 때문이다. 그리는 일이 스무 곳에
-흩어져 있는데 그것을 한 낱말로 부르지 못하는 것이 값이다.
-
-**`draw` 로 시작** — `drawBar` 가 이미 그 낱말이다. 고르지 않은 것은 터미널 UI 세계에서
-`render` 가 더 흔한 말이고(bubbletea·lipgloss 문서가 그렇게 쓴다), 우리 파일 이름
-`render-row.go` 도 이미 그쪽이기 때문이다. 옮기는 값이 `render` 쪽으로 기울어 있다.
+- **전부 `view` 로 통일**
+	- bubbletea 어휘를 그대로 넓히는 것이라 새로 들일 낱말이 없다.
+	- `tea.View` 와 글자 조각을 같은 낱말로 부르게 되어 지금의 겹침이 그대로 남는다.
+	  `screenView` 가 `tea.View` 를 만들고 `tablineView` 가 string 을 만들면, 이름만 보고는
+	  무엇이 나오는지 여전히 모른다.
+- **지금처럼 결과물 명사를 유지**
+	- 갈래로 묶이고 이름이 짧다.
+	- 그 이득이 method 에서는 receiver 와 겹치고(`viewPalette.box` 의 `viewPalette`),
+	  free function 과 `editor` method 에서는 그리는 자리를 한눈에 모을 길이 없다.
+	- 그리는 일이 스무 곳에 흩어져 있는데 그것을 한 낱말로 부르지 못하는 것이 값이다.
+- **`draw` 로 시작**
+	- `drawBar` 가 이미 그 낱말이다.
+	- 터미널 UI 세계에서 `render` 가 더 흔한 말이고(bubbletea·lipgloss 문서가 그렇게 쓴다),
+	  우리 파일 이름 `render-row.go` 도 이미 그쪽이다. 옮기는 값이 `render` 쪽으로 기울어 있다.
 
 ## 이 ADR 이 정하지 않는 것
 
@@ -118,7 +119,7 @@ method 에서는 receiver 와 겹치고(`viewPalette.box` 의 `viewPalette`), fr
 
   이후: 층 순서가 아니라 `screenView` 가 층이 아니었던 것이 문제였다. `e` 를 한 번도 쓰지
   않고 `rows` 만 받아 터미널 설정을 붙이는 생성자인데, 이름이 `editorView` 옆에 서서 같은
-  갈래의 두 층으로 읽혔다. free function `newView` 로 내렸다 — `editorView` 와
+  갈래의 두 층으로 읽혔다. free function `newView` 로 내렸다. `editorView` 와
   `viewJobs.View` 가 각자 자기 화면을 만든 뒤 그것으로 감싸는 대등한 모양이 되어 크기
   관계를 물을 자리가 없어졌다
 - **그리기와 상태가 섞인 파일의 이름.** 지금은 갈래 이름 그대로 두었는데, 그 파일들이

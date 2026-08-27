@@ -13,27 +13,27 @@ mac 에서 먼저 눈에 띈 것은 그 키들이 `fn` 조합이라 「눌렀는
 때문이고, **Linux·Windows 에서도 똑같이 먹지 않았다.** `docs/tasks.md` 가 이것을
 「mac 에서 delete 키가 먹지 않음」으로 좁게 적어 둔 것이 잘못 잡힌 것이다.
 
-`docs/tasks.md` 는 같은 것을 세 항목으로 들고 있었다 — `Delete` 넣기, home/end/pgup/pgdown 의
+`docs/tasks.md` 는 같은 것을 세 항목으로 들고 있었다. `Delete` 넣기, home/end/pgup/pgdown 의
 「일관적인 동작을 정의하고 구현」, mac 의 delete. 셋을 한 결정으로 닫는다.
 
 ## 1. `home`·`end` 는 화면 행의 양끝이다
 
 **논리 줄(`0`·`$`) 이 아니다.** wrap 된 긴 줄에서 이 둘은 지금 보고 있는 행의 끝까지만 간다.
 
-이 편집기에는 이미 그 가름이 있다 — `↑`·`↓` 는 화면 행을 세고(`motionRowUp`·`motionRowDown`,
+이 편집기에는 이미 그 가름이 있다. `↑`·`↓` 는 화면 행을 세고(`motionRowUp`·`motionRowDown`,
 ADR-0006) `j`·`k` 는 논리 줄을 센다. 규칙은 **글자 키는 논리 줄, 화살표와 특수 키는 눈에 보이는
 행**이다. `home`·`end` 는 뒤엣것이다. 접히지 않은 줄에서는 `0`·`$` 와 같은 자리라 대개 차이가
 드러나지 않는다.
 
 vim 은 Home·End 를 `0`·`$` 로 두는데 vim 에는 애초에 wrap 이 기본이 아니다. 여기서 `0`·`$` 를
-고르면 **같은 화살표 줄에 있는 키 넷이 두 벌로 갈린다** — `↑`·`↓` 는 보이는 행을 세는데
+고르면 **같은 화살표 줄에 있는 키 넷이 두 벌로 갈린다.** `↑`·`↓` 는 보이는 행을 세는데
 `home`·`end` 는 화면 밖으로 뛴다.
 
 `^`(첫 비공백) 은 고르지 않았다. VS Code 가 그렇게 하지만 그것은 「한 번 더 누르면 맨 앞」
 토글과 짝이고, 토글은 「한 키 한 일」을 깬다.
 
 **둘은 `motionRowStart`·`motionRowEnd` 이고 operator 뒤에는 받지 않는다.** `d↑` 를 어떻게
-잡을지가 아직 정해지지 않은 것과 같은 자리다(ADR-0013) — 「화면 행 단위 범위」가 무엇인지부터
+잡을지가 아직 정해지지 않은 것과 같은 자리다(ADR-0013). 「화면 행 단위 범위」가 무엇인지부터
 정해야 한다.
 
 ## 2. `pgup`·`pgdown` 은 `ctrl+f`·`ctrl+b` 와 같은 한 화면이다
@@ -42,7 +42,7 @@ vim 은 Home·End 를 `0`·`$` 로 두는데 vim 에는 애초에 wrap 이 기�
 넷이 되고 키 이름과 어긋난다.
 
 **있는 case 에 이름만 더했다.** `case "ctrl+f", "pgdown":` 이라 `pageRows(pageFull, height)` 를
-두 벌로 쓰는 자리가 생기지 않는다 — 겹침 두 행(ADR-0063) 까지 저절로 같다.
+두 벌로 쓰는 자리가 생기지 않는다. 겹침 두 행(ADR-0063) 까지 저절로 같다.
 
 ## 3. `delete` 는 insert 에만 둔다
 
@@ -50,7 +50,7 @@ normal 에는 `x` 가 이미 있고 **register 에 담는 것까지 정해져 �
 길을 하나 더 두면 「담느냐 마느냐」를 두 벌로 기억하게 된다. 담지 않는 쪽으로 두면 겉보기에
 같은 두 키가 속이 다르고, 담는 쪽으로 두면 굳이 있을 이유가 없다.
 
-insert 의 `deleteForward` 는 `deleteBackward` 의 거울이다 — 줄 끝에서는 다음 줄을 끌어올려
+insert 의 `deleteForward` 는 `deleteBackward` 의 거울이다. 줄 끝에서는 다음 줄을 끌어올려
 붙이고, 커서는 제자리다(이은 자리가 곧 커서 자리다).
 
 **들여쓰기 단위로 묶지 않는다.** `backspace` 는 커서 앞이 들여쓰기뿐이면 단위 경계까지
@@ -60,14 +60,14 @@ insert 의 `deleteForward` 는 `deleteBackward` 의 거울이다 — 줄 끝에�
 ## 4. 목록 판 아홉은 이미 있는 키에 이름을 더한다
 
 `home`→`g`, `end`→`G` 의 case 에 이름만 붙였다. `pgup`·`pgdown` 은 새로 생겼고 `move(±rows)` 로
-가는데, 그 `rows` 가 편집 영역·트리와 같은 `pageRows(pageFull, height)` 다 — 목록에 두 번째
+가는데, 그 `rows` 가 편집 영역·트리와 같은 `pageRows(pageFull, height)` 다. 목록에 두 번째
 규칙을 만들지 않는다.
 
 갈린 자리가 셋이다.
 
 - **`:jobs`** 에는 `g`·`G` 가 아직 없어서 `home`·`end` 가 자기 case 를 갖는다. 그 판에
   숫자 접두와 `g`·`G` 를 넣을지는 열려 있다(`docs/tasks.md`)
-- **팔레트·특수문자** 는 치는 중이라 `g`·`G` 를 둘 수 없다 — 그 글자가 걸러낼 말의 일부다.
+- **팔레트·특수문자** 는 치는 중이라 `g`·`G` 를 둘 수 없다. 그 글자가 걸러낼 말의 일부다.
   「이동은 화살표뿐」이던 것이 「화살표와 특수 키」로 넓어졌다
 - **트리** 의 `home`·`end` 는 **숫자를 보지 않는다.** `gg`·`G` 는 숫자를 행 번호로 받는데
   (`20G`, ADR-0059) 이 키에는 숫자를 붙여 치는 손버릇이 없고, 받으면 같은 일을 하는 길이
@@ -76,7 +76,7 @@ insert 의 `deleteForward` 는 `deleteBackward` 의 거울이다 — 줄 끝에�
 ## 5. 한 줄 입력 창 일곱은 손대지 않았다
 
 `:`·`/`·팔레트·특수문자·이름 받기 셋은 전부 `input += msg.Text` 로 뒤에만 붙이고 `backspace`
-로 뒤만 지운다 — **입력 줄 안의 커서가 없다.** `home`·`end`·`delete`·`←`·`→` 가 거기서 뜻을
+로 뒤만 지운다. **입력 줄 안의 커서가 없다.** `home`·`end`·`delete`·`←`·`→` 가 거기서 뜻을
 가지려면 그 일곱에 글자 커서를 먼저 넣어야 하고, 그것은 이 결정보다 큰 건이다.
 `docs/tasks.md` 에 따로 적었다.
 
@@ -85,10 +85,10 @@ insert 의 `deleteForward` 는 `deleteBackward` 의 거울이다 — 줄 끝에�
 ## 결과
 
 - `Buffer.moveRowStart`·`moveRowEnd`·`deleteForward` 셋이 늘었다
-- `motionRowStart`·`motionRowEnd` 가 `motionRowUp`·`motionRowDown` 옆에 산다 —
+- `motionRowStart`·`motionRowEnd` 가 `motionRowUp`·`motionRowDown` 옆에 산다.
   「operator 가 받지 않는 이동」 칸이다
 - 키 안내줄(`j/k 이동  g/G 처음·끝  q 닫기`) 은 건드리지 않았다. 글자 키를 적는 자리이고
   넷을 더하면 안내가 두 배가 된다
 - `.claude/skills/run-zn/driver.sh` 가 `DC`(Delete) 를 tmux 이름으로 넘기지 못해 글자로
-  넣고 있었다. 그것과 `pgup`·`pgdown`·`home`·`end` 의 이름 대응을 같이 넣었다 — 이 다섯을
+  넣고 있었다. 그것과 `pgup`·`pgdown`·`home`·`end` 의 이름 대응을 같이 넣었다. 이 다섯을
   실제 터미널에서 확인할 길이 없으면 다음에 또 같은 자리를 판다

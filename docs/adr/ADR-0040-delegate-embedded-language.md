@@ -57,7 +57,7 @@ type htmlRawText struct {
 
 ### 언어 이름은 규칙 표의 세 번째 칸이다
 
-info string 은 경로가 아니라 이름이라 `Detect` 를 쓸 수 없다 — `go` 는 확장자도 파일 이름도
+info string 은 경로가 아니라 이름이라 `Detect` 를 쓸 수 없다. `go` 는 확장자도 파일 이름도
 아니다. `languageRule` 에 `aliases` 를 더했다. 이름 표를 따로 만들면 언어를 더할 때 손댈 자리가
 둘이 되므로, 「언어 하나가 표의 한 줄」을 지켰다.
 
@@ -77,22 +77,22 @@ info string 은 경로가 아니라 이름이라 `Detect` 를 쓸 수 없다 —
 셋째가 눈에 띈다. `lexTail(state, line, from)` 에 **짧게 자른 줄**을 주면 정확히
 `line[from:end]` 를 훑고 `from` 만큼 되돌린다. 가운데 조각에도 같은 함수가 그대로 쓰인다.
 
-### shell lexer 를 같이 넣었다 — heredoc 없이
+### shell lexer 를 heredoc 없이 같이 넣었다
 
-`sh` 펜스가 이 저장소의 태그된 펜스 9 개 중 2 개인데 lexer 가 없었다. 상태 둘이다 —
-`shNormal` 과 `shQuoted{quote byte}`. shell 의 따옴표는 **줄을 넘는다**(js·python 의 한 겹
+`sh` 펜스가 이 저장소의 태그된 펜스 9 개 중 2 개인데 lexer 가 없었다. 상태 둘이다.
+`shNormal` 과 `shQuoted{quote byte}` 다. shell 의 따옴표는 **줄을 넘는다**(js·python 의 한 겹
 따옴표와 다른 자리다).
 
 heredoc(`<<EOF`) 은 넣지 않았다. `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와
 헷갈려 가장 틀리기 쉬운 자리이고, Dockerfile 의 `RUN <<EOF` 와 같이 봐야 한다.
 
 `shell.go` 가 이미 make·docker 가 같이 쓰는 helper 파일이라 `expansion.go` 로 옮기고 그 이름을
-언어에 줬다. `shellExpansionEnd` 를 shell 이 그대로 쓴다 — 이제 그 helper 가 셋이 나눠 쓴다.
+언어에 줬다. `shellExpansionEnd` 를 shell 이 그대로 쓴다. 이제 그 helper 가 셋이 나눠 쓴다.
 
 ### `<script>` 는 늘 js, `<style>` 는 늘 css 다
 
 `type` 속성을 보지 않는다. 보려면 속성 값을 고리 안에서 기억해 `>` 를 만나는 자리까지 들고
-가야 하는데, 틀렸을 때 피해가 작다 — `type="application/json"` 을 js 로 훑으면 그럴듯한 색이
+가야 하는데, 틀렸을 때 피해가 작다. `type="application/json"` 을 js 로 훑으면 그럴듯한 색이
 나오고 자리는 가운데 조각 안이라 벗어나지 않는다.
 
 ## 근거
@@ -106,7 +106,7 @@ heredoc(`<<EOF`) 은 넣지 않았다. `<<` 가 here-string(`<<<`) 과 산술 sh
 지켰다. 자리를 잘못 되돌리면 그리는 쪽이 없는 byte 를 집어 죽는 자리다.
 
 **`reflect` 로는 부족해졌다.** `TestStateComparable` 의 `reflect.TypeOf(state).Comparable()` 은
-interface 칸을 든 struct 에 대해 안에 무엇이 들었든 `true` 를 준다 — `cssComment{back State}`
+interface 칸을 든 struct 에 대해 안에 무엇이 들었든 `true` 를 준다. `cssComment{back State}`
 때문에 **이미 헛돌고 있었다.** 위임이 그 구멍을 떠받치는 자리로 만들었으므로, 실제로 `==` 를 해
 보는 시험(`TestStateEqualityDoesNotPanic`) 과 그 시험이 헛돌지 않는지 보는 시험
 (`TestUncomparableStatePanics`) 을 위임보다 **먼저** 세웠다.
@@ -116,7 +116,7 @@ interface 칸을 든 struct 에 대해 안에 무엇이 들었든 `true` 를 준
 - `internal/syntax/shell.go` 가 새로 생겼고(언어 아홉 번째), 옛 `shell.go` 는 `expansion.go` 가
   되었다. `detect.go` 에 `aliases` 칸과 `languageByName` 이 늘었다.
 - `mdFence`·`htmlRawText` 에 `inner` 칸이 붙고 각자의 `Lex` 가 위임한다. `htmlScan` 의 `>`
-  가지가 같은 줄의 닫는 tag 를 보게 되었다 — 위 버그가 여기서 고쳐진다.
+  가지가 같은 줄의 닫는 tag 를 보게 되었다. 위 버그가 여기서 고쳐진다.
 - `htmlRawTextTags map[string]bool` 이 `htmlRawTextLanguages map[string]State` 가 되었다.
   없는 key 가 nil 이라 표 하나가 「raw text 인가」와 「어느 lexer 인가」에 같이 답한다.
 - 태그된 펜스 9 개(`go` 7, `sh` 2) 가 전부 색을 얻었다.
@@ -128,28 +128,31 @@ interface 칸을 든 struct 에 대해 안에 무엇이 들었든 `true` 를 준
   makefile 의 조리법 판정 하나뿐이라, 틀리려면 「들여쓴 펜스 안의 makefile」이어야 한다.
 - **중첩 깊이에 상한이 없다.** 여는 줄만 이어지면 문맥 사슬이 줄 수만큼 깊어지고 `==` 가
   그만큼 걷는다. 상한을 두면 모든 markdown 파일이 그 칸을 들고 다니고 깊은 경우를 조용히
-  틀리게 훑는다 — 느린 것과 틀린 것을 맞바꾸지 않는다. 닫는 펜스 한 줄이 사슬을 통째로 버리므로
+  틀리게 훑는다. 느린 것과 틀린 것을 맞바꾸지 않는다. 닫는 펜스 한 줄이 사슬을 통째로 버리므로
   실제 문서에서는 1~2 다.
 - **수렴이 블록 안에서 조금 나빠질 수 있다.** 전에는 펜스 안의 모든 줄이 똑같은
   `mdFence{marker,size}` 를 내서 편집 다음 줄에 바로 수렴했다. 이제 나가는 문맥이 안쪽 언어의
   문맥을 같이 들어서, 그것이 줄마다 흔들리는 블록(css 의 여러 줄 선언, js 의 template 여닫기) 은
-  그 줄들에서 수렴하지 않는다. **다만 피해 범위가 블록 끝에서 멈춘다** — 닫는 줄은 안쪽 문맥과
+  그 줄들에서 수렴하지 않는다. **다만 피해 범위가 블록 끝에서 멈춘다.** 닫는 줄은 안쪽 문맥과
   무관하게 `mdNormal{}`·`htmlNormal{}` 을 내므로 그 줄에서 반드시 수렴한다.
 - **`</script>` 앞까지만 넘기므로 잘린 문자열이 미완성으로 남는다.** `const s = "</script>";`
   에서 열린 `"` 가 미완성 문자열 토큰이 된다. 브라우저도 여기서 script 를 끝내므로 맞는 동작이다.
 
 ## 대안
 
-**안쪽을 통째로 문자열 색으로 두기** — 위임 없이 「코드처럼 보이게」 하는 가장 싼 길이다.
-고르지 않았다. 코드블록이 서른 줄씩 한 색으로 덮이면 색이 없는 것보다 읽기 나쁘다. ADR-0039 가
-안쪽을 **색 없이** 둔 것이 이 판단이었고, 그래서 이번에 위임을 넣으면서 되돌릴 것이 없었다.
-
-**펜스마다 언어별 상태 type 을 따로 두기**(`mdFenceGo`, `mdFenceJS` …) — interface 칸이 없어서
-`==` 걱정이 사라진다. 고르지 않은 이유는 그것이 정말로 상태 공간을 언어 수만큼 곱하기 때문이다.
-ADR-0039 가 걱정했던 것이 이 모양이었고, interface 칸 하나로 그 걱정이 사라진다.
-
-**`Detect` 를 이름도 받게 넓히기** — 함수 하나로 끝난다. 고르지 않은 이유는 「경로를 본다」와
-「이름을 본다」가 다른 물음이고, 한 함수가 둘을 하면 `Detect("go")` 가 무엇을 뜻하는지 흐려진다.
+- **안쪽을 통째로 문자열 색으로 두기**
+	- 위임 없이 「코드처럼 보이게」 하는 가장 싼 길이다.
+	- 코드블록이 서른 줄씩 한 색으로 덮이면 색이 없는 것보다 읽기 나쁘다.
+	- ADR-0039 가 안쪽을 **색 없이** 둔 것이 이 판단이었고, 그래서 이번에 위임을 넣으면서
+	  되돌릴 것이 없었다.
+- **펜스마다 언어별 상태 type 을 따로 두기**(`mdFenceGo`, `mdFenceJS` …)
+	- interface 칸이 없어서 `==` 걱정이 사라진다.
+	- 그것이 정말로 상태 공간을 언어 수만큼 곱한다. ADR-0039 가 걱정했던 것이 이 모양이었고,
+	  interface 칸 하나로 그 걱정이 사라진다.
+- **`Detect` 를 이름도 받게 넓히기**
+	- 함수 하나로 끝난다.
+	- 「경로를 본다」와 「이름을 본다」가 다른 물음이고, 한 함수가 둘을 하면 `Detect("go")` 가
+	  무엇을 뜻하는지 흐려진다.
 
 ## 이 ADR 이 정하지 않는 것
 
@@ -157,6 +160,6 @@ ADR-0039 가 걱정했던 것이 이 모양이었고, interface 칸 하나로 �
   가능해졌다. 지금은 값 참조만 집는다.
 - **heredoc**(`<<EOF`).
 - **`<script type="...">` 을 가려 보는 것.**
-- **info string 의 첫 낱말만 색을 줄지.** 언어는 첫 낱말로 고르는데 색은 전체에 붙는다 —
+- **info string 의 첫 낱말만 색을 줄지.** 언어는 첫 낱말로 고르는데 색은 전체에 붙는다.
   ```` ```go title=x ```` 가 통째로 type 색이다.
 - **중첩 깊이 상한.**

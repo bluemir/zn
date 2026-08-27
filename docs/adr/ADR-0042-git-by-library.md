@@ -7,12 +7,12 @@
 
 지금까지 git 은 전부 외부 프로세스였다. 세 자리다.
 
-- `internal/core/git.go` — `rev-parse --short HEAD`, `symbolic-ref --quiet --short HEAD`,
+- `internal/core/git.go`: `rev-parse --short HEAD`, `symbolic-ref --quiet --short HEAD`,
   `status --porcelain`. statusBar 오른쪽의 `master(a1b2c3d*)` 다(ADR-0009, ADR-0030)
-- `internal/core/sidebar.go` — `check-ignore -z --stdin`. 트리에서 무시된 항목을 회색으로(ADR-0005)
-- `internal/core/palette.go` — `ls-files -z --cached --others --exclude-standard`. 팔레트 파일 목록(ADR-0011)
+- `internal/core/sidebar.go`: `check-ignore -z --stdin`. 트리에서 무시된 항목을 회색으로(ADR-0005)
+- `internal/core/palette.go`: `ls-files -z --cached --others --exclude-standard`. 팔레트 파일 목록(ADR-0011)
 
-ADR-0009 가 이미 go-git 을 대안으로 적고 기각했다 — "의존성이 크게 늘고 status 계산은 오히려
+ADR-0009 가 이미 go-git 을 대안으로 적고 기각했다. "의존성이 크게 늘고 status 계산은 오히려
 `git` 명령보다 느리다". `docs/tasks.md` 에는 "git 구현을 내부 라이브러리를 사용해서 구현할수
 없는지 확인" 이 그대로 열려 있었다.
 
@@ -28,7 +28,7 @@ ADR-0009 가 이미 go-git 을 대안으로 적고 기각했다 — "의존성�
 
 **그런데 이유가 「계산이 무겁다」가 아니다.** go-git v5.19.2 에는 index 의 stat cache 가 이미
 있고(`utils/merkletrie/filesystem/node.go` 의 `metadataMatches`), 200MB 를 추적하는 저장소도
-0.6ms 에 답한다 — 내용을 다시 hash 하지 않는다. 느린 이유는 **무시된 디렉터리 안을 훑는 것**
+0.6ms 에 답한다. 내용을 다시 hash 하지 않는다. 느린 이유는 **무시된 디렉터리 안을 훑는 것**
 하나다. `node_modules` 를 `.gitignore` 에 적어 두었는데도 들어간다.
 
 두 군데서 들어간다.
@@ -49,7 +49,7 @@ ADR-0009 가 이미 go-git 을 대안으로 적고 기각했다 — "의존성�
 | 뿌리에 `/a/node_modules` | 23.4ms | 6.8ms |
 
 파일 위치도 개수도 그대로다. 규칙이 바로 위 디렉터리에 있을 때만 가지치기가 된다. 판정 결과는
-세 경우 다 맞다 — 순전히 값이다.
+세 경우 다 맞다. 순전히 값이다.
 
 이것은 [go-git#181](https://github.com/go-git/go-git/issues/181) 로 **2020-10-12 부터 열려 있고**
 라벨이 `help wanted`·`performance`·`stale` 이다. 담당자도 PR 도 없다. 전신은
@@ -66,12 +66,12 @@ worktree, index 형식은 우리가 알 것이 아니다.
 
 **무시 규칙은 직접 모은다(`git-ignore.go`).** `gitignore.ReadPatterns` 를 부르지 않고,
 층마다 `.gitignore` 를 읽어 **부모의 규칙을 물려주며** 내려간다. 규칙 문법 자체는 라이브러리의
-`gitignore.ParsePattern`·`Matcher` 를 그대로 쓴다 — 문법을 다시 구현하지는 않는다.
+`gitignore.ParsePattern`·`Matcher` 를 그대로 쓴다. 문법을 다시 구현하지는 않는다.
 `git ls-files --exclude-standard` 가 세는 네 가지를 순서대로 읽는다: 시스템,
 사용자(`core.excludesFile`), `.git/info/exclude`, 각 층의 `.gitignore`.
 
 **작업 트리 훑기는 무시된 디렉터리에 들어가지 않는다(`walkGitFiles`).** `filepath.WalkDir` 을
-쓰지 않는다 — 규칙이 층마다 쌓이므로 지금 어느 층인지를 들고 다녀야 하고, 평평한 callback
+쓰지 않는다. 규칙이 층마다 쌓이므로 지금 어느 층인지를 들고 다녀야 하고, 평평한 callback
 으로는 그 자리를 알 수 없다.
 
 **dirty 는 셋을 본다.** `git status` 가 clean 이라고 부르는 기준 그대로다(ADR-0009).
@@ -126,7 +126,7 @@ symlink 를 풀어 주는데 부르는 쪽 경로는 안 풀린 채일 수 있�
 | 사내 monorepo | 55.5ms | 2,412ms | **120ms** |
 
 44 배가 2 배 남짓이 된다. 나눠 보면 monorepo 의 120ms 는 staged 0ms, 설정 읽기 0ms,
-추적 파일 `Lstat` 10ms, 그리고 **훑기 139ms** 다 — 사실상 훑기 하나다.
+추적 파일 `Lstat` 10ms, 그리고 **훑기 139ms** 다. 사실상 훑기 하나다.
 
 **그래서 v5 로 갈 수 있다.** v6 의 개선(`IgnoreMatcher`) 이 필요한 자리를 안 쓰므로 alpha 를
 물고 갈 이유가 없다. v6 는 llama.cpp 처럼 무시 파일이 거의 없는 저장소에서 오히려 v5 보다
@@ -134,7 +134,7 @@ symlink 를 풀어 주는데 부르는 쪽 경로는 안 풀린 채일 수 있�
 
 ### 왜 규칙을 직접 모으는가
 
-**라이브러리의 것이 이 한 가지를 못 한다.** 문법·우선순위·부정(`!`) 은 그대로 쓴다 —
+**라이브러리의 것이 이 한 가지를 못 한다.** 문법·우선순위·부정(`!`) 은 그대로 쓴다.
 다시 구현하는 것은 「어느 `.gitignore` 를 어느 순서로 읽는가」뿐이고, 그것이 고장난 부분이다.
 
 **층을 들고 다니는 것이 오히려 맞는 모양이다.** git 도 그렇게 센다. sidebar 는 트리를 훑지
@@ -149,7 +149,7 @@ symlink 를 풀어 주는데 부르는 쪽 경로는 안 풀린 채일 수 있�
 
 **기대값을 손으로 적지 않고 git 에게 묻는다.** `git-dirty_test.go` 는 경우마다 fixture 를
 세우고 우리 판정과 `git status --porcelain` 을 견준다. 손으로 적으면 「git 과 같은 기준」이라는
-목표가 시험에서 빠진다. 실행 권한 경우가 그렇게 잡혔다 — 내용만 견주고 mode 를 잃고 있었다.
+목표가 시험에서 빠진다. 실행 권한 경우가 그렇게 잡혔다. 내용만 견주고 mode 를 잃고 있었다.
 
 ### 왜 cached tree 를 앞잡이로 쓰는가
 
@@ -177,7 +177,7 @@ symlink 를 풀어 주는데 부르는 쪽 경로는 안 풀린 채일 수 있�
   않는 것 하나가 그 차이다.
 - 유휴 상태에 프로세스가 뜨지 않는다. 5 초마다 세 개씩 뜨던 것이 없어졌다.
 - 세 자리(statusBar·트리·팔레트) 가 같은 무시 규칙과 같은 훑기를 쓴다. 기준이 갈릴 자리가 없다.
-- 무시 규칙 판정이 `git check-ignore` 와 달라도 시험이 잡는다 — 기준선이 진짜 git 이다.
+- 무시 규칙 판정이 `git check-ignore` 와 달라도 시험이 잡는다. 기준선이 진짜 git 이다.
 - go-git 이 진짜 git 보다 관대한 자리(망가진 `.git`) 를 막아서, 예전에 없던 `0000000` 표시가
   생기지 않는다.
 
@@ -203,22 +203,26 @@ symlink 를 풀어 주는데 부르는 쪽 경로는 안 풀린 채일 수 있�
 
 ## 대안
 
-**`Worktree.Status()` 를 그대로 쓴다** — 코드가 훨씬 적다. monorepo 에서 2.4 초라
-cooldown 을 얹어도 duty cycle 이 32% 다. 노트북 배터리로 편집기를 띄워두는 값이 아니다.
-
-**v6-alpha 를 쓴다** — 뿌리 직속 무시 디렉터리는 고쳐져 있다. 중첩은 그대로 남아서
-monorepo 가 2.4 초이고, 무시 파일이 없는 저장소에서는 v5 보다 느리다. alpha 를 물 이유가 없다.
-
-**프로세스를 그대로 둔다** — 값이 가장 싸고 판정이 늘 git 과 같다. `git` 이 없는 환경에서
-표시가 없고, 앞으로 붙일 git 기능마다 출력 파싱을 늘린다. `docs/tasks.md` 의 항목을 닫는 것으로
-끝낼 수도 있었다.
-
-**`plumbing` 만 쓰고 ref 해석을 직접 짠다** — 바이너리가 +2MB 로 그친다. packed-refs·worktree·
-detached HEAD 를 우리가 감당하게 되고, ADR-0009 가 "git 이 이미 아는 것을 다시 구현한다" 며
-기각한 그 일이다.
-
-**upstream 을 고친다** — `ReadPatterns` 에 부모 규칙을 밀어 넣는 수정 자체는 작다. 고쳐지고
-풀려서 우리가 쓸 수 있게 되기까지가 이 결정을 미룰 만한 기간이 아니다. 따로 낼 일이다.
+- **`Worktree.Status()` 를 그대로 쓴다**
+	- 코드가 훨씬 적다.
+	- monorepo 에서 2.4 초라 cooldown 을 얹어도 duty cycle 이 32% 다. 노트북 배터리로 편집기를
+	  띄워두는 값이 아니다.
+- **v6-alpha 를 쓴다**
+	- 뿌리 직속 무시 디렉터리는 고쳐져 있다.
+	- 중첩은 그대로 남아서 monorepo 가 2.4 초이고, 무시 파일이 없는 저장소에서는 v5 보다 느리다.
+	  alpha 를 물 이유가 없다.
+- **프로세스를 그대로 둔다**
+	- 값이 가장 싸고 판정이 늘 git 과 같다.
+	- `git` 이 없는 환경에서 표시가 없고, 앞으로 붙일 git 기능마다 출력 파싱을 늘린다.
+	- `docs/tasks.md` 의 항목을 닫는 것으로 끝낼 수도 있었다.
+- **`plumbing` 만 쓰고 ref 해석을 직접 짠다**
+	- 바이너리가 +2MB 로 그친다.
+	- packed-refs·worktree·detached HEAD 를 우리가 감당하게 되고, ADR-0009 가 "git 이 이미 아는
+	  것을 다시 구현한다" 며 기각한 그 일이다.
+- **upstream 을 고친다**
+	- `ReadPatterns` 에 부모 규칙을 밀어 넣는 수정 자체는 작다.
+	- 고쳐지고 풀려서 우리가 쓸 수 있게 되기까지가 이 결정을 미룰 만한 기간이 아니다.
+	  따로 낼 일이다.
 
 ## 이 ADR 이 정하지 않는 것
 

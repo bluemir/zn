@@ -13,10 +13,10 @@ ADR-0034 로 키 쪽이 type 이 되면서 겹침이 코드에 드러났다. 수
 줄을 뜯어 놓은 struct(command-parser.go) 인데, 키 쪽 type 24 개가 `command*` 접두를 쓰게
 되어 자동완성에서 `command` 를 치면 두 갈래가 한 덩어리로 나왔다.
 
-**vim 도 같은 겹침을 안고 있고 수식어로만 푼다.** vim 9.1 문서로 확인했다 — `index.txt` 의 절
+**vim 도 같은 겹침을 안고 있고 수식어로만 푼다.** vim 9.1 문서로 확인했다. `index.txt` 의 절
 제목이 `2. Normal mode` 와 `6. EX commands` 이고, 본문은 "Normal mode command"(67 곳) 와
 "Ex command"(211 곳) 로 쓴다. 키 쪽만 가리키는 낱말은 없다. 고유한 낱말이 있는 것은 그
-**안쪽** 것들뿐이다 — `operator`, `{motion}`, text object. "action" 은 vim 문서에 0 번
+**안쪽** 것들뿐이다. `operator`, `{motion}`, text object 다. "action" 은 vim 문서에 0 번
 나온다.
 
 ## 결정
@@ -35,12 +35,12 @@ statusBar 에 찍히는 `COMMAND`, 파일 이름 `command-parser.go`·`view-edit
 (sidebar-key-parser.go, jobs-key-parser.go) 부름은 같다.
 
 **`motion` 은 그대로다.** vim 에도 고유한 낱말이 있고 우리도 그것을 쓴다. 동작이 motion 을
-들고 다닌다 — `actionDelete{motion: motionWordForward{}}`.
+들고 다닌다(`actionDelete{motion: motionWordForward{}}`).
 
 ## 근거
 
-**`command` 는 이미 `:` 쪽 어휘였다.** 위에 열거한 자리 — mode model, mode 진입 함수, 화면에
-찍히는 글자, 파일 이름 둘, 테스트 파일 둘 — 이 전부 `:` 를 가리킨다. 키 쪽의 `command*` 는
+**`command` 는 이미 `:` 쪽 어휘였다.** 위에 열거한 자리, 곧 mode model, mode 진입 함수, 화면에
+찍히는 글자, 파일 이름 둘, 테스트 파일 둘이 전부 `:` 를 가리킨다. 키 쪽의 `command*` 는
 ADR-0034 직후에 붙은 이름이라 아직 얕았다. 옮기는 값이 한쪽으로 크게 기울어 있다.
 
 **사용자가 「명령」이라 부르는 것은 `:` 쪽이다.** 화면에 `COMMAND` 라고 찍히고, 「알 수 없는
@@ -60,30 +60,31 @@ ADR-0034 직후에 붙은 이름이라 아직 얕았다. 옮기는 값이 한쪽
   (0006·0008·0013·0014·0017·0018·0033·0034), `spec.md`, `tasks.md` 를 맞췄다
 - `:`·팔레트·명령줄·`git` 호출을 가리키는 「명령」은 그대로다
   (ADR-0011·0016·0021·0024 등은 한 글자도 바뀌지 않았다)
-- **「동작」이 behavior 뜻으로 쓰이던 자리와 부딪힌다.** 새 어휘 옆에 있는 것만 고쳐 썼다 —
-  「동작은 같다」→「결과는 같다」, 「런타임 무동작」→「런타임에 아무 일도 하지 않는 것」.
+- **「동작」이 behavior 뜻으로 쓰이던 자리와 부딪힌다.** 새 어휘 옆에 있는 것만 고쳐 썼다.
+  「동작은 같다」→「결과는 같다」, 「런타임 무동작」→「런타임에 아무 일도 하지 않는 것」이다.
   `동작한다`(작동한다) 같은 동사형은 문맥이 분명해서 그대로 두었다
 - ADR-0034 에 `이후:` 줄로 이름이 옮겨간 사실을 적었다. 파일 이름
-  (`ADR-0034-parsed-command-knows-how-to-run.md`) 은 그대로다 — ADR 의 신원은 번호다
+  (`ADR-0034-parsed-command-knows-how-to-run.md`) 은 그대로다. ADR 의 신원은 번호다
 
 ## 대안
 
-**`:` 쪽을 `exCommand` 로** — vim 정식 용어이고 옮길 자리가 20 곳뿐이라 가장 쌌다. 고르지 않은
-이유는 `ex` 가 vim 계보를 아는 사람에게만 읽히는 낱말이고, 우리가 그 갈래를 「명령줄 명령」이라
-부르는 것과도 어긋나기 때문이다. 우리 어휘에 없는 말을 들이는 것이 값이다.
-
-**`:` 쪽을 `commandLine` 로** — 우리가 부르는 말 그대로다. 그런데 이름이 `command*` 접두 가족
-사이에 섞여서(`commandLine` 이 `commandMove`·`commandDelete` 와 나란히 선다) 겹침이 자동완성
-목록 안에서 되살아난다. 게다가 키 쪽에 「명령줄을 여는 동작」이 있어서
-`commandOpenCommandLine` 처럼 같은 낱말이 한 이름에 두 번 든다.
-
-**vim 처럼 양쪽에 수식어를 붙인다** (`normalCommand*` 와 `exCommand`) — 이름만 보고 어느
-갈래인지 알 수 있어 가장 정확하다. 고르지 않은 것은 이름이 길어지는 것
-(`normalCommandOpenCommandLine`) 과, 그래도 `ex` 를 들여와야 한다는 점이다.
+- **`:` 쪽을 `exCommand` 로**
+	- vim 정식 용어이고 옮길 자리가 20 곳뿐이라 가장 쌌다.
+	- `ex` 가 vim 계보를 아는 사람에게만 읽히는 낱말이고, 우리가 그 갈래를 「명령줄 명령」이라
+	  부르는 것과도 어긋난다. 우리 어휘에 없는 말을 들이는 것이 값이다.
+- **`:` 쪽을 `commandLine` 로**
+	- 우리가 부르는 말 그대로다.
+	- 이름이 `command*` 접두 가족 사이에 섞여서(`commandLine` 이 `commandMove`·`commandDelete`
+	  와 나란히 선다) 겹침이 자동완성 목록 안에서 되살아난다.
+	- 키 쪽에 「명령줄을 여는 동작」이 있어서 `commandOpenCommandLine` 처럼 같은 낱말이 한
+	  이름에 두 번 든다.
+- **vim 처럼 양쪽에 수식어를 붙인다(`normalCommand*` 와 `exCommand`)**
+	- 이름만 보고 어느 갈래인지 알 수 있어 가장 정확하다.
+	- 이름이 길어지고(`normalCommandOpenCommandLine`) 그래도 `ex` 를 들여와야 한다.
 
 ## 이 ADR 이 정하지 않는 것
 
 - sidebar·`:jobs` 의 키 동작을 `action` type 으로 올릴지. 지금은 이름 문자열이고, 숫자도 받지
   않아서 type 이 할 일이 없다(ADR-0034 가 같은 이유로 미뤘다). 부름만 「동작」으로 맞췄다
 - `:` 명령을 type 으로 만들지. `run` 의 `switch cmd.name` 은 아직 평평하다
-- CLAUDE.md 에 이 어휘를 규칙으로 적을지. 지금은 적지 않는다 — 코드와 이 ADR 이 근거다
+- CLAUDE.md 에 이 어휘를 규칙으로 적을지. 지금은 적지 않는다. 코드와 이 ADR 이 근거다
