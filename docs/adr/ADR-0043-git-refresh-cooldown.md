@@ -82,6 +82,18 @@ ADR-0030 의 뜻 그대로다.
 몰랐다. 이제 `jobDoneMsg` 의 이름이 `gitJobName` 인지 본다. 예외를 하나 만드는 것이지만,
 그 예외가 없으면 주기 갱신이라는 것 자체가 성립하지 않는다.
 
+### 왜 주기 관리자(`jobManager`) 를 두지 않는가
+
+`docs/tasks.md` 에 「주기적 동작을 위한 구조 만들기」가 올라 있었다. 구조를 하나 세우는 대신
+**이미 있는 자리 둘로 나눠 두는 쪽을 골랐다** — 주기를 잇는 자리는 `handleJob` 하나이고
+(위 절), 예약은 종류마다 제 함수를 갖는다(`scheduleGitTick`·`scheduleFileTick`·
+`scheduleLspTick`).
+
+**관리자를 두면 mode 마다 그것을 들고 다녀야 한다.** mode 가 model 인 이 설계에서(ADR-0002)
+그것은 곧 DI 이고, CLAUDE.md 가 최소화하기로 한 것이다. 지금 늘어나 있는 것은 예약이 갈라지지
+않게 묶어두는 bool 이 종류마다 하나씩인데, **셋이 되면 이름→cooldown 표로 모은다**
+(`docs/tasks.md`).
+
 ### 왜 `Init` 에서 tick 을 빼는가
 
 **첫 갱신이 곧 첫 고리다.** `Init` 에서 tick 을 같이 걸면 그 tick 과, 첫 갱신이 끝나며 거는
