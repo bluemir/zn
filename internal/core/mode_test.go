@@ -87,6 +87,10 @@ func bufferOf(t *testing.T, m tea.Model) Buffer {
 	case viewEditorSubstitute:
 		// `:s///c` 가 물어보는 동안에도 편집 화면 그대로다. 바뀐 줄과 커서를 보는 자리다.
 		return v.buffers[v.active]
+	case viewEditorCommand:
+		// 명령줄을 치는 동안에도 편집 화면 그대로다. visual 에서 `:` 로 들어오면 고른
+		// 범위가 살아 있고 그것이 여기 있다(ADR-0089).
+		return v.buffers[v.active]
 	case viewPalette:
 		return v.buffers[v.active]
 	case viewSymbol:

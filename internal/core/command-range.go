@@ -34,6 +34,13 @@ const (
 	addressCursor             // `.` 이거나 쉼표 한쪽이 빈 것(`:,5d`)
 	addressNumber             // `42`
 	addressLast               // `$`
+
+	// addressSelectStart, addressSelectEnd 는 visual 로 고른 범위의 두 끝(`'<` `'>`) 이다.
+	//
+	// visual 에서 `:` 로 들어오면 고른 것이 살아 있어서 셀 수 있다. normal 에서 치면 셀
+	// 것이 없어서 거절한다 — mark 를 남기지 않았다(ADR-0089).
+	addressSelectStart
+	addressSelectEnd
 )
 
 // parseLineRange 는 범위 토큰 안쪽을 뜯는다. `1,5` `%` `.` `.,+3` `-2,.` `,5` 가 온다.
@@ -83,6 +90,15 @@ func parseLineAddress(text string) (lineAddress, error) {
 		addr.base, rest = addressCursor, rest[1:]
 	case rest[0] == '$':
 		addr.base, rest = addressLast, rest[1:]
+	case strings.HasPrefix(rest, "'<"):
+		addr.base, rest = addressSelectStart, rest[2:]
+	case strings.HasPrefix(rest, "'>"):
+		addr.base, rest = addressSelectEnd, rest[2:]
+	case rest[0] == '\'':
+		// `'` 로 시작했는데 `<` `>` 가 아니다. mark 를 넣지 않았으므로 여기서 끝이다
+		// (ADR-0089). 아래로 흘리면 「범위를 알 수 없습니다」가 되는데, 무엇이 없는지를
+		// 말해 주는 편이 낫다.
+		return lineAddress{}, errors.Newf("mark 는 아직 쓸 수 없습니다: %s", text)
 	case rest[0] >= '0' && rest[0] <= '9':
 		digits := 0
 		for digits < len(rest) && rest[digits] >= '0' && rest[digits] <= '9' {
@@ -149,6 +165,44 @@ func (r lineRange) resolve(buf Buffer) (from, to int, err error) {
 	return from, to, nil
 }
 
+// area 는 명령이 일할 자리다. 줄 범위를 `motionRange` 로 바꿔 준다.
+//
+// **`'<,'>` 를 그대로 친 것이면 고른 범위를 그대로 준다.** 글자로 골랐으면 글자 구간까지
+// 담겨서, `:s` 와 `:d` 가 고른 밖을 건드리지 않는다(ADR-0089).
+//
+// 그 밖의 범위는 줄 단위다. 한쪽만 `'<` 인 것(`:'<,5d`)·자리를 옮긴 것(`:'<,'>+3`) 도 여기다 —
+// 사람이 줄 번호를 섞어 넣은 것이라 글자 구간을 지킬 뜻이 없어졌다.
+func (r lineRange) area(buf Buffer) (motionRange, error) {
+	from, to, err := r.resolve(buf)
+	if err != nil {
+		return motionRange{}, err
+	}
+
+	if r.isSelection() {
+		if area, ok := buf.selectionRange(); ok {
+			return area, nil
+		}
+	}
+
+	// target 은 motion 이 커서를 둔 자리다(motion.go). **손으로 친 범위에는 따라갈 이동이
+	// 없어서 커서 그 자리다** — 그러면 `:y` 의 moveToRangeStart 가 아무것도 하지 않아서
+	// `:1,5y` 가 커서를 1 줄로 끌어가지 않는다(buffer-yank.go 의 yankLines 가 적어 둔 규칙이다).
+	//
+	// `'<,'>` 로 온 것은 위에서 고른 범위를 그대로 주므로 그쪽 target 이 산다. 보고 있던
+	// 범위라 visual 의 `y` 처럼 커서가 시작으로 가는 것이 맞다.
+	return motionRange{
+		startLine: from, endLine: to,
+		targetLine: buf.cursorLine, targetCol: buf.cursorCol,
+		linewise: true,
+	}, nil
+}
+
+// isSelection 은 범위가 `'<,'>` 그 자체인지다. 자리 옮김이 붙으면 아니다.
+func (r lineRange) isSelection() bool {
+	return r.from == lineAddress{base: addressSelectStart} &&
+		r.to == lineAddress{base: addressSelectEnd}
+}
+
 // resolve 는 주소를 buffer 의 줄 자리로 바꾼다.
 //
 // 없는 줄을 가리키면 오류다. 끝으로 잘라 주지 않는다 — `:1,500d` 를 조용히 파일 전체로 읽으면
@@ -162,6 +216,17 @@ func (a lineAddress) resolve(buf Buffer) (int, error) {
 		base = a.line - 1
 	case addressLast:
 		base = len(buf.lines) - 1
+	case addressSelectStart, addressSelectEnd:
+		// 고른 범위는 Buffer 가 든다(ADR-0037). 그래서 서명이 그대로다.
+		area, ok := buf.selectionRange()
+		if !ok {
+			return 0, errors.New("고른 범위가 없습니다")
+		}
+
+		base = area.startLine
+		if a.base == addressSelectEnd {
+			base = area.endLine
+		}
 	}
 
 	line := base + a.offset

@@ -12,8 +12,13 @@ import (
 type viewEditorSubstitute struct {
 	*editor
 
-	sub      substitution
-	from, to int // 훑을 줄 범위. 바꾸어도 줄 수가 늘지 않아서 시작할 때 정한 끝이 끝까지 맞다
+	sub substitution
+
+	// area 는 훑을 자리다. 바꾸어도 줄 수가 늘지 않아서 시작할 때 정한 끝이 끝까지 맞다.
+	//
+	// 줄 범위가 아니라 motionRange 인 것은 글자로 고른 범위를 그대로 받기 때문이다.
+	// 줄마다 볼 구간은 selectionOn 이 잘라 준다 — 일괄 치환과 같은 자리다(ADR-0089).
+	area motionRange
 
 	// 지금 보고 있는 줄과 그 줄에서 바꿀 자리들이다.
 	//
@@ -39,17 +44,16 @@ type viewEditorSubstitute struct {
 //
 // 범위 안에 하나도 없으면 mode 를 열지 않는다 — 물어볼 것이 없는 자리에 사람을 세우고
 // `q` 를 치게 할 이유가 없다.
-func substituteMode(e *editor, sub substitution, from, to int) (tea.Model, tea.Cmd) {
+func substituteMode(e *editor, sub substitution, area motionRange) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	m := viewEditorSubstitute{
 		editor: e,
 		sub:    sub,
-		from:   from,
-		to:     to,
+		area:   area,
 
 		// seek 이 첫 줄부터 들어서게 한 줄 앞에서 시작한다.
-		line: from - 1,
+		line: area.startLine - 1,
 		last: -1,
 
 		backLine:   buf.cursorLine,
@@ -152,7 +156,7 @@ func (m viewEditorSubstitute) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorSubstitute) stale() bool {
 	buf := m.activeBuffer()
 
-	if m.to >= len(buf.lines) {
+	if m.area.endLine >= len(buf.lines) {
 		return true
 	}
 
@@ -166,12 +170,20 @@ func (m *viewEditorSubstitute) seek() bool {
 
 	for m.at >= len(m.matches) {
 		m.line++
-		if m.line > m.to {
+		if m.line > m.area.endLine {
 			return false
 		}
 
+		// 고른 밖은 물어보지도 않는다. 일괄 치환이 거르는 것과 같은 자리다.
+		span, _, ok := buf.selectionOn(m.area, m.line)
+		if !ok {
+			m.matches, m.at, m.delta = nil, 0, 0
+
+			continue
+		}
+
 		m.origin = buf.lines[m.line]
-		m.matches = m.sub.matchesIn(m.origin)
+		m.matches = m.sub.matchesIn(m.origin, span[0], span[1])
 		m.at, m.delta = 0, 0
 	}
 
@@ -209,7 +221,7 @@ func (m *viewEditorSubstitute) replaceHere() {
 	// 범위 전체를 한 번에 담으므로 뒤의 줄들도 이 한 번의 `u` 로 돌아간다.
 	if !m.editing {
 		buf.endEdit()
-		buf.beginEdit(m.from, m.to-m.from+1)
+		buf.beginEdit(m.area.startLine, m.area.endLine-m.area.startLine+1)
 		m.editing = true
 	}
 

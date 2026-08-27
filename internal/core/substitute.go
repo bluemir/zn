@@ -179,12 +179,28 @@ func parseReplacement(text string) ([]byte, error) {
 	return out, nil
 }
 
-// matchesIn 은 그 줄에서 바꿀 자리들이다. `g` 가 없으면 첫 자리 하나다.
+// matchesIn 은 그 줄의 [from, to) 안에서 바꿀 자리들이다. `g` 가 없으면 첫 자리 하나다.
 //
 // 줄 전체에서 한 번에 찾는다. 앞에서부터 자르며 이어 찾으면 `^` 가 자른 자리마다 다시
 // 맞아서, `:s/^/> /g` 가 줄 앞이 아니라 글자마다 붙는다.
-func (s substitution) matchesIn(line []byte) [][]int {
-	found := s.pattern.FindAllSubmatchIndex(line, -1)
+//
+// **구간이 좁아도 찾는 것은 줄 전체다.** 구간을 잘라서 돌리면 앵커가 자른 자리에 붙는다 —
+// 위와 같은 실수다. 찾은 뒤에 구간 밖을 걸러 내므로 `^` 와 `$` 는 줄의 끝에 맞는다(ADR-0089).
+//
+// **거르는 것이 `g` 보다 먼저다.** 먼저 하나로 줄이면 구간 밖의 첫 자리가 남아서
+// `g` 없는 `:s` 가 아무 일도 하지 않는다.
+//
+// 구간에 걸친 자리는 버린다. 반만 고른 낱말을 바꾸면 고른 밖이 딸려 나간다.
+func (s substitution) matchesIn(line []byte, from, to int) [][]int {
+	all := s.pattern.FindAllSubmatchIndex(line, -1)
+
+	found := make([][]int, 0, len(all))
+	for _, match := range all {
+		if match[0] >= from && match[1] <= to {
+			found = append(found, match)
+		}
+	}
+
 	if !s.all && len(found) > 1 {
 		return found[:1]
 	}
@@ -197,12 +213,15 @@ func (s substitution) expand(line []byte, match []int) []byte {
 	return s.pattern.Expand(nil, s.replacement, line, match)
 }
 
-// applyLine 은 한 줄의 바꿀 자리를 다 바꾼다. 바꾼 줄과 바꾼 자리 수를 준다.
+// applyRange 는 한 줄의 [from, to) 안에서 바꿀 자리를 다 바꾼다. 바꾼 줄과 바꾼 자리 수를 준다.
+//
+// 구간 밖은 그대로 실려 나간다. 줄 단위 범위는 부르는 쪽이 `[0, 줄끝]` 을 주므로 이 함수
+// 하나가 두 갈래를 다 답한다(buffer-selection.go 의 selectionOn, ADR-0089).
 //
 // 바꿀 것이 없으면 들어온 줄을 그대로 돌려준다 — 새 slice 를 만들지 않아서, 안 바뀐 줄이
 // 되돌리기 기록에 옛 줄 그대로 남는다.
-func (s substitution) applyLine(line []byte) ([]byte, int) {
-	matches := s.matchesIn(line)
+func (s substitution) applyRange(line []byte, from, to int) ([]byte, int) {
+	matches := s.matchesIn(line, from, to)
 	if len(matches) == 0 {
 		return line, 0
 	}

@@ -717,10 +717,16 @@ func (actionSuspend) run(e *editor) (tea.Model, tea.Cmd) {
 }
 
 // actionOpenCommandLine 는 `:` 다.
-type actionOpenCommandLine struct{}
+//
+// range 는 명령줄에 미리 적어 둘 글자다. visual 의 `:` 가 `'<,'>` 를 실어 온다(ADR-0089).
+type actionOpenCommandLine struct {
+	prefill string
+}
 
-func (actionOpenCommandLine) run(e *editor) (tea.Model, tea.Cmd) {
-	return commandMode(e)
+func (a actionOpenCommandLine) run(e *editor) (tea.Model, tea.Cmd) {
+	// **고른 범위를 지우지 않는다.** 지우는 문은 normal 과 insert 둘이고 여기는 그 둘이
+	// 아니다(ADR-0037). 살아 있어야 `'<,'>` 를 셀 수 있고, 치는 동안 화면에 칠해져 있다.
+	return commandModeWith(e, a.prefill)
 }
 
 // actionOpenPalette 는 `ctrl+p` 다.

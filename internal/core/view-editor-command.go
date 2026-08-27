@@ -1,8 +1,6 @@
 package core
 
 import (
-	"fmt"
-
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
 
@@ -14,7 +12,16 @@ import (
 // 치고 있는 명령 문자열은 이 mode 에만 있는 상태다.
 // mode 를 model 로 나눈 덕에 다른 mode 가 이 필드를 이고 다니지 않는다(ADR-0002).
 func commandMode(e *editor) (tea.Model, tea.Cmd) {
-	return viewEditorCommand{editor: e}, nil
+	return commandModeWith(e, "")
+}
+
+// commandModeWith 는 명령줄에 무엇을 미리 적어 둔 채로 연다.
+//
+// visual 의 `:` 가 `'<,'>` 를 실어 오는 자리다. **보이는 글자로 적는다** — 몰래 범위를
+// 끼우면 같은 `:s` 가 어디서 들어왔는지에 따라 뜻이 갈리고, 지우고 싶을 때 지울 것이 없다
+// (ADR-0089).
+func commandModeWith(e *editor, prefill string) (tea.Model, tea.Cmd) {
+	return viewEditorCommand{editor: e, input: prefill}, nil
 }
 
 type viewEditorCommand struct {
@@ -331,22 +338,30 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 // deleteLines 는 `:[범위]d` 다. 범위를 치지 않았으면 커서 줄 하나다.
 //
-// 지운 줄 수를 알린다. 키로 치는 `dd` 는 글자가 사라지는 것이 화면에 보여서 알리지 않는데
+// 지운 것을 알린다. 키로 치는 `dd` 는 글자가 사라지는 것이 화면에 보여서 알리지 않는데
 // (ADR-0017), 손으로 친 범위는 화면 밖일 수 있어서 무엇이 사라졌는지 볼 길이 없다.
 // vim 이 `5 fewer lines` 를 찍는 것과 같은 이유다.
+//
+// `:'<,'>d` 로 오면 고른 모양 그대로다. 글자로 골랐으면 그 글자만 지운다(ADR-0089).
 func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
-	from, to, err := cmd.lines.resolve(*buf)
+	area, err := cmd.lines.area(*buf)
 	if err != nil {
 		return normalModeError(m.editor, err)
 	}
 
-	removed := buf.deleteLines(from, to, m.contentWidth())
+	// 지울 것이 없으면 조용히 나간다. visual 의 `d` 와 같다 — 빈 줄 하나를 글자로 고른
+	// 자리이고, 알릴 것도 register 에 담을 것도 없다.
+	removed, cut := buf.deleteRange(area, m.contentWidth())
+	if !cut {
+		return normalMode(m.editor)
+	}
+
 	m.registers.storeDelete(removed, "")
 	m.scrollToCursor()
 
-	return normalModeMessage(m.editor, fmt.Sprintf("%d 줄 지웠습니다", len(removed.lines)))
+	return normalModeMessage(m.editor, removed.deletedMessage())
 }
 
 // yankLines 는 `:[범위]y` 다. 범위를 치지 않았으면 커서 줄 하나다.
@@ -356,12 +371,18 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
-	from, to, err := cmd.lines.resolve(*buf)
+	area, err := cmd.lines.area(*buf)
 	if err != nil {
 		return normalModeError(m.editor, err)
 	}
 
-	copied := buf.yankLines(from, to)
+	// 커서는 손으로 친 범위에서는 그대로다. area 가 target 을 커서로 두어서 moveToRangeStart
+	// 가 아무것도 하지 않는다. `:'<,'>y` 만 visual 의 `y` 처럼 범위 시작으로 간다(ADR-0089).
+	copied, ok := buf.yankRange(area, m.contentWidth())
+	if !ok {
+		return normalMode(m.editor)
+	}
+
 	m.registers.storeYank(copied, "")
 
 	return normalModeMessage(m.editor, copied.copiedMessage())
@@ -379,12 +400,12 @@ func (m viewEditorCommand) cat(cmd command) (tea.Model, tea.Cmd) {
 
 	buf := m.activeBuffer()
 
-	from, to, err := cmd.lines.resolve(*buf)
+	area, err := cmd.lines.area(*buf)
 	if err != nil {
 		return normalModeError(m.editor, err)
 	}
 
-	return runCat(m.editor, motionRange{startLine: from, endLine: to, targetLine: from, linewise: true})
+	return runCat(m.editor, area)
 }
 
 // substitute 는 `:[범위]s/찾을 것/바꿀 글/flag` 다. 범위를 치지 않았으면 커서 줄 하나다.
@@ -395,7 +416,10 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
 	// 범위를 먼저 푼다. 없는 줄을 댔으면 패턴이 옳은지 보기 전에 걸려야 한다 — `:d` 와 같다.
-	from, to, err := cmd.lines.resolve(*buf)
+	//
+	// 줄 범위가 아니라 area 로 받는다. `:'<,'>` 로 왔으면 글자 구간까지 들어서, 글자로 고른
+	// 것은 고른 밖을 건드리지 않는다(ADR-0089).
+	area, err := cmd.lines.area(*buf)
 	if err != nil {
 		return normalModeError(m.editor, err)
 	}
@@ -415,10 +439,10 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 	m.search = searchState{input: sub.input, pattern: sub.pattern, direction: searchForward, highlight: true}
 
 	if sub.confirm {
-		return substituteMode(m.editor, sub, from, to)
+		return substituteMode(m.editor, sub, area)
 	}
 
-	changes, lines, last := buf.substitute(sub, from, to)
+	changes, lines, last := buf.substitute(sub, area)
 	if changes == 0 {
 		// 못 찾은 것은 실패가 아니라 결과다. 검색이 쓰는 문구를 그대로 쓴다.
 		return normalModeMessage(m.editor, "찾을 수 없음: "+sub.input)

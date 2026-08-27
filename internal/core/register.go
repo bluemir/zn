@@ -195,6 +195,21 @@ func (reg register) copiedMessage() string {
 	return fmt.Sprintf("%d 글자 복사되었습니다", reg.charCount())
 }
 
+// deletedMessage 는 `:d` 가 알리는 문구다.
+//
+// 세는 법은 copiedMessage 와 같은 자리에 둔다 — 같은 것을 세는 법이 두 벌이 되면
+// `:'<,'>d` 와 `:'<,'>y` 가 같은 범위를 두고 다르게 말한다.
+//
+// 키로 치는 `dd`·visual 의 `d` 는 알리지 않는다. 글자가 사라지는 것이 화면에 보여서다
+// (ADR-0017). 손으로 친 범위는 화면 밖일 수 있어서 여기만 알린다.
+func (reg register) deletedMessage() string {
+	if reg.linewise {
+		return fmt.Sprintf("%d 줄 지웠습니다", len(reg.lines))
+	}
+
+	return fmt.Sprintf("%d 글자 지웠습니다", reg.charCount())
+}
+
 // charCount 는 글자 단위 register 에 담긴 글자 수다. byte 가 아니라 rune 으로 센다 —
 // 한글 한 자가 3 글자로 세어지면 안 된다.
 //

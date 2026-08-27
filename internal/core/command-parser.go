@@ -231,13 +231,16 @@ func (s tokenHead) end() (token, error) {
 	return token{}, nil
 }
 
-// isRangeChar 는 줄 범위에 쓰이는 글자다. 주소(`42` `.` `$` `%`)·자리 옮김(`+3` `-2`)·쉼표다.
+// isRangeChar 는 줄 범위를 **여는** 글자다. 주소(`42` `.` `$` `%` `'`)·자리 옮김(`+3` `-2`)·쉼표다.
 //
 // 이 글자로 시작하는 명령 이름은 없다. 그래서 맨 앞에서 이것을 만나면 범위로 읽어도
-// 이름과 부딪히지 않는다.
+// 이름과 부딪히지 않는다. `'` 도 그렇다 — `:'` 로 시작하는 명령은 없다(ADR-0089).
+//
+// `<` 와 `>` 는 여기 없다. 고른 범위(`'<` `'>`) 의 뒷글자라 `'` 뒤에서만 오고, 여기 넣으면
+// `:>` 가 「범위를 알 수 없습니다」로 걸려서 「알 수 없는 명령」이라고 말할 자리를 잃는다.
 func isRangeChar(ch rune) bool {
 	switch ch {
-	case '.', '$', '%', ',', '+', '-':
+	case '.', '$', '%', ',', '+', '-', '\'':
 		return true
 	default:
 		return ch >= '0' && ch <= '9'
@@ -252,7 +255,9 @@ type tokenRange struct {
 }
 
 func (s tokenRange) consume(ch rune) (token, tokenizerState) {
-	if isRangeChar(ch) {
+	// `<` `>` 는 범위를 열지는 못하지만 안쪽에서는 범위 글자다. `'<` `'>` 의 뒷글자라
+	// `'` 뒤에만 오고, 그것을 가리는 것은 안쪽 문법을 읽는 parseLineAddress 의 일이다.
+	if isRangeChar(ch) || ch == '<' || ch == '>' {
 		return token{}, tokenRange{buf: append(s.buf, ch)}
 	}
 

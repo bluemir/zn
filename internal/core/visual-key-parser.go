@@ -42,12 +42,18 @@ func pressExpandedVisual(state visualState, keys []string) ([]action, visualStat
 // 숫자를 보는 것은 반 화면 이동뿐이다. 나머지는 고른 범위가 이미 정해져 있어서 count 를 그냥
 // 무시한다 — `3d` 가 `d` 와 같고 되풀이할 것이 없다.
 //
-// `:` `/` `gt` `gT` `ctrl+w` 는 여기 없다. 짝이 없는 조합이 아무 일도 하지 않는 것과 같다.
-// `:` 는 `'<,'>` 가 서기 전에는 고른 범위를 명령줄에 실을 길이 없어서 따로 걸린 자리다.
+// `/` `gt` `gT` `ctrl+w` 는 여기 없다. 짝이 없는 조합이 아무 일도 하지 않는 것과 같다.
 func visualAction(key string, count int) action {
 	switch key {
 	case "ctrl+c":
 		return actionQuit{}
+	case ":":
+		// **고른 범위를 명령줄에 실어 보낸다.** `'<,'>` 가 미리 적히고, 고른 것은 지워지지
+		// 않은 채로 화면에 칠해져 있다 — 무엇에 명령이 걸리는지가 눈에 있어야 한다.
+		//
+		// `backspace` 로 걷어내면 그냥 커서 줄 하나짜리 명령이다. 범위가 글자로 서 있는
+		// 덕에 저절로 된다(ADR-0089).
+		return actionOpenCommandLine{prefill: "'<,'>"}
 	case "ctrl+z":
 		// 편집기 밖으로 나가는 손짓이라 mode 를 가리지 않는다. `ctrl+c` 와 같은 갈래인데
 		// 여태 이것만 빠져 있었다 — 둘 다 고른 것을 건드리지 않고, 셸에서 `fg` 로 올라오면
