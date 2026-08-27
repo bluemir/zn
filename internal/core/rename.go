@@ -59,7 +59,8 @@ func (e *editor) startRename(newName string) tea.Cmd {
 		return nil
 	}
 
-	if e.gopls == nil {
+	// 죽은 서버는 여기서 자리를 비운다(ADR-0092).
+	if e.goplsClient() == nil {
 		if e.goplsFailed {
 			e.notify("gopls 가 없어 이름을 바꿀 수 없습니다")
 

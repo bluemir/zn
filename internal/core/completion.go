@@ -81,7 +81,7 @@ func completionTriggers(text string) bool {
 // gopls 를 여기서 띄우지 않는다. Go 파일을 열 때 이미 뜨고(ADR-0051), 글자마다 지나는
 // 자리에서 남의 프로세스를 띄우는 일이 일어나서는 안 된다.
 func (e *editor) startCompletion() tea.Cmd {
-	if !e.hasTab() || e.completionAsking || e.gopls == nil {
+	if !e.hasTab() || e.completionAsking || e.goplsClient() == nil {
 		return nil
 	}
 

@@ -171,11 +171,26 @@ func (e *editor) scheduleLspTick() tea.Cmd {
 // 보내는 것은 goroutine 에서 한다. 남의 프로세스의 파이프에 쓰는 일이라, 그 프로세스가
 // 잠깐 읽지 않으면 화면을 그리는 쪽이 같이 멈춘다.
 func (e *editor) syncGopls() tea.Cmd {
-	if e.gopls == nil {
+	// **죽은 서버를 여기서 알아채고 되살린다.** tick 마다 지나는 자리라 사람이 무엇을 묻기
+	// 전에 돌아온다(ADR-0092).
+	//
+	// **죽은 것과 뜬 적 없는 것을 가른다.** 죽기 전에 미리 재 두는 것이 그 일이다 —
+	// goplsClient 가 자리를 비운 뒤에는 둘이 같은 모습이 된다. 뜬 적이 없는데 여기서
+	// 띄우면 Go 파일을 열지도 않은 세션에서 서버가 뜬다. 처음 띄우는 자리는 파일을 열 때다
+	// (startGoplsForOpenFile).
+	//
+	// 되살리기를 멈출 자리는 goplsClient 가 든다. 너무 자주 죽으면 goplsFailed 를 세우고,
+	// 그러면 아래 startGopls 가 곧바로 물러난다.
+	died := e.gopls != nil && e.gopls.Closed()
+
+	client := e.goplsClient()
+	if client == nil {
+		if died {
+			return e.startGopls()
+		}
+
 		return nil
 	}
-
-	client := e.gopls
 
 	// 줄 목록은 그대로 넘겨도 된다. 편집은 겉껍데기를 새로 만들어 갈아끼우므로(edit.go 의
 	// replaceLines) 지금 넘긴 것은 이 순간의 모습으로 굳는다.
@@ -238,7 +253,8 @@ func gotoDefinition(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	if e.gopls == nil {
+	// 죽은 서버는 여기서 자리를 비운다. 그러면 아래가 「없다」로 읽어 새로 띄운다(ADR-0092).
+	if e.goplsClient() == nil {
 		if e.jobRunning(goplsJobName, nil) {
 			e.notify("gopls 를 설치하는 중입니다")
 
@@ -314,7 +330,7 @@ func (e *editor) startDefinition() tea.Cmd {
 		return nil
 	}
 
-	if e.gopls == nil {
+	if e.goplsClient() == nil {
 		if e.goplsFailed {
 			e.notify("gopls 가 없어 정의를 찾을 수 없습니다")
 
@@ -427,4 +443,54 @@ func (e *editor) shutdownGopls() {
 
 	e.gopls.Shutdown()
 	e.gopls = nil
+}
+
+// goplsMaxRevives 는 한 세션에서 되살려 보는 횟수다.
+//
+// 셋으로 둔 것은 이 수가 **「어쩌다 한 번 죽은 것」과 「뜨자마자 죽는 것」을 가르기** 때문이다.
+// 앞쪽은 한 번 되살리면 돌아오고, 뒤쪽은 세 번이면 그것이 되살려서 나아지는 종류가 아님이
+// 드러난다(ADR-0092).
+const goplsMaxRevives = 3
+
+// goplsClient 는 지금 쓸 수 있는 서버다. 죽어 있으면 자리를 비우고 nil 을 준다.
+//
+// **죽은 채로 남겨 두면 그 세션 내내 오류였다.** 자리를 비우는 문이 나가는 길(shutdownGopls)
+// 하나뿐이었고 startGopls 는 `e.gopls != nil` 이면 곧바로 돌아가므로, 서버가 한 번 죽으면
+// `\gd`·`\gr`·이름 바꾸기·자동완성이 끝까지 「연결이 닫혔다」였다(ADR-0092).
+//
+// **다시 띄우는 것은 여기가 아니다.** 여기는 자리를 비우고 세는 일만 한다 — Cmd 를 돌려줄 수
+// 없는 자리에서도 불리기 때문이다. 띄우는 것은 syncGopls 와, 사람이 묻는 자리들이 이미 하는
+// `e.gopls == nil` 길이다.
+//
+// **너무 자주 죽으면 실패한 것으로 둔다.** goplsFailed 를 세우면 startGopls 가 그 자리를 보고
+// 물러나므로 되살리는 고리가 끊긴다. 설치가 끝나면 그 자리가 다시 풀린다(installGopls).
+//
+// **알림은 한 번뿐이다.** 알린 뒤 자리가 비므로 다음 부름은 첫 `if` 에서 끝난다.
+func (e *editor) goplsClient() *lsp.Client {
+	if e.gopls == nil || !e.gopls.Closed() {
+		return e.gopls
+	}
+
+	e.gopls = nil
+	e.recordGoplsDeath()
+
+	return nil
+}
+
+// recordGoplsDeath 는 죽은 것을 셈에 넣고 사람에게 알린다.
+//
+// goplsClient 에서 갈라 둔 것은 **여기가 정하는 자리**이기 때문이다 — 몇 번까지 되살릴지와
+// 무엇을 알릴지가 여기 있고, 저쪽은 「죽었나」를 묻는 한 줄이다. 그 한 줄은 lsp 가 시험하고
+// (Closed) 이 판단은 여기서 시험한다.
+func (e *editor) recordGoplsDeath() {
+	e.goplsDeaths++
+
+	if e.goplsDeaths > goplsMaxRevives {
+		e.goplsFailed = true
+		e.notify("gopls 가 자꾸 멎습니다. 더 띄우지 않습니다")
+
+		return
+	}
+
+	e.notify("gopls 가 멎었습니다. 다시 띄웁니다")
 }

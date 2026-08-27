@@ -240,6 +240,59 @@ func (c *Client) Tracks(path string) bool {
 	return known
 }
 
+// Closed 는 서버가 죽었는지다. 죽은 뒤의 요청은 전부 오류이므로 부르는 쪽이 이 자리를 보고
+// 새로 띄운다(core 의 goplsClient).
+func (c *Client) Closed() bool {
+	return c.conn.isClosed()
+}
+
+// FileChangeKind 는 디스크에서 무엇이 일어났는지다. 규격의 FileChangeType 번호 그대로다.
+type FileChangeKind int
+
+const (
+	FileCreated FileChangeKind = 1
+	FileChanged FileChangeKind = 2
+	FileDeleted FileChangeKind = 3
+)
+
+// FileChange 는 디스크에서 바뀐 파일 하나다.
+type FileChange struct {
+	Path string
+	Kind FileChangeKind
+}
+
+// FilesChanged 는 **밖에서** 바뀐 파일들을 서버에 알린다.
+//
+// **이것 없이는 서버가 모른다.** gopls 는 스스로 디스크를 감시하지 않고 이 알림에 기댄다.
+// 재보니 밖에서 만든 파일의 사용처가 몇 초를 기다려도 0 개였고, 이 알림 하나에 500ms 뒤
+// 잡혔다. `git checkout` 뒤에 「쓰는 곳이 있는데 없다고 나온다」가 그것이다(ADR-0092).
+//
+// **능력을 알리지 않고 보낸다.** 규격은 `workspace.didChangeWatchedFiles` 능력과
+// `client/registerCapability` 를 거치게 되어 있는데, 재보니 gopls 는 알리지 않아도 이
+// 알림을 받는다. 그래서 ADR-0051 이 닫아 둔 「서버가 우리에게 되묻는」 문을 열지 않는다.
+//
+// **열어 둔 파일에는 소용이 없다.** overlay(didOpen 으로 보낸 사본) 가 디스크를 이긴다 —
+// 재서 확인했다. 그쪽은 buffer 를 다시 읽어 didChange 로 보내야 한다(ADR-0092).
+//
+// 빈 목록이면 보내지 않는다. 서버를 깨울 이유가 없다.
+func (c *Client) FilesChanged(changes []FileChange) error {
+	if len(changes) == 0 {
+		return nil
+	}
+
+	events := make([]map[string]any, 0, len(changes))
+	for _, change := range changes {
+		events = append(events, map[string]any{
+			"uri":  fileURI(change.Path),
+			"type": int(change.Kind),
+		})
+	}
+
+	return c.conn.notify("workspace/didChangeWatchedFiles", map[string]any{
+		"changes": events,
+	})
+}
+
 // Definition 은 그 자리의 정의가 어디인지 묻는다.
 //
 // pos 의 열은 UTF-16 코드 단위다(protocol.go 의 Position). 부르는 쪽이 이미 바꿔서 준다.

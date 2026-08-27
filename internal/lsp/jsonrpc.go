@@ -78,6 +78,15 @@ func (c *conn) notify(method string, params any) error {
 	return c.write(message{Method: method, Params: mustMarshal(params)})
 }
 
+// isClosed 는 연결이 끊겼는지다. 서버가 죽으면 readLoop 이 끝나면서 서고(drainPending),
+// 그 뒤의 모든 요청은 답을 받을 수 없다.
+func (c *conn) isClosed() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.closed
+}
+
 // call 은 요청을 보내고 답을 기다린다. 서버가 오류를 주면 그것이 err 이다.
 //
 // 기다리는 것을 ctx 로 끊지 않는다. 끊으면 답이 왔을 때 받을 사람이 없어 읽는 goroutine 이

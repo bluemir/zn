@@ -87,10 +87,21 @@ func TestNormalKeyParser(t *testing.T) {
 		{name: "yank 도 같은 자리를 쓴다", keys: []string{"y", "w"}, want: actionYank{motion: motionWordForward{kind: smallWord}}},
 
 		// motion 이 아닌 키는 operator 뒤에 올 수 없다.
-		{name: "operator 뒤의 홀로 서는 동작", keys: []string{"d", "i"}, want: nil},
+		// `i`·`a` 는 예외다 — text object 를 기다리는 접두 키가 된다(ADR-0091).
+		{name: "operator 뒤의 홀로 서는 동작", keys: []string{"d", "o"}, want: nil},
 		{name: "operator 가 esc 를 삼킨다", keys: []string{"d", "esc"}, want: nil},
 		{name: "operator 뒤의 접두 키 동작", keys: []string{"d", "g", "t"}, want: nil},
 		{name: "operator 뒤의 r", keys: []string{"d", "r", "x"}, want: nil},
+
+		// text object 는 키 둘로 범위 하나를 만든다(ADR-0091).
+		{name: "iw", keys: []string{"d", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: smallWord}}},
+		{name: "aw", keys: []string{"d", "a", "w"}, want: actionDelete{motion: motionWordObject{kind: smallWord, around: true}}},
+		{name: "iW", keys: []string{"d", "i", "W"}, want: actionDelete{motion: motionWordObject{kind: bigWord}}},
+		{name: "aW", keys: []string{"c", "a", "W"}, want: actionChange{motion: motionWordObject{kind: bigWord, around: true}}},
+		{name: "text object 는 count 를 버린다", keys: []string{"3", "d", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: smallWord}}},
+		{name: "operator 뒤 숫자도 버린다", keys: []string{"d", "3", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: smallWord}}},
+		{name: "짝 없는 text object", keys: []string{"d", "i", "z"}, want: nil},
+		{name: "text object 자리의 esc", keys: []string{"d", "i", "esc"}, want: nil},
 
 		{name: "x 는 count 를 받는다", keys: []string{"3", "x"}, want: actionDelete{motion: motionRight{}, count: 3}},
 		{name: "r 은 글자를 들고 온다", keys: []string{"3", "r", "z"}, want: actionReplaceChar{key: "z", count: 3}},
@@ -118,6 +129,8 @@ func TestNormalKeyParserWaits(t *testing.T) {
 		{name: "operator 뒤", keys: []string{"d"}},
 		{name: "operator 뒤 숫자를 모으는 중", keys: []string{"d", "3"}},
 		{name: "operator 뒤 접두 키", keys: []string{"d", "g"}},
+		{name: "text object 를 기다리는 중", keys: []string{"d", "i"}},
+		{name: "aw 쪽도 같다", keys: []string{"c", "a"}},
 	}
 
 	for _, test := range tests {
@@ -144,6 +157,8 @@ func TestNormalKeyParserShowcmd(t *testing.T) {
 		{name: "operator", keys: []string{"d"}, want: "d"},
 		{name: "operator 앞뒤의 숫자", keys: []string{"3", "d", "2"}, want: "3d2"},
 		{name: "operator 뒤 접두 키", keys: []string{"d", "g"}, want: "dg"},
+		{name: "text object 를 기다리는 중", keys: []string{"d", "i"}, want: "di"},
+		{name: "aw 쪽", keys: []string{"3", "c", "a"}, want: "3ca"},
 	}
 
 	for _, test := range tests {

@@ -319,6 +319,86 @@ func (motionWholeLines) span(buf Buffer, count, width int) (motionRange, bool) {
 	}, true
 }
 
+// motionWordObject 는 커서가 든 단어다. vim 의 `iw`·`aw`·`iW`·`aW` 다(ADR-0091).
+//
+// 이동 키가 아니라서 move 가 없다 — operator 뒤에서만 생긴다. motionWholeLines 와 같은 갈래다.
+//
+// **count 를 보지 않는다.** vim 의 `d2iw` 는 단어와 공백을 번갈아 세는데, 모르면 「단어 둘」로
+// 읽힌다. 틀리게 읽히는 숫자를 받지 않는다(ADR-0091 §4).
+type motionWordObject struct {
+	kind   wordKind
+	around bool // `aw` 인가. 단어 둘레의 공백까지 먹는다
+}
+
+func (m motionWordObject) span(buf Buffer, count, width int) (motionRange, bool) {
+	line := buf.cursorLine
+	text := buf.lines[line]
+
+	// **공백 위에서는 잡지 않는다.** vim 은 공백 덩어리를 잡는데, 같은 키가 커서 한 칸에 따라
+	// 「단어를 바꾼다」와 「공백을 지운다」로 갈리면 눌러 보고 아는 키가 된다(ADR-0091 §2).
+	//
+	// 빈 줄과 줄 끝도 여기서 같이 걸린다. classAt 이 줄 끝을 공백으로 보기 때문이다.
+	class := buf.classAt(line, buf.cursorCol, m.kind)
+	if class == classBlank {
+		return motionRange{}, false
+	}
+
+	// 같은 부류가 이어지는 데까지 좌우로 넓힌다. **줄을 넘지 않는다** — 단어는 줄 안의 것이고
+	// 줄 끝이 공백이라 저절로 멈춘다.
+	start := buf.cursorCol
+	for start > 0 {
+		prev := prevClusterStart(text, 0, start)
+		if buf.classAt(line, prev, m.kind) != class {
+			break
+		}
+
+		start = prev
+	}
+
+	end := buf.cursorCol
+	for end < len(text) && buf.classAt(line, end, m.kind) == class {
+		end += clusterSize(text, end)
+	}
+
+	if m.around {
+		start, end = buf.aroundWord(line, start, end, m.kind)
+	}
+
+	return motionRange{
+		startLine: line, startCol: start,
+		endLine: line, endCol: end,
+		targetLine: line, targetCol: start,
+	}, true
+}
+
+// aroundWord 는 `aw` 가 단어에 더 먹는 공백까지 넓힌 범위다.
+//
+// **뒤 공백을 먹고, 없으면 앞 공백을 먹는다.** vim 과 같다. 줄 가운데 낱말을 `daw` 로 지우면
+// 공백이 하나만 남고, 줄 끝 낱말이면 앞 공백을 먹어서 줄 끝에 공백이 남지 않는다.
+func (buf Buffer) aroundWord(line, start, end int, kind wordKind) (int, int) {
+	text := buf.lines[line]
+
+	after := end
+	for after < len(text) && buf.classAt(line, after, kind) == classBlank {
+		after += clusterSize(text, after)
+	}
+
+	if after > end {
+		return start, after
+	}
+
+	for start > 0 {
+		prev := prevClusterStart(text, 0, start)
+		if buf.classAt(line, prev, kind) != classBlank {
+			break
+		}
+
+		start = prev
+	}
+
+	return start, end
+}
+
 // motionRange 는 operator 가 motion 으로 잡은 범위다. `d` 와 `y` 가 같이 쓴다.
 //
 // 글자 단위면 (startLine, startCol) 부터 (endLine, endCol) **앞까지** 이고,

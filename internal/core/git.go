@@ -24,6 +24,11 @@ type gitStatus struct {
 	branch string // detached HEAD 면 빈 문자열이다
 	commit string // 짧은 해시. 이것이 비면 저장소가 아니거나 commit 이 하나도 없는 것이다
 	dirty  bool
+
+	// head 는 자르지 않은 HEAD 해시다. 화면에 찍지 않고 **HEAD 가 움직였는지**를 보는 데만
+	// 쓴다 — 짧은 해시는 저장소 크기에 따라 길이가 달라져서(gitShortHashLen) 견주는 자를
+	// 그것으로 삼을 수 없다(ADR-0092).
+	head string
 }
 
 // gitMinShortHashLen 은 짧은 해시가 짧아지지 않는 자리 수다. git 의 기본값과 같다.
@@ -179,6 +184,7 @@ func readGitStatus(ctx context.Context) gitStatus {
 	status := gitStatus{
 		branch: branch,
 		commit: hash[:min(gitShortHashLen(gitPackedObjectCount(root)), len(hash))],
+		head:   hash,
 	}
 
 	commit, err := repo.CommitObject(head.Hash())
@@ -253,6 +259,11 @@ func (e *editor) scheduleGitTick() tea.Cmd {
 //
 // 결과는 apply 가 editor 에 넣는다 — Update 안에서 불리므로 잠금이 필요 없다(job.go).
 func (e *editor) startGitRefresh() tea.Cmd {
+	// **앞의 HEAD 와 서버를 여기서 뜬다.** 작업이 도는 동안 editor 를 읽을 수 없고, 뜨는
+	// 자리는 Update 안이라 안전하다. gopls 가 없으면 nil 이고 그때는 알릴 곳이 없다.
+	previous := e.git.head
+	client := e.goplsClient()
+
 	return e.startJob(gitJobName, nil, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress, 1)
 
@@ -260,6 +271,13 @@ func (e *editor) startGitRefresh() tea.Cmd {
 			defer close(ch)
 
 			status := readGitStatus(ctx)
+
+			// **HEAD 가 움직였으면 그 사이에 달라진 파일을 gopls 에 알린다.**
+			// 알리지 않으면 `git checkout` 뒤에 「쓰는 곳이 있는데 없다」가 된다(ADR-0092).
+			//
+			// 처음 읽는 때(previous 가 빈 때) 는 알리지 않는다. 견줄 앞이 없고, 서버는 그때
+			// 막 뜬 것이라 디스크를 이미 지금 모습으로 읽었다.
+			goplsWatchChanges(ctx, client, previous, status.head)
 
 			// 끊긴 작업이 읽어온 것은 "저장소가 아니다" 와 구별되지 않는다.
 			// 그대로 넣으면 편집기를 끝내는 길에 표시가 사라진다.

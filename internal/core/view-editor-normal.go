@@ -113,10 +113,13 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseClickMsg:
 		// 왼쪽과 오른쪽만 본다. 가운데 버튼에 붙일 동작은 아직 정하지 않았다.
 		//
-		// 누를 때 반응하고 뗄 때는 보지 않는다. 드래그가 없으니 누른 자리가 곧 고른 자리다.
 		// 대기 중인 접두 키(m.state) 와 알림(m.message) 은 그대로 둔다 — 키 이야기다.
 		switch mouse := msg.Mouse(); mouse.Button {
 		case tea.MouseLeft:
+			// **끌기 시작한 자리를 여기서 정한다.** tabline 에서 시작한 드래그만 tab 을
+			// 옮긴다(ADR-0090). 누르기 없는 드래그가 없으므로 값이 늘 맞다.
+			m.draggingTab = m.regionAt(mouse.X, mouse.Y) == regionTabline
+
 			return m.click(mouse)
 		case tea.MouseRight:
 			// tabline 의 tab 을 닫는다. 다른 영역에서는 아무 일도 없다(ADR-0060).
@@ -125,16 +128,35 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.MouseMotionMsg:
+		mouse := msg.Mouse()
+		if mouse.Button != tea.MouseLeft {
+			return m, nil
+		}
+
+		// tabline 에서 시작했으면 tab 을 옮긴다. **지금 자리가 편집 영역이어도 범위를 고르지
+		// 않는다** — tabline 이 한 행이라 가로로 끄는 손이 아래로 한 칸 새기 쉽다(ADR-0090).
+		if m.draggingTab {
+			m.dragTab(mouse.X, mouse.Y)
+
+			return m, nil
+		}
+
 		// 버튼을 누른 채 움직이는 중이다. 누른 자리를 anchor 로 삼아 범위를 고르기 시작한다 —
 		// 누른 자리는 MouseClickMsg 가 이미 커서로 만들어 두었다(ADR-0012, ADR-0037).
 		//
 		// 클릭만 하는 것은 지금처럼 커서 이동이다. vim 도 드래그부터 visual 이다.
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft && m.regionAt(mouse.X, mouse.Y) == regionText {
+		if m.regionAt(mouse.X, mouse.Y) == regionText {
 			m.startSelection(false)
 			m.dragTo(mouse.X, mouse.Y)
 
 			return visualMode(m.editor)
 		}
+
+		return m, nil
+	case tea.MouseReleaseMsg:
+		// 끄는 것이 끝났다. 지우지 않아도 다음 누르기가 값을 바로잡지만, 끈 자리가 남아 있으면
+		// 다른 mode 에서 누른 뒤 normal 로 돌아온 첫 편집 영역 드래그가 한 번 먹히지 않는다.
+		m.draggingTab = false
 
 		return m, nil
 	case tea.MouseWheelMsg:

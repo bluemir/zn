@@ -441,6 +441,14 @@ func (s normalStart) press(key string) ([]action, normalState) {
 	case "\"":
 		// 뒤에 register 이름 한 개가 붙는다.
 		return nil, normalRegister{building: s.building}
+	case "i", "a":
+		// **operator 뒤에서만 text object 다.** 홀로 치면 insert mode 라 그것을 빼앗지
+		// 않는다 — 갈라 두는 자리가 building.op 하나다(ADR-0091 §5).
+		if s.building.op == "" {
+			break
+		}
+
+		return nil, normalTextObject{building: s.building, around: key == "a"}
 	case "d", "y", "c", ">", "<", "=":
 		// operator 를 두 번 치면 줄 단위다(`dd` `>>` `==`).
 		if s.building.op == key {
@@ -617,6 +625,64 @@ func (s normalRegister) press(key string) ([]action, normalState) {
 
 func (s normalRegister) showcmd() string {
 	return s.building.showcmd() + countString(s.count) + `"`
+}
+
+// normalTextObject 는 operator 뒤의 `i`·`a` 를 먹고 **무엇의** 안쪽인지 기다리는 자리다.
+//
+// `r`(normalReplace)·`"`(normalRegister) 와 같은 모양이다 — 한 키를 더 받아 동작을 짓는다.
+//
+// 여기까지 온 것은 operator 가 있다는 뜻이다. 홀로 친 `i` 는 insert mode 라 이 상태를
+// 열지 않는다(normalStart 의 press, ADR-0091 §5).
+type normalTextObject struct {
+	building partial
+	around   bool // `a` 로 들어왔는가. `i` 면 false 다
+}
+
+func (s normalTextObject) press(key string) ([]action, normalState) {
+	keys := expandHangul(key)
+	if len(keys) > 1 {
+		// `ㅘ` 처럼 둘로 풀리는 키다. 갈래 한 개 자리에 둘을 넣을 수 없다.
+		return nil, normalStart{}
+	}
+	key = keys[0]
+
+	kind, ok := wordObjectKind(key)
+	if !ok {
+		// 짝이 없는 조합(`ciz`) 은 아무 일도 하지 않는다. `dgt` 와 같다(ADR-0034).
+		return nil, normalStart{}
+	}
+
+	// **count 를 버린다.** operator 앞에 모아둔 숫자까지 지운다 — 남겨 두면 operatorCount 가
+	// 그것을 실어 보내서, 동작이 읽지도 않는 숫자를 들고 다닌다(ADR-0091 §4).
+	building := s.building
+	building.opCount = 0
+
+	object := motionWordObject{kind: kind, around: s.around}
+
+	return building.built(building.operate(object, 0)), normalStart{}
+}
+
+func (s normalTextObject) showcmd() string {
+	if s.around {
+		return s.building.showcmd() + "a"
+	}
+
+	return s.building.showcmd() + "i"
+}
+
+// wordObjectKind 는 text object 키가 가리키는 단어 갈래다. 단어가 아니면 false 다.
+//
+// **지금은 단어 넷(`iw` `aw` `iW` `aW`) 뿐이다.** 따옴표·짝괄호·tag·문단은 경계를 찾는 값이
+// 갈래마다 달라서 각각 별건이고, backlog 에 있다(ADR-0091 §1).
+func wordObjectKind(key string) (wordKind, bool) {
+	switch key {
+	case "w":
+		return smallWord, true
+	case "W":
+		return bigWord, true
+	}
+
+	return 0, false
 }
 
 // operatorCount 는 operator 앞뒤의 두 숫자를 하나로 합친다. vim 처럼 곱한다 — `3d2w` 는 여섯 단어다.

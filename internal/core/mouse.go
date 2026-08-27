@@ -288,6 +288,32 @@ func (e *editor) dragTo(x, y int) {
 	buf.clampToNormal(width)
 }
 
+// dragTab 은 끌린 자리로 활성 tab 을 옮긴다(ADR-0090).
+//
+// 끄는 동안 순서가 실제로 바뀐다. 그래서 놓을 자리를 알리는 표시를 따로 그릴 것이 없다 —
+// 다음 프레임의 tabline 이 그것이다.
+//
+// **tabline 밖은 아무 일도 하지 않는다.** 끌던 자리를 유지하고 포인터가 돌아오면 이어 옮긴다.
+// 끌어내서 닫는 길을 만들지 않은 것은 그것이 tab 을 잃는 일이고 오른쪽 버튼이 이미 하기
+// 때문이다(ADR-0060).
+func (e *editor) dragTab(x, y int) {
+	if y >= tablineHeight {
+		return
+	}
+
+	row := e.renderTabline(e.textWidth())
+	col := x - e.sidebarLeft()
+
+	// **양끝의 가려짐 표시 위는 tab 이 아니다.** 누르면 화면을 미는 자리인데, 끌면서 밀기
+	// 시작하면 손이 멈춰도 계속 흘러간다 — motion 은 포인터가 실제로 움직일 때만 오므로
+	// 멈추게 하려면 타이머가 하나 생긴다(ADR-0029, dragTo 가 한 행씩만 굴리는 것과 같다).
+	if inSpan(row.left, col) || inSpan(row.right, col) {
+		return
+	}
+
+	e.moveTab(row.tabAt(col))
+}
+
 // click 은 visual mode 에서 왼쪽 버튼을 먹는다. 누른 자리가 새 시작이라 visual 이 끝난다.
 func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	region := m.regionAt(mouse.X, mouse.Y)

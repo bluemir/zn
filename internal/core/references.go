@@ -42,7 +42,8 @@ func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	if e.gopls == nil {
+	// 죽은 서버는 여기서 자리를 비운다(ADR-0092).
+	if e.goplsClient() == nil {
 		if e.jobRunning(goplsJobName, nil) {
 			e.notify("gopls 를 설치하는 중입니다")
 
@@ -81,7 +82,7 @@ func (e *editor) startReferences() tea.Cmd {
 		return nil
 	}
 
-	if e.gopls == nil {
+	if e.goplsClient() == nil {
 		if e.goplsFailed {
 			e.notify("gopls 가 없어 사용처를 찾을 수 없습니다")
 

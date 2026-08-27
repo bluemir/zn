@@ -66,6 +66,16 @@ func newFakeServer(t *testing.T) *fakeServer {
 	return server
 }
 
+// kill 은 서버가 죽은 것을 흉내낸다.
+//
+// 쓰는 파이프를 닫으면 클라이언트의 읽기가 EOF 로 끝나고, readLoop 이 나가면서
+// drainPending 이 자리를 세운다(ADR-0092).
+func (s *fakeServer) kill() {
+	if closer, ok := s.raw.(io.Closer); ok {
+		_ = closer.Close()
+	}
+}
+
 // reply 는 서버가 답을 보낸다.
 func (s *fakeServer) reply(id int, result any) {
 	body, err := json.Marshal(message{JSONRPC: "2.0", ID: &id, Result: mustMarshal(result)})

@@ -27,6 +27,15 @@ type editor struct {
 	// 많아지면 활성 tab 이 보이도록 여기가 밀린다. 가려진 것은 양끝 표시가 알린다(ADR-0029).
 	tabScroll int
 
+	// draggingTab 은 tabline 에서 시작한 드래그 중인지다. tab 을 끌어서 옮기는 자리다(ADR-0090).
+	//
+	// **시작한 자리를 알아야 한다.** tabline 은 한 행이고 편집 영역이 바로 아래 한 칸이라,
+	// tab 을 가로로 끄는 손이 아래로 새면 지금 자리만 보는 코드는 글을 고르기 시작한다.
+	//
+	// 누를 때 정하고 놓을 때 지운다. 드래그는 늘 누르기로 시작하므로 값이 어긋나도
+	// 다음 누르기가 제자리를 찾는다(view-editor-normal.go).
+	draggingTab bool
+
 	sidebar sidebar
 
 	// search 는 마지막 검색이다. `n` 은 tab 을 옮겨서도 같은 것을 찾으므로 Buffer 가 아니라 여기 있다.
@@ -61,6 +70,11 @@ type editor struct {
 	gopls         *lsp.Client
 	goplsStarting bool
 	goplsFailed   bool
+
+	// goplsDeaths 는 서버가 뜬 뒤에 죽은 횟수다. **되살리기를 멈추는 자리가 있어야 해서
+	// 센다** — 뜨자마자 죽는 서버를 끝없이 되살리면 tick 마다 프로세스가 하나씩 뜬다
+	// (goplsClient, ADR-0092).
+	goplsDeaths int
 
 	// goplsRoot 는 서버에게 준 뿌리, 곧 편집기를 연 자리다. 서버가 참조를 찾는 범위가
 	// 여기까지라, 이름 바꾸기가 이 밖의 파일을 거절하는 근거가 된다(rename.go, ADR-0067).
@@ -525,6 +539,28 @@ func (e *editor) closeTabAt(index int) bool {
 	// 드러난 파일 자리로 트리를 데려가는 것은 forceCloseTab 이 한다 — 그쪽이 Cmd 를
 	// 돌려주는 자리다(ADR-0032).
 	return true
+}
+
+// moveTab 은 활성 tab 을 to 자리로 옮긴다. 사이에 있던 것들이 그만큼 밀린다(ADR-0090).
+//
+// **보고 있는 파일은 그대로다.** 활성 자리를 새 index 로 따라 옮긴다 — 끌어서 옮기는 손은
+// 순서만 바꾸려는 것이고, 보던 것이 바뀌면 그것은 다른 일이다.
+//
+// 옮기고 나면 활성 tab 이 가려진 쪽으로 갔을 수 있다. 그것을 안으로 당기는 것은 tabline 이
+// 그릴 때 이미 한다(ADR-0029). 여기서도 한 번 맞춰 두는 것은 닫는 자리와 같은 손이다.
+func (e *editor) moveTab(to int) {
+	from := e.active
+	if to < 0 || to >= len(e.buffers) || to == from {
+		return
+	}
+
+	// **Delete 가 뒷마당을 그대로 쓴다.** 지운 자리 뒤를 앞으로 당기므로 buf 를 먼저 값으로
+	// 떠 두어야 한다. 뜨지 않으면 밀린 뒤의 엉뚱한 buffer 를 넣는다.
+	buf := e.buffers[from]
+	e.buffers = slices.Insert(slices.Delete(e.buffers, from, from+1), to, buf)
+	e.active = to
+
+	e.scrollTabsTo()
 }
 
 // closeOtherTabs 는 활성 tab 만 남기고 나머지를 닫는다. 닫은 수를 준다.
