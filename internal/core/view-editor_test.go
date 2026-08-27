@@ -89,8 +89,8 @@ func gutterWidthOf(m tea.Model) int {
 	if e, ok := m.(interface{ sidebarLeft() int }); ok {
 		width += e.sidebarLeft()
 	}
-	if e, ok := m.(interface{ lineNumberWidth() int }); ok {
-		width += e.lineNumberWidth()
+	if e, ok := m.(interface{ gutterWidth() int }); ok {
+		width += e.gutterWidth()
 	}
 
 	return width
@@ -144,7 +144,7 @@ func TestViewEditorCursorPosition(t *testing.T) {
 	buf := &m.buffers[0]
 
 	// X 는 줄번호 칸만큼, Y 는 tabline 한 줄만큼 밀린다. 첫 줄이 화면 1 행이다.
-	left := m.lineNumberWidth()
+	left := m.gutterWidth()
 	require.Positive(t, left, "이 너비에서는 줄번호가 그려진다")
 
 	require.NotNil(t, m.View().Cursor)
@@ -293,27 +293,28 @@ func TestViewEditorRendersTabs(t *testing.T) {
 	assert.Equal(t, "func main() {\n»   println()\n}", ansi.Strip(textOf(t, m)))
 }
 
-// 편집 영역 왼쪽에 절대번호와 상대번호가 나란히 붙는다.
+// 편집 영역 왼쪽에 마커 칸과 절대번호와 상대번호가 나란히 붙는다.
 // 상대번호가 본문에 붙는 쪽이라 이동 거리를 셀 때 눈이 덜 움직인다.
+// 맨 앞 한 칸은 진단 마커 자리다. 진단이 없어도 늘 비워 둔다(ADR-0086).
 func TestLineNumbers(t *testing.T) {
 	var m tea.Model = newTestEditor("one\ntwo\nthree\nfour\nfive\n", 40, 5)
 
 	assert.Equal(t, []string{
-		"  1  0 ",
-		"  2  1 ",
-		"  3  2 ",
-		"  4  3 ",
-		"  5  4 ",
+		"   1  0 ",
+		"   2  1 ",
+		"   3  2 ",
+		"   4  3 ",
+		"   5  4 ",
 	}, gutterOf(t, m), "커서가 첫 줄이면 상대번호가 아래로 늘어난다")
 
 	m = send(m, "2", "j")
 
 	assert.Equal(t, []string{
-		"  1  2 ",
-		"  2  1 ",
-		"  3  0 ",
-		"  4  1 ",
-		"  5  2 ",
+		"   1  2 ",
+		"   2  1 ",
+		"   3  0 ",
+		"   4  1 ",
+		"   5  2 ",
 	}, gutterOf(t, m), "커서 줄이 0 이고 위아래로 멀어진다")
 }
 
@@ -323,7 +324,7 @@ func TestLineNumberColors(t *testing.T) {
 
 	row := contentRowsOf(t, m)[1]
 
-	assert.Equal(t, "  2 ", ansi.Strip(row)[:4], "절대번호는 맨 앞")
+	assert.Equal(t, "   2 ", ansi.Strip(row)[:5], "절대번호는 마커 칸 다음이다")
 	assert.Contains(t, row, "\x1b[33m  2", "절대번호는 노란색이다")
 	assert.Contains(t, row, "\x1b[38;5;244m 1", "상대번호는 흐리다")
 	assert.NotContains(t, textOf(t, m), "\x1b[", "본문에는 색이 가지 않는다")
@@ -332,28 +333,28 @@ func TestLineNumberColors(t *testing.T) {
 // wrap 되어 이어지는 행은 번호 칸이 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이다.
 func TestLineNumbersBlankOnWrappedRows(t *testing.T) {
 	m := newTestEditor(strings.Repeat("a", 30)+"\nnext\n", 34, 3)
-	require.Positive(t, m.lineNumberWidth())
+	require.Positive(t, m.gutterWidth())
 
-	assert.Equal(t, []string{"  1  0 ", "       ", "  2  1 "}, gutterOf(t, m))
+	assert.Equal(t, []string{"   1  0 ", "        ", "   2  1 "}, gutterOf(t, m))
 }
 
 // 자릿수는 줄 수와 화면 높이를 따라간다. 짧은 파일에서도 최소 폭은 지킨다.
 func TestLineNumberWidthFollowsFileSize(t *testing.T) {
 	short := newTestEditor("a\n", 80, 5)
-	assert.Equal(t, minAbsoluteDigits+1+minRelativeDigits+1, short.lineNumberWidth())
+	assert.Equal(t, markerWidth+minAbsoluteDigits+1+minRelativeDigits+1, short.gutterWidth())
 
 	long := newTestEditor(strings.Repeat("a\n", 1200), 80, 5)
-	assert.Equal(t, 4+1+minRelativeDigits+1, long.lineNumberWidth(), "1200 줄이면 절대번호가 네 자리")
+	assert.Equal(t, markerWidth+4+1+minRelativeDigits+1, long.gutterWidth(), "1200 줄이면 절대번호가 네 자리")
 
 	tall := newTestEditor("a\n", 80, 120)
-	assert.Equal(t, minAbsoluteDigits+1+3+1, tall.lineNumberWidth(), "화면이 높으면 상대번호가 세 자리")
+	assert.Equal(t, markerWidth+minAbsoluteDigits+1+3+1, tall.gutterWidth(), "화면이 높으면 상대번호가 세 자리")
 }
 
 // 번호 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다.
 func TestLineNumbersHiddenOnNarrowScreen(t *testing.T) {
 	m := newTestEditor("abc\n", 20, 3)
 
-	assert.Zero(t, m.lineNumberWidth())
+	assert.Zero(t, m.gutterWidth())
 	assert.Equal(t, m.textWidth(), m.contentWidth(), "본문이 편집 영역을 다 쓴다")
 	assert.Equal(t, "abc\n\n", textOf(t, m), "파일보다 화면이 길면 남는 행은 빈 줄이다")
 }
@@ -362,6 +363,6 @@ func TestLineNumbersHiddenOnNarrowScreen(t *testing.T) {
 func TestLineNumbersNarrowContentWrapsEarlier(t *testing.T) {
 	m := newTestEditor(strings.Repeat("a", 30)+"\n", 34, 3)
 
-	assert.Equal(t, 34-m.lineNumberWidth(), m.contentWidth())
-	assert.Equal(t, strings.Repeat("a", 27)+"\naaa\n", textOf(t, m), "본문 너비에서 접힌다")
+	assert.Equal(t, 34-m.gutterWidth(), m.contentWidth())
+	assert.Equal(t, strings.Repeat("a", 26)+"\naaaa\n", textOf(t, m), "본문 너비에서 접힌다")
 }

@@ -67,17 +67,17 @@ func (e editor) textWidth() int {
 }
 
 // contentWidth 는 파일 내용을 그릴 너비다. 줄을 어디서 접을지가 이 값으로 정해진다.
-// 편집 영역에서 줄번호 칸을 뗀 나머지다.
+// 편집 영역에서 gutter 를 뗀 나머지다.
 //
-// 줄바꿈·스크롤·커서 계산은 모두 이 값을 써야 한다. textWidth 를 쓰면 줄번호 칸만큼
+// 줄바꿈·스크롤·커서 계산은 모두 이 값을 써야 한다. textWidth 를 쓰면 gutter 만큼
 // 넓게 잡아서 줄이 화면 오른쪽으로 삐져나간다.
 func (e editor) contentWidth() int {
-	return max(0, e.textWidth()-e.lineNumberWidth())
+	return max(0, e.textWidth()-e.gutterWidth())
 }
 
 // contentLeft 는 파일 내용이 시작하는 화면 칸이다. 커서 좌표를 옮길 때 쓴다.
 func (e editor) contentLeft() int {
-	return e.sidebarLeft() + e.lineNumberWidth()
+	return e.sidebarLeft() + e.gutterWidth()
 }
 
 // 줄번호 칸의 최소 자릿수다. 파일이 짧아도 이만큼은 잡아서 줄을 오갈 때 본문이 흔들리지 않는다.
@@ -89,6 +89,16 @@ const (
 	minAbsoluteDigits = 3
 	minRelativeDigits = 2
 )
+
+// markerWidth 는 줄번호 왼쪽 마커 칸의 폭이다. 진단 마커가 여기 선다(ADR-0086).
+//
+// **진단이 없어도 늘 잡는다.** 있을 때만 잡으면 첫 오류가 뜨는 순간 본문 전체가 한 칸
+// 밀리고 줄바꿈 자리가 통째로 달라진다. minAbsoluteDigits 를 3 으로 잡아 999 줄까지
+// 번호 칸이 흔들리지 않게 한 것과 같은 손이다(ADR-0007).
+//
+// Go 파일이 아니어도 잡는다. 「진단이 오는 파일」과 「칸이 있는 파일」이 갈리면 tab 을
+// 옮길 때마다 본문이 좌우로 흔들린다.
+const markerWidth = 1
 
 // lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.
 //
@@ -104,8 +114,13 @@ func (e editor) lineNumberDigits() (absolute, relative int) {
 		max(digits(e.textHeight()), minRelativeDigits)
 }
 
-// lineNumberWidth 는 줄번호 칸이 차지하는 폭이다. 안 그릴 때는 0 이다.
-func (e editor) lineNumberWidth() int {
+// gutterWidth 는 본문 앞에 붙는 칸이 차지하는 폭이다. 마커 칸과 줄번호 칸을 합친 것이고,
+// 안 그릴 때는 0 이다.
+//
+// **폭이 한 항이다.** 마커 칸과 번호 칸을 따로 재면 좁은 화면에서 한쪽만 사라질 수 있고,
+// 폭을 보는 자리(contentWidth·contentLeft·sticky·시험의 gutterWidthOf) 가 둘을 각각
+// 더해야 한다. 한 군데라도 어긋나면 화면 절반만 밀린 상태가 된다(ADR-0086).
+func (e editor) gutterWidth() int {
 	// tab 이 없으면 번호를 붙일 줄이 없다. 빈 화면은 편집 영역을 통째로 쓴다(ADR-0064).
 	if !e.hasTab() {
 		return 0
@@ -113,8 +128,10 @@ func (e editor) lineNumberWidth() int {
 
 	absolute, relative := e.lineNumberDigits()
 
-	// 번호 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
-	width := absolute + 1 + relative + 1
+	// 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
+	// 마커 칸도 여기서 같이 사라진다 — 번호가 없는데 마커만 남으면 그것이 어느 줄의 것인지
+	// 셀 수 없다(ADR-0086).
+	width := markerWidth + absolute + 1 + relative + 1
 	if e.textWidth()-width < minTextWidth {
 		return 0
 	}
@@ -133,12 +150,13 @@ func digits(n int) int {
 	return count
 }
 
-// renderLineNumber 는 화면 행 앞에 붙는 줄번호 칸이다. `절대 상대 ` 순서다.
+// renderGutter 는 화면 행 앞에 붙는 칸이다. `마커 절대 상대 ` 순서다.
 //
-// wrap 되어 이어지는 행은 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
-// 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다.
-func (e editor) renderLineNumber(cursorLine int, row screenRow) string {
-	width := e.lineNumberWidth()
+// wrap 되어 이어지는 행은 전부 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
+// 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다. 마커도 같은 규칙이다 — 한 줄이 세 행이
+// 되었을 때 마커가 세 번 서면 오류가 셋인 것처럼 보인다(ADR-0086).
+func (e editor) renderGutter(buf *Buffer, row screenRow) string {
+	width := e.gutterWidth()
 	if width == 0 {
 		return ""
 	}
@@ -149,7 +167,7 @@ func (e editor) renderLineNumber(cursorLine int, row screenRow) string {
 	absolute, relative := e.lineNumberDigits()
 
 	// 커서 줄은 0 이다. 절대번호가 바로 옆에 있어서 거기에 또 찍을 이유가 없다.
-	distance := row.line - cursorLine
+	distance := row.line - buf.cursorLine
 	if distance < 0 {
 		distance = -distance
 	}
@@ -167,6 +185,7 @@ func (e editor) renderLineNumber(cursorLine int, row screenRow) string {
 		relativeNumber = strings.Repeat(" ", relative)
 	}
 
-	return styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
+	return renderDiagnosticMarker(buf.diagnosticAt(row.line)) +
+		styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
 		styleLineNumberRelative.Render(relativeNumber) + " "
 }

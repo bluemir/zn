@@ -66,7 +66,7 @@ func (m viewMessages) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		// **이 자리가 이 화면의 값이다.** 여기로 오는 것들이 알림을 내는 자리이고
 		// (작업 실패·바깥 파일 변경·서버 기동 실패), 그것들은 사람이 키를 누르지 않았는데
 		// 도착해서 지금까지 다음 키에 사라졌다. 목록을 열어 둔 채로 그것이 쌓이는 것을 본다.

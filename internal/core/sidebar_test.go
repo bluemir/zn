@@ -99,6 +99,14 @@ func settle(t *testing.T, model tea.Model, cmd tea.Cmd) tea.Model {
 				continue
 			}
 
+			// 서버가 떴으면 거기서 멈춘다. 그 자리에서 나오는 Cmd 에 진단을 기다리는 것이
+			// 들어 있고, 그것은 종이 울릴 때까지 막힌다(diagnostics.go 의 waitDiagnostics).
+			// bubbletea 는 Cmd 를 goroutine 에서 돌려 막히지 않는데 여기서는 이 goroutine 이
+			// 그대로 돈다. jobDoneMsg 에서 고리를 끊는 것과 같은 자리다(ADR-0086).
+			if _, ready := msg.(goplsReadyMsg); ready {
+				continue
+			}
+
 			queue = append(queue, cmd)
 		}
 	}
@@ -488,7 +496,7 @@ func TestSidebarShiftsTextAndCursor(t *testing.T) {
 
 	assert.Equal(t, 80-sidebarWidth, m.textWidth())
 	assert.Equal(t, sidebarWidth, m.sidebarLeft())
-	assert.Equal(t, tea.Position{X: sidebarWidth + m.lineNumberWidth(), Y: tablineHeight}, m.View().Cursor.Position,
+	assert.Equal(t, tea.Position{X: sidebarWidth + m.gutterWidth(), Y: tablineHeight}, m.View().Cursor.Position,
 		"sidebar 와 줄번호 칸을 지난 자리다")
 }
 

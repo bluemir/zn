@@ -88,6 +88,21 @@ var (
 // 색만으로 갈래를 나타내지는 않는다. 목록이 오류 줄에 `!` 도 같이 찍는다(view-messages.go).
 var styleNoticeFailed = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 
+// styleDiagnosticError, styleDiagnosticWarning 은 진단 마커의 색이다(ADR-0086).
+//
+// 256 색 고정값이 아니라 ANSI 색이다. 실패한 알림이 ANSI 1 을 쓰는 것과 같은 자리다 —
+// 여기서 필요한 것은 특정 빨강이 아니라 **그 테마가 실패라고 부르는 색**이다(styleNoticeFailed).
+//
+// 경고가 ANSI 3 이 아니라 11(밝은 노랑) 인 것은 바로 오른쪽 절대 줄번호가 3 을 쓰고 있어서다.
+// 같은 값이면 `⚠ 12` 가 한 덩이로 붙어 보인다(styleLineNumberAbsolute, ADR-0007).
+//
+// 색만으로 갈래를 나타내지 않는다. 마커 글자가 `✖`·`⚠` 로 이미 갈리고, statusBar 아래 줄에도
+// 같은 글자가 붙는다(diagnostics.go).
+var (
+	styleDiagnosticError   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	styleDiagnosticWarning = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+)
+
 // styleTip 은 짧은 안내 문장(tip) 의 색이다. statusBar 아래 줄 오른쪽과 빈 화면 가운데에 선다.
 //
 // **눈에 덜 띄어야 한다.** tip 은 지금 하는 일이 아니라 다음에 해 볼 것이라서, 커서 위치나

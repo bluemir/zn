@@ -221,6 +221,17 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return nil, e.syncGopls()
 	case goplsReadyMsg:
 		return nil, e.finishGopls(msg)
+	case diagnosticsMsg:
+		// 서버가 진단을 밀어 주었다. 우리가 물은 답이 아니라 서버가 자기 때에 보낸 것이라
+		// 여기서 화면에 올리고 다음 것을 기다리는 고리를 다시 잇는다(diagnostics.go, ADR-0086).
+		e.applyDiagnostics()
+
+		if e.gopls == nil {
+			// 서버를 내리는 중에 마지막 종이 울린 것이다. 기다릴 상대가 없다.
+			return nil, nil
+		}
+
+		return nil, waitDiagnostics(e.gopls)
 	case definitionMsg:
 		// 정의를 물은 답이다. 후보가 하나면 그 자리로 뛰고(mode 그대로) 여럿이면 고르는
 		// 화면을 연다 — mode 를 바꾸는 유일한 작업 결과다(ADR-0051).

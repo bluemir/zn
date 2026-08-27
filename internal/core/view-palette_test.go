@@ -404,8 +404,12 @@ func TestPaletteReopenKeepsIndexedFiles(t *testing.T) {
 }
 
 // visual 에서도 `ctrl+p` 로 연다. **고른 것을 두고 연다** — 상자 뒤로 그대로 칠해져 있다.
+//
+// 화면을 82 칸으로 잡는다. 상자는 가운데 64 칸이고(paletteMaxWidth) 왼쪽 gutter 는 8 칸이라
+// (ADR-0086 의 마커 칸) 그 사이에 아래 화면이 한 칸 남는다. 80 칸이면 상자가 그 한 칸까지
+// 덮어서 볼 자리가 없다.
 func TestPaletteOpensFromVisualKeepingSelection(t *testing.T) {
-	var m tea.Model = send(newTestEditor("foo bar\nbaz\n", 80, 20), "v", "l", "l")
+	var m tea.Model = send(newTestEditor("foo bar\nbaz\n", 82, 20), "v", "l", "l")
 	require.IsType(t, viewEditorVisual{}, m)
 
 	m = send(m, "ctrl+p")

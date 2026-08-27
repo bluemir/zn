@@ -247,6 +247,10 @@ func standaloneAction(key string, count int) action {
 		// 대문자·소문자로 **맞추는** 것은 visual 의 `U`·`u` 다. operator 갈래(`g~`·`gu`·`gU`)
 		// 를 두지 않았다(ADR-0083).
 		return actionChangeCase{kind: caseToggle, count: count}
+	case "J":
+		// count 는 「이을 줄 수」다. `J`·`1J`·`2J` 가 모두 두 줄이다(ADR-0087).
+		// 공백을 손대지 않는 `gJ` 와 visual 의 `J` 는 두지 않았다.
+		return actionJoin{count: count}
 	case "p":
 		return actionPasteAfter{count: count}
 	case "P":

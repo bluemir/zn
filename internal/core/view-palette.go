@@ -146,7 +146,7 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		// 다른 mode 와 같이 공용 처리에 넘기고, 여기서만 목록을 다시 거른다.
 		// 인덱싱이 도는 동안 목록이 길어지므로 새로 온 파일도 치고 있는 패턴에 걸려야 한다.
 		next, cmd := m.handleJob(msg)

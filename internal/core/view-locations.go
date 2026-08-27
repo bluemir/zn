@@ -129,7 +129,7 @@ func (m viewLocations) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		// model 이 오면 mode 가 바뀐 것이다. 정의나 사용처를 또 물은 답이 오면 이 판이
 		// 새 판으로 갈리는 자리이기도 하다(job.go).
 		//

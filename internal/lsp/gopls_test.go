@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -322,4 +323,90 @@ func findLine(t *testing.T, lines [][]byte, needle string) int {
 
 func indexIn(line []byte, needle string) int {
 	return strings.Index(string(line), needle)
+}
+
+// 진단은 우리가 묻지 않아도 온다. 빈 capabilities 그대로다(ADR-0086).
+//
+// **임시 모듈에서 잰다.** 이 저장소를 뿌리로 쓰면 진단이 없어야 정상이라(빌드가 되는 코드다)
+// 「오지 않는 것」과 「깨끗한 것」을 가를 수 없다.
+func TestGoplsPublishesDiagnostics(t *testing.T) {
+	client, path := startForTestInBrokenModule(t)
+
+	lines := readLines(t, path)
+	require.NoError(t, client.Open(path, lines))
+
+	got := waitForDiagnostics(t, client, path)
+
+	messages := make([]string, 0, len(got))
+	for _, item := range got {
+		assert.Equal(t, SeverityError, item.Severity, "컴파일 오류는 severity 1 이다")
+		messages = append(messages, item.Message)
+	}
+
+	assert.Contains(t, strings.Join(messages, "\n"), "undefined: undefinedThing")
+
+	// 고치면 빈 목록이 와서 담아 둔 것이 사라진다.
+	fixed := splitLines("package broken\n\nfunc main() {}\n")
+	require.NoError(t, client.SyncFull(path, fixed))
+
+	deadline := time.Now().Add(10 * time.Second)
+	for len(client.Diagnostics(path)) > 0 && time.Now().Before(deadline) {
+		select {
+		case <-client.DiagnosticsChanged():
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+
+	assert.Empty(t, client.Diagnostics(path), "고친 파일은 빈 목록으로 지워진다")
+}
+
+// startForTestInBrokenModule 은 오류가 있는 파일 하나만 든 임시 모듈에 서버를 띄운다.
+func startForTestInBrokenModule(t *testing.T) (*Client, string) {
+	t.Helper()
+
+	if testing.Short() {
+		t.Skip("gopls 에게 실제로 묻는 시험이라 -short 에서는 건너뛴다")
+	}
+
+	if _, err := findGopls(); err != nil {
+		t.Skip("gopls 가 없다: " + err.Error())
+	}
+
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module broken\n\ngo 1.22\n"), 0o644))
+
+	path := filepath.Join(root, "main.go")
+	require.NoError(t, os.WriteFile(path, []byte("package broken\n\nfunc main() {\n\tprintln(undefinedThing)\n}\n"), 0o644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	client, err := Start(ctx, root)
+	require.NoError(t, err)
+	t.Cleanup(client.Shutdown)
+
+	return client, path
+}
+
+// waitForDiagnostics 는 그 파일의 진단이 올 때까지 기다린다. 종을 받아 담아 둔 것을 읽는다.
+//
+// 잰 값으로 didOpen 뒤 250ms 이고 모듈 첫 적재까지 합쳐 650ms 다(ADR-0086). 넉넉히 기다린다.
+func waitForDiagnostics(t *testing.T, client *Client, path string) []Diagnostic {
+	t.Helper()
+
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if got := client.Diagnostics(path); len(got) > 0 {
+			return got
+		}
+
+		select {
+		case <-client.DiagnosticsChanged():
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+
+	t.Fatal("진단이 오지 않았다")
+
+	return nil
 }

@@ -41,7 +41,7 @@ func (e editor) renderStickyRow(buf *Buffer, line int) string {
 
 	row := screenRow{line: line, start: 0, end: end}
 
-	return e.renderLineNumber(buf.cursorLine, row) +
+	return e.renderGutter(buf, row) +
 		renderRow(text, row, width, rowHighlight{
 			cursorCol: -1,
 			tokens:    buf.syntaxTokens(line),

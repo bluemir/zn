@@ -251,6 +251,24 @@ func (c actionChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
 	return nil, nil
 }
 
+// actionJoin 은 `J` 다. 커서 줄부터 count 줄을 한 줄로 잇는다(ADR-0087).
+//
+// **공백을 손대지 않는 `gJ` 와 visual 의 `J` 는 두지 않았다.** 세서 치는 길(`3J`) 이 있어서
+// 같은 일을 할 수 있고, 이은 자리의 공백 규칙이 하나로 남는다.
+type actionJoin struct{ count int }
+
+func (c actionJoin) run(e *editor) (tea.Model, tea.Cmd) {
+	// 읽기 전용 파일은 고치지 않는다(readonly.go).
+	if e.refuseReadOnly() {
+		return nil, nil
+	}
+
+	e.activeBuffer().joinLines(c.count, e.contentWidth())
+	e.scrollToCursor()
+
+	return nil, nil
+}
+
 // ── visual ──
 //
 // visual 의 동작은 operator 와 달리 뒤에 motion 을 기다리지 않는다. 고른 범위가 이미 있어서

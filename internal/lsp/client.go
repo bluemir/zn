@@ -22,6 +22,10 @@ type Client struct {
 	// mu 는 docs 를 지킨다. 요청은 tea 의 Cmd goroutine 에서 오므로 여럿이 동시에 온다.
 	mu   sync.Mutex
 	docs map[string]*document
+
+	// diagnostics 는 서버가 밀어준 진단이다. 우리가 물어서 받는 것이 아니라 서버가 자기 때에
+	// 보내는 것이라, 답을 기다리는 자리가 아니라 담아 두는 자리가 필요하다(diagnostics.go).
+	diagnostics *diagnosticStore
 }
 
 // Start 는 서버를 띄우고 첫 악수(initialize) 까지 끝낸다.
@@ -58,10 +62,20 @@ func Start(ctx context.Context, root string) (*Client, error) {
 	}
 
 	client := &Client{
-		conn: newConn(in, out),
-		cmd:  cmd,
-		docs: map[string]*document{},
+		cmd:         cmd,
+		docs:        map[string]*document{},
+		diagnostics: newDiagnosticStore(),
 	}
+
+	// 알림을 받을 사람을 걸어 둔다. 지금 우리가 아는 알림은 진단 하나이고, 나머지
+	// (`window/showMessage`·`$/progress`) 는 여기서 그대로 지나간다(ADR-0086).
+	client.conn = newConn(in, out, func(method string, params json.RawMessage) {
+		if method != "textDocument/publishDiagnostics" {
+			return
+		}
+
+		client.diagnostics.publish(params)
+	})
 
 	if err := client.initialize(root); err != nil {
 		client.Shutdown()
@@ -77,6 +91,10 @@ func Start(ctx context.Context, root string) (*Client, error) {
 // 알리는 능력(capabilities) 은 비워 둔다. 우리가 쓰는 것은 정의 찾기 하나이고, 능력을 알리면
 // 서버가 그만큼 우리에게 되묻기 시작한다 — 진행률 창을 만들라거나 설정을 달라거나 하는
 // 요청이고, 답할 자리가 없으면 서버가 그 자리에서 기다린다(jsonrpc.go 의 readLoop).
+//
+// **진단도 이 빈 능력 그대로 온다.** 규격에는 `publishDiagnostics` 능력 칸이 있지만 gopls
+// v0.23.0 은 알리지 않아도 보낸다(잰 값이다). 그래서 진단을 받으려고 이 자리를 채우지
+// 않는다 — 받는 것이 하나 늘었을 뿐이고, 되묻기를 부르는 문은 그대로 닫혀 있다(ADR-0086).
 func (c *Client) initialize(root string) error {
 	_, err := c.conn.call("initialize", map[string]any{
 		"processId": os.Getpid(),

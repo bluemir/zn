@@ -38,7 +38,15 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return normalMode(m.editor)
 		case "enter":
-			return m.run()
+			next, cmd := m.run()
+
+			// 명령이 파일 내용을 바꿔 놓았을 수 있다 — `:e` 는 통째로 다시 읽고 `:w` 는
+			// 포매터를 지나고 `:s` 는 줄을 고친다. normal·insert 의 키가 그렇듯 여기서도
+			// 서버와 맞출 때를 예약한다. 예약이 하나뿐이라 겹쳐 걸리지 않는다(ADR-0051).
+			//
+			// 이것이 없으면 진단 마커가 다음 키를 누를 때까지 바뀌기 전 내용의 것으로
+			// 남는다. 눈에 보이는 자리가 생겨서 드러난 구멍이다(ADR-0086).
+			return next, tea.Batch(cmd, m.scheduleLspTick())
 		case "backspace":
 			// vim 처럼 `:` 까지 지우면 명령줄에서 나간다.
 			if m.input == "" {
@@ -61,7 +69,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
@@ -104,6 +112,21 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	// 늘 한 토큰으로 주므로 여기 걸릴 수 없다(ADR-0045, ADR-0077, ADR-0084).
 	if len(cmd.args) > 1 {
 		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
+	}
+
+	// 경로를 받는 명령은 이 셋이다. 맨 앞의 `~` 를 홈으로 풀어서 넘긴다.
+	//
+	// 명령마다 푸는 것이 아니라 여기 한 자리다. 그래야 `~` 가 어느 명령에서 되고 어느
+	// 명령에서 안 되는지를 세는 자리가 생기지 않는다(expandHome, ADR-0088).
+	switch cmd.name {
+	case "w", "e", "tabnew":
+		if len(cmd.args) == 1 {
+			path, err := expandHome(cmd.args[0])
+			if err != nil {
+				return normalModeError(m.editor, err)
+			}
+			cmd.args[0] = path
+		}
 	}
 
 	// 줄 범위를 받는 것은 이들뿐이다. 이름 없는 것(`:5`) 은 그 줄로 가는 것이다.
@@ -486,7 +509,11 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 	if !naming {
 		// 보고 있는 파일이 아니라 다른 파일에 썼다. 문구를 나눠야 tabline 의 이름이
 		// 그대로인 것이 실패로 읽히지 않는다.
-		model, next := normalModeMessage(m.editor, "사본을 씀: "+path)
+		//
+		// 경로는 줄여 적는다. `~` 로 친 것은 이미 홈 아래의 긴 절대 경로가 되어 있어서,
+		// 그대로 두면 좁은 화면에서 문구가 잘린다. 줄이면 친 그대로인 `~/...` 로 돌아온다
+		// (shortenPath, ADR-0088).
+		model, next := normalModeMessage(m.editor, "사본을 씀: "+shortenPath(path))
 
 		return model, tea.Batch(next, refresh)
 	}
@@ -494,7 +521,7 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 	// 이름이 붙어서 이제 이 파일을 보고 있는 것이다. 트리도 그 자리를 가리켜야 한다(ADR-0019).
 	reveal := m.revealInSidebar(path)
 
-	model, next := normalModeMessage(m.editor, "저장함: "+path)
+	model, next := normalModeMessage(m.editor, "저장함: "+shortenPath(path))
 
 	return model, tea.Batch(next, refresh, reveal)
 }

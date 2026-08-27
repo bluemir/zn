@@ -50,7 +50,7 @@ func (m viewGoplsInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		next, cmd := m.handleJob(msg)
 		if next != nil {
 			return next, cmd

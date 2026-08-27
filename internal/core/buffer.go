@@ -8,6 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"github.com/bluemir/zn/internal/lsp"
 	"github.com/bluemir/zn/internal/syntax"
 )
 
@@ -126,6 +127,13 @@ type Buffer struct {
 	// 맞춰 보는 것은 포커스가 돌아올 때·셸에서 올라올 때뿐이라, 이 값은 그때 본 것이지
 	// 지금 이 순간의 사실이 아니다. 저장은 여기를 믿지 않고 그 자리에서 다시 읽는다 (ADR-0015).
 	outside outsideChange
+
+	// diagnostics 는 gopls 가 이 파일에 대해 보낸 진단이다. 줄번호로 모아 둔다(diagnostics.go).
+	//
+	// 파일 내용에서 나온 것이라 커서·스크롤·문법 토큰과 같이 이 파일에 딸려 있다(위 주석).
+	// 값 필드라 Reload 가 buffer 를 통째로 갈아끼울 때(`*buf = next`) 저절로 비워진다 —
+	// 다시 읽은 내용의 진단은 서버가 새로 보내온다(ADR-0086).
+	diagnostics map[int][]lsp.Diagnostic
 
 	// syntax 는 문법 강조 토큰을 담아 둔 것이다. 파일 내용에서 나온 것이라 커서·스크롤과 같이
 	// 이 파일에 딸려 있다(위 주석).

@@ -42,6 +42,13 @@ type conn struct {
 	out io.WriteCloser // 서버의 stdin. 우리가 쓴다
 	in  *bufio.Reader  // 서버의 stdout. 우리가 읽는다
 
+	// onNotify 는 서버가 보내는 알림을 받을 사람이다. nil 이면 알림을 버린다.
+	//
+	// **여기서 막히면 안 된다.** 읽는 goroutine 이 하나라, 이것이 기다리면 뒤따르는 모든
+	// 응답이 같이 멈춘다(readLoop). 그래서 채널로 받지 않고 함수로 받는다 — 받는 쪽이
+	// 「담아 두고 종만 울리는」 모양이 되도록 강제하는 자리다(diagnostics.go 의 publish).
+	onNotify func(method string, params json.RawMessage)
+
 	// writeMu 는 쓰는 자리를 하나로 만든다. 머리와 본문이 한 통으로 붙어 나가야 하므로
 	// 두 goroutine 이 같이 쓰면 통이 섞인다.
 	writeMu sync.Mutex
@@ -53,11 +60,12 @@ type conn struct {
 	closed  bool
 }
 
-func newConn(out io.WriteCloser, in io.Reader) *conn {
+func newConn(out io.WriteCloser, in io.Reader, onNotify func(method string, params json.RawMessage)) *conn {
 	c := &conn{
-		out:     out,
-		in:      bufio.NewReader(in),
-		pending: map[int]chan message{},
+		out:      out,
+		in:       bufio.NewReader(in),
+		onNotify: onNotify,
+		pending:  map[int]chan message{},
 	}
 
 	go c.readLoop()
@@ -135,7 +143,8 @@ func (c *conn) write(m message) error {
 // 기다리다 멈추는 일이 있다. 우리는 아는 것이 없으므로 "그런 method 없다" 로 답한다 —
 // 능력(capabilities) 을 최소로 알렸으므로 실제로 오는 것은 거의 없다(ADR-0051).
 //
-// 알림(id 없는 것) 은 버린다. 진단·진행률은 아직 화면에 자리가 없다.
+// 알림(id 없는 것) 은 onNotify 에게 넘긴다. 받을 사람이 없으면 버린다 — 진행률(`$/progress`)
+// 처럼 화면에 자리가 없는 것이 그대로 지나간다(ADR-0086).
 func (c *conn) readLoop() {
 	defer c.drainPending()
 
@@ -151,6 +160,8 @@ func (c *conn) readLoop() {
 			_ = c.write(message{ID: m.ID, Error: &responseError{Code: -32601, Message: "method not found"}})
 		case m.ID != nil:
 			c.deliver(m)
+		case m.Method != "" && c.onNotify != nil:
+			c.onNotify(m.Method, m.Params)
 		}
 	}
 }

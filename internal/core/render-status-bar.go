@@ -135,11 +135,22 @@ func (e editor) noticeOr(fallback string) string {
 
 // renderPosition 은 커서 위치와 전체 줄 수다. normal/insert 의 statusBar 아래 줄이다.
 // 줄과 칸은 1 부터 세고, 칸은 byte offset 이 아니라 화면 칸이다.
+//
+// 커서가 선 줄에 진단이 있으면 뒤에 이어 붙는다. 진단은 커서에 딸린 것이라 커서 위치와
+// 성격이 같고, 여기 붙여 두면 오른쪽 끝의 tip 이 남은 칸을 재서 알아서 물러난다
+// (diagnostics.go 의 renderDiagnostic, tip.go 의 renderWithTip, ADR-0086).
 func (e editor) renderPosition() string {
 	buf := e.buffers[e.active]
 	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol)
 
-	return fmt.Sprintf("%d:%d  (%d 줄)", buf.cursorLine+1, col+1, len(buf.lines))
+	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.cursorLine+1, col+1, len(buf.lines))
+
+	diagnostic := e.renderDiagnostic()
+	if diagnostic == "" {
+		return position
+	}
+
+	return position + "  " + diagnostic
 }
 
 // renderWithShowcmd 는 statusBar 아래 줄 오른쪽 끝에 치고 있는 키를 붙인다. vim 의 showcmd 와 같은 자리다.

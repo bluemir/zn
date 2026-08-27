@@ -21,6 +21,9 @@ type fakeServer struct {
 	// requests 는 서버가 받은 통들이다. 테스트가 무엇이 갔는지 본다.
 	requests chan message
 
+	// notified 는 conn 이 우리에게 넘긴 알림들이다. 서버가 밀어주는 것을 보는 시험이 읽는다.
+	notified chan message
+
 	// raw 는 서버가 우리에게 쓰는 자리다.
 	raw io.Writer
 }
@@ -34,9 +37,12 @@ func newFakeServer(t *testing.T) *fakeServer {
 
 	server := &fakeServer{
 		requests: make(chan message, 16),
+		notified: make(chan message, 16),
 		raw:      serverWrites,
 	}
-	server.conn = newConn(clientWrites, clientReads)
+	server.conn = newConn(clientWrites, clientReads, func(method string, params json.RawMessage) {
+		server.notified <- message{Method: method, Params: params}
+	})
 
 	go func() {
 		reader := bufio.NewReader(serverReads)
@@ -73,6 +79,16 @@ func (s *fakeServer) reply(id int, result any) {
 // notifyClient 는 서버가 알림을 보낸다. 답을 기다리지 않는 통이다.
 func (s *fakeServer) notifyClient(method string) {
 	body, _ := json.Marshal(message{JSONRPC: "2.0", Method: method, Params: mustMarshal(map[string]any{"a": 1})})
+	writeFrame(s.raw, body)
+}
+
+// pushNotification 은 서버가 본문 있는 알림을 보낸다. 진단이 이 길로 온다.
+func (s *fakeServer) pushNotification(t *testing.T, method string, params any) {
+	t.Helper()
+
+	body, err := json.Marshal(message{JSONRPC: "2.0", Method: method, Params: mustMarshal(params)})
+	require.NoError(t, err)
+
 	writeFrame(s.raw, body)
 }
 
@@ -169,9 +185,9 @@ func TestConnAnswersServerRequests(t *testing.T) {
 	assert.Equal(t, -32601, answer.Error.Code)
 }
 
-// 서버의 알림은 버린다. 버리는 것이 읽기를 막지 않는지가 요점이다 —
-// 막히면 그 뒤의 모든 답이 함께 멈춘다.
-func TestConnIgnoresNotifications(t *testing.T) {
+// 서버의 알림은 받는 사람에게 넘긴다. 넘기는 것이 읽기를 막지 않는지가 요점이다 —
+// 막히면 그 뒤의 모든 답이 함께 멈춘다(ADR-0086).
+func TestConnNotificationsDoNotBlockReplies(t *testing.T) {
 	server := newFakeServer(t)
 
 	for range 10 {
