@@ -1,12 +1,14 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5/osfs"
+	gitconfig "github.com/go-git/go-git/v5/plumbing/format/config"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
@@ -31,13 +33,16 @@ type gitIgnore struct {
 
 // newGitIgnore 는 저장소 뿌리에서 보는 규칙을 만든다.
 //
-// `git ls-files --exclude-standard` 가 세는 것과 같은 네 가지를 읽는다 — 시스템,
-// 사용자(`core.excludesFile`), `.git/info/exclude`, 그리고 뿌리 `.gitignore` 다.
+// `git ls-files --exclude-standard` 가 세는 것과 같은 것들을 읽는다 — 시스템,
+// 사용자 설정 둘(`core.excludesFile`), `.git/info/exclude`, 그리고 뿌리 `.gitignore` 다.
 // 순서가 곧 세기라 이 순서를 지킨다.
 func newGitIgnore(root string) gitIgnore {
 	rootFS := osfs.New("/")
 
 	patterns, _ := gitignore.LoadSystemPatterns(rootFS)
+
+	// 사용자 설정은 둘이고 XDG 쪽이 먼저다(xdgGitConfigPath).
+	patterns = append(patterns, readGitExcludesFile(xdgGitConfigPath())...)
 
 	global, _ := gitignore.LoadGlobalPatterns(rootFS)
 	patterns = append(patterns, global...)
@@ -105,6 +110,65 @@ func readGitIgnoreFile(path string, domain []string) []gitignore.Pattern {
 	}
 
 	return patterns
+}
+
+// xdgGitConfigPath 는 사용자 설정 파일 둘 중 XDG 쪽 경로다.
+//
+// git 은 사용자 설정을 둘 읽는다. `$XDG_CONFIG_HOME/git/config` 가 먼저이고 `~/.gitconfig`
+// 가 나중이며, 나중에 온 것이 이긴다. go-git 의 `LoadGlobalPatterns` 는 `~/.gitconfig` 만
+// 보므로(dir.go 의 `gitconfigFile`) 앞의 것을 우리가 채운다(ADR-0042).
+//
+// `XDG_CONFIG_HOME` 이 비어 있으면 `~/.config` 다. git 이 그렇게 정해 두었다.
+//
+// 홈을 못 찾으면 빈 문자열이다. 읽는 쪽이 없는 파일과 같이 다룬다.
+func xdgGitConfigPath() string {
+	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+		return filepath.Join(dir, "git", "config")
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".config", "git", "config")
+}
+
+// readGitExcludesFile 은 git 설정 파일 한 장에서 `core.excludesFile` 이 가리키는 규칙을 읽는다.
+//
+// 설정 파일이 없는 것, 그 칸이 비어 있는 것, 가리키는 파일이 없는 것이 모두 흔하다.
+// 셋 다 규칙이 없는 것으로 치고 빈 것을 준다(readGitIgnoreFile 와 같은 손이다).
+//
+// domain 은 없다. 사용자 설정이 가리키는 파일은 저장소 밖에 있어서 어느 디렉터리에도
+// 매이지 않는다.
+func readGitExcludesFile(config string) []gitignore.Pattern {
+	if config == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(config)
+	if err != nil {
+		return nil
+	}
+
+	raw := gitconfig.New()
+	if err := gitconfig.NewDecoder(bytes.NewReader(data)).Decode(raw); err != nil {
+		return nil
+	}
+
+	// git 의 설정 이름은 대소문자를 가리지 않는다. go-git 의 `Options.Get` 이 그렇게 찾는다.
+	path := raw.Section("core").Options.Get("excludesfile")
+	if path == "" {
+		return nil
+	}
+
+	// 설정 파일에 적힌 `~` 는 아무도 풀어 주지 않는다. 셸을 거치지 않은 글자다(ADR-0088).
+	full, err := expandHome(path)
+	if err != nil {
+		return nil
+	}
+
+	return readGitIgnoreFile(full, nil)
 }
 
 // gitIgnoreAt 은 뿌리에서 startRel 까지 내려간 자리에서 보는 규칙을 준다.

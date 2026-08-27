@@ -67,6 +67,9 @@ func grepDrawerRowsOf(t *testing.T, m viewGrep) []string {
 }
 
 // 판은 편집 영역의 행을 가져간다. 다른 판들과 같다(ADR-0069).
+//
+// **적중이 셋이어도 높이는 그대로다.** 결과가 조각으로 도착하는 동안 판이 자라면서 본문을
+// 밀어내지 않도록 처음부터 상한 높이다(grepRows).
 func TestGrepTakesDrawerRows(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
@@ -74,9 +77,25 @@ func TestGrepTakesDrawerRows(t *testing.T) {
 
 	m := newGrepView(t, "func", grepHitsIn(paths[0], 2, 4, 6)...)
 
-	assert.Equal(t, 3, m.grepRows())
-	assert.Equal(t, 3+grepFrame, m.drawerHeight)
+	rows := min(grepMaxRows, m.paneHeight()-grepFrame-grepMinTextHeight)
+
+	assert.Equal(t, rows, m.grepRows())
+	assert.Equal(t, rows+grepFrame, m.drawerHeight)
 	assert.Equal(t, m.paneHeight()-m.drawerHeight, m.textHeight())
+}
+
+// 적중 수가 판 높이를 바꾸지 않는다. 하나여도 열여섯이어도 같다(grepRows).
+func TestGrepHeightIgnoresHitCount(t *testing.T) {
+	e, paths := jumpEditor(t)
+	e.height = 25
+	e.active = 0
+	require.NoError(t, gotoFile(e, paths[0], 0))
+
+	one := newGrepView(t, "func", grepHitsIn(paths[0], 2)...)
+	many := newGrepView(t, "func", grepHitsIn(paths[0], 2, 4, 6)...)
+
+	assert.Equal(t, one.grepRows(), many.grepRows())
+	assert.Greater(t, one.grepRows(), 1, "적중 하나에 한 줄로 쪼그라들지 않는다")
 }
 
 // **담는 것과 보이는 것이 다르다.** 적중이 수천이어도 판은 열여섯 줄이고 `j`/`k` 가 훑는다.
@@ -372,15 +391,42 @@ func TestGrepWindowKeepsMatchVisible(t *testing.T) {
 	text := strings.Repeat("a", 60) + "MATCH" + strings.Repeat("b", 60)
 
 	// 칸에 다 들어가면 그대로다.
-	assert.Equal(t, "short", grepWindow("short", 0, 40))
+	short, at := grepWindow("short", 0, 40)
+	assert.Equal(t, "short", short)
+	assert.Equal(t, 0, at)
 
 	// 매칭이 뒤쪽이면 앞을 접는다. 접은 표시가 붙고 매칭이 남는다.
-	windowed := grepWindow(text, 60, 40)
+	windowed, at := grepWindow(text, 60, 40)
 	assert.Contains(t, windowed, "…")
 	assert.Contains(t, truncateToWidth(windowed, 40), "MATCH", "칸 안에 매칭이 든다")
+	assert.Equal(t, "MATCH", windowed[at:at+5], "접은 뒤의 자리를 같이 준다")
 
 	// 매칭이 앞쪽이면 접지 않는다 — 오른쪽을 자르는 것으로 충분하다.
-	assert.NotContains(t, grepWindow(text, 0, 40), "…")
+	kept, at := grepWindow(text, 0, 40)
+	assert.NotContains(t, kept, "…")
+	assert.Equal(t, 0, at)
+}
+
+// 목록의 매칭 글자에만 색이 붙는다(styleSearchMatch).
+func TestGrepRowHighlightsMatch(t *testing.T) {
+	e, _ := jumpEditor(t)
+	e.height = 25
+	e.width = 80
+
+	m := viewGrep{editor: e}
+
+	// 한글이 앞에 있어서 byte 자리와 칸 자리가 갈린다. 자리는 글에서 재서 넣는다.
+	text := "함수 MATCH 뒤"
+	col := strings.Index(text, "MATCH")
+	hit := grepHit{path: "a.go", line: 0, col: col, end: col + len("MATCH"), text: text}
+
+	row := m.renderRow(hit, false, 70)
+	assert.Contains(t, row, styleSearchMatch.Render("MATCH"), "매칭만 검색 색이다")
+
+	// 고른 행에서도 매칭은 제 색이다. 나머지는 반전이다.
+	selected := m.renderRow(hit, true, 70)
+	assert.Contains(t, selected, styleSearchMatch.Render("MATCH"))
+	assert.Contains(t, selected, "\x1b[7m", "나머지는 반전이 걸린다")
 }
 
 // 목록 이동 키는 다른 판들과 같다.

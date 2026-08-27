@@ -47,6 +47,7 @@ type grepHit struct {
 	path string // 뿌리 기준 상대 경로
 	line int    // 0 부터
 	col  int    // 매칭이 시작하는 byte offset. 뛸 때 칸까지 맞춘다
+	end  int    // 매칭이 끝나는 byte offset. 목록에서 그 글자만 강조한다
 	text string // 그 줄 통째로. 앞뒤 공백도 그대로다
 }
 
@@ -335,6 +336,7 @@ func grepLines(r io.Reader, rel string, pattern *regexp.Regexp) ([]grepHit, erro
 			path: rel,
 			line: line,
 			col:  at[0],
+			end:  at[1],
 			text: string(scanner.Bytes()),
 		})
 	}

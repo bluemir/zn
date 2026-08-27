@@ -242,6 +242,50 @@ func TestMessagesEmpty(t *testing.T) {
 	assert.Nil(t, m.View().Cursor)
 }
 
+// `f` 는 실패만 남긴다. 제목줄의 개수는 담긴 것 전부다.
+func TestMessagesFiltersFailures(t *testing.T) {
+	e := &editor{buffers: []Buffer{newEmptyBuffer("a.txt")}, width: 80, height: 20}
+	e.notify("저장함: a.txt")
+	e.notifyFailure("git 상태 실패")
+	e.notify("저장함: b.txt")
+
+	model, _ := messagesMode(e)
+
+	filtered, _ := model.(viewMessages).press("f")
+	m := filtered.(viewMessages)
+
+	require.Len(t, m.rows(), 1)
+	assert.Equal(t, 0, m.selected, "거른 목록의 맨 아래로 간다")
+
+	content := ansi.Strip(m.View().Content)
+	assert.Contains(t, content, "git 상태 실패")
+	assert.NotContains(t, content, "저장함", "실패가 아닌 것은 빠진다")
+	assert.Contains(t, content, "알림  3 개 · 실패 1 · 실패만", "제목은 담긴 것 전부를 센다")
+	assert.Contains(t, content, "f 전부", "안내는 누르면 무엇이 되는지를 적는다")
+
+	// 다시 누르면 전부로 돌아가고 맨 아래에 선다.
+	back, _ := m.press("f")
+	m = back.(viewMessages)
+
+	assert.Len(t, m.rows(), 3)
+	assert.Equal(t, 2, m.selected)
+	assert.Contains(t, ansi.Strip(m.View().Content), "f 실패만")
+}
+
+// 실패가 하나도 없는데 거르면 그 사실을 적는다. 「지나간 알림이 없습니다」로는
+// 기록이 사라진 것처럼 읽힌다.
+func TestMessagesFilterEmptyReason(t *testing.T) {
+	m := messagesFixture(t, "하나", "둘")
+
+	filtered, _ := m.press("f")
+
+	content := ansi.Strip(filtered.(viewMessages).View().Content)
+
+	assert.Contains(t, content, "실패한 알림이 없습니다")
+	assert.Contains(t, content, "알림  2 개 · 실패만")
+	assert.Nil(t, filtered.(viewMessages).View().Cursor, "가리킬 줄이 없다")
+}
+
 func TestMessagesCursorOnSelectedRow(t *testing.T) {
 	m := messagesFixture(t, "하나", "둘", "셋")
 

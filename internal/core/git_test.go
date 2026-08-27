@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -247,4 +248,120 @@ func jobRunningIn(t *testing.T, m tea.Model, name string) bool {
 
 		return false
 	}
+}
+
+// 짧은 해시의 자리 수는 git 의 셈법을 그대로 따른다.
+//
+// 경계는 git 2.52 로 재서 넣은 값이다. 팩 객체 16,383 개까지 일곱 자리이고 16,384(2^14) 개
+// 에서 여덟 자리로 넘어간다(gitShortHashLen).
+func TestGitShortHashLen(t *testing.T) {
+	// 일곱 자리보다 짧아지지 않는다. 작은 저장소는 전부 이 자리다.
+	assert.Equal(t, 7, gitShortHashLen(0), "팩이 비어도 일곱이다")
+	assert.Equal(t, 7, gitShortHashLen(1))
+	assert.Equal(t, 7, gitShortHashLen(102), "잰 값: 파일 100 개 저장소")
+	assert.Equal(t, 7, gitShortHashLen(10002), "잰 값: 파일 1 만 개 저장소")
+
+	// 잰 경계다.
+	assert.Equal(t, 7, gitShortHashLen(16383))
+	assert.Equal(t, 8, gitShortHashLen(16384))
+	assert.Equal(t, 8, gitShortHashLen(16385), "잰 값: 파일 16,383 개 저장소")
+	assert.Equal(t, 8, gitShortHashLen(17002), "잰 값: 파일 17,000 개 저장소")
+
+	// 다음 경계들도 같은 식이다. 두 비트마다 한 자리씩 는다.
+	assert.Equal(t, 8, gitShortHashLen(1<<16-1))
+	assert.Equal(t, 9, gitShortHashLen(1<<16))
+	assert.Equal(t, 10, gitShortHashLen(1<<18))
+	assert.Equal(t, 11, gitShortHashLen(1<<20))
+}
+
+// writeFakeIdx 는 객체 수만 맞춘 팩 색인을 만든다. 부채꼴 표의 마지막 칸만 읽으므로
+// 뒤쪽(이름·오프셋·CRC) 은 없어도 된다.
+func writeFakeIdx(t *testing.T, path string, count uint32, v2 bool) {
+	t.Helper()
+
+	body := []byte{}
+	if v2 {
+		body = append(body, 0xff, 't', 'O', 'c', 0, 0, 0, 2)
+	}
+
+	fanout := make([]byte, 1024)
+	binary.BigEndian.PutUint32(fanout[1020:], count)
+
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+	require.NoError(t, os.WriteFile(path, append(body, fanout...), 0644))
+}
+
+// 색인은 부채꼴 표의 마지막 칸만 읽는다. 통째로 읽으면 큰 저장소에서 수십 MB 다.
+func TestIdxObjectCount(t *testing.T) {
+	dir := t.TempDir()
+
+	v2 := filepath.Join(dir, "v2.idx")
+	writeFakeIdx(t, v2, 16384, true)
+	assert.Equal(t, uint64(16384), idxObjectCount(v2))
+
+	// v1 은 머리가 없고 표부터 시작한다.
+	v1 := filepath.Join(dir, "v1.idx")
+	writeFakeIdx(t, v1, 42, false)
+	assert.Equal(t, uint64(42), idxObjectCount(v1))
+
+	// 없는 것과 짧은 것은 0 이다. 그러면 일곱 자리가 된다.
+	assert.Equal(t, uint64(0), idxObjectCount(filepath.Join(dir, "없는.idx")))
+
+	short := filepath.Join(dir, "short.idx")
+	require.NoError(t, os.WriteFile(short, []byte("짧다"), 0644))
+	assert.Equal(t, uint64(0), idxObjectCount(short))
+}
+
+// 팩이 여럿이면 더한다. git 도 팩마다 세어 더한다.
+func TestGitPackedObjectCountSumsPacks(t *testing.T) {
+	root := t.TempDir()
+	pack := filepath.Join(root, ".git", "objects", "pack")
+
+	writeFakeIdx(t, filepath.Join(pack, "a.idx"), 10000, true)
+	writeFakeIdx(t, filepath.Join(pack, "b.idx"), 6384, true)
+
+	assert.Equal(t, uint64(16384), gitPackedObjectCount(root))
+	assert.Equal(t, 8, gitShortHashLen(gitPackedObjectCount(root)))
+}
+
+// 저장소가 아니면 0 이다. 표시가 없을 뿐 틀리지 않는다.
+func TestGitPackedObjectCountOutsideRepo(t *testing.T) {
+	assert.Equal(t, uint64(0), gitPackedObjectCount(t.TempDir()))
+}
+
+// worktree 와 submodule 의 `.git` 은 파일이고 그 안의 한 줄이 진짜 자리를 가리킨다.
+func TestGitDirFollowsFile(t *testing.T) {
+	root := t.TempDir()
+
+	// 디렉터리면 그 자리다.
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0755))
+
+	dir, err := gitDir(root)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(root, ".git"), dir)
+
+	// 파일이면 적힌 자리다. 상대 경로는 그 파일이 놓인 자리 기준이다.
+	pointer := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(pointer, ".git"), []byte("gitdir: ../real/.git\n"), 0644))
+
+	dir, err = gitDir(pointer)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(pointer, "../real/.git"), dir)
+
+	// 절대 경로면 그대로다.
+	absolute := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(absolute, ".git"), []byte("gitdir: /tmp/저장소/.git"), 0644))
+
+	dir, err = gitDir(absolute)
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/저장소/.git", dir)
+
+	// `.git` 이 없거나 엉뚱한 파일이면 오류다.
+	_, err = gitDir(t.TempDir())
+	assert.Error(t, err)
+
+	broken := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(broken, ".git"), []byte("엉뚱한 글"), 0644))
+	_, err = gitDir(broken)
+	assert.Error(t, err)
 }

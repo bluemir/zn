@@ -84,11 +84,19 @@ type viewGrep struct {
 }
 
 // grepRows 는 목록에 쓸 수 있는 행 수다.
+//
+// **적중이 몇인지 보지 않는다.** 판을 여는 순간부터 상한 높이다.
+//
+// 처음에는 적중 수에 맞춰 늘렸다. 검색 결과는 작업이 조각으로 실어 오므로(ADR-0077) 그러면
+// 판이 도착하는 대로 자라면서 편집 화면을 위로 밀어낸다. 훑기 시작한 뒤에도 본문이 계속
+// 움직이고, 거르는 글자를 지울 때마다 판이 다시 커진다.
+//
+// 남는 행은 빈 줄이다. 아랫 테두리가 몇 번째인지 적으므로(ADR-0079) 빈 줄이 「이게 전부」로
+// 읽히지 않는다.
 func (m viewGrep) grepRows() int {
 	room := m.paneHeight() - grepFrame - grepMinTextHeight
-	want := min(max(len(m.rows()), 1), grepMaxRows)
 
-	return min(want, max(room, 1))
+	return min(grepMaxRows, max(room, 1))
 }
 
 // grepDrawerHeight 는 판이 편집 영역에서 가져갈 행 수다.
@@ -539,15 +547,57 @@ func (m viewGrep) renderRow(hit grepHit, selected bool, inner int) string {
 	// 내용 칸은 경로 칸과 사이 한 칸을 뺀 나머지다.
 	rest := max(body-width-1, 0)
 
-	row := marker + padTo(trimLeftToWidth(place, width), width) + " " + grepWindow(text, col, rest)
+	window, at := grepWindow(text, col, rest)
+	head := marker + padTo(trimLeftToWidth(place, width), width) + " "
 
-	// 칸을 먼저 채우고 그다음에 반전을 입힌다 — 강조 뒤에는 폭을 잴 수 없다.
-	row = padTo(truncateToWidth(row, inner), inner)
-	if selected {
-		return reverse.Render(row)
+	// 칸을 먼저 채우고 그다음에 색을 입힌다 — 강조 뒤에는 폭을 잴 수 없다.
+	row := padTo(truncateToWidth(head+window, inner), inner)
+
+	// 매칭이 행 어디에 앉았는지는 창이 안다. 창은 앞쪽만 접으므로 매칭 byte 는 길이가 그대로다.
+	start := len(head) + at
+
+	return grepHighlight(row, start, start+max(hit.end-hit.col, 0), selected)
+}
+
+// grepHighlight 는 세운 행에서 매칭 구간에만 다른 색을 입힌다.
+//
+// **행을 다 세운 다음에 부른다.** 칸을 채우고 자르는 일이 폭을 재고, escape 가 섞인 글은
+// 폭을 잴 수 없다(padTo, truncateToWidth).
+//
+// 색은 본문에서 찾은 자리와 같은 것이다(styleSearchMatch). 이 판이 목록이지만 여기 있는
+// 것은 **파일 안에서 찾은 것** 그 자체라, 뛰어가서 보는 노랑과 목록의 노랑이 같아야 「저것이
+// 이것」임이 눈에 붙는다. 팔레트의 fuzzy 매칭이 그 색을 피한 것과 갈리는 자리다(styleMatch).
+//
+// 고른 행에서도 매칭은 반전을 입히지 않는다. 반전 위에 섬처럼 남아서 그 자리가 그대로
+// 보인다 — 본문에서 커서가 선 줄에서도 찾은 자리가 제 색인 것과 같다.
+//
+// 자르다가 매칭이 잘려 나가면 구간이 비고, 그때는 행을 그대로 준다.
+func grepHighlight(row string, start, stop int, selected bool) string {
+	start = min(max(start, 0), len(row))
+	stop = min(max(stop, start), len(row))
+
+	if start == stop {
+		if selected {
+			return reverse.Render(row)
+		}
+
+		return row
 	}
 
-	return row
+	head, match, tail := row[:start], row[start:stop], row[stop:]
+
+	if !selected {
+		return head + styleSearchMatch.Render(match) + tail
+	}
+
+	// 빈 조각에는 색을 입히지 않는다. 빈 문자열에도 escape 가 붙어 행이 지저분해진다
+	// (view-palette.go 의 renderMatches).
+	out := reverse.Render(head) + styleSearchMatch.Render(match)
+	if tail != "" {
+		out += reverse.Render(tail)
+	}
+
+	return out
 }
 
 // grepContextCols 는 매칭 앞에 남기는 칸 수다. 매칭이 칸 맨 앞에 붙어 있으면 그것이 무엇의
@@ -561,12 +611,17 @@ const grepContextCols = 8
 // 왼쪽부터 접어서(`…`) 매칭을 칸 안으로 끌어온다.
 //
 // 줄이 칸에 다 들어가면 그대로 둔다. 자르는 것은 부르는 쪽이 한 번 더 한다.
-func grepWindow(text string, col, width int) string {
-	if width < 1 || screenWidthOf(text) <= width {
-		return text
-	}
-
+//
+// 매칭이 창 안 몇 번째 byte 에 앉았는지도 같이 준다. 접은 만큼 자리가 당겨지므로 부르는
+// 쪽이 그것을 다시 셀 수 없다(grepHighlight).
+func grepWindow(text string, col, width int) (string, int) {
 	col = min(max(col, 0), len(text))
 
-	return trimLeftToWidth(text[:col], grepContextCols) + text[col:]
+	if width < 1 || screenWidthOf(text) <= width {
+		return text, col
+	}
+
+	head := trimLeftToWidth(text[:col], grepContextCols)
+
+	return head + text[col:], len(head)
 }

@@ -1,10 +1,18 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"io"
+	"math/bits"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cockroachdb/errors"
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
@@ -18,12 +26,126 @@ type gitStatus struct {
 	dirty  bool
 }
 
-// gitShortHashLen 은 statusBar 에 찍는 commit 해시의 길이다.
+// gitMinShortHashLen 은 짧은 해시가 짧아지지 않는 자리 수다. git 의 기본값과 같다.
+const gitMinShortHashLen = 7
+
+// gitShortHashLen 은 팩에 든 객체가 count 개일 때 짧은 해시의 자리 수다.
 //
-// `git rev-parse --short` 는 저장소가 커지면 앞자리가 겹치지 않을 만큼 늘리지만, 여기는
-// 늘리지 않는다. 늘리려면 객체를 훑어 겹치는지 봐야 하는데, 표시 하나를 위해 낼 값이 아니다.
-// 일곱 자리는 git 의 기본값이라 `git log` 와 대개 같게 보인다(ADR-0042).
-const gitShortHashLen = 7
+// **git 의 셈법을 그대로 쓴다.** 객체 수의 최상위 비트 자리를 반으로 접고 하나 더한 것이고,
+// 일곱 자리보다 짧아지지 않는다.
+//
+// git 2.52 로 재서 맞췄다. 팩 객체 16,383 개까지 일곱 자리이고 16,384(2^14) 개에서 여덟
+// 자리로 넘어간다. 그 자리가 정확히 이 식의 경계다(ADR-0042).
+//
+// **겹치는지는 확인하지 않는다.** git 도 이 길이를 먼저 정하고 나서 겹치면 늘리는데, 그러려면
+// 객체를 훑어야 한다. tick 마다 도는 자리라(readGitStatus) 낼 수 없는 값이다. 고치려던 것은
+// 「큰 저장소에서 `git log` 와 달라 보인다」였고 그것은 이 식이 답한다.
+func gitShortHashLen(count uint64) int {
+	// 최상위 비트가 몇 번째 자리인가다. 0 개면 자리가 없어서 아래 최소값이 답한다.
+	msb := bits.Len64(count)
+	if msb > 0 {
+		msb--
+	}
+
+	return max(msb/2+1, gitMinShortHashLen)
+}
+
+// gitPackedObjectCount 는 팩에 든 객체 수다. 세지 못하면 0 이고 그때는 일곱 자리가 된다.
+//
+// **느슨한 객체는 세지 않는다.** git 도 세지 않는다 — 재보니 느슨한 객체 17,002 개에 팩이
+// 비어 있으면 일곱 자리다. 이 수를 git 이 `approximate_object_count` 라고 부르는 까닭이다.
+func gitPackedObjectCount(root string) uint64 {
+	dir, err := gitDir(root)
+	if err != nil {
+		return 0
+	}
+
+	names, err := filepath.Glob(filepath.Join(dir, "objects", "pack", "*.idx"))
+	if err != nil {
+		return 0
+	}
+
+	total := uint64(0)
+	for _, name := range names {
+		total += idxObjectCount(name)
+	}
+
+	return total
+}
+
+// gitDir 은 저장소의 `.git` 자리다.
+//
+// 대개는 뿌리 아래의 디렉터리인데, worktree 와 submodule 에서는 **파일**이고 그 안의
+// `gitdir: <경로>` 한 줄이 진짜 자리를 가리킨다.
+func gitDir(root string) (string, error) {
+	path := filepath.Join(root, ".git")
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if info.IsDir() {
+		return path, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	pointed, ok := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir:")
+	if !ok {
+		return "", errors.Errorf("gitdir 을 찾을 수 없습니다: %s", path)
+	}
+
+	pointed = strings.TrimSpace(pointed)
+	if filepath.IsAbs(pointed) {
+		return pointed, nil
+	}
+
+	// 적힌 경로는 이 파일이 놓인 자리 기준이다.
+	return filepath.Join(root, pointed), nil
+}
+
+// idxObjectCount 는 팩 색인 한 장에 든 객체 수다.
+//
+// **부채꼴 표의 마지막 칸이 그 수다.** 표는 첫 byte 값마다 「그 값까지의 누적 개수」를 담으므로
+// 255 번째 칸이 곧 전체다. git 의 `open_pack_index` 가 `num_objects` 를 얻는 자리와 같다.
+//
+// **색인을 통째로 읽지 않는 것이 요점이다.** go-git 의 idxfile 디코더는 이름·오프셋·CRC 를
+// 전부 메모리에 올려서 객체 백만 개면 수십 MB 다. 여기서 읽는 것은 1,032 byte 다.
+//
+// v2 는 앞에 여덟 byte 의 머리(`\377tOc` 와 판 번호)가 붙고, v1 은 표부터 시작한다.
+// 판을 가르는 것은 그 머리가 있는지뿐이다.
+func idxObjectCount(path string) uint64 {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer file.Close()
+
+	head := make([]byte, 8)
+	if _, err := io.ReadFull(file, head); err != nil {
+		return 0
+	}
+
+	fanout := make([]byte, 1024)
+
+	if bytes.Equal(head[:4], []byte{0xff, 't', 'O', 'c'}) {
+		if _, err := io.ReadFull(file, fanout); err != nil {
+			return 0
+		}
+	} else {
+		// v1 은 머리가 없다. 방금 읽은 여덟 byte 가 이미 표의 앞머리다.
+		copy(fanout, head)
+
+		if _, err := io.ReadFull(file, fanout[8:]); err != nil {
+			return 0
+		}
+	}
+
+	return uint64(binary.BigEndian.Uint32(fanout[1020:]))
+}
 
 // readGitStatus 는 cwd 저장소의 상태를 읽는다.
 //
@@ -51,9 +173,12 @@ func readGitStatus(ctx context.Context) gitStatus {
 		branch = head.Name().Short()
 	}
 
+	// 자리 수는 저장소 크기에서 온다. 해시보다 길게 나올 일은 없지만 자르는 자리라 막아 둔다.
+	hash := head.Hash().String()
+
 	status := gitStatus{
 		branch: branch,
-		commit: head.Hash().String()[:gitShortHashLen],
+		commit: hash[:min(gitShortHashLen(gitPackedObjectCount(root)), len(hash))],
 	}
 
 	commit, err := repo.CommitObject(head.Hash())

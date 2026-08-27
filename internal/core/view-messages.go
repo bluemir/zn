@@ -33,7 +33,7 @@ func messagesMode(e *editor) (tea.Model, tea.Cmd) {
 	m.clearNotice()
 
 	// 맨 아래에서 시작한다. 찾는 것은 대개 방금 지나간 것이다.
-	m.selected = len(m.notices) - 1
+	m.selected = len(m.rows()) - 1
 	m.scrollTo()
 
 	return m, nil
@@ -42,8 +42,33 @@ func messagesMode(e *editor) (tea.Model, tea.Cmd) {
 type viewMessages struct {
 	*editor
 
-	selected int // notices 안의 자리
+	selected int // rows() 안의 자리
 	top      int // 화면 첫 행
+
+	// failedOnly 는 실패만 걸러 보는 중인지다. `f` 가 켜고 끈다.
+	failedOnly bool
+}
+
+// rows 는 목록에 보일 알림이다. 거르는 중이면 실패한 것만이다.
+//
+// **고른 자리와 첫 행은 이것 안의 자리다.** 걸러 놓고 `m.notices` 로 세면 목록에 없는
+// 알림을 가리키게 된다.
+//
+// 거르지 않을 때는 담긴 것을 그대로 준다. 알림 기록은 뒤에만 붙으므로(ADR-0053) 새 slice 를
+// 만들 이유가 없다.
+func (m viewMessages) rows() []notice {
+	if !m.failedOnly {
+		return m.notices
+	}
+
+	rows := make([]notice, 0, len(m.notices))
+	for _, entry := range m.notices {
+		if entry.failed {
+			rows = append(rows, entry)
+		}
+	}
+
+	return rows
 }
 
 func (m viewMessages) Init() tea.Cmd { return nil }
@@ -74,7 +99,7 @@ func (m viewMessages) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// **맨 아래였는지는 여기서 잰다.** handleJob 이 알림을 늘릴 수 있으므로 그 뒤에
 		// 재면 늦다 — 늘어난 개수로 되짚으면 「끝에서 둘째 줄」과 갈리지 않아서, 알림이
 		// 늘지 않는 msg 가 올 때마다 고른 자리가 한 칸씩 아래로 끌려간다(ADR-0053).
-		atBottom := m.selected == len(m.notices)-1
+		atBottom := m.selected == len(m.rows())-1
 
 		next, cmd := m.handleJob(msg)
 		if next != nil {
@@ -144,7 +169,19 @@ func (m viewMessages) run(key string) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case "G", "end":
-		m.selected = len(m.notices) - 1
+		m.selected = len(m.rows()) - 1
+		m.scrollTo()
+
+		return m, nil
+	case "f":
+		// 실패만 걸러 본다. 목록을 여는 까닭이 대개 「뭔가 잘못됐나」라서, 제목줄의 개수만으로
+		// 모자랄 때 이것으로 좁힌다(ADR-0053).
+		//
+		// **켜고 끌 때마다 맨 아래로 간다.** 거른 목록에서 지금 고른 알림이 어디로 갔는지를
+		// 되짚어 옮기는 것보다, 목록을 다시 여는 것과 같이 두는 편이 헷갈리지 않는다
+		// (messagesMode). 찾는 것은 대개 방금 지나간 실패다.
+		m.failedOnly = !m.failedOnly
+		m.selected = len(m.rows()) - 1
 		m.scrollTo()
 
 		return m, nil
@@ -155,11 +192,12 @@ func (m viewMessages) run(key string) (tea.Model, tea.Cmd) {
 
 // move 는 고른 자리를 옮긴다. 양끝에서 멈춘다. 다른 목록들과 같은 규칙이다.
 func (m *viewMessages) move(delta int) {
-	if len(m.notices) == 0 {
+	rows := m.rows()
+	if len(rows) == 0 {
 		return
 	}
 
-	m.selected = min(max(m.selected+delta, 0), len(m.notices)-1)
+	m.selected = min(max(m.selected+delta, 0), len(rows)-1)
 	m.scrollTo()
 }
 
@@ -173,7 +211,7 @@ func (m *viewMessages) move(delta int) {
 // 끝에서 둘째 줄까지 삼켜서, 알림이 늘지 않는 msg 마다 고른 자리가 아래로 끌려간다.
 func (m *viewMessages) follow(atBottom bool) {
 	if atBottom {
-		m.selected = len(m.notices) - 1
+		m.selected = len(m.rows()) - 1
 	}
 
 	m.scrollTo()
@@ -181,7 +219,7 @@ func (m *viewMessages) follow(atBottom bool) {
 
 // scrollTo 는 고른 자리가 보이도록 top 을 최소한으로 움직인다. `:jobs` 의 것과 같은 규칙이다.
 func (m *viewMessages) scrollTo() {
-	rows, height := len(m.notices), m.listHeight()
+	rows, height := len(m.rows()), m.listHeight()
 	if rows == 0 || height < 1 {
 		m.selected, m.top = 0, 0
 
@@ -202,13 +240,15 @@ func (m *viewMessages) scrollTo() {
 func (m viewMessages) View() tea.View {
 	height := m.listHeight()
 
+	rows := m.rows()
+
 	body := make([]string, 0, height)
-	for i := m.top; i < len(m.notices) && len(body) < height; i++ {
-		body = append(body, m.renderRow(m.notices[i], i == m.selected))
+	for i := m.top; i < len(rows) && len(body) < height; i++ {
+		body = append(body, m.renderRow(rows[i], i == m.selected))
 	}
 
-	if len(m.notices) == 0 && height > 0 {
-		body = append(body, " 지나간 알림이 없습니다")
+	if len(rows) == 0 && height > 0 {
+		body = append(body, " "+m.emptyReason())
 	}
 
 	for len(body) < height {
@@ -216,12 +256,12 @@ func (m viewMessages) View() tea.View {
 	}
 
 	screen := append([]string{m.renderTitle()}, body...)
-	screen = append(screen, styleDetail.Render(" j/k 이동  g/G 처음·끝  q 닫기"))
+	screen = append(screen, styleDetail.Render(m.renderHint()))
 	screen = append(screen, m.renderBareStatusBar()...)
 
 	view := newView(screen)
 
-	if len(m.notices) > 0 {
+	if len(rows) > 0 {
 		view.Cursor = tea.NewCursor(0, m.selected-m.top+jobsTitleHeight)
 		view.Cursor.Shape = tea.CursorBlock
 	} else {
@@ -233,6 +273,9 @@ func (m viewMessages) View() tea.View {
 
 // renderTitle 은 맨 윗줄이다. 몇 개이고 그중 실패가 몇인지 적는다 —
 // 목록을 여는 까닭이 대개 「뭔가 잘못됐나」라서 그 수가 제목에 있어야 한다.
+//
+// **거르는 중에도 담긴 것 전부를 센다.** 거른 뒤의 수는 목록 길이가 이미 말하고, 제목이
+// 같이 좁아지면 무엇에서 걸러낸 것인지 알 수 없다.
 func (m viewMessages) renderTitle() string {
 	failed := 0
 	for _, entry := range m.notices {
@@ -245,8 +288,32 @@ func (m viewMessages) renderTitle() string {
 	if failed > 0 {
 		label += fmt.Sprintf(" · 실패 %d", failed)
 	}
+	if m.failedOnly {
+		label += " · 실패만"
+	}
 
 	return reverse.Width(m.width).Render(truncateToWidth(label, m.width))
+}
+
+// emptyReason 은 목록이 빈 까닭이다. 담긴 것이 없는 것과 걸러서 없는 것이 다르다 —
+// 거르는 중에 「지나간 알림이 없습니다」가 뜨면 기록이 사라진 것처럼 읽힌다.
+func (m viewMessages) emptyReason() string {
+	if m.failedOnly {
+		return "실패한 알림이 없습니다"
+	}
+
+	return "지나간 알림이 없습니다"
+}
+
+// renderHint 는 키 안내 한 줄이다. `f` 는 지금 상태의 **반대**를 적는다 — 누르면 무엇이
+// 되는지가 안내이고, 지금 무엇인지는 제목줄이 말한다.
+func (m viewMessages) renderHint() string {
+	filter := "f 실패만"
+	if m.failedOnly {
+		filter = "f 전부"
+	}
+
+	return " j/k 이동  g/G 처음·끝  " + filter + "  q 닫기"
 }
 
 // noticeMarkWidth 는 시각과 갈래 표시가 쓰는 앞머리 폭이다. `▸ ` 두 칸까지 더한 값이다.
