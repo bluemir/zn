@@ -100,6 +100,11 @@ func (e *editor) startGrep(input string) tea.Cmd {
 	// 붙어 있어서 무엇의 결과인지 갈리지 않는다.
 	e.grep = grepResult{input: input, pattern: pattern}
 
+	// **치환 대기도 여기서 비운다.** 판이 검색인지 치환인지는 이 칸 하나로 갈리므로
+	// (ADR-0097 §1) 앞의 것이 남아 있으면 그냥 `:grep` 이 낡은 바꿀 글을 든 치환 판으로
+	// 열린다. `:replace` 는 이 함수를 부른 **뒤에** 자기 것을 세운다(replace.go 의 runReplace).
+	e.replace = replacePending{}
+
 	overlay := e.dirtyOverlay(root)
 
 	return e.startJob(grepJobName, []string{input}, func(ctx context.Context) <-chan jobProgress {

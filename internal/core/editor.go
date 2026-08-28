@@ -158,6 +158,14 @@ type editor struct {
 	// 닫았다 다시 열면 모아둔 것부터 보인다(ADR-0077).
 	grep grepResult
 
+	// replace 는 `:replace` 가 찾아 두고 아직 확정하지 않은 치환이다(ADR-0097).
+	//
+	// grep 과 나뉜 것이 요점이다. 그쪽은 「무엇을 찾았나」이고 이것은 「무엇으로 바꿀
+	// 참인가」라, 판이 검색 판인지 치환 판인지를 이것 하나로 가른다(view-grep.go).
+	//
+	// 확정하거나 그만두면 비운다. 남겨 두면 다음 `:grep` 이 치환 판으로 열린다.
+	replace replacePending
+
 	// boxChars 는 테두리·구분선에 쓸 글자다. 시작할 때 터미널을 재서 core.Run 이 넣어주고
 	// 그 뒤로 바뀌지 않는다(ADR-0028).
 	//

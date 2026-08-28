@@ -336,11 +336,14 @@ func (s tokenName) consume(ch rune) (token, tokenizerState) {
 
 // takesDelimitedArgument 는 이름 **다음 글자**가 구분자인 명령이다.
 //
-// `:s` 하나이고 줄임말과 온 이름 둘 다다. force 표시(`!`) 를 떼고 보지 않는다 —
-// `:s!a!b!` 의 그 `!` 는 강제가 아니라 구분자다.
+// `:s` 와 그 줄임말, 그리고 여러 파일 치환인 `:replace` 다. force 표시(`!`) 를 떼고 보지
+// 않는다 — `:s!a!b!` 의 그 `!` 는 강제가 아니라 구분자다.
+//
+// `:replace` 가 같은 문법을 쓰는 것이 요점이다. 뜯는 자리가 `parseSubstitute` 하나라
+// 구분자 규칙과 바꿀 글의 문법이 한 파일 치환과 갈릴 자리가 없다(ADR-0084, ADR-0097).
 func takesDelimitedArgument(name string) bool {
 	switch name {
-	case "s", "substitute":
+	case "s", "substitute", "replace":
 		return true
 	default:
 		return false
@@ -361,7 +364,7 @@ func (s tokenName) end() (token, error) {
 // 여기 있는 것은 띄어 쓴 `:s /a/b/` 를 받기 위해서다.
 func takesRawArgument(name string) bool {
 	switch strings.TrimSuffix(name, "!") {
-	case "grep", "s", "substitute":
+	case "grep", "s", "substitute", "replace":
 		return true
 	default:
 		return false

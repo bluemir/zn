@@ -81,6 +81,14 @@ type viewGrep struct {
 	// 빈 filter 와 갈라야 한다 — `/` 만 누른 상태와 아무것도 안 한 상태에서 아래 줄이 달라야
 	// 하고, `j` 가 목록을 옮길지 글자로 먹힐지도 이것으로 갈린다.
 	filtering bool
+
+	// asking·answer 는 `r` 로 바꿀 글을 치는 중인 것과 친 글이다(ADR-0097 §1).
+	//
+	// **판을 벗어나지 않고 그 자리에서 받는다.** 찾아 놓은 목록을 보면서 무엇으로 바꿀지
+	// 정하는 자리라, 박스를 따로 띄우면 정작 바꿀 목록이 가려진다. 거르기가 이미 판 안에서
+	// 글자를 받고 있어서 같은 손이다(ADR-0078 §7).
+	asking bool
+	answer string
 }
 
 // grepRows 는 목록에 쓸 수 있는 행 수다.
@@ -118,6 +126,11 @@ func (m viewGrep) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 통째로 글자라 이 자리가 `msg.Text` 를 그대로 쓴다(ADR-0008).
 		if m.filtering {
 			return m.pressFilter(msg)
+		}
+
+		// 바꿀 글을 치는 중에도 글자를 그대로 받는다. 거르기와 같은 자리다.
+		if m.asking {
+			return m.pressReplaceInput(msg)
 		}
 
 		return m.press(msg.String())
@@ -236,7 +249,16 @@ func (m viewGrep) press(key string) (tea.Model, tea.Cmd) {
 }
 
 // run 은 동작 하나다. 모르는 키면 아무 일도 하지 않는다.
+//
+// **치환 대기면 몇 글자가 먼저 먹힌다**(replaceKey). 판이 그때는 확정을 묻는 자리라
+// `enter` 로 뛰는 것보다 답하는 것이 앞선다(ADR-0097 §5).
 func (m viewGrep) run(key string) (tea.Model, tea.Cmd) {
+	if m.replace.on && !m.filtering {
+		if next, cmd, taken := m.replaceKey(key); taken {
+			return next, cmd
+		}
+	}
+
 	switch key {
 	case "ctrl+c":
 		return quitAll(m, m.editor)
@@ -270,6 +292,14 @@ func (m viewGrep) run(key string) (tea.Model, tea.Cmd) {
 	case "/":
 		// 거를 글자를 치기 시작한다. 검색을 다시 돌리는 것이 아니다.
 		m.filtering = true
+
+		return m, nil
+	case "r":
+		// 찾아 둔 것을 바꾸기로 넘어간다. 패턴은 이미 있고 받을 것은 바꿀 글뿐이다.
+		if len(m.rows()) == 0 {
+			return m, nil
+		}
+		m.asking = true
 
 		return m, nil
 	case "enter":
@@ -317,7 +347,15 @@ func (m viewGrep) open() (tea.Model, tea.Cmd) {
 }
 
 // cancel 은 `q`·`esc` 다. 판을 열기 전 자리로 되돌리고 둘러보며 연 tab 을 전부 닫는다.
+//
+// 치환 대기도 여기서 비운다. 남겨 두면 다음 `:grep` 이 치환 판으로 열린다.
+// 하나씩 훑다 그만둔 것은 그때까지 바꾼 것을 알린다 — 이미 디스크에 쓴 것이라 조용히
+// 나가면 무엇이 바뀌었는지 남지 않는다(ADR-0097 §4).
 func (m viewGrep) cancel() (tea.Model, tea.Cmd) {
+	if m.replace.on {
+		return m.finishReplace()
+	}
+
 	cmd := m.preview.restore(m.editor)
 
 	model, next := normalMode(m.editor)
@@ -425,11 +463,27 @@ func (m viewGrep) hint() string {
 		return "거르기: " + m.filter
 	}
 
+	if m.asking {
+		return "\"" + m.grep.input + "\" 을(를) 무엇으로: " + m.answer
+	}
+
 	if len(m.rows()) == 0 {
 		return m.label() + "  " + m.emptyReason() + "  esc 닫기"
 	}
 
-	return m.label() + "  j/k 둘러보기  enter 확정  / 거르기  esc 취소"
+	// 치환 대기면 물음이 다르다. 같은 판이 검색 결과이기도 하고 바꿀 목록이기도 해서
+	// 아래 줄이 지금 어느 쪽인지를 말해야 한다(ADR-0097 §5).
+	if m.replace.on {
+		if m.replace.stepping {
+			return m.label() + "  바꿀까요?  y 바꾸기  n 넘기기  a 남은 것 전부  q 그만"
+		}
+
+		paths, lines := replaceTargets(m.rows())
+
+		return m.label() + "  " + replacePrompt(paths, lines) + "  a 전부  y 하나씩  q 그만"
+	}
+
+	return m.label() + "  j/k 둘러보기  enter 확정  r 바꾸기  / 거르기  esc 취소"
 }
 
 // label 은 무엇을 찾았는지다.
@@ -437,7 +491,12 @@ func (m viewGrep) hint() string {
 // `%q` 로 감싸지 않는다. 친 그대로를 보여야 하는데 그것이 `\s` 를 `\\s` 로 바꾼다 —
 // 정규식에는 백슬래시가 흔해서 늘 어긋난다.
 func (m viewGrep) label() string {
-	label := "검색 \"" + m.grep.input + "\""
+	head := "검색"
+	if m.replace.on {
+		head = "치환"
+	}
+
+	label := head + " \"" + m.grep.input + "\""
 
 	// 상한에 닿았다는 것을 적는다. 조용히 자르면 「이게 전부」로 읽힌다.
 	if m.grep.capped {
