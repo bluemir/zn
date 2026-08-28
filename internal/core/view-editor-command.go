@@ -28,6 +28,13 @@ type viewEditorCommand struct {
 	*editor
 
 	input string // `:` 뒤에 친 것
+
+	// candidates 는 `tab` 이 채우다 만 뒤에 보여줄 후보다(ADR-0099).
+	//
+	// **다음 키에 사라진다.** 글자를 하나 더 치면 후보가 달라지므로, 남겨 두면 화면이
+	// 지금 조각과 어긋난 목록을 들고 있게 된다. 자동완성 창이 곁들여 뜬 것이지 고르는
+	// 화면이 아닌 것과 같은 뜻이다(render-completion.go).
+	candidates []string
 }
 
 func (m viewEditorCommand) Init() tea.Cmd { return nil }
@@ -54,12 +61,18 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// 이것이 없으면 진단 마커가 다음 키를 누를 때까지 바뀌기 전 내용의 것으로
 			// 남는다. 눈에 보이는 자리가 생겨서 드러난 구멍이다(ADR-0086).
 			return next, tea.Batch(cmd, m.scheduleEditTick())
+		case "tab":
+			// 경로를 받는 명령의 마지막 조각을 채운다. 채울 것이 없으면 아무 일도 없다.
+			m.input, m.candidates = completeCommandLine(m.input)
+
+			return m, nil
 		case "backspace":
 			// vim 처럼 `:` 까지 지우면 명령줄에서 나간다.
 			if m.input == "" {
 				return normalMode(m.editor)
 			}
 			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.candidates = nil
 
 			return m, nil
 		default:
@@ -67,6 +80,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.input += msg.Text
+			m.candidates = nil
 
 			return m, nil
 		}
@@ -676,5 +690,6 @@ func (m viewEditorCommand) View() tea.View {
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
 	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
 
-	return view
+	// `tab` 이 채우다 만 뒤의 후보를 명령줄 위에 얹는다(ADR-0099).
+	return m.overlayCandidates(view)
 }
