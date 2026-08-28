@@ -289,7 +289,9 @@ func prefixMotion(prefix, key string) (moveMotion, bool) {
 
 // prefixAction 는 접두 키 조합이 가리키는, motion 이 아닌 동작이다.
 // operator 뒤에는 올 수 없다 — `dgt` 는 아무것도 아니다.
-func prefixAction(prefix, key string) action {
+//
+// 숫자 접두를 받는다(`3]c`). 쓰지 않는 조합은 그냥 버린다 — `3gt` 가 그렇다.
+func prefixAction(prefix, key string, count int) action {
 	switch prefix {
 	case "g":
 		switch key {
@@ -302,6 +304,20 @@ func prefixAction(prefix, key string) action {
 		switch key {
 		case "ctrl+w", "w":
 			return actionFocusTree{}
+		}
+	case "]":
+		switch key {
+		case "c":
+			return actionNextChange{count: count}
+		case "d":
+			return actionNextDiagnostic{count: count}
+		}
+	case "[":
+		switch key {
+		case "c":
+			return actionPrevChange{count: count}
+		case "d":
+			return actionPrevDiagnostic{count: count}
 		}
 	case leaderKey + "g":
 		switch key {
@@ -426,7 +442,7 @@ func (s normalStart) press(key string) ([]action, normalState) {
 	}
 
 	switch key {
-	case "g", "ctrl+w":
+	case "g", "ctrl+w", "]", "[":
 		// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
 		return nil, normalPending{building: s.building, prefix: key}
 	case leaderKey, leaderWon:
@@ -485,8 +501,9 @@ func (s normalCount) press(key string) ([]action, normalState) {
 	}
 
 	switch key {
-	case "g":
-		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
+	case "g", "]", "[":
+		// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이고 `3]c` 는
+		// 바뀐 자리 셋을 건너뛴다.
 		// `ctrl+w` 는 여기 없다 — 창 동작에 숫자는 뜻이 없어서 아래에서 버려진다.
 		return nil, normalPending{building: s.building, prefix: key, count: s.count}
 	case "r":
@@ -551,7 +568,7 @@ func (s normalPending) press(key string) ([]action, normalState) {
 		return nil, normalStart{}
 	}
 
-	return s.building.built(prefixAction(s.prefix, key)), normalStart{}
+	return s.building.built(prefixAction(s.prefix, key, s.count)), normalStart{}
 }
 
 func (s normalPending) showcmd() string {

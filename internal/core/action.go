@@ -682,6 +682,50 @@ func (c actionRename) run(e *editor) (tea.Model, tea.Cmd) {
 	return renameInputMode(e)
 }
 
+// actionNextChange·actionPrevChange 는 `]c`·`[c` 다. git 으로 바뀐 자리 사이를 뛴다(ADR-0095).
+//
+// vim 에 있는 키인데 diff mode 안에서만 뜻이 있다(`:help ]c`). 우리는 diff mode 가 없어서
+// 그 자리가 비어 있고, 같은 뜻으로 쓴다.
+type actionNextChange struct{ count int }
+
+func (c actionNextChange) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+	e.jumpToMarkerLines(buf.gitChangeLines(), markerForward, max(c.count, 1), "바뀐 자리가 없습니다")
+
+	return nil, nil
+}
+
+type actionPrevChange struct{ count int }
+
+func (c actionPrevChange) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+	e.jumpToMarkerLines(buf.gitChangeLines(), markerBackward, max(c.count, 1), "바뀐 자리가 없습니다")
+
+	return nil, nil
+}
+
+// actionNextDiagnostic·actionPrevDiagnostic 은 `]d`·`[d` 다. 진단 사이를 뛴다(ADR-0095).
+//
+// vim 에서 이 키는 `#define` 을 찾는 자리인데(`:help ]d`) 우리는 그 기능이 없다. 진단으로
+// 쓰는 것은 Neovim 이 덮어 쓴 뜻을 따른 것이다.
+type actionNextDiagnostic struct{ count int }
+
+func (c actionNextDiagnostic) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+	e.jumpToMarkerLines(buf.diagnosticLines(), markerForward, max(c.count, 1), "진단이 없습니다")
+
+	return nil, nil
+}
+
+type actionPrevDiagnostic struct{ count int }
+
+func (c actionPrevDiagnostic) run(e *editor) (tea.Model, tea.Cmd) {
+	buf := e.activeBuffer()
+	e.jumpToMarkerLines(buf.diagnosticLines(), markerBackward, max(c.count, 1), "진단이 없습니다")
+
+	return nil, nil
+}
+
 // actionJumpBack 은 `ctrl+o` 다. 뛰기 전 자리로 되돌아간다(ADR-0070).
 type actionJumpBack struct{}
 
