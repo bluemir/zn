@@ -135,6 +135,20 @@ type Buffer struct {
 	// 다시 읽은 내용의 진단은 서버가 새로 보내온다(ADR-0086).
 	diagnostics map[int][]lsp.Diagnostic
 
+	// gitBase 는 HEAD 에 든 이 파일의 내용이고, gitLines 는 그것과 지금 내용을 견줘 낸
+	// 줄별 마커다(git-lines.go, ADR-0094).
+	//
+	// gitBaseHead 는 그 원본을 읽어온 HEAD 해시다. 이것이 지금 HEAD 와 다르면 원본이 낡은
+	// 것이라 다시 읽는다 — `git commit`·`checkout` 으로 기준이 통째로 움직이는 자리다.
+	// 추적하지 않는 파일은 원본이 nil 인 채 해시만 적힌다. 「없다」와 「아직 안 읽었다」를
+	// 그 해시가 가른다.
+	//
+	// 셋 다 값 필드라 Reload 가 buffer 를 통째로 갈아끼울 때(`*buf = next`) 저절로 비워진다.
+	// 다음 git 갱신이 다시 채운다(진단·문법 캐시와 같은 자리다).
+	gitBase     [][]byte
+	gitBaseHead string
+	gitLines    map[int]gitLineMark
+
 	// syntax 는 문법 강조 토큰을 담아 둔 것이다. 파일 내용에서 나온 것이라 커서·스크롤과 같이
 	// 이 파일에 딸려 있다(위 주석).
 	//
@@ -198,24 +212,36 @@ func newBuffer(path string, data []byte) Buffer {
 		readOnly:   detectReadOnly(path),
 	}
 
+	buf.lines, buf.finalLineEnding = splitLines(data)
+
+	return buf
+}
+
+// splitLines 는 파일 내용을 줄로 가른다. 줄끝은 줄에 남기지 않는다.
+//
+// HEAD 에 든 내용을 가르는 자리도 이것을 쓴다(git-lines.go). 규칙이 두 벌이면 마지막 줄
+// 하나가 늘 다르게 갈려서, 고치지 않은 파일의 끝줄에 마커가 선다.
+func splitLines(data []byte) ([][]byte, bool) {
 	// 마지막 줄끝은 빈 줄이 아니라 "줄끝으로 끝났다" 는 사실이므로 떼어내고 기록한다.
 	rest := data
+	finalLineEnding := false
+
 	if len(rest) > 0 && rest[len(rest)-1] == '\n' {
-		buf.finalLineEnding = true
+		finalLineEnding = true
 		rest = rest[:len(rest)-1]
 		if len(rest) > 0 && rest[len(rest)-1] == '\r' {
 			rest = rest[:len(rest)-1]
 		}
 	}
 
-	buf.lines = bytes.Split(rest, []byte{'\n'})
-	for i, line := range buf.lines {
+	lines := bytes.Split(rest, []byte{'\n'})
+	for i, line := range lines {
 		if len(line) > 0 && line[len(line)-1] == '\r' {
-			buf.lines[i] = line[:len(line)-1]
+			lines[i] = line[:len(line)-1]
 		}
 	}
 
-	return buf
+	return lines, finalLineEnding
 }
 
 // detectLineEnding 은 첫 줄의 줄끝으로 파일 전체의 형식을 판정한다.

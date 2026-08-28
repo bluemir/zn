@@ -107,9 +107,9 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.press(msg.String())
 
 		// 키가 파일을 고쳤으면 언어 서버와 맞출 때를 예약한다. 고쳤는지 보지 않는 것은
-		// 예약이 한 번에 하나뿐이고(scheduleLspTick) 보낼 것이 없으면 그때 아무것도
+		// 예약이 한 번에 하나뿐이고(scheduleEditTick) 보낼 것이 없으면 그때 아무것도
 		// 보내지 않기 때문이다 — 「고치는 동작」 목록을 여기 또 두지 않는다(ADR-0051).
-		return next, tea.Batch(cmd, m.scheduleLspTick())
+		return next, tea.Batch(cmd, m.scheduleEditTick())
 	case tea.MouseClickMsg:
 		// 왼쪽과 오른쪽만 본다. 가운데 버튼에 붙일 동작은 아직 정하지 않았다.
 		//
@@ -163,7 +163,7 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		//

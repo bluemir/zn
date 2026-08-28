@@ -102,7 +102,7 @@ func (b *Buffer) setDiagnostics(list []lsp.Diagnostic) {
 // diagnosticAt 은 그 줄의 진단들이다. 없으면 nil 이다.
 //
 // **줄이 어긋나 있을 수 있다.** 서버에 보내는 것은 마지막 키에서 250ms 뒤라(gopls.go 의
-// lspSyncDelay) 줄을 넣거나 지운 직후에는 진단이 낡은 판 기준이다. 그것을 보정하지 않고
+// editIdleDelay) 줄을 넣거나 지운 직후에는 진단이 낡은 판 기준이다. 그것을 보정하지 않고
 // 그대로 두는 것이 결정이다 — 다음 publish 가 갈아치운다(ADR-0086).
 func (b *Buffer) diagnosticAt(line int) []lsp.Diagnostic {
 	return b.diagnostics[line]

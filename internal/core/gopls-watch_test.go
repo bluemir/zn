@@ -163,7 +163,7 @@ func TestGitStatusKeepsFullHead(t *testing.T) {
 	require.NoError(t, os.Chdir(root))
 	t.Cleanup(func() { _ = os.Chdir(before) })
 
-	status := readGitStatus(t.Context())
+	status := readGitStatus(t.Context(), nil).status
 
 	assert.Equal(t, second, status.head, "자르지 않은 해시다")
 	assert.Len(t, status.commit, gitMinShortHashLen, "찍는 것은 짧은 해시다")

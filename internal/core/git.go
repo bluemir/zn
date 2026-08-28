@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 // gitStatus 는 statusBar 오른쪽에 찍히는 저장소 상태다.
@@ -160,16 +161,16 @@ func idxObjectCount(path string) uint64 {
 // 프로세스를 띄우지 않고 라이브러리로 읽는다(ADR-0042). 그래도 Update 안에서 부르면 안 된다 —
 // 큰 저장소에서 dirty 판정이 백 밀리초를 넘는다. 백그라운드 작업이 부르고 결과만 msg 로
 // 돌아온다(ADR-0030). ctx 는 그 작업의 것이라 취소하면 훑는 것이 멎는다.
-func readGitStatus(ctx context.Context) gitStatus {
+func readGitStatus(ctx context.Context, wanted map[string]string) gitSnapshot {
 	repo, root, _, ok := openGitRepo(".")
 	if !ok {
-		return gitStatus{}
+		return gitSnapshot{}
 	}
 
 	// 저장소이지만 commit 이 하나도 없으면 여기서 갈린다. 찍을 것이 없다.
 	head, err := repo.Head()
 	if err != nil {
-		return gitStatus{}
+		return gitSnapshot{}
 	}
 
 	// detached HEAD 면 이름이 `HEAD` 그대로다. branch 가 비는 것이 곧 detached 다.
@@ -181,20 +182,103 @@ func readGitStatus(ctx context.Context) gitStatus {
 	// 자리 수는 저장소 크기에서 온다. 해시보다 길게 나올 일은 없지만 자르는 자리라 막아 둔다.
 	hash := head.Hash().String()
 
-	status := gitStatus{
-		branch: branch,
-		commit: hash[:min(gitShortHashLen(gitPackedObjectCount(root)), len(hash))],
-		head:   hash,
+	snapshot := gitSnapshot{
+		status: gitStatus{
+			branch: branch,
+			commit: hash[:min(gitShortHashLen(gitPackedObjectCount(root)), len(hash))],
+			head:   hash,
+		},
 	}
 
 	commit, err := repo.CommitObject(head.Hash())
 	if err != nil {
-		return status
+		return snapshot
 	}
 
-	status.dirty = gitDirty(ctx, repo, root, commit.TreeHash)
+	snapshot.changes = gitFileChanges(ctx, repo, root, commit.TreeHash)
+	snapshot.status.dirty = len(snapshot.changes) > 0
+	snapshot.bases = gitReadBases(commit, root, wanted, hash)
 
-	return status
+	return snapshot
+}
+
+// gitSnapshot 은 갱신 작업 한 번이 읽어 오는 것 전부다.
+//
+// 셋이 한 번에 온다. 같은 저장소를 세 번 여는 대신 한 번 열어 다 읽고, 화면에 놓이는 순간도
+// 하나여서 statusBar 의 `*` 와 트리 마커와 줄 마커가 서로 다른 순간의 사실을 말하지 않는다.
+type gitSnapshot struct {
+	status  gitStatus
+	changes gitChanges
+
+	// bases 는 열려 있는 파일들의 HEAD 원본이다. 절대 경로가 키다.
+	// HEAD 에 없는 파일은 값이 nil 인 채 키만 든다 — 「없다」와 「아직 안 읽었다」가 갈린다.
+	bases map[string][][]byte
+}
+
+// gitReadBases 는 열려 있는 파일들의 HEAD 원본을 읽는다.
+//
+// wanted 는 「경로 → 그 buffer 가 지금 들고 있는 원본의 HEAD 해시」다. 그 해시가 지금 HEAD 와
+// 같으면 읽지 않는다 — 5 초마다 도는 자리라(gitCooldown) 매번 blob 을 풀면 그 값이 그대로 든다.
+//
+// 읽지 못한 파일은 키를 두지 않는다. 다음 갱신에서 다시 물어본다.
+func gitReadBases(commit *object.Commit, root string, wanted map[string]string, head string) map[string][][]byte {
+	bases := map[string][][]byte{}
+
+	for path, at := range wanted {
+		if at == head {
+			continue
+		}
+
+		rel, ok := gitRelPath(root, path)
+		if !ok {
+			// 저장소 밖의 파일이다. 견줄 원본이 없다는 것도 답이라 키를 둔다.
+			bases[path] = nil
+
+			continue
+		}
+
+		file, err := commit.File(rel)
+		if err != nil {
+			// HEAD 에 없는 파일이다. 새로 만든 것이 대개 이것이다.
+			bases[path] = nil
+
+			continue
+		}
+
+		contents, err := file.Contents()
+		if err != nil {
+			continue
+		}
+
+		lines, _ := splitLines([]byte(contents))
+		bases[path] = lines
+	}
+
+	return bases
+}
+
+// gitRelPath 는 열려 있는 파일의 경로를 저장소 뿌리 기준 이름으로 바꾼다. 뿌리 밖이면 거짓이다.
+//
+// **상대 경로로 열린 파일이 있다.** CLI 인자로 받은 것이 그대로 buffer 의 경로가 되어서
+// (`zn internal/core/layout.go`) 절대 경로로 맞추는 일이 먼저다. symlink 도 푼다 —
+// 뿌리는 go-git 이 풀어서 주므로(openGitRepo) 한쪽만 풀려 있으면 견줄 수 없다.
+func gitRelPath(root, path string) (string, bool) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", false
+	}
+
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		resolved = absolute
+	}
+
+	rel, err := filepath.Rel(root, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+
+	return filepath.ToSlash(rel), true
 }
 
 // label 은 statusBar 에 찍히는 글자다. `master(a1b2c3d*)` 이고 `*` 가 dirty 다.
@@ -264,13 +348,23 @@ func (e *editor) startGitRefresh() tea.Cmd {
 	previous := e.git.head
 	client := e.goplsClient()
 
+	// 열려 있는 파일마다 「지금 들고 있는 원본이 어느 HEAD 의 것인가」를 같이 뜬다.
+	// 그것이 지금 HEAD 와 같으면 작업이 blob 을 다시 풀지 않는다(gitReadBases).
+	wanted := make(map[string]string, len(e.buffers))
+	for i := range e.buffers {
+		if e.buffers[i].path != "" {
+			wanted[e.buffers[i].path] = e.buffers[i].gitBaseHead
+		}
+	}
+
 	return e.startJob(gitJobName, nil, func(ctx context.Context) <-chan jobProgress {
 		ch := make(chan jobProgress, 1)
 
 		go func() {
 			defer close(ch)
 
-			status := readGitStatus(ctx)
+			snapshot := readGitStatus(ctx, wanted)
+			status := snapshot.status
 
 			// **HEAD 가 움직였으면 그 사이에 달라진 파일을 gopls 에 알린다.**
 			// 알리지 않으면 `git checkout` 뒤에 「쓰는 곳이 있는데 없다」가 된다(ADR-0092).
@@ -297,10 +391,39 @@ func (e *editor) startGitRefresh() tea.Cmd {
 				done:    1,
 				total:   1,
 				summary: summary,
-				apply:   func(e *editor) { e.git = status },
+				apply:   func(e *editor) { e.applyGitSnapshot(snapshot) },
 			}
 		}()
 
 		return ch
 	})
+}
+
+// applyGitSnapshot 은 읽어 온 것을 화면 상태에 놓는다. Update 안에서 불리므로 잠금이 없다(job.go).
+//
+// 원본을 받은 buffer 는 그 자리에서 줄 마커를 다시 낸다. `git commit` 뒤에 마커가 사라지고
+// `git checkout` 뒤에 기준이 바뀌는 것이 이 자리다 — 키를 치지 않아도 화면이 따라온다.
+//
+// 저장소가 아니면(head 가 빈 문자열) 들고 있던 것을 전부 내린다. 표시가 남아 있으면 그것이
+// 어느 저장소의 것인지 알 수 없다.
+func (e *editor) applyGitSnapshot(snapshot gitSnapshot) {
+	e.git = snapshot.status
+	e.gitChanges = snapshot.changes
+
+	for i := range e.buffers {
+		buf := &e.buffers[i]
+
+		if snapshot.status.head == "" {
+			buf.gitBase, buf.gitBaseHead, buf.gitLines = nil, "", nil
+
+			continue
+		}
+
+		if base, ok := snapshot.bases[buf.path]; ok {
+			buf.gitBase = base
+			buf.gitBaseHead = snapshot.status.head
+		}
+
+		buf.refreshGitLines()
+	}
 }

@@ -90,15 +90,19 @@ const (
 	minRelativeDigits = 2
 )
 
-// markerWidth 는 줄번호 왼쪽 마커 칸의 폭이다. 진단 마커가 여기 선다(ADR-0086).
+// markerWidth 는 줄번호 왼쪽 마커 칸의 폭이다. 진단 마커와 git 마커가 각각 한 칸씩 선다
+// (ADR-0086, ADR-0094).
 //
-// **진단이 없어도 늘 잡는다.** 있을 때만 잡으면 첫 오류가 뜨는 순간 본문 전체가 한 칸
+// **아무것도 없어도 늘 잡는다.** 있을 때만 잡으면 첫 오류가 뜨는 순간 본문 전체가 한 칸
 // 밀리고 줄바꿈 자리가 통째로 달라진다. minAbsoluteDigits 를 3 으로 잡아 999 줄까지
 // 번호 칸이 흔들리지 않게 한 것과 같은 손이다(ADR-0007).
 //
-// Go 파일이 아니어도 잡는다. 「진단이 오는 파일」과 「칸이 있는 파일」이 갈리면 tab 을
-// 옮길 때마다 본문이 좌우로 흔들린다.
-const markerWidth = 1
+// Go 파일이 아니어도, 저장소가 아니어도 잡는다. 「표시가 오는 파일」과 「칸이 있는 파일」이
+// 갈리면 tab 을 옮길 때마다 본문이 좌우로 흔들린다.
+//
+// **둘을 한 칸에 겹치지 않는다.** 오류가 있는 줄은 대개 방금 고친 줄이라, 한 칸을 나눠 쓰면
+// 정작 보고 싶을 때 git 표시가 가려진다(ADR-0094 §3).
+const markerWidth = 2
 
 // lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.
 //
@@ -185,7 +189,10 @@ func (e editor) renderGutter(buf *Buffer, row screenRow) string {
 		relativeNumber = strings.Repeat(" ", relative)
 	}
 
+	// 진단이 왼쪽 끝이고 git 이 번호 옆이다. 진단은 있다가 없어지는 것이고 git 표시는 commit
+	// 할 때까지 그 줄에 남아 있어서, 본문에 가까운 쪽을 오래 서 있는 것에 준다(ADR-0094 §3).
 	return renderDiagnosticMarker(buf.diagnosticAt(row.line)) +
+		renderGitMarker(buf.gitLines[row.line]) +
 		styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
 		styleLineNumberRelative.Render(relativeNumber) + " "
 }

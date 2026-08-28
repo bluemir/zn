@@ -103,6 +103,22 @@ var (
 	styleDiagnosticWarning = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 )
 
+// styleGitAdded, styleGitModified, styleGitRemoved 는 git 마커의 색이다(ADR-0094).
+//
+// 진단과 같이 ANSI 색이다. 그 테마가 부르는 초록·파랑·빨강이면 되고 특정 값이 필요하지 않다.
+//
+// **밝은 쪽(9~15) 을 쓴다.** 이 칸은 진단 칸(ANSI 1) 과 절대 줄번호(ANSI 3) 사이에 끼어
+// 있어서, 어두운 쪽을 쓰면 옆 칸과 한 덩이로 보인다. 경고를 3 이 아니라 11 로 둔 것과 같은
+// 자리다(styleDiagnosticWarning).
+//
+// 트리의 파일 마커도 이 색을 그대로 쓴다. 왼쪽 칸의 `~` 와 트리의 `M` 이 같은 것을 가리키고
+// 있다는 것이 색으로 이어진다(sidebar.go).
+var (
+	styleGitAdded    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	styleGitModified = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	styleGitRemoved  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+)
+
 // styleTip 은 짧은 안내 문장(tip) 의 색이다. statusBar 아래 줄 오른쪽과 빈 화면 가운데에 선다.
 //
 // **눈에 덜 띄어야 한다.** tip 은 지금 하는 일이 아니라 다음에 해 볼 것이라서, 커서 위치나

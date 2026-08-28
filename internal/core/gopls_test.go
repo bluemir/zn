@@ -167,8 +167,8 @@ func TestSyncGoplsWithoutServer(t *testing.T) {
 	e := &editor{buffers: []Buffer{newEmptyBuffer("main.go")}}
 
 	assert.Nil(t, e.syncGopls())
-	assert.Nil(t, e.scheduleLspTick())
-	assert.False(t, e.lspTickScheduled)
+	assert.Nil(t, e.scheduleEditTick())
+	assert.False(t, e.editTickScheduled)
 }
 
 // tick 이 도는 자리를 진짜 서버로 재 본다.

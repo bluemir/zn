@@ -30,8 +30,8 @@ func TestDiagnosticMarkerColumnAlwaysReserved(t *testing.T) {
 	assert.Equal(t, clean.gutterWidth(), dirty.gutterWidth(), "진단이 생겨도 칸 폭이 그대로다")
 	assert.Equal(t, clean.contentWidth(), dirty.contentWidth(), "본문 너비도 그대로다")
 
-	assert.Equal(t, []string{"   1  0 ", "   2  1 "}, gutterOf(t, clean), "진단이 없으면 마커 칸은 빈 칸")
-	assert.Equal(t, []string{"✖  1  0 ", "   2  1 "}, gutterOf(t, dirty), "있으면 그 줄에만 마커")
+	assert.Equal(t, []string{"    1  0 ", "    2  1 "}, gutterOf(t, clean), "진단이 없으면 마커 칸은 빈 칸")
+	assert.Equal(t, []string{"✖   1  0 ", "    2  1 "}, gutterOf(t, dirty), "있으면 그 줄에만 마커")
 }
 
 // 오류와 경고는 글자가 다르다. 색만으로 가르지 않는다.
@@ -44,10 +44,10 @@ func TestDiagnosticMarkerBySeverity(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{
-		"✖  1  0 ",
-		"⚠  2  1 ",
-		"   3  2 ",
-		"   4  3 ",
+		"✖   1  0 ",
+		"⚠   2  1 ",
+		"    3  2 ",
+		"    4  3 ",
 	}, gutterOf(t, m), "정보·힌트는 그리지 않는다")
 }
 
@@ -59,7 +59,7 @@ func TestDiagnosticWorstFirstOnOneLine(t *testing.T) {
 		newDiagnostic(0, lsp.SeverityError, "undefined: x"),
 	})
 
-	assert.Equal(t, "✖  1  0 ", gutterOf(t, m)[0])
+	assert.Equal(t, "✖   1  0 ", gutterOf(t, m)[0])
 	assert.Contains(t, ansi.Strip(m.renderDiagnostic()), "✖ undefined: x (2)", "심한 것이 문구가 되고 개수가 붙는다")
 }
 
@@ -84,7 +84,7 @@ func TestDiagnosticMarkerBlankOnWrappedRows(t *testing.T) {
 
 	m.buffers[0].setDiagnostics([]lsp.Diagnostic{newDiagnostic(0, lsp.SeverityError, "undefined: x")})
 
-	assert.Equal(t, []string{"✖  1  0 ", "        ", "   2  1 "}, gutterOf(t, m))
+	assert.Equal(t, []string{"✖   1  0 ", "         ", "    2  1 "}, gutterOf(t, m))
 }
 
 // 커서가 진단 있는 줄에 서면 아래 줄에 문구가 커서 자리 뒤로 붙는다.
@@ -125,10 +125,10 @@ func TestDiagnosticMarkerHiddenOnNarrowScreen(t *testing.T) {
 func TestDiagnosticClearedByEmptyList(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 40, 2)
 	m.buffers[0].setDiagnostics([]lsp.Diagnostic{newDiagnostic(0, lsp.SeverityError, "undefined: x")})
-	require.Equal(t, "✖  1  0 ", gutterOf(t, m)[0])
+	require.Equal(t, "✖   1  0 ", gutterOf(t, m)[0])
 
 	m.buffers[0].setDiagnostics(nil)
 
-	assert.Equal(t, []string{"   1  0 ", "   2  1 "}, gutterOf(t, m))
+	assert.Equal(t, []string{"    1  0 ", "    2  1 "}, gutterOf(t, m))
 	assert.Empty(t, m.renderDiagnostic())
 }

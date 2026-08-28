@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
@@ -19,21 +18,11 @@ import (
 //
 // 서버 쪽 이야기는 internal/lsp 가 안다. 여기 있는 것은 「언제 무엇을 맞추고 무엇을 묻는가」다.
 
-// lspSyncDelay 는 마지막 키에서 이만큼 조용해지면 서버와 맞춘다.
-//
-// 타이핑마다 보내지 않는 이유는 보내는 값이 아까워서가 아니라(잰 값으로 34.6KB 파일이
-// 750µs 다) 화면을 그리는 goroutine 이 남의 프로세스와 발을 맞출 이유가 없어서다.
-// 정확성은 이 시간에 매달려 있지 않다 — 묻는 순간에 전문으로 한 번 맞춘다(ADR-0051).
-const lspSyncDelay = 250 * time.Millisecond
-
 // goplsReadyMsg 는 서버가 떴다는 것이다. 실패도 이 길로 온다.
 type goplsReadyMsg struct {
 	client *lsp.Client
 	err    error
 }
-
-// lspTickMsg 는 서버와 맞출 때가 되었다는 것이다.
-type lspTickMsg time.Time
 
 // definitionMsg 는 정의를 물은 답이다.
 type definitionMsg struct {
@@ -144,22 +133,6 @@ func (e *editor) finishGopls(msg goplsReadyMsg) tea.Cmd {
 	// 자리가 여기 하나다 — 알리는 자리(syncGopls) 와 같이 두면 tick 마다 고리가 하나씩
 	// 늘어난다(ADR-0086).
 	return tea.Batch(e.syncGopls(), waitDiagnostics(e.gopls))
-}
-
-// scheduleLspTick 은 맞출 때를 예약한다. 이미 걸어둔 것이 있으면 그것을 쓴다.
-//
-// git 갱신과 같은 손이다(ADR-0043). 걸어둔 것이 하나라는 규칙이 타이핑을 모아 주는 자리이기도
-// 하다 — 키를 열 번 쳐도 예약은 하나이고, 그 하나가 250ms 뒤에 지금 상태를 한 번 보낸다.
-func (e *editor) scheduleLspTick() tea.Cmd {
-	if e.gopls == nil || e.lspTickScheduled {
-		return nil
-	}
-
-	e.lspTickScheduled = true
-
-	return tea.Tick(lspSyncDelay, func(t time.Time) tea.Msg {
-		return lspTickMsg(t)
-	})
 }
 
 // syncGopls 는 열려 있는 Go 파일들을 서버와 맞춘다.

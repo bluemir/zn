@@ -127,7 +127,7 @@ func (m viewRegisters) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, lspTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
 		next, cmd := m.handleJob(msg)
 		if next != nil {
 			// 다른 화면으로 넘어간다. **판 높이는 여기서 지우지 않는다** — 넘어가는 곳이

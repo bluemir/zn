@@ -300,21 +300,21 @@ func TestLineNumbers(t *testing.T) {
 	var m tea.Model = newTestEditor("one\ntwo\nthree\nfour\nfive\n", 40, 5)
 
 	assert.Equal(t, []string{
-		"   1  0 ",
-		"   2  1 ",
-		"   3  2 ",
-		"   4  3 ",
-		"   5  4 ",
+		"    1  0 ",
+		"    2  1 ",
+		"    3  2 ",
+		"    4  3 ",
+		"    5  4 ",
 	}, gutterOf(t, m), "커서가 첫 줄이면 상대번호가 아래로 늘어난다")
 
 	m = send(m, "2", "j")
 
 	assert.Equal(t, []string{
-		"   1  2 ",
-		"   2  1 ",
-		"   3  0 ",
-		"   4  1 ",
-		"   5  2 ",
+		"    1  2 ",
+		"    2  1 ",
+		"    3  0 ",
+		"    4  1 ",
+		"    5  2 ",
 	}, gutterOf(t, m), "커서 줄이 0 이고 위아래로 멀어진다")
 }
 
@@ -324,7 +324,7 @@ func TestLineNumberColors(t *testing.T) {
 
 	row := contentRowsOf(t, m)[1]
 
-	assert.Equal(t, "   2 ", ansi.Strip(row)[:5], "절대번호는 마커 칸 다음이다")
+	assert.Equal(t, "    2 ", ansi.Strip(row)[:6], "절대번호는 마커 칸 둘 다음이다")
 	assert.Contains(t, row, "\x1b[33m  2", "절대번호는 노란색이다")
 	assert.Contains(t, row, "\x1b[38;5;244m 1", "상대번호는 흐리다")
 	assert.NotContains(t, textOf(t, m), "\x1b[", "본문에는 색이 가지 않는다")
@@ -335,7 +335,7 @@ func TestLineNumbersBlankOnWrappedRows(t *testing.T) {
 	m := newTestEditor(strings.Repeat("a", 30)+"\nnext\n", 34, 3)
 	require.Positive(t, m.gutterWidth())
 
-	assert.Equal(t, []string{"   1  0 ", "        ", "   2  1 "}, gutterOf(t, m))
+	assert.Equal(t, []string{"    1  0 ", "         ", "    2  1 "}, gutterOf(t, m))
 }
 
 // 자릿수는 줄 수와 화면 높이를 따라간다. 짧은 파일에서도 최소 폭은 지킨다.
@@ -364,5 +364,5 @@ func TestLineNumbersNarrowContentWrapsEarlier(t *testing.T) {
 	m := newTestEditor(strings.Repeat("a", 30)+"\n", 34, 3)
 
 	assert.Equal(t, 34-m.gutterWidth(), m.contentWidth())
-	assert.Equal(t, strings.Repeat("a", 26)+"\naaaa\n", textOf(t, m), "본문 너비에서 접힌다")
+	assert.Equal(t, strings.Repeat("a", 25)+"\naaaaa\n", textOf(t, m), "본문 너비에서 접힌다")
 }

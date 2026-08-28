@@ -306,8 +306,20 @@ func (s sidebar) selectedRow(height int) (int, bool) {
 	return row, true
 }
 
-// labelWidth 는 sidebar 32 칸 중 이름에 쓰는 칸이다. 나머지 둘은 구분선과 그 뒤 빈 칸이다.
-const labelWidth = sidebarWidth - 2
+// labelWidth 는 sidebar 32 칸 중 이름에 쓰는 칸이다.
+// 나머지 셋은 git 마커 칸과 구분선과 그 뒤 빈 칸이다.
+const labelWidth = sidebarWidth - 3
+
+// markerGitTree 는 트리 오른쪽 끝에 서는 마커다(ADR-0094).
+//
+// **오른쪽 끝이다.** 이름 앞에 두면 깊이마다 이름이 한 칸씩 밀려서 트리 모양이 흐트러진다.
+// 오른쪽에 세우면 마커끼리 한 줄로 서서 「무엇이 바뀌었나」를 세로로 훑을 수 있다.
+//
+// 글자는 `git status --short` 의 것을 그대로 쓴다. 둘 다 ASCII 라 폭이 흔들리지 않는다.
+const (
+	markerGitTreeModified  = "M"
+	markerGitTreeUntracked = "?"
+)
 
 // renderCells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
 // 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
@@ -315,7 +327,7 @@ const labelWidth = sidebarWidth - 2
 // activePath 는 지금 보고 있는 파일의 절대 경로다. 그 행만 굵게, 밑줄 그어 그린다(ADR-0022).
 // 트리 커서는 터미널 커서라 포커스가 트리에 있을 때만 보이므로, 편집 중에 트리가
 // 지금 자리를 나타내는 것은 이 표시뿐이다. 이름 없는 buffer 는 빈 문자열이라 어느 행과도 안 맞는다.
-func (s sidebar) renderCells(height int, activePath string, box boxSet) []string {
+func (s sidebar) renderCells(height int, activePath string, changes gitChanges, box boxSet) []string {
 	rows := s.rows()
 
 	cells := make([]string, 0, max(0, height))
@@ -323,31 +335,53 @@ func (s sidebar) renderCells(height int, activePath string, box boxSet) []string
 		index := s.top + i
 		if index < 0 || index >= len(rows) {
 			// 트리가 끝나도 구분선은 화면 아래까지 이어져야 한다.
-			cells = append(cells, strings.Repeat(" ", labelWidth)+box.vertical+" ")
+			cells = append(cells, strings.Repeat(" ", labelWidth+1)+box.vertical+" ")
 			continue
 		}
 
 		// `… 읽는 중` 은 어느 파일도 아니다. 이름 없는 buffer 는 activePath 가 빈 문자열이라
 		// 그냥 두면 그 행이 "보고 있는 파일" 로 굵게 그려진다.
 		node := rows[index].node
-		cells = append(cells, rows[index].render(!node.placeholder && node.path == activePath, box))
+		change := gitChangeNone
+		if !node.placeholder {
+			change = changes.at(node.path)
+		}
+
+		cells = append(cells, rows[index].render(!node.placeholder && node.path == activePath, change, box))
 	}
 
 	return cells
+}
+
+// renderGitTreeMarker 는 트리 행 오른쪽 끝의 한 칸이다. 달라진 것이 없으면 빈 칸이다.
+//
+// 색은 줄 마커와 같은 것을 쓴다. 왼쪽 칸의 `~` 와 여기의 `M` 이 같은 사실을 가리킨다(style.go).
+func renderGitTreeMarker(change gitChange) string {
+	switch change {
+	case gitChangeModified:
+		return styleGitModified.Render(markerGitTreeModified)
+	case gitChangeUntracked:
+		return styleGitAdded.Render(markerGitTreeUntracked)
+	}
+
+	return " "
 }
 
 // render 는 행 하나를 정확히 sidebarWidth 칸으로 그린다.
 //
 // 자르는 것이 색을 입히는 것보다 먼저다. escape 가 섞이면 폭을 셀 수 없다.
 // 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
-func (r treeRow) render(active bool, box boxSet) string {
+func (r treeRow) render(active bool, change gitChange, box boxSet) string {
 	label := truncateToWidth(r.label(), labelWidth)
 	pad := max(0, labelWidth-screenWidthOf(label))
+
+	// git 마커는 이름 칸 밖이다. 이름이 잘려도 마커는 늘 같은 자리에 선다.
+	mark := renderGitTreeMarker(change)
 
 	// 빈 칸은 색 밖에 둔다. 글자색만 쓰므로 어차피 보이지 않지만 escape 를 덜 낸다.
 	style := r.style()
 	if !active {
-		return style.Render(label) + strings.Repeat(" ", pad) + box.vertical + " "
+		return style.Render(label) + strings.Repeat(" ", pad) + mark + box.vertical + " "
 	}
 
 	// 굵기와 밑줄은 종류별 색 위에 덧입힌다. 색은 그 파일이 무엇인지, 이 둘은 지금 보고 있는지다(ADR-0022).
@@ -360,7 +394,7 @@ func (r treeRow) render(active bool, box boxSet) string {
 
 	return style.Render(label[:indent]) +
 		style.Bold(true).Underline(true).Render(label[indent:]) +
-		strings.Repeat(" ", pad) + box.vertical + " "
+		strings.Repeat(" ", pad) + mark + box.vertical + " "
 }
 
 // label 은 들여쓰기와 펼침 표시가 붙은 이름이다.

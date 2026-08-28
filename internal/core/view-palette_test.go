@@ -409,7 +409,7 @@ func TestPaletteReopenKeepsIndexedFiles(t *testing.T) {
 // (ADR-0086 의 마커 칸) 그 사이에 아래 화면이 한 칸 남는다. 80 칸이면 상자가 그 한 칸까지
 // 덮어서 볼 자리가 없다.
 func TestPaletteOpensFromVisualKeepingSelection(t *testing.T) {
-	var m tea.Model = send(newTestEditor("foo bar\nbaz\n", 82, 20), "v", "l", "l")
+	var m tea.Model = send(newTestEditor("foo bar\nbaz\n", 84, 20), "v", "l", "l")
 	require.IsType(t, viewEditorVisual{}, m)
 
 	m = send(m, "ctrl+p")

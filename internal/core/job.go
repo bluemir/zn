@@ -213,10 +213,14 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		e.fileTickScheduled = false
 
 		return nil, e.startOutsideCheck()
-	case lspTickMsg:
-		// 언어 서버와 맞출 때다. 다음 것을 여기서 예약하지 않는다 — 주기가 아니라 마지막 키에서
-		// 재는 것이라, 예약은 키를 받는 자리가 한다(ADR-0051).
-		e.lspTickScheduled = false
+	case editTickMsg:
+		// 타이핑이 멎었다. 미뤄 둔 둘을 여기서 한다 — 언어 서버와 맞추는 것(ADR-0051) 과
+		// git 줄 마커를 다시 내는 것(ADR-0094) 이다.
+		//
+		// 다음 것을 여기서 예약하지 않는다 — 주기가 아니라 마지막 키에서 재는 것이라,
+		// 예약은 키를 받는 자리가 한다(edit-tick.go).
+		e.editTickScheduled = false
+		e.refreshActiveGitLines()
 
 		return nil, e.syncGopls()
 	case watchMsg:

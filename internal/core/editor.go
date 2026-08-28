@@ -53,6 +53,12 @@ type editor struct {
 	// 갱신 작업과 저장·파일 열기 직후에 다시 읽는다(ADR-0009, ADR-0030).
 	git gitStatus
 
+	// gitChanges 는 HEAD 와 다른 파일들이다. 트리가 이름 옆에 마커를 그릴 때 읽는다.
+	//
+	// git 상태와 같은 작업이 같이 읽어 온다 — 어차피 같은 것을 훑고, 둘로 나누면 `*` 와
+	// 트리 마커가 서로 다른 순간의 사실을 말하게 된다(git-changes.go, ADR-0094).
+	gitChanges gitChanges
+
 	// gitTickScheduled·fileTickScheduled 는 다음 tick 이 이미 걸려 있는지다.
 	//
 	// 갱신이 끝날 때마다 cooldown 을 새로 걸면 `:w` 나 포커스 복귀 한 번에 고리가 둘로
@@ -97,10 +103,10 @@ type editor struct {
 	saveHooks         map[string]*saveHook
 	goimportsDeclined bool
 
-	// lspTickScheduled 는 서버와 맞출 예약이 이미 걸려 있는지다. git·파일 검사와 같은 자리다
+	// editTickScheduled 는 서버와 맞출 예약이 이미 걸려 있는지다. git·파일 검사와 같은 자리다
 	// (ADR-0043). 이것이 타이핑을 모아 주는 자리이기도 하다 — 예약이 하나라 키를 여러 번 쳐도
 	// 보내는 것은 250ms 뒤 한 번이다.
-	lspTickScheduled bool
+	editTickScheduled bool
 
 	// watch 는 디스크를 보고 있는 감시기다. 없으면 붙이지 못한 것이고, 그때도 주기 검사는
 	// 그대로 돌아서 정확성은 남고 반응만 느려진다(watch.go, ADR-0093).
@@ -809,7 +815,7 @@ func (e editor) renderScreen(textRows []string, mode, bottom string) []string {
 
 	rows := right
 	if e.sidebarVisible() {
-		cells := e.sidebar.renderCells(height, e.activePath(), e.boxChars)
+		cells := e.sidebar.renderCells(height, e.activePath(), e.gitChanges, e.boxChars)
 
 		rows = make([]string, 0, height)
 		for i := range height {

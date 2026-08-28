@@ -38,7 +38,10 @@ func newGitFixture(t *testing.T) string {
 		t.Skip("git 이 없다")
 	}
 
-	root := t.TempDir()
+	// symlink 를 풀어 둔다. macOS 의 `/tmp` 가 `/private/tmp` 라, 풀지 않으면 변경 표의 키
+	// (openGitRepo 가 푼 뿌리 기준이다) 와 시험이 견주는 경로가 어긋난다.
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
 
 	runGit(t, root, "init")
 	runGit(t, root, "config", "user.email", "test@example.com")

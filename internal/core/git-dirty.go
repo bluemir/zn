@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
 	"time"
 
 	git "github.com/go-git/go-git/v5"
@@ -12,7 +11,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/format/index"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 // gitDirty 는 commit 하지 않은 것이 하나라도 있는지 답한다.
@@ -21,79 +19,11 @@ import (
 // index 와 HEAD 가 다른 것(`git add` 만 한 것), 작업 트리와 index 가 다른 것(고치고 저장한 것),
 // 그리고 추적하지 않는 파일이다. 무시된 파일은 세지 않는다.
 //
-// 싼 것부터 본다. 답이 참이면 그 자리에서 끝나므로, 고치는 중인 저장소에서는 대개 끝까지 가지
-// 않는다. clean 을 확인하는 것만이 전부를 보는 일이다 — 그것이 이 판정의 바닥값이다.
+// **표를 세어서 답한다.** 예전에는 싼 것부터 보다가 처음 하나에서 끊었는데, 트리에 파일별
+// 표시가 서면서 어차피 전부를 훑게 되었다. 두 벌로 두면 `*` 와 트리 마커가 서로 다른 것을
+// 말하는 날이 온다 — 판정은 하나여야 한다(ADR-0094 §2).
 func gitDirty(ctx context.Context, repo *git.Repository, root string, headTree plumbing.Hash) bool {
-	idx, err := repo.Storer.Index()
-	if err != nil {
-		return false
-	}
-
-	if gitStagedChanged(repo, idx, headTree) {
-		return true
-	}
-
-	if gitWorktreeChanged(ctx, repo, root, idx) {
-		return true
-	}
-
-	return gitHasUntracked(ctx, root, idx)
-}
-
-// gitStagedChanged 는 index 가 HEAD 와 다른지 본다. `git add` 만 하고 commit 하지 않은 것이다.
-//
-// index 에는 「이 index 를 트리로 쓰면 무엇이 되는가」가 캐시로 딸려 있다(git 의 TREE 확장).
-// 그것이 살아 있고 HEAD 트리와 같으면 더 볼 것이 없다 — 대부분이 이 길로 끝난다.
-// `git add` 는 그 캐시를 깨므로, 정작 볼 것이 있을 때만 트리를 훑는다.
-func gitStagedChanged(repo *git.Repository, idx *index.Index, headTree plumbing.Hash) bool {
-	if cached, ok := gitCachedTree(idx); ok {
-		return cached != headTree
-	}
-
-	inIndex := make(map[string]*index.Entry, len(idx.Entries))
-	for _, entry := range idx.Entries {
-		// 병합 충돌은 한 경로가 여러 stage 로 들어와 있는 상태다. 그 자체가 dirty 다.
-		if entry.Stage != index.Merged {
-			return true
-		}
-
-		// `git add -N` 로 이름만 올린 것이다. 내용이 index 에 없으므로 git 도 변경으로 센다.
-		if entry.IntentToAdd {
-			return true
-		}
-
-		inIndex[entry.Name] = entry
-	}
-
-	tree, err := repo.TreeObject(headTree)
-	if err != nil {
-		return false
-	}
-
-	walker := object.NewTreeWalker(tree, true, nil)
-	defer walker.Close()
-
-	seen := 0
-	for {
-		name, entry, err := walker.Next()
-		if err != nil {
-			break
-		}
-
-		if entry.Mode == filemode.Dir {
-			continue
-		}
-
-		indexed, ok := inIndex[name]
-		if !ok || indexed.Hash != entry.Hash || indexed.Mode != entry.Mode {
-			return true
-		}
-
-		seen++
-	}
-
-	// HEAD 에 없고 index 에만 있는 것이 남아 있으면 새로 add 한 것이다.
-	return seen != len(inIndex)
+	return len(gitFileChanges(ctx, repo, root, headTree)) > 0
 }
 
 // gitCachedTree 는 index 가 들고 있는 「트리로 쓰면 이것이 된다」 는 해시다.
@@ -111,58 +41,6 @@ func gitCachedTree(idx *index.Index) (plumbing.Hash, bool) {
 	}
 
 	return plumbing.ZeroHash, false
-}
-
-// gitWorktreeChanged 는 작업 트리가 index 와 다른지 본다. 고쳐서 저장했거나 지운 것이다.
-func gitWorktreeChanged(ctx context.Context, repo *git.Repository, root string, idx *index.Index) bool {
-	fileMode := gitFileModeMatters(repo)
-
-	for _, entry := range idx.Entries {
-		if ctx.Err() != nil {
-			return false
-		}
-
-		// sparse checkout 으로 내려받지 않은 것이다. 없는 것이 정상이라 세지 않는다.
-		if entry.SkipWorktree {
-			continue
-		}
-
-		// submodule 안이 dirty 한지는 그 저장소를 열어야 안다. 지금은 보지 않는다(ADR-0042).
-		if entry.Mode == filemode.Submodule {
-			continue
-		}
-
-		path := filepath.Join(root, filepath.FromSlash(entry.Name))
-
-		info, err := os.Lstat(path)
-		if err != nil {
-			return true
-		}
-
-		mode, err := filemode.NewFromOSFileMode(info.Mode())
-		if err != nil {
-			return true
-		}
-
-		// 권한이나 종류가 바뀐 것은 내용이 그대로여도 변경이다. 내용만 견주면 `chmod +x` 를
-		// 놓친다.
-		if mode != entry.Mode && (fileMode || !gitOnlyExecBitDiffers(mode, entry.Mode)) {
-			return true
-		}
-
-		if gitMetadataMatches(info, entry, idx.ModTime) {
-			continue
-		}
-
-		// metadata 가 다르다는 것은 「바뀌었을 수도 있다」 까지다. mtime 만 바뀌고 내용은
-		// 그대로일 수 있고, index 를 쓴 그 순간에 저장한 파일도 여기로 온다(racy git).
-		// 내용을 재야 답이 갈린다 — git 이 하는 것과 같다.
-		if gitBlobHash(path, info) != entry.Hash {
-			return true
-		}
-	}
-
-	return false
 }
 
 // gitFileModeMatters 는 실행 권한 차이를 변경으로 볼지다.
@@ -241,27 +119,4 @@ func gitBlobHash(path string, info os.FileInfo) plumbing.Hash {
 	}
 
 	return hasher.Sum()
-}
-
-// gitHasUntracked 는 추적하지 않고 무시되지도 않는 파일이 있는지 본다.
-//
-// 처음 하나를 찾으면 훑기를 끊는다. 몇 개인지는 알 필요가 없다.
-func gitHasUntracked(ctx context.Context, root string, idx *index.Index) bool {
-	tracked := make(map[string]bool, len(idx.Entries))
-	for _, entry := range idx.Entries {
-		tracked[entry.Name] = true
-	}
-
-	found := false
-	walkGitFiles(ctx, root, "", func(rel string) bool {
-		if tracked[rel] {
-			return true
-		}
-
-		found = true
-
-		return false
-	})
-
-	return found
 }

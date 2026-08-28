@@ -104,7 +104,7 @@ func (e *editor) startCompletion() tea.Cmd {
 	seq := e.completionSeq
 
 	return func() tea.Msg {
-		// 묻기 직전에 전문으로 맞춘다. 250ms 예약(scheduleLspTick) 을 기다리면 방금 친 글자가
+		// 묻기 직전에 전문으로 맞춘다. 250ms 예약(scheduleEditTick) 을 기다리면 방금 친 글자가
 		// 아직 서버에 없어서 한 글자 뒤처진 후보가 온다(ADR-0051 의 정의 찾기와 같은 자리다).
 		if err := client.SyncFull(path, lines); err != nil {
 			return completionMsg{seq: seq, err: err}

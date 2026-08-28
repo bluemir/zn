@@ -45,7 +45,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 func TestASCIISidebarCells(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
-	for i, cell := range s.renderCells(10, "", boxASCII) {
+	for i, cell := range s.renderCells(10, "", nil, boxASCII) {
 		plain := ansi.Strip(cell)
 
 		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
