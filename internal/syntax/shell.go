@@ -168,6 +168,16 @@ func (shIndent) Next(line []byte, tokens []Token) (int, []byte) {
 		return 1, nil
 	}
 
+	// case 갈래(`a)`·`b|c)`·`*)`) 도 블록을 연다. 그 갈래의 몸통이 한 단계 들어가고 `;;` 가
+	// 닫는다. 여는 낱말이 없는 자리라 위의 셈으로는 잡히지 않는다.
+	//
+	// **짝 없이 닫는 `)` 로 끝나는 줄**이 그것이다. `f()` 와 `x=$(cmd)` 는 이 줄에서 연 것을
+	// 닫으므로 걸리지 않는다. 괄호로 감싸는 형태(`(a|b)`) 는 짝이 맞아 걸리지 않는데, 그것을
+	// 잡으려면 `case` 안인지를 알아야 하고 규칙은 줄 하나만 본다.
+	if bytes.HasSuffix(trimmed, []byte(")")) && bracketDepth(code, "(", ")") < 0 {
+		return 1, nil
+	}
+
 	return 0, nil
 }
 

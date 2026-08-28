@@ -184,6 +184,12 @@ func TestShellIndent(t *testing.T) {
 		{name: "주석 안의 then", line: "echo x # then", want: 0},
 		{name: "문자열 안의 then", line: `echo "then"`, want: 0},
 		{name: "fi 는 열지 않는다", line: "fi", want: 0},
+		{name: "case 갈래", line: "a)", want: 1},
+		{name: "패턴이 여럿인 갈래", line: "b|c)", want: 1},
+		{name: "기본 갈래", line: "*)", want: 1},
+		{name: "함수 이름 뒤의 짝맞는 괄호", line: "f()", want: 0},
+		{name: "명령 치환", line: "x=$(date)", want: 0},
+		{name: "문자열로 끝나는 명령 치환", line: `echo "$(basename "$0")"`, want: 0},
 	}
 
 	for _, test := range tests {
@@ -195,11 +201,44 @@ func TestShellIndent(t *testing.T) {
 	}
 
 	rule := shIndent{}
+	assert.Equal(t, 0, rule.Close([]byte("a)\n")), "갈래는 나오지 않는다")
 	assert.Equal(t, 1, rule.Close([]byte("fi\n")), "Enter 가 낱말을 끝낸다")
 	assert.Equal(t, 1, rule.Close([]byte("done ")), "공백도 낱말을 끝낸다")
 	assert.Equal(t, 1, rule.Close([]byte(";;")), "case 갈래의 끝")
 	assert.Equal(t, 0, rule.Close([]byte("fi")), "아직 file 이 될 수 있다")
 	assert.Equal(t, 0, rule.Close([]byte("file")), "이어 치면 걸리지 않는다")
+}
+
+// case 문은 갈래마다 한 단계 들어가고 `;;` 가 그것을 닫는다.
+//
+// **줄 하나로는 재지 못하는 짝이다.** `pattern)` 이 열지 않던 때는 `;;` 만 닫아서 갈래마다
+// 한 단계씩 빠졌고, 갈래가 셋인 문에서 `esac` 이 시작한 자리보다 세 단계 밖으로 나갔다.
+func TestShellCaseKeepsItsLevel(t *testing.T) {
+	lines := []string{
+		`case "$x" in`,
+		`a)`,
+		`echo a`,
+		`;;`,
+		`b|c)`,
+		`echo b`,
+		`;;`,
+		`*)`,
+		`echo other`,
+		`;;`,
+		`esac`,
+	}
+	want := []int{0, 1, 2, 1, 1, 2, 1, 1, 2, 1, 0}
+
+	rule := shIndent{}
+	level := 0
+
+	for at, line := range lines {
+		level -= rule.Close([]byte(line + "\n"))
+		assert.Equal(t, want[at], level, "%d 번째 줄 %q", at, line)
+
+		next, _ := rule.Next([]byte(line), nil)
+		level += next
+	}
 }
 
 func TestMarkdownListContinues(t *testing.T) {

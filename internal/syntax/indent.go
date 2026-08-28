@@ -75,9 +75,9 @@ func codeBytes(line []byte, tokens []Token) []byte {
 	return code
 }
 
-// bracketOpens 는 이 줄에서 닫히지 않은 여는 괄호가 남았는지다.
-// 몇 겹이 남았는지는 세지 않는다 — 한 줄에 두 겹을 열어도 한 단계다.
-func bracketOpens(code []byte, open, close string) bool {
+// bracketDepth 는 이 줄에서 연 괄호와 닫은 괄호의 차다.
+// 양수면 열어 둔 채 줄이 끝났고, 음수면 이 줄에서 열지 않은 것을 닫았다.
+func bracketDepth(code []byte, open, close string) int {
 	depth := 0
 	for _, b := range code {
 		switch {
@@ -88,7 +88,13 @@ func bracketOpens(code []byte, open, close string) bool {
 		}
 	}
 
-	return depth > 0
+	return depth
+}
+
+// bracketOpens 는 이 줄에서 닫히지 않은 여는 괄호가 남았는지다.
+// 몇 겹이 남았는지는 세지 않는다 — 한 줄에 두 겹을 열어도 한 단계다.
+func bracketOpens(code []byte, open, close string) bool {
+	return bracketDepth(code, open, close) > 0
 }
 
 // closesBracket 은 head 가 닫는 괄호로 시작하는지다.
