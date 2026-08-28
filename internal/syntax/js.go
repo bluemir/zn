@@ -13,6 +13,10 @@ type jsBlockComment struct{}
 // jsTemplate 는 백틱 문자열 안이다.
 type jsTemplate struct{}
 
+func (jsNormal) Indent() Indent       { return spaceBraceIndent }
+func (jsBlockComment) Indent() Indent { return spaceBraceIndent }
+func (jsTemplate) Indent() Indent     { return spaceBraceIndent }
+
 func (s jsNormal) Lex(line []byte) ([]Token, State) {
 	tokens := []Token{}
 

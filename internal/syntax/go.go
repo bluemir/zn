@@ -16,6 +16,12 @@ type goRawString struct{}
 // goBlockComment 는 `/*` 로 열린 주석 안이다.
 type goBlockComment struct{}
 
+// 셋 다 같은 규칙이다. raw string 과 주석 안에서 Enter 를 쳐도 앞 줄의 들여쓰기를 잇는 것이
+// 맞고, tabBraceIndent 가 그 답을 준다.
+func (goNormal) Indent() Indent       { return tabBraceIndent }
+func (goRawString) Indent() Indent    { return tabBraceIndent }
+func (goBlockComment) Indent() Indent { return tabBraceIndent }
+
 // Go 에서 줄을 넘는 것은 이 둘뿐이다. `"` 로 여는 문자열은 줄을 넘지 못한다.
 //
 // 두 문맥의 몸이 거의 같은데도 언어마다 따로 두는 이유가 있다. 나가는 문맥이 곧 「다음 줄이

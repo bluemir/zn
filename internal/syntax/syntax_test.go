@@ -401,6 +401,8 @@ func (s uncomparableState) Lex([]byte) ([]Token, State) {
 	return nil, s
 }
 
+func (uncomparableState) Indent() Indent { return nil }
+
 // 문지기가 실제로 잡는지 본다. 이것이 없으면 지키는 것이 없는 시험을 들고 있게 된다.
 //
 // 여러 줄에 걸친 문맥이 안쪽 언어의 문맥을 품게 되면서(mdFence.inner, htmlRawText.inner)

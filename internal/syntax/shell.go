@@ -16,6 +16,9 @@ type shQuoted struct {
 	quote byte
 }
 
+func (shNormal) Indent() Indent { return shIndent{} }
+func (shQuoted) Indent() Indent { return shIndent{} }
+
 func (s shNormal) Lex(line []byte) ([]Token, State) {
 	return shLex(line)
 }

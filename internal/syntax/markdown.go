@@ -28,6 +28,24 @@ type mdFence struct {
 // mdMaxFenceIndent 는 코드펜스로 볼 수 있는 들여쓰기 칸이다. 넷이면 들여쓴 코드블록이다.
 const mdMaxFenceIndent = 3
 
+func (mdNormal) Indent() Indent { return mdIndent{} }
+
+// Indent 는 코드펜스 안에서 안쪽 언어의 규칙이다. 강조를 넘기는 것과 같은 자리다.
+//
+// 언어를 적지 않았거나 모르는 이름이면(```` ```text ````) markdown 규칙이다. 그 안은 우리가
+// 무엇인지 모르는 글이고, markdown 규칙은 목록을 잇는 것이라 목록이 아닌 줄에 아무 일도
+// 하지 않는다.
+//
+// **닫는 펜스 줄도 이 규칙을 받는다.** 그 줄을 시작한 문맥이 아직 펜스 안이라서다. 안쪽
+// 언어의 규칙에게 ```` ``` ```` 은 여는 것도 닫는 것도 아니라 답이 0 이고, 그것이 맞는 답이다.
+func (s mdFence) Indent() Indent {
+	if s.inner == nil {
+		return mdIndent{}
+	}
+
+	return s.inner.Indent()
+}
+
 func (s mdNormal) Lex(line []byte) ([]Token, State) {
 	indent := 0
 	for indent < len(line) && line[indent] == ' ' {

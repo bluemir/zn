@@ -15,6 +15,9 @@ type pyTripleQuote struct {
 	quote byte
 }
 
+func (pyNormal) Indent() Indent      { return pyIndent{} }
+func (pyTripleQuote) Indent() Indent { return pyIndent{} }
+
 func (s pyNormal) Lex(line []byte) ([]Token, State) {
 	tokens := []Token{}
 

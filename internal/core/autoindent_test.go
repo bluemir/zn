@@ -135,6 +135,68 @@ func TestMarkdownEmptyItemEndsTheList(t *testing.T) {
 		"빈 항목에서 Enter 를 치면 표시를 잇지 않는다")
 }
 
+// markdown 코드펜스 안은 안쪽 언어의 규칙을 받는다. 강조를 넘기는 것과 같은 자리다(ADR-0102).
+func TestFencedCodeTakesTheInnerRule(t *testing.T) {
+	m := newIndentEditor(t, "a.md", "indent_style = space\nindent_size = 2",
+		"글\n\n```go\nfunc f() {\n```\n")
+
+	// 코드펜스 안의 `{` 다음에서 Enter 를 친다. markdown 규칙이면 여기서 안 들어간다.
+	m = send(m, "j", "j", "j", "$", "a", "enter", "x")
+
+	assert.Equal(t, []string{"글", "", "```go", "func f() {", "  x", "```"},
+		linesOf(bufferOf(t, m)))
+}
+
+// 코드펜스 안에서 `}` 를 치면 go 규칙이 줄을 당긴다.
+//
+// **이 자리는 담아둔 문맥에 기댄다.** 글자마다 지나는 자리라 거기서 문맥을 채우면 캐시의
+// 수렴 판정이 흔들려서, 채우지 않고 있는 것을 쓴다(ADR-0102). 화면을 한 번 그리면 채워지고
+// 편집기는 키를 받기 전에 늘 한 번 그린다.
+func TestClosingBraceInsideAFencePullsBack(t *testing.T) {
+	m := newIndentEditor(t, "a.md", "indent_style = space\nindent_size = 2",
+		"```go\nfunc f() {\n```\n")
+
+	m = send(m, "j", "$", "a", "enter")
+	contentRowsOf(t, m) // 편집기는 키마다 한 번 그린다. 그리면서 문맥이 새 줄까지 찬다
+
+	m = send(m, "}")
+
+	assert.Equal(t, []string{"```go", "func f() {", "}", "```"},
+		linesOf(bufferOf(t, m)), "Enter 로 들어간 줄이 `}` 에 도로 나온다")
+}
+
+// 코드펜스 밖은 그대로 markdown 이다. 안쪽 규칙이 펜스 밖으로 새면 목록이 끊긴다.
+func TestOutsideTheFenceStaysMarkdown(t *testing.T) {
+	m := newIndentEditor(t, "a.md", "indent_style = space\nindent_size = 2",
+		"```go\nfunc f() {\n}\n```\n- 항목\n")
+
+	m = send(m, "j", "j", "j", "j", "$", "a", "enter", "x")
+
+	assert.Equal(t, []string{"```go", "func f() {", "}", "```", "- 항목", "- x"},
+		linesOf(bufferOf(t, m)), "펜스를 닫은 뒤에는 목록 표시를 잇는다")
+}
+
+// 언어를 적지 않은 펜스는 markdown 규칙 그대로다. 안이 무엇인지 우리가 모른다.
+func TestFenceWithoutALanguageKeepsMarkdown(t *testing.T) {
+	m := newIndentEditor(t, "a.md", "indent_style = space\nindent_size = 2",
+		"```\nfunc f() {\n```\n")
+
+	m = send(m, "j", "$", "a", "enter", "x")
+
+	assert.Equal(t, []string{"```", "func f() {", "x", "```"}, linesOf(bufferOf(t, m)))
+}
+
+// html 의 `<script>` 안은 js 규칙이다. `<style>` 안은 css 규칙이고 둘이 같은 자리다.
+func TestScriptTakesTheJavaScriptRule(t *testing.T) {
+	m := newIndentEditor(t, "a.html", "indent_style = space\nindent_size = 2",
+		"<body>\n<script>\nfunction f() {\n</script>\n")
+
+	m = send(m, "j", "j", "$", "a", "enter", "x")
+
+	assert.Equal(t, []string{"<body>", "<script>", "function f() {", "  x", "</script>"},
+		linesOf(bufferOf(t, m)))
+}
+
 func TestUnknownLanguageJustCopiesTheIndent(t *testing.T) {
 	m := newIndentEditor(t, "a.txt", "indent_style = tab", "  \tab {\n")
 

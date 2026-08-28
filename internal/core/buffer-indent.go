@@ -51,8 +51,7 @@ func (buf Buffer) tabWidth() int {
 func (buf *Buffer) indentForNewLine(at int, head []byte) []byte {
 	base := leadingBlank(head)
 
-	rule := buf.language.Indent()
-	if rule == nil || at < 0 || at >= len(buf.lines) {
+	if at < 0 || at >= len(buf.lines) {
 		return base
 	}
 
@@ -62,6 +61,13 @@ func (buf *Buffer) indentForNewLine(at int, head []byte) []byte {
 	// 토큰의 자리가 줄 전체 기준이라 head 보다 뒤일 수 있다. codeBytes 가 넘는 자리를 잘라
 	// 낸다(syntax/indent.go).
 	buf.lexSyntaxTo(at)
+
+	// 규칙은 그 줄이 시작한 문맥이 고른다. markdown 코드펜스 안에서 Enter 를 치면 안쪽 언어의
+	// 규칙이 온다(buffer-syntax.go).
+	rule := buf.indentRuleAt(at)
+	if rule == nil {
+		return base
+	}
 
 	level, prefix := rule.Next(head, buf.syntaxTokens(at))
 
@@ -89,8 +95,11 @@ func (buf *Buffer) insertNewLine(width int) {
 // 그 한 번만 걸리고, 이어 치는 글자에는 줄이 또 당겨지지 않는다.
 //
 // 화면에 이미 있는 글자가 움직이는 자리는 여기 하나뿐이라 좁게 잡는다.
+// **여기서 문맥을 채우지 않는다.** 글자마다 부르는 자리라 lexSyntaxTo 를 끼우면 아직 다
+// 치지 않은 줄에서 수렴 판정이 돌아 캐시가 흔들린다. 커서 줄은 화면 안이라 그리는 쪽이
+// 이미 채워 두었고, 없으면 파일 언어의 규칙으로 물러난다(buffer-syntax.go).
 func (buf *Buffer) reindentClosing(typed []byte, width int) {
-	rule := buf.language.Indent()
+	rule := buf.indentRuleAt(buf.cursorLine)
 	if rule == nil {
 		return
 	}
@@ -135,7 +144,11 @@ func (buf *Buffer) reindentClosing(typed []byte, width int) {
 func (buf *Buffer) insertIndent(width int) {
 	line := buf.lines[buf.cursorLine]
 
-	if rule := buf.language.Indent(); rule != nil && rule.TabIndentsLine(line) {
+	// 규칙이 문맥을 따라오므로 담아둔 것이 있어야 한다. 글자마다가 아니라 `tab` 을 칠 때만
+	// 지나는 자리라 채워도 된다 — reindentClosing 이 못 하는 것이 이것이다.
+	buf.lexSyntaxTo(buf.cursorLine)
+
+	if rule := buf.indentRuleAt(buf.cursorLine); rule != nil && rule.TabIndentsLine(line) {
 		buf.shiftLines(buf.cursorLine, buf.cursorLine, indentRight, width)
 		return
 	}
@@ -240,9 +253,11 @@ func (buf *Buffer) shiftLines(from, to int, direction indentDirection, width int
 // 규칙은 절대 자리를 모르고 앞 줄과의 차이만 안다.
 //
 // 규칙이 없는 파일과 markdown 은 아무 일도 하지 않는다(syntax.Indent 의 Reindents).
+//
+// **판정이 줄마다다.** markdown 문서 안의 코드펜스는 안쪽 언어의 규칙을 받으므로(ADR-0102)
+// 산문은 그대로 두고 그 안만 정리한다. 건드리지 않는 줄도 기준선은 이어 간다.
 func (buf *Buffer) reindentLines(from, to, width int) {
-	rule := buf.language.Indent()
-	if rule == nil || !rule.Reindents() {
+	if buf.language.Indent() == nil {
 		return
 	}
 
@@ -273,7 +288,23 @@ func (buf *Buffer) reindentLines(from, to, width int) {
 			continue
 		}
 
-		level, prefix := rule.Next(prevLine, prevTokens)
+		// 이 줄의 자리를 정할 규칙이 없으면 그대로 둔다. markdown 문서의 산문과 목록이다 —
+		// 깊이를 글쓴이가 정한 것이라 앞 줄에서 되짚을 수 없다(syntax.Indent 의 Reindents).
+		rule := buf.indentRuleAt(i)
+		if rule == nil || !rule.Reindents() {
+			next = append(next, line)
+			prevLine, prevTokens, prevIndent = line, buf.syntaxTokens(i), leadingBlank(line)
+
+			continue
+		}
+
+		// **여는 것은 앞 줄의 규칙이 본다.** 코드펜스를 여는 줄(```` ```go ````) 은 markdown 이고
+		// 그 다음 줄부터가 안쪽 언어다. 이 줄의 규칙으로 앞 줄을 보면 경계에서 답이 갈린다.
+		level, prefix := 0, []byte(nil)
+		if prev := buf.indentRuleAt(i - 1); prev != nil {
+			level, prefix = prev.Next(prevLine, prevTokens)
+		}
+
 		indent := appendIndentLevel(prevIndent, unit, level, prefix, tab)
 
 		// 줄 전체를 넘긴다. 「이 줄이 닫는 줄인가」는 앞부분만 보므로 끝을 알릴 것이 없지만,

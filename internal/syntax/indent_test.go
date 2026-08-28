@@ -40,6 +40,19 @@ func TestIndentForEveryLanguage(t *testing.T) {
 //
 // 둘 다 **들여쓰기가 곧 뜻**이라 앞 줄에서 되짚을 수 없다. markdown 은 목록의 깊이와 네 칸
 // 코드 블록이 글쓴이가 정한 것이고, yaml 은 들여쓰기가 map 의 층이라 되짚으면 중첩이 평평해진다.
+// 표의 들여쓰기 칸과 그 언어의 시작 문맥이 답하는 규칙이 같아야 한다.
+//
+// **한 값이 두 자리에 있는 것을 지킨다**(ADR-0079 §2). 표는 「이 언어는 이 규칙」이고 문맥은
+// 「지금 이 자리는 이 규칙」인데, 파일 첫 줄에서는 둘이 같은 것을 가리킨다. 어긋나면 파일을
+// 연 순간과 한 줄 내려간 뒤가 서로 다른 규칙을 쓴다.
+func TestStateIndentMatchesTheTable(t *testing.T) {
+	for _, rule := range languageRules {
+		require.NotEmpty(t, rule.aliases, "언어에 이름이 없다")
+
+		assert.Equal(t, rule.indent, rule.state.Indent(), "%s 의 표와 시작 문맥", rule.aliases[0])
+	}
+}
+
 func TestReindentsIsFalseForIndentIsMeaning(t *testing.T) {
 	cannot := []Indent{mdIndent{}, yamlIndent{}}
 

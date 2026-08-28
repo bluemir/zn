@@ -34,6 +34,23 @@ type htmlRawText struct {
 	inner State
 }
 
+func (htmlNormal) Indent() Indent    { return htmlIndent{} }
+func (htmlTag) Indent() Indent       { return htmlIndent{} }
+func (htmlComment) Indent() Indent   { return htmlIndent{} }
+func (htmlAttrValue) Indent() Indent { return htmlIndent{} }
+
+// Indent 는 `<script>`·`<style>` 안에서 안쪽 언어의 규칙이다. 강조를 넘기는 것과 같은 자리다.
+//
+// 안쪽 언어를 모르면(`<script type="text/template">`) html 규칙이다. 그 안은 우리가 무엇인지
+// 모르는 글이고, html 규칙은 tag 를 보는 것이라 tag 가 없는 줄에 아무 일도 하지 않는다.
+func (s htmlRawText) Indent() Indent {
+	if s.inner == nil {
+		return htmlIndent{}
+	}
+
+	return s.inner.Indent()
+}
+
 func (s htmlNormal) Lex(line []byte) ([]Token, State) {
 	return htmlScan(line, 0, false)
 }
