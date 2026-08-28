@@ -92,7 +92,10 @@ func bracketDepth(code []byte, open, close string) int {
 }
 
 // bracketOpens 는 이 줄에서 닫히지 않은 여는 괄호가 남았는지다.
-// 몇 겹이 남았는지는 세지 않는다 — 한 줄에 두 겹을 열어도 한 단계다.
+//
+// 몇 겹이 남았는지는 세지 않는다 — 한 줄에 두 겹을 열어도 한 단계다. gofmt 를 돌려 재 보니
+// `foo(T{`·`[]T{{`·`if err := g(T{`·`"k": {{` 가 전부 한 단계이고 닫는 `}}`·`})` 도 한 단계다.
+// 세면 그쪽과 어긋난다.
 func bracketOpens(code []byte, open, close string) bool {
 	return bracketDepth(code, open, close) > 0
 }
