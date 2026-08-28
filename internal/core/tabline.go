@@ -177,7 +177,7 @@ func (e editor) renderTabline(width int) tablineRow {
 	// 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없으므로 자르는 것이 먼저다.
 	put := func(text string, active bool) [2]int {
 		if width > 0 {
-			text = text[:offsetAtScreenCol([]byte(text), width-col)]
+			text = text[:offsetAtScreenCol([]byte(text), width-col, defaultTabWidth)]
 		}
 		if text == "" {
 			return [2]int{}

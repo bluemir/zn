@@ -32,10 +32,10 @@ func stickyMaxRows(height int) int {
 // 않는 자리에서만 강조하면 어느 쪽이 지금 자리인지 흐려진다.
 func (e editor) renderStickyRow(buf *Buffer, line int) string {
 	text := buf.lines[line]
-	width := e.contentWidth()
+	width, tab := e.contentWidth(), buf.tabWidth()
 
 	end := len(text)
-	if offsets := wrapOffsets(text, width); len(offsets) > 1 {
+	if offsets := wrapOffsets(text, width, tab); len(offsets) > 1 {
 		end = offsets[1]
 	}
 
@@ -45,7 +45,7 @@ func (e editor) renderStickyRow(buf *Buffer, line int) string {
 		renderRow(text, row, width, rowHighlight{
 			cursorCol: -1,
 			tokens:    buf.syntaxTokens(line),
-		})
+		}, tab)
 }
 
 // stickyRows 는 실제로 그릴 머리줄들이다. 그린 행 수보다 많으면 바깥쪽부터 버린다.

@@ -90,6 +90,15 @@ type Buffer struct {
 	// indent 는 이 파일이 한 단계에 쓰는 공백이다(indent.go). 게을러서 처음 쓸 때 정한다.
 	indent indentUnit
 
+	// tab 은 이 파일에서 tab 하나가 미는 화면 칸 수다(indent.go).
+	//
+	// **파일마다 다르다.** `.editorconfig` 는 경로별이라 `tab_width = 8` 인 하위 디렉터리와
+	// 그렇지 않은 곳이 한 화면에 tab 으로 같이 열려 있을 수 있다 (ADR-0096).
+	//
+	// indent 와 달리 게으르지 않다. language 처럼 경로에서 한 번 골라 들고 있는다 — 까닭은
+	// resolveTabWidth 에 있다. 읽는 자리는 tabWidth() 하나다.
+	tab int
+
 	// undo, redo 는 되돌리기 이력
 	// editing 은 열린 구간이 있는지다. 이어지는 타이핑을 한 항목으로 모은다.
 	undo    []edit
@@ -176,6 +185,7 @@ func newEmptyBuffer(path string) Buffer {
 	return Buffer{
 		path:            path,
 		language:        syntax.LanguageFor(path),
+		tab:             resolveTabWidth(path),
 		lines:           [][]byte{{}},
 		finalLineEnding: true, // 새 파일은 줄끝으로 끝낸다
 	}
@@ -206,6 +216,7 @@ func newBuffer(path string, data []byte) Buffer {
 	buf := Buffer{
 		path:       path,
 		language:   syntax.LanguageFor(path),
+		tab:        resolveTabWidth(path),
 		data:       data,
 		lineEnding: detectLineEnding(data),
 		diskHash:   sum[:],

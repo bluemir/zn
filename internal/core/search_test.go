@@ -383,7 +383,7 @@ func TestSearchHighlightKeepsTabWidth(t *testing.T) {
 
 	row := ansi.Strip(contentRowsOf(t, m)[0])[gutterWidthOf(m):]
 
-	assert.Equal(t, markerTab+strings.Repeat(" ", tabWidth-1)+"foo", row)
+	assert.Equal(t, markerTab+strings.Repeat(" ", defaultTabWidth-1)+"foo", row)
 }
 
 // 강조 구간에 공백 마커가 끼어도 그 뒤 글자가 강조를 잃지 않는다.

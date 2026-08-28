@@ -216,7 +216,7 @@ func TestViewEditorArrowKeysMoveCursor(t *testing.T) {
 // expandedRow 는 줄 하나를 화면 글자로 펼친 것이다. 색은 빼고 글자만 본다.
 func expandedRow(row string) string {
 	line := []byte(row)
-	parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line))
+	parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
 
 	out := strings.Builder{}
 	for _, part := range parts {
@@ -277,7 +277,7 @@ func TestExpandWhitespaceMarkers(t *testing.T) {
 // 마커와 본문은 색이 달라서 조각이 갈린다. 조각 경계가 어긋나면 색이 본문으로 번진다.
 func TestExpandRowSplitsMarkerParts(t *testing.T) {
 	line := []byte("\tab  ")
-	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line))
+	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
 
 	assert.Equal(t, []screenPart{
 		{text: "»   ", marker: true},

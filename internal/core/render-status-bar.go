@@ -141,7 +141,7 @@ func (e editor) noticeOr(fallback string) string {
 // (diagnostics.go 의 renderDiagnostic, tip.go 의 renderWithTip, ADR-0086).
 func (e editor) renderPosition() string {
 	buf := e.buffers[e.active]
-	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol)
+	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, buf.tabWidth())
 
 	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.cursorLine+1, col+1, len(buf.lines))
 
@@ -190,7 +190,7 @@ func trimLeftToWidth(text string, width int) string {
 	// `…` 한 칸을 남겨 두고, 들어갈 때까지 앞에서 한 글자씩 뗀다.
 	kept := text
 	for len(kept) > 0 && screenWidthOf(kept) > width-1 {
-		size, _ := clusterAt([]byte(kept), 0, 0)
+		size, _ := clusterAt([]byte(kept), 0, 0, defaultTabWidth)
 		kept = kept[size:]
 	}
 
@@ -216,7 +216,7 @@ func truncateToWidth(s string, width int) string {
 			continue
 		}
 
-		size, w := clusterAt(line, offset, col)
+		size, w := clusterAt(line, offset, col, defaultTabWidth)
 		if col+w > width {
 			// 색을 켠 채로 자르면 그 색이 줄 끝까지 번진다.
 			if styled {

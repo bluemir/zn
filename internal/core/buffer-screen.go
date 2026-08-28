@@ -21,7 +21,7 @@ func (buf *Buffer) scrollTo(width, height int) {
 
 	buf.clampTop(width)
 
-	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursorLine], width), buf.cursorCol)
+	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursorLine], width, buf.tabWidth()), buf.cursorCol)
 
 	// 커서에서 height-1 행 위로 올라간 지점이 top 의 하한이다.
 	// 뒤에서 앞으로 세기 때문에 화면 높이만큼만 훑는다.
@@ -64,7 +64,7 @@ func (buf *Buffer) scrollTo(width, height int) {
 // 부르는 쪽마다 챙기지 않고 scrollTo 안에서 한 번에 맞춘다.
 func (buf *Buffer) clampTop(width int) {
 	buf.top = min(buf.top, len(buf.lines)-1)
-	buf.topRow = min(buf.topRow, len(wrapOffsets(buf.lines[buf.top], width))-1)
+	buf.topRow = min(buf.topRow, len(wrapOffsets(buf.lines[buf.top], width, buf.tabWidth()))-1)
 }
 
 // retreatRows 는 (line,row) 에서 화면 행 n 개 위로 올라간 위치를 돌려준다.
@@ -75,7 +75,7 @@ func (buf Buffer) retreatRows(line, row, n, width int) (int, int) {
 			row--
 		case line > 0:
 			line--
-			row = len(wrapOffsets(buf.lines[line], width)) - 1
+			row = len(wrapOffsets(buf.lines[line], width, buf.tabWidth())) - 1
 		default:
 			return 0, 0
 		}
@@ -87,7 +87,7 @@ func (buf Buffer) retreatRows(line, row, n, width int) (int, int) {
 // 파일 끝을 넘으면 마지막 줄의 마지막 행에서 멈춘다. retreatRows 의 반대 방향이다.
 func (buf Buffer) advanceRows(line, row, n, width int) (int, int) {
 	for range n {
-		last := len(wrapOffsets(buf.lines[line], width)) - 1
+		last := len(wrapOffsets(buf.lines[line], width, buf.tabWidth())) - 1
 
 		switch {
 		case row < last:
@@ -140,7 +140,7 @@ func (buf *Buffer) scrollBy(n, width, height int) {
 	}
 
 	// 칸은 desiredCol 을 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
-	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width), row, width)
+	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
 }
 
 // movePage 는 화면과 커서를 한 번에 **같이** 옮긴다. vim 의 `ctrl+d`·`ctrl+u`(반 화면) 와
@@ -167,13 +167,13 @@ func (buf *Buffer) movePage(direction pageDirection, span pageSpan, count, width
 	// 커서도 화면 행으로 옮긴다. 되풀이해 한 행씩 가는 moveUp/moveDown 을 쓰지 않는 것은
 	// 저쪽이 파일 끝에 닿아도 남은 횟수를 다 도는데, 여기서는 그 횟수가 숫자 곱 한 화면이라
 	// 커질 수 있어서다. advanceRows·retreatRows 는 끝에서 곧바로 돌아온다.
-	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursorLine], width), buf.cursorCol)
+	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursorLine], width, buf.tabWidth()), buf.cursorCol)
 
 	if direction == pageUp {
 		buf.top, buf.topRow = buf.retreatRows(buf.top, buf.topRow, rows, width)
 
 		line, row := buf.retreatRows(buf.cursorLine, cursorRow, rows, width)
-		buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width), row, width)
+		buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
 
 		buf.scrollTo(width, height)
 
@@ -183,14 +183,14 @@ func (buf *Buffer) movePage(direction pageDirection, span pageSpan, count, width
 	buf.top, buf.topRow = buf.advanceRows(buf.top, buf.topRow, rows, width)
 
 	line, row := buf.advanceRows(buf.cursorLine, cursorRow, rows, width)
-	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width), row, width)
+	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
 
 	// 파일 끝을 지나서까지 굴리지 않는다. 마지막 행이 화면 맨 아래에 오는 자리가 끝이고
 	// 거기서부터는 커서만 내려간다 — vim 의 `ctrl+d`·`ctrl+f` 와 같다. 휠에는 이 한계가
 	// 없어서 마지막 줄을 화면 맨 위까지 올릴 수 있는데(vim 의 `ctrl+e`), 이동 키는 눌러도
 	// 아무것도 새로 보이지 않는 빈 행을 만들지 않는다.
 	lastLine := len(buf.lines) - 1
-	lastRow := len(wrapOffsets(buf.lines[lastLine], width)) - 1
+	lastRow := len(wrapOffsets(buf.lines[lastLine], width, buf.tabWidth())) - 1
 
 	limitLine, limitRow := buf.retreatRows(lastLine, lastRow, height-1, width)
 	if rowBefore(limitLine, limitRow, buf.top, buf.topRow) {
@@ -210,7 +210,7 @@ func (buf Buffer) visibleRows(width, height int) []screenRow {
 	line, row := buf.top, buf.topRow
 
 	for len(rows) < height && line < len(buf.lines) {
-		offsets := wrapOffsets(buf.lines[line], width)
+		offsets := wrapOffsets(buf.lines[line], width, buf.tabWidth())
 		if row >= len(offsets) {
 			line, row = line+1, 0
 			continue
@@ -238,7 +238,7 @@ func (buf Buffer) cursorScreenPos(width, height int) (x, y int, ok bool) {
 			continue
 		}
 
-		return screenColAt(line[row.start:row.end], buf.cursorCol-row.start), y, true
+		return screenColAt(line[row.start:row.end], buf.cursorCol-row.start, buf.tabWidth()), y, true
 	}
 
 	return 0, 0, false
@@ -261,7 +261,7 @@ func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
 
 	// 행 안에서 잘라서 센다. tab 이 다음 tab stop 까지 벌어지는 기준이 논리 줄이 아니라
 	// 화면 행의 시작이라(wrapOffsets 주석) 줄을 통째로 넘기면 tab 으로 들여쓴 줄에서 어긋난다.
-	return row.line, row.start + offsetAtScreenCol(buf.lines[row.line][row.start:row.end], max(0, x)), true
+	return row.line, row.start + offsetAtScreenCol(buf.lines[row.line][row.start:row.end], max(0, x), buf.tabWidth()), true
 }
 
 // stickyAt 은 line 을 화면 맨 위로 그릴 때 그 위에 붙는 머리줄들이다.

@@ -131,7 +131,7 @@ func traceBuffer(model tea.Model) string {
 	at := min(max(buf.cursorCol, 0), len(line))
 
 	return fmt.Sprintf(" cur=%d:%d screen=%d line=%q",
-		buf.cursorLine+1, at, screenColAt(line, at),
+		buf.cursorLine+1, at, screenColAt(line, at, buf.tabWidth()),
 		string(line[:at])+traceCursor+string(line[at:]))
 }
 

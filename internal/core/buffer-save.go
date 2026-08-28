@@ -214,10 +214,15 @@ func (buf *Buffer) saveTo(path string) error {
 		buf.dirty = false
 		buf.outside = outsideSame
 
-		// **이름이 바뀌는 자리는 여기 하나뿐이다.** 그래서 언어를 다시 고르는 것도 여기
-		// 한 줄이고, 담아둔 문법 토큰은 남의 언어의 것이라 버린다. `:saveas` 처럼 이름 있는
-		// buffer 의 이름을 갈아치우는 길이 생기면 그 자리도 이것을 해야 한다 (ADR-0080).
+		// **이름이 바뀌는 자리는 여기 하나뿐이다.** 그래서 언어와 tab 폭을 다시 고르는 것도
+		// 여기 두 줄이고, 담아둔 문법 토큰은 남의 언어의 것이라 버린다. `:saveas` 처럼 이름
+		// 있는 buffer 의 이름을 갈아치우는 길이 생기면 그 자리도 이것을 해야 한다
+		// (ADR-0080, ADR-0096).
+		//
+		// tab 폭도 경로가 정한다 — `.editorconfig` 가 경로별이라 이름이 붙으면서 답이 바뀐다.
+		// 한 단계(indent) 는 게을러서 다음에 물을 때 알아서 다시 정한다.
 		buf.language = syntax.LanguageFor(path)
+		buf.tab = resolveTabWidth(path)
 		buf.syntax = syntaxCache{}
 	}
 

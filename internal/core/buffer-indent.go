@@ -20,6 +20,25 @@ func (buf *Buffer) indentText() []byte {
 	return buf.indent.text
 }
 
+// tabWidth 는 이 파일에서 tab 하나가 미는 화면 칸 수다.
+//
+// 이 파일 내용을 재거나 그리는 자리는 전부 이것을 넘긴다 — 그리는 폭(render-row.go), 커서와
+// 줄바꿈(buffer-move.go·buffer-screen.go), 들여쓰기 한 단계(아래) 가 같은 답을 써야 한다.
+// tabline 의 제목이나 statusBar 처럼 파일 내용이 아닌 글은 넘기지 않는다(cluster.go 머리글).
+//
+// **값 receiver 다.** 그리는 쪽의 visibleRows·advanceRows 가 값 receiver 라 여기가 포인터면
+// 그 자리에서 부를 수 없다. 정하는 것은 buffer 를 지을 때 끝나 있다(resolveTabWidth).
+//
+// 0 을 막는 자리가 하나 있다. `Buffer{path: "b.txt"}` 처럼 손으로 지은 것은 이 칸이 비는데,
+// 그대로 넘기면 clusterAt 의 나머지 연산이 죽는다. 빈 칸은 「아직 정하지 않았다」로 읽는다.
+func (buf Buffer) tabWidth() int {
+	if buf.tab < 1 {
+		return defaultTabWidth
+	}
+
+	return buf.tab
+}
+
 // indentForNewLine 은 새 줄이 가질 들여쓰기다.
 //
 // head 는 새 줄 **바로 위에 남을 내용** 이다. 줄 끝에서 가르면 그 줄 전체지만 줄 가운데서
@@ -46,7 +65,7 @@ func (buf *Buffer) indentForNewLine(at int, head []byte) []byte {
 
 	level, prefix := rule.Next(head, buf.syntaxTokens(at))
 
-	return appendIndentLevel(base, buf.indentText(), level, prefix)
+	return appendIndentLevel(base, buf.indentText(), level, prefix, buf.tabWidth())
 }
 
 // insertNewLine 은 커서 자리에서 줄을 가르고 새 줄에 이 파일의 규칙이 정한 들여쓰기를 넣는다.
@@ -88,8 +107,8 @@ func (buf *Buffer) reindentClosing(typed []byte, width int) {
 		return
 	}
 
-	unit := buf.indentText()
-	pulled := shiftBlank(indent, unit, -blankColumns(unit))
+	unit, tab := buf.indentText(), buf.tabWidth()
+	pulled := shiftBlank(indent, unit, -blankColumns(unit, tab), tab)
 	if len(pulled) == len(indent) {
 		return
 	}
@@ -121,16 +140,16 @@ func (buf *Buffer) insertIndent(width int) {
 		return
 	}
 
-	unit := buf.indentText()
-	step := blankColumns(unit)
+	unit, tab := buf.indentText(), buf.tabWidth()
+	step := blankColumns(unit, tab)
 
 	if unit[0] == '\t' {
 		buf.insert([]byte{'\t'}, width)
 		return
 	}
 
-	col := screenColAt(line, buf.cursorCol)
-	buf.insert(makeBlank(step-col%step, false), width)
+	col := screenColAt(line, buf.cursorCol, tab)
+	buf.insert(makeBlank(step-col%step, false, tab), width)
 }
 
 // outdentLine 은 `shift+tab` 이다. 지금 줄을 한 단계 내어쓴다.
@@ -163,13 +182,14 @@ func (buf *Buffer) deleteIndentBackward(width int) bool {
 	}
 
 	blank := line[:buf.cursorCol]
-	step := blankColumns(buf.indentText())
+	tab := buf.tabWidth()
+	step := blankColumns(buf.indentText(), tab)
 
 	// 경계에 서 있으면 한 단계 앞으로, 아니면 바로 앞 경계로 간다.
-	cols := blankColumns(blank)
+	cols := blankColumns(blank, tab)
 	target := (cols - 1) / step * step
 
-	pulled := makeBlank(target, blank[0] == '\t')
+	pulled := makeBlank(target, blank[0] == '\t', tab)
 	if len(pulled) >= len(blank) {
 		return false
 	}
@@ -193,9 +213,9 @@ func (buf *Buffer) deleteIndentBackward(width int) bool {
 //
 // **빈 줄은 건드리지 않는다.** 밀면 줄 끝 공백만 남고, 당길 것은 애초에 없다. vim 과 같다.
 func (buf *Buffer) shiftLines(from, to int, direction indentDirection, width int) {
-	unit := buf.indentText()
+	unit, tab := buf.indentText(), buf.tabWidth()
 
-	by := blankColumns(unit)
+	by := blankColumns(unit, tab)
 	if direction == indentLeft {
 		by = -by
 	}
@@ -208,7 +228,7 @@ func (buf *Buffer) shiftLines(from, to int, direction indentDirection, width int
 			continue
 		}
 
-		next = append(next, concat(shiftBlank(indent, unit, by), line[len(indent):]))
+		next = append(next, concat(shiftBlank(indent, unit, by, tab), line[len(indent):]))
 	}
 
 	buf.replaceIndented(from, to, next, width)
@@ -227,7 +247,7 @@ func (buf *Buffer) reindentLines(from, to, width int) {
 	}
 
 	buf.lexSyntaxTo(to)
-	unit := buf.indentText()
+	unit, tab := buf.indentText(), buf.tabWidth()
 
 	// prev 는 마지막으로 자리를 정한 줄이다. 줄 내용과 토큰은 **원래 것**이고 들여쓰기만 새것이다.
 	// Next 는 「이 줄이 블록을 여는가」만 보므로 앞이 몇 칸이었는지와 무관하다.
@@ -254,12 +274,12 @@ func (buf *Buffer) reindentLines(from, to, width int) {
 		}
 
 		level, prefix := rule.Next(prevLine, prevTokens)
-		indent := appendIndentLevel(prevIndent, unit, level, prefix)
+		indent := appendIndentLevel(prevIndent, unit, level, prefix, tab)
 
 		// 줄 전체를 넘긴다. 「이 줄이 닫는 줄인가」는 앞부분만 보므로 끝을 알릴 것이 없지만,
 		// 낱말로 닫는 언어는 낱말이 끝났음을 알아야 해서 줄끝을 붙인다.
 		if rule.Close(concat(body, []byte{'\n'})) > 0 {
-			indent = shiftBlank(indent, unit, -blankColumns(unit))
+			indent = shiftBlank(indent, unit, -blankColumns(unit, tab), tab)
 		}
 
 		next = append(next, concat(indent, body))

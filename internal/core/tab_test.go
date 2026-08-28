@@ -167,7 +167,7 @@ func TestTablineReverseSpansFullWidth(t *testing.T) {
 
 	plain, reversed := splitByReverse(rawTablineOf(t, m.View()))
 
-	assert.Equal(t, m.width, screenColAt([]byte(plain+reversed), len(plain+reversed)))
+	assert.Equal(t, m.width, screenColAt([]byte(plain+reversed), len(plain+reversed), defaultTabWidth))
 	assert.True(t, strings.HasSuffix(reversed, "  "), "빈 칸도 칠해진다")
 }
 
@@ -209,7 +209,7 @@ func TestTablineTruncatesToWidth(t *testing.T) {
 
 	line := tablineOf(t, m.View())
 
-	assert.LessOrEqual(t, screenColAt([]byte(line), len(line)), 12)
+	assert.LessOrEqual(t, screenColAt([]byte(line), len(line), defaultTabWidth), 12)
 }
 
 // 넘치는 tab 은 양끝 표시가 알린다. `<n` 은 왼쪽으로, `n>` 는 오른쪽으로 그만큼 더 있다는 뜻이다.

@@ -137,7 +137,7 @@ func TestHalfPageIsNotAMotion(t *testing.T) {
 // 세는 것은 논리 줄이 아니라 화면 행이다. wrap 된 긴 줄은 그 안에서 여러 행을 지난다.
 func TestHalfPageCountsScreenRows(t *testing.T) {
 	m := newTestEditor("first\n"+strings.Repeat("x", 200)+"\nthird\nfourth\nfifth\nsixth\n", 80, 10)
-	require.Equal(t, 3, len(wrapOffsets(m.activeBuffer().lines[1], m.contentWidth())), "긴 줄이 세 행이다")
+	require.Equal(t, 3, len(wrapOffsets(m.activeBuffer().lines[1], m.contentWidth(), defaultTabWidth)), "긴 줄이 세 행이다")
 
 	model := send(tea.Model(m), "ctrl+d")
 

@@ -47,10 +47,10 @@ func (buf *Buffer) Reload() error {
 func (buf Buffer) adopt(next Buffer) Buffer {
 	// 커서 자리를 화면 칸으로 옮겨 둔다. byte offset 은 새 내용에서 다른 글자의 중간일 수 있다.
 	// statusBar 가 보여주는 `줄:칸` 이 이 칸이라, 유지되는 것이 눈에 보이는 값과 같다.
-	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol)
+	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, buf.tabWidth())
 
 	next.cursorLine = min(buf.cursorLine, len(next.lines)-1)
-	next.cursorCol = offsetAtScreenCol(next.lines[next.cursorLine], col)
+	next.cursorCol = offsetAtScreenCol(next.lines[next.cursorLine], col, buf.tabWidth())
 	next.desiredCol = buf.desiredCol
 
 	// 화면도 보고 있던 자리를 유지한다. topRow 는 폭에 따라 있을 수도 없을 수도 있는 행이라

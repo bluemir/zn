@@ -48,7 +48,7 @@ func TestASCIISidebarCells(t *testing.T) {
 	for i, cell := range s.renderCells(10, "", nil, boxASCII) {
 		plain := ansi.Strip(cell)
 
-		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain)), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain), defaultTabWidth), "행 %d: %q", i, plain)
 		assert.True(t, strings.HasSuffix(plain, "| "), "행 %d: %q", i, plain)
 	}
 }

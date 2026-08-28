@@ -364,14 +364,14 @@ func TestBufferReloadKeepsCursorColumn(t *testing.T) {
 
 	buf.moveDownLine(1)
 	buf.moveRight(2, wide)
-	require.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+	require.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
 
 	// 둘째 줄이 두 칸 글자로 바뀐다. 2 칸은 두 번째 글자의 시작이다.
 	require.NoError(t, os.WriteFile(path, []byte("abc\n한글\n"), 0644))
 	require.NoError(t, buf.Reload())
 
 	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
 	assert.Equal(t, "글", string(buf.lines[1][buf.cursorCol:]), "글자 경계에 선다")
 }
 
@@ -438,7 +438,7 @@ func TestScreenCol(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%s/offset=%d", test.line, test.offset), func(t *testing.T) {
-			assert.Equal(t, test.col, screenColAt([]byte(test.line), test.offset))
+			assert.Equal(t, test.col, screenColAt([]byte(test.line), test.offset, defaultTabWidth))
 		})
 	}
 }
@@ -459,7 +459,7 @@ func TestOffsetAtScreenCol(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.offset, offsetAtScreenCol([]byte(test.line), test.col))
+			assert.Equal(t, test.offset, offsetAtScreenCol([]byte(test.line), test.col, defaultTabWidth))
 		})
 	}
 }
@@ -472,17 +472,17 @@ func TestCursorKeepsDesiredCol(t *testing.T) {
 	for range 5 {
 		buf.moveRight(1, wide)
 	}
-	require.Equal(t, 5, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+	require.Equal(t, 5, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
 
 	// 짧은 줄로 내려가면 줄 끝까지만
 	buf.moveDownRow(1, wide)
 	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol), "짧은 줄에서는 줄 끝")
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth), "짧은 줄에서는 줄 끝")
 
 	// 다시 긴 줄로 내려가면 원래 열로 복귀
 	buf.moveDownRow(1, wide)
 	assert.Equal(t, 2, buf.cursorLine)
-	assert.Equal(t, 5, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol), "긴 줄로 돌아오면 원래 열")
+	assert.Equal(t, 5, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth), "긴 줄로 돌아오면 원래 열")
 }
 
 func TestCursorMoveClamps(t *testing.T) {
@@ -562,15 +562,15 @@ func TestCursorMoveHangul(t *testing.T) {
 
 	buf.moveRight(1, wide)
 	assert.Equal(t, 3, buf.cursorCol, "byte offset 은 3")
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol), "화면 칸은 2")
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth), "화면 칸은 2")
 
 	buf.moveRight(1, wide)
 	assert.Equal(t, 6, buf.cursorCol)
-	assert.Equal(t, 4, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+	assert.Equal(t, 4, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
 
 	buf.moveLeft(1, wide)
 	assert.Equal(t, 3, buf.cursorCol)
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol))
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
 }
 
 // 커서가 화면 안에 있으면 화면은 움직이지 않아야 한다.
@@ -625,7 +625,7 @@ func TestWrapOffsets(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.offsets, wrapOffsets([]byte(test.line), test.width))
+			assert.Equal(t, test.offsets, wrapOffsets([]byte(test.line), test.width, defaultTabWidth))
 		})
 	}
 }
@@ -673,7 +673,7 @@ func TestCursorKeepsDesiredColAcrossWrappedRows(t *testing.T) {
 func TestScrollToWithinWrappedLine(t *testing.T) {
 	width, height := 4, 3
 	buf := newBuffer("test.txt", []byte(strings.Repeat("x", 40)+"\n"))
-	require.Len(t, wrapOffsets(buf.lines[0], width), 10)
+	require.Len(t, wrapOffsets(buf.lines[0], width, defaultTabWidth), 10)
 
 	buf.moveDownRow(2, width)
 	buf.scrollTo(width, height)
@@ -701,8 +701,8 @@ func TestScrollToWithinWrappedLine(t *testing.T) {
 func TestScrollToClampsTopRowWhenWidened(t *testing.T) {
 	narrow, wide, height := 4, 40, 3
 	buf := newBuffer("test.txt", []byte(strings.Repeat("x", 40)+"\na\nb\nc\n"))
-	require.Len(t, wrapOffsets(buf.lines[0], narrow), 10)
-	require.Len(t, wrapOffsets(buf.lines[0], wide), 1, "넓히면 한 행으로 준다")
+	require.Len(t, wrapOffsets(buf.lines[0], narrow, defaultTabWidth), 10)
+	require.Len(t, wrapOffsets(buf.lines[0], wide, defaultTabWidth), 1, "넓히면 한 행으로 준다")
 
 	// 긴 줄 끝까지 내려가서 그 줄 깊숙이 스크롤한 뒤, 아래 줄들로 커서를 옮긴다.
 	buf.moveDownRow(9, narrow)
@@ -782,18 +782,18 @@ func TestClusterAt(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			size, width := clusterAt([]byte(test.text), 0, 0)
+			size, width := clusterAt([]byte(test.text), 0, 0, defaultTabWidth)
 
 			assert.Equal(t, test.size, size, "글자 하나의 byte 길이")
 			assert.Equal(t, test.width, width, "화면 폭")
-			assert.Equal(t, test.width, screenColAt([]byte(test.text), len(test.text)))
+			assert.Equal(t, test.width, screenColAt([]byte(test.text), len(test.text), defaultTabWidth))
 		})
 	}
 }
 
 // 깨진 UTF-8 에서도 진행해야 한다. 0 을 돌려주면 무한 반복이다.
 func TestClusterAtInvalidUTF8(t *testing.T) {
-	size, _ := clusterAt([]byte{0xff, 0xfe}, 0, 0)
+	size, _ := clusterAt([]byte{0xff, 0xfe}, 0, 0, defaultTabWidth)
 	assert.Positive(t, size)
 
 	assert.NotPanics(t, func() {
@@ -842,11 +842,11 @@ func TestWrapDoesNotSplitCluster(t *testing.T) {
 	buf := newBuffer("test.txt", []byte(strings.Repeat(emoji, 3)+"\n"))
 
 	// 폭 5 면 두 글자(4 칸) 까지만 들어간다
-	offsets := wrapOffsets(buf.lines[0], 5)
+	offsets := wrapOffsets(buf.lines[0], 5, defaultTabWidth)
 	assert.Equal(t, []int{0, 36}, offsets, "글자 경계에서만 끊긴다")
 
 	// 폭 6 이면 세 글자가 딱 맞는다
-	assert.Equal(t, []int{0}, wrapOffsets(buf.lines[0], 6))
+	assert.Equal(t, []int{0}, wrapOffsets(buf.lines[0], 6, defaultTabWidth))
 }
 
 // 행 경계를 넘어 왼쪽으로 갈 때도 앞 행의 마지막 글자 시작으로 가야 한다.
@@ -856,7 +856,7 @@ func TestMoveLeftAcrossWrappedRowWithClusters(t *testing.T) {
 	width := 5
 
 	buf.cursorCol = 36 // 두 번째 행의 시작
-	require.Equal(t, 1, rowIndexAt(wrapOffsets(buf.lines[0], width), buf.cursorCol))
+	require.Equal(t, 1, rowIndexAt(wrapOffsets(buf.lines[0], width, defaultTabWidth), buf.cursorCol))
 
 	buf.moveLeft(1, width)
 	assert.Equal(t, 18, buf.cursorCol, "앞 행 마지막 글자의 시작")
@@ -877,7 +877,7 @@ func TestClusterAtTab(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("col=%d", test.col), func(t *testing.T) {
-			size, width := clusterAt([]byte("\t"), 0, test.col)
+			size, width := clusterAt([]byte("\t"), 0, test.col, defaultTabWidth)
 
 			assert.Equal(t, 1, size, "tab 은 1 byte")
 			assert.Equal(t, test.width, width)
@@ -902,7 +902,7 @@ func TestScreenColWithTab(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.col, screenColAt([]byte(test.line), test.offset))
+			assert.Equal(t, test.col, screenColAt([]byte(test.line), test.offset, defaultTabWidth))
 		})
 	}
 }
@@ -913,7 +913,7 @@ func TestCursorMoveOverTab(t *testing.T) {
 
 	buf.moveRight(1, wide)
 	assert.Equal(t, 1, buf.cursorCol, "tab 은 1 byte")
-	assert.Equal(t, 4, screenColAt(buf.lines[0], buf.cursorCol), "화면 칸은 4")
+	assert.Equal(t, 4, screenColAt(buf.lines[0], buf.cursorCol, defaultTabWidth), "화면 칸은 4")
 
 	buf.moveLeft(1, wide)
 	assert.Equal(t, 0, buf.cursorCol)
@@ -922,7 +922,7 @@ func TestCursorMoveOverTab(t *testing.T) {
 // tab 이 든 줄도 화면 너비 기준으로 나뉘어야 한다.
 func TestWrapWithTab(t *testing.T) {
 	// tab(4 칸) + "abcd" 를 너비 6 에 넣으면 ab 까지만 들어간다
-	assert.Equal(t, []int{0, 3}, wrapOffsets([]byte("\tabcd"), 6))
+	assert.Equal(t, []int{0, 3}, wrapOffsets([]byte("\tabcd"), 6, defaultTabWidth))
 }
 
 // moveRowStart, moveRowEnd 는 **화면 행** 안에서 양끝으로 간다. `home` 과 `end` 다.

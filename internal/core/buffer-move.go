@@ -41,7 +41,7 @@ func (buf Buffer) prevOffset(offset, width int) int {
 	}
 
 	line := buf.lines[buf.cursorLine]
-	offsets := wrapOffsets(line, width)
+	offsets := wrapOffsets(line, width, buf.tabWidth())
 	row := rowIndexAt(offsets, offset)
 
 	// 행 시작에서 왼쪽으로 가면 앞 행의 마지막 글자다.
@@ -109,10 +109,10 @@ func (buf *Buffer) moveRight(n, width int) {
 // 화면 행 안에서의 칸이라 wrap 된 줄에서도 위아래 이동이 보이는 대로 움직인다.
 func (buf *Buffer) updateDesiredCol(width int) {
 	line := buf.lines[buf.cursorLine]
-	offsets := wrapOffsets(line, width)
+	offsets := wrapOffsets(line, width, buf.tabWidth())
 	start, _ := rowRange(line, offsets, rowIndexAt(offsets, buf.cursorCol))
 
-	buf.desiredCol = screenColAt(line[start:], buf.cursorCol-start)
+	buf.desiredCol = screenColAt(line[start:], buf.cursorCol-start, buf.tabWidth())
 }
 
 // moveUpRow, moveDownRow 는 **화면 행** 단위로 n 개 움직인다. `↑`·`↓` 다.
@@ -138,7 +138,7 @@ func (buf *Buffer) moveDownRow(n, width int) {
 }
 
 func (buf *Buffer) moveUpRowOnce(width int) {
-	offsets := wrapOffsets(buf.lines[buf.cursorLine], width)
+	offsets := wrapOffsets(buf.lines[buf.cursorLine], width, buf.tabWidth())
 
 	if row := rowIndexAt(offsets, buf.cursorCol); row > 0 {
 		buf.placeCursorInRow(buf.cursorLine, offsets, row-1, width)
@@ -149,12 +149,12 @@ func (buf *Buffer) moveUpRowOnce(width int) {
 	}
 
 	prev := buf.cursorLine - 1
-	prevOffsets := wrapOffsets(buf.lines[prev], width)
+	prevOffsets := wrapOffsets(buf.lines[prev], width, buf.tabWidth())
 	buf.placeCursorInRow(prev, prevOffsets, len(prevOffsets)-1, width)
 }
 
 func (buf *Buffer) moveDownRowOnce(width int) {
-	offsets := wrapOffsets(buf.lines[buf.cursorLine], width)
+	offsets := wrapOffsets(buf.lines[buf.cursorLine], width, buf.tabWidth())
 
 	if row := rowIndexAt(offsets, buf.cursorCol); row+1 < len(offsets) {
 		buf.placeCursorInRow(buf.cursorLine, offsets, row+1, width)
@@ -165,7 +165,7 @@ func (buf *Buffer) moveDownRowOnce(width int) {
 	}
 
 	next := buf.cursorLine + 1
-	buf.placeCursorInRow(next, wrapOffsets(buf.lines[next], width), 0, width)
+	buf.placeCursorInRow(next, wrapOffsets(buf.lines[next], width, buf.tabWidth()), 0, width)
 }
 
 // moveLineStart, moveLineFirstNonBlank 는 줄 안에서 왼쪽으로 간다. vim 의 0, ^ 다.
@@ -206,7 +206,7 @@ func (buf *Buffer) moveLineEnd(n, width int) {
 // 첫 칸이라, 줄 끝에서 `$` 가 서는 자리(줄 길이) 와 결이 같다 — normal 에서는
 // clampToNormal 이 마지막 글자 위로 끌어온다.
 func (buf *Buffer) moveRowStart(width int) {
-	offsets := wrapOffsets(buf.lines[buf.cursorLine], width)
+	offsets := wrapOffsets(buf.lines[buf.cursorLine], width, buf.tabWidth())
 	start, _ := rowRange(buf.lines[buf.cursorLine], offsets, rowIndexAt(offsets, buf.cursorCol))
 
 	buf.cursorCol = start
@@ -215,7 +215,7 @@ func (buf *Buffer) moveRowStart(width int) {
 
 func (buf *Buffer) moveRowEnd(width int) {
 	line := buf.lines[buf.cursorLine]
-	offsets := wrapOffsets(line, width)
+	offsets := wrapOffsets(line, width, buf.tabWidth())
 	_, end := rowRange(line, offsets, rowIndexAt(offsets, buf.cursorCol))
 
 	buf.cursorCol = end
@@ -247,7 +247,7 @@ func (buf *Buffer) moveDownLine(n int) {
 // vim 과 칸이 다르다. wrap 되지 않은 줄에서는 줄 시작에서 센 칸과 같아서 vim 과 같다.
 func (buf *Buffer) placeCursorInLine(line int) {
 	buf.cursorLine = line
-	buf.cursorCol = offsetAtScreenCol(buf.lines[line], buf.desiredCol)
+	buf.cursorCol = offsetAtScreenCol(buf.lines[line], buf.desiredCol, buf.tabWidth())
 }
 
 // placeCursorInRow 는 커서를 지정한 화면 행의 desiredCol 칸으로 옮긴다.
@@ -261,5 +261,5 @@ func (buf *Buffer) placeCursorInRow(line int, offsets []int, row, width int) {
 	}
 
 	buf.cursorLine = line
-	buf.cursorCol = start + offsetAtScreenCol(buf.lines[line][start:end], col)
+	buf.cursorCol = start + offsetAtScreenCol(buf.lines[line][start:end], col, buf.tabWidth())
 }

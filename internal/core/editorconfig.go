@@ -7,14 +7,18 @@ import (
 	"github.com/editorconfig/editorconfig-core-go/v2"
 )
 
-// `.editorconfig` 를 읽는 자리다. 읽는 키는 여섯이고 쓰이는 곳은 둘이다.
+// `.editorconfig` 를 읽는 자리다. 읽는 키는 여섯이고 쓰이는 곳은 셋이다.
 //
 //	indent_style             ─┐
 //	indent_size               ├─ autoindent 의 한 단계 (indent.go, ADR-0048)
-//	tab_width                ─┘
+//	tab_width                ─┤
+//	                          └─ tab 하나를 그리는 화면 폭 (indent.go, ADR-0096)
 //	trim_trailing_whitespace ─┐
 //	insert_final_newline      ├─ 저장할 때의 모습 (여기, ADR-0052)
 //	end_of_line              ─┘
+//
+// `tab_width` 가 둘에 걸쳐 있는 것이 요점이다. 한 단계를 재는 자리와 그리는 자리가 같은 값을
+// 써야 눈에 보이는 것과 움직이는 것이 어긋나지 않는다(indent.go 의 blankColumns).
 //
 // 읽지 않는 키는 `charset` 과 `max_line_length` 다. 앞엣것은 읽기·쓰기 인코딩이라 변환 겹이
 // 새로 생기고(zn 은 바이트를 UTF-8 로 간주한다) 뒤엣것은 저장 동작이 아니라 화면에 기준선을

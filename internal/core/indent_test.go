@@ -59,6 +59,74 @@ func TestEditorconfigDecidesTheUnit(t *testing.T) {
 	}
 }
 
+func TestEditorconfigDecidesTabWidth(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		file string
+		want int
+	}{
+		{name: "적힌 그대로", body: "[*]\ntab_width = 8\n",
+			file: "a.go", want: 8},
+		{name: "indent_size 만 적어도 그 값이다", body: "[*]\nindent_style = space\nindent_size = 2\n",
+			file: "a.go", want: 2},
+		{name: "tab_width 가 indent_size 를 이긴다",
+			body: "[*]\nindent_style = space\nindent_size = 2\ntab_width = 8\n",
+			file: "a.go", want: 8},
+		{name: "확장자별로 갈린다", body: "[*]\ntab_width = 8\n[*.md]\ntab_width = 2\n",
+			file: "a.md", want: 2},
+		{name: "적힌 것이 없으면 기본값", body: "[*]\ncharset = utf-8\n",
+			file: "a.go", want: defaultTabWidth},
+		{name: "0 은 받지 않는다", body: "[*]\ntab_width = 0\n",
+			file: "a.go", want: defaultTabWidth},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, resolveTabWidth(writeEditorconfig(t, test.body, test.file)))
+		})
+	}
+}
+
+// tab 폭이 파일마다 갈리는지 본다. 재는 자리와 그리는 자리가 같은 답을 써야 한다(ADR-0096).
+func TestTabWidthFollowsEditorconfig(t *testing.T) {
+	path := writeEditorconfig(t, "[*]\nindent_style = tab\ntab_width = 8\n", "a.go")
+	buf := newBuffer(path, []byte("\tab\n"))
+
+	require.Equal(t, 8, buf.tabWidth())
+
+	assert.Equal(t, 8, screenColAt(buf.lines[0], 1, buf.tabWidth()), "tab 하나가 8 칸이다")
+	assert.Equal(t, []int{0, 1}, wrapOffsets(buf.lines[0], 6, buf.tabWidth()),
+		"8 칸짜리 tab 은 너비 6 을 넘어 그 뒤가 다음 행으로 간다")
+
+	_, col := expandRow(buf.lines[0], 0, len(buf.lines[0]), 0, markWhitespace(buf.lines[0]), buf.tabWidth())
+	assert.Equal(t, 10, col, "그린 뒤의 칸도 8 + `ab` 다")
+}
+
+// 한 단계를 tab 몇 개로 채우는지가 그 파일의 폭을 따른다.
+func TestMakeBlankFollowsTabWidth(t *testing.T) {
+	assert.Equal(t, "\t  ", string(makeBlank(10, true, 8)))
+	assert.Equal(t, "\t\t  ", string(makeBlank(10, true, 4)))
+	assert.Equal(t, "          ", string(makeBlank(10, false, 8)), "space 로 채울 때는 폭과 무관하다")
+}
+
+// 이름 없이 열었다가 `:w foo.md` 로 이름이 붙으면 폭도 그 경로가 정한 것으로 간다.
+// language 를 다시 고르는 자리와 같은 곳이다(buffer-save.go).
+func TestTabWidthFollowsNewName(t *testing.T) {
+	dir := filepath.Dir(writeEditorconfig(t, "[*]\ntab_width = 8\n[*.md]\ntab_width = 2\n", "a.go"))
+
+	buf := newEmptyBuffer("")
+	require.Equal(t, defaultTabWidth, buf.tabWidth(), "이름이 없으면 적힌 것을 찾을 자리가 없다")
+
+	require.NoError(t, buf.SaveTo(filepath.Join(dir, "a.md")))
+	assert.Equal(t, 2, buf.tabWidth())
+}
+
+// 손으로 지은 Buffer 는 이 칸이 비어 있다. 그대로 넘기면 나머지 연산이 죽는다.
+func TestTabWidthFallsBackWhenUnset(t *testing.T) {
+	assert.Equal(t, defaultTabWidth, Buffer{path: "b.txt"}.tabWidth())
+}
+
 func TestMeasureIndentUnit(t *testing.T) {
 	tests := []struct {
 		name string

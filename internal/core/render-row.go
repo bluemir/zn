@@ -69,7 +69,7 @@ type screenPart struct {
 // col 은 start 가 놓이는 화면 칸이다. 행을 조각내어 그릴 때(검색 강조) 조각마다 시작 칸이
 // 다른데 tab 이 다음 tab stop 까지 밀어내는 폭은 시작 칸에 달려 있다. 조각을 각각 0 칸부터
 // 세면 들여쓰기가 어긋난다.
-func expandRow(line []byte, start, end, col int, mark whitespaceMark) ([]screenPart, int) {
+func expandRow(line []byte, start, end, col int, mark whitespaceMark, tab int) ([]screenPart, int) {
 	parts := []screenPart{}
 	text := strings.Builder{}
 	marker := false
@@ -84,7 +84,7 @@ func expandRow(line []byte, start, end, col int, mark whitespaceMark) ([]screenP
 	}
 
 	for offset := start; offset < end; {
-		size, width := clusterAt(line, offset, col)
+		size, width := clusterAt(line, offset, col, tab)
 
 		char := line[offset]
 		isMarker := (char == '\t' || char == ' ') && mark.marks(offset)
@@ -276,7 +276,8 @@ func (hl rowHighlight) appendSyntax(segments []rowSegment, from, to int) []rowSe
 // renderRow 는 화면 행 하나를 그린다. 강조가 걸쳐 있으면 그 구간만 색을 입힌다.
 //
 // width 는 편집 영역의 너비다. 줄 끝에 덧붙이는 선택 칸이 그 안에 드는지 보는 데 쓴다.
-func renderRow(line []byte, row screenRow, width int, hl rowHighlight) string {
+// tab 은 이 파일의 tab 폭이다(`buf.tabWidth()`, ADR-0096).
+func renderRow(line []byte, row screenRow, width int, hl rowHighlight, tab int) string {
 	mark := markWhitespace(line)
 
 	out := strings.Builder{}
@@ -289,7 +290,7 @@ func renderRow(line []byte, row screenRow, width int, hl rowHighlight) string {
 			return
 		}
 
-		parts, next := expandRow(line, offset, end, col, mark)
+		parts, next := expandRow(line, offset, end, col, mark, tab)
 		out.WriteString(renderParts(parts, style))
 		col, offset = next, end
 	}

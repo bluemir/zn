@@ -73,6 +73,29 @@ func editorconfigUnit(path string) []byte {
 	return nil
 }
 
+// resolveTabWidth 는 tab 하나가 미는 화면 칸 수다. 적힌 것이 없으면 defaultTabWidth 다.
+//
+// **부르는 자리는 buffer 를 짓는 자리와 이름이 붙는 자리 둘뿐이다**(buffer.go, buffer-save.go).
+// indentUnit 처럼 게으르게 정하지 않는다 — 이 값을 묻는 자리가 화면을 다시 그릴 때마다
+// 줄마다 도는 wrapOffsets 이고, 그 자리의 `Buffer` 메서드는 값 receiver 라 게으른 캐시가
+// 사본에만 남는다. 그러면 스크롤 한 번에 `.editorconfig` 를 줄 수만큼 찾아 올라간다.
+// `language` 와 같은 손이다(ADR-0080, ADR-0096).
+//
+// **`indent_size` 만 적힌 파일도 그 값을 받는다.** editorconfig 명세가 「`tab_width` 의
+// 기본값은 `indent_size`」라고 정해 두었고 라이브러리가 그 자리에서 채워 준다
+// (definition.go 의 `tab_width defaults to indent_size`). 그것을 되돌리지 않는다 —
+// 명세대로 읽는 쪽이 다른 편집기와 같은 화면을 낸다 (ADR-0096).
+//
+// 1 보다 작으면 기본값이다. 0 을 그대로 넘기면 clusterAt 의 나머지 연산이 죽는다.
+func resolveTabWidth(path string) int {
+	def := editorconfigFor(path)
+	if def == nil || def.TabWidth < 1 {
+		return defaultTabWidth
+	}
+
+	return def.TabWidth
+}
+
 // measureIndentUnitLimit 은 재려고 보는 줄 수다. 파일이 커도 앞쪽만 보면 답이 같고, 여는
 // 순간이 아니라 첫 Enter 에서 도는 셈이라 길어지면 손에 걸린다.
 const measureIndentUnitLimit = 500
@@ -138,8 +161,8 @@ func measureIndentUnit(lines [][]byte) []byte {
 //
 // **한 번에 한 단계뿐이다.** 한 줄에서 두 겹을 열어도 한 단계다 — 겹을 세어 따라가려면 참
 // 파서가 있어야 하고, 어긋났을 때 손으로 되돌리는 값이 얻는 것보다 크다.
-func appendIndentLevel(base, unit []byte, level int, prefix []byte) []byte {
-	next := shiftBlank(base, unit, level*blankColumns(unit))
+func appendIndentLevel(base, unit []byte, level int, prefix []byte, tab int) []byte {
+	next := shiftBlank(base, unit, level*blankColumns(unit, tab), tab)
 
 	if len(prefix) < 1 {
 		return next
@@ -154,10 +177,11 @@ func appendIndentLevel(base, unit []byte, level int, prefix []byte) []byte {
 // `>` `<`, 닫는 표시를 칠 때, 새 줄) 가 이것을 쓴다. byte 로 세면 space 로 들여쓴 줄에
 // `<` 를 칠 때 한 단계가 아니라 한 칸만 떨어진다.
 //
-// 재는 자리가 **화면**인 것도 일부러다. `.editorconfig` 의 `tab_width` 가 아니라 zn 이
-// 실제로 그리는 폭(`tabWidth`) 을 쓴다 — 눈에 보이는 것과 움직이는 것이 어긋나면 안 된다.
-func blankColumns(blank []byte) int {
-	return screenColAt(blank, len(blank))
+// 재는 자리가 **화면**인 것도 일부러다. 눈에 보이는 것과 움직이는 것이 어긋나면 안 된다.
+// 그래서 tab 은 부르는 쪽이 그 파일을 실제로 그리는 폭을 넘긴다(`buf.tabWidth()`).
+// 그 폭이 곧 `.editorconfig` 의 `tab_width` 가 되면서 둘이 갈릴 자리가 없어졌다 (ADR-0096).
+func blankColumns(blank []byte, tab int) int {
+	return screenColAt(blank, len(blank), tab)
 }
 
 // shiftBlank 는 들여쓰기를 칸으로 재서 by 칸만큼 늘리거나 줄인 것이다.
@@ -167,7 +191,7 @@ func blankColumns(blank []byte) int {
 // 있는 space 들여쓰기가 `>` 한 번에 조용히 tab 으로 바뀌지 않는다.
 //
 // by 가 0 이면 손대지 않는다. 다시 지으면 `  \t` 처럼 섞인 것이 뜻 없이 바뀐다.
-func shiftBlank(blank, unit []byte, by int) []byte {
+func shiftBlank(blank, unit []byte, by, tab int) []byte {
 	if by == 0 {
 		return blank
 	}
@@ -177,19 +201,22 @@ func shiftBlank(blank, unit []byte, by int) []byte {
 		useTab = blank[0] == '\t'
 	}
 
-	return makeBlank(max(blankColumns(blank)+by, 0), useTab)
+	return makeBlank(max(blankColumns(blank, tab)+by, 0), useTab, tab)
 }
 
 // makeBlank 는 cols 칸짜리 공백이다.
 // tab 으로 채울 때 남는 칸은 space 다 — tab 은 칸 경계까지만 미는 글자라 그 아래를 못 만든다.
-func makeBlank(cols int, useTab bool) []byte {
+//
+// tab 몇 개로 나눌지가 그 파일의 폭에 달려 있다. `tab_width = 8` 인 파일에서 8 칸은 tab
+// 하나이고 4 칸짜리 파일에서는 둘이다.
+func makeBlank(cols int, useTab bool, tab int) []byte {
 	if !useTab {
 		return bytes.Repeat([]byte{' '}, cols)
 	}
 
 	return append(
-		bytes.Repeat([]byte{'\t'}, cols/tabWidth),
-		bytes.Repeat([]byte{' '}, cols%tabWidth)...,
+		bytes.Repeat([]byte{'\t'}, cols/tab),
+		bytes.Repeat([]byte{' '}, cols%tab)...,
 	)
 }
 

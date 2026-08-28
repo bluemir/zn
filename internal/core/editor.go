@@ -733,7 +733,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 		textRows = append(textRows,
 			e.renderGutter(buf, row)+
-				renderRow(buf.lines[row.line], row, e.contentWidth(), highlight))
+				renderRow(buf.lines[row.line], row, e.contentWidth(), highlight, buf.tabWidth()))
 	}
 
 	// 감싸는 머리줄로 본문 위 몇 행을 덮는다(ADR-0049).
