@@ -158,17 +158,27 @@ func TestCompletionKeysApplyAndClose(t *testing.T) {
 	assert.Len(t, confirm.activeBuffer().lines, 1, "줄바꿈이 되지 않았다")
 }
 
-// 첫 esc 는 목록만 닫는다. insert 에서 나가려면 한 번 더다.
-func TestCompletionEscClosesListFirst(t *testing.T) {
+// esc 한 번에 목록도 닫히고 normal 로도 나간다.
+func TestCompletionEscClosesListAndLeavesInsert(t *testing.T) {
 	m := insertWithCompletion(t, []lsp.CompletionItem{item("Alpha", 0, 0, 0)})
 
 	next, _ := send2(m, "esc")
 
-	require.IsType(t, viewEditorInsert{}, next)
-	assert.False(t, next.(viewEditorInsert).completionOpen())
+	require.IsType(t, viewEditorNormal{}, next)
+	assert.False(t, next.(viewEditorNormal).completionOpen())
+}
 
-	next, _ = send2(next, "esc")
-	assert.IsType(t, viewEditorNormal{}, next)
+// 목록이 아직 뜨지 않았어도 기다리는 표시는 내린다. 도는 요청의 답을 아무도 받지 않는다.
+func TestEscDropsPendingCompletion(t *testing.T) {
+	var m tea.Model = newTestEditorFile("a.go", "", 80, 6)
+
+	m = send(m, "i")
+	m.(viewEditorInsert).editor.completionAsking = true
+
+	next, _ := send2(m, "esc")
+
+	require.IsType(t, viewEditorNormal{}, next)
+	assert.False(t, next.(viewEditorNormal).completionAsking)
 }
 
 // 목록이 없으면 이 키들은 여느 때와 같다. insert 의 규칙이 그대로 남는다.

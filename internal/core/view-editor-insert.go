@@ -68,12 +68,23 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// moveLeft 가 아무 일도 안 하는데 drawer 는 그대로 한 칸 나아가기 때문이다.
 			// `i<Esc>a` 가 같은 자리에서 한 칸 움직이는 것과 같고, 되돌리려면 어디서
 			// 열렸는지 기억해야 해서 두었다(ADR-0056).
+			//
+			// 목록도 여기서 닫는다. esc 와 같은 이유로 떠 있지 않아도 부른다. 도는 요청의
+			// 답은 insert 만 받는데 팔레트로 넘어가면 아무도 받지 않는다(completion.go).
+			m.closeCompletion()
+
 			buf.endEdit()
 			buf.moveLeft(1, m.contentWidth())
 			m.scrollToCursor()
 
 			return paletteMode(m.editor)
 		case "esc":
+			// 목록이 떠 있었으면 같이 닫고 나간다. 한 번으로 끝난다(ADR-0066 §1).
+			//
+			// 떠 있지 않아도 부른다. 요청이 도는 중에 나가면 그 답을 아무도 받지 않아서,
+			// 여기서 기다리는 표시를 내리지 않으면 그 뒤로 영영 묻지 못한다(completion.go).
+			m.closeCompletion()
+
 			// insert mode 의 커서는 글자 사이에 있다. normal 로 돌아오면 왼쪽 글자 위에 선다.
 			// vim 과 같은 동작이라 a<Esc> 는 제자리로 돌아오고 i<Esc> 는 한 글자 왼쪽이 된다.
 			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
@@ -183,8 +194,9 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 가로챈 키는 taken 이 참이고 거기서 끝난다. 커서를 옆으로 옮기거나 mode 를 떠나는 키는
 // 목록만 닫고 **거짓을 준다** — 닫는 것과 원래 하던 일이 한 키에 같이 일어나야 한다.
 //
-// `esc` 는 목록만 닫는다. insert 에서 나가려면 한 번 더 눌러야 한다 — VS Code 도 vim 도 같다.
-// `enter`·`tab` 이 넣기인 것도 VS Code 를 따른 것이다.
+// `esc` 는 여기 없다. 목록을 닫는 것과 insert 를 나가는 것이 한 번에 일어나고, 그 둘을
+// insert 의 `esc` 가 같이 한다(ADR-0066 §1). 팔레트(`ctrl+p`) 도 같은 자리로 옮겼다.
+// `enter`·`tab` 이 넣기인 것은 VS Code 를 따른 것이다.
 func (m viewEditorInsert) completionKey(key string) (tea.Model, tea.Cmd, bool) {
 	switch key {
 	case "up":
@@ -199,11 +211,7 @@ func (m viewEditorInsert) completionKey(key string) (tea.Model, tea.Cmd, bool) {
 		m.applyCompletion()
 
 		return m, nil, true
-	case "esc":
-		m.closeCompletion()
-
-		return m, nil, true
-	case "left", "right", "ctrl+c", "ctrl+p":
+	case "left", "right", "ctrl+c":
 		m.closeCompletion()
 	}
 
