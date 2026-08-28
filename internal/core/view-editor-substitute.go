@@ -35,9 +35,9 @@ type viewEditorSubstitute struct {
 	editing              bool // 되돌리기 구간을 열었는가
 
 	// 시작한 자리다. 하나도 안 바꾸고 나가면 커서와 화면이 여기로 돌아온다.
-	// 화면 위치까지 드는 까닭은 검색의 searchOrigin 과 같다 — 커서만 되돌리면 보이는 곳이
-	// 달라진 채로 남는다(view-editor-search.go).
-	backLine, backCol, backTop, backTopRow int
+	// 화면 자리까지 드는 까닭은 검색과 같다 — 커서만 되돌리면 보이는 곳이 달라진 채로
+	// 남는다(buffer.go 의 viewPlace).
+	back viewPlace
 }
 
 // substituteMode 는 물어보기를 시작한다.
@@ -56,10 +56,7 @@ func substituteMode(e *editor, sub substitution, area motionRange) (tea.Model, t
 		line: area.startLine - 1,
 		last: -1,
 
-		backLine:   buf.cursorLine,
-		backCol:    buf.cursorCol,
-		backTop:    buf.top,
-		backTopRow: buf.topRow,
+		back: buf.place(),
 	}
 
 	if !m.seek() {
@@ -259,15 +256,12 @@ func (m *viewEditorSubstitute) finish() (tea.Model, tea.Cmd) {
 	}
 
 	if m.changes == 0 {
-		buf.cursorLine, buf.cursorCol = m.backLine, m.backCol
-		buf.top, buf.topRow = m.backTop, m.backTopRow
-		buf.updateDesiredCol(m.contentWidth())
+		buf.moveToPlace(m.back, m.contentWidth())
 
 		return normalModeMessage(m.editor, "바꾼 것이 없습니다")
 	}
 
-	buf.cursorLine = m.last
-	buf.moveLineFirstNonBlank(m.contentWidth())
+	buf.moveToLine(m.last, m.contentWidth())
 	buf.clampToNormal(m.contentWidth())
 	m.scrollToCursor()
 

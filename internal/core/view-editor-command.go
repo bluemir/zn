@@ -479,8 +479,7 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 		return normalModeMessage(m.editor, "찾을 수 없음: "+sub.input)
 	}
 
-	buf.cursorLine = last
-	buf.moveLineFirstNonBlank(m.contentWidth())
+	buf.moveToLine(last, m.contentWidth())
 	buf.clampToNormal(m.contentWidth())
 	m.scrollToCursor()
 
@@ -504,8 +503,7 @@ func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
 
 	from, jumping := m.here()
 
-	buf.cursorLine = to
-	buf.moveLineFirstNonBlank(m.contentWidth())
+	buf.moveToLine(to, m.contentWidth())
 	buf.clampToNormal(m.contentWidth())
 	m.scrollToCursor()
 

@@ -30,7 +30,7 @@ func normalMode(e *editor) (tea.Model, tea.Cmd) {
 
 	// normal 에는 고른 범위가 없다. visual 을 떠나는 문이 여기와 insertMode 둘뿐이라
 	// 놓는 자리도 그 둘이다 (ADR-0037).
-	e.activeBuffer().selection = selection{}
+	e.activeBuffer().clearSelection()
 
 	return viewEditorNormal{editor: e}, nil
 }

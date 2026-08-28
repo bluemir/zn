@@ -17,13 +17,7 @@ func searchMode(e *editor, direction searchDirection) (tea.Model, tea.Cmd) {
 	return viewEditorSearch{
 		editor:    e,
 		direction: direction,
-		origin: searchOrigin{
-			cursorLine: buf.cursorLine,
-			cursorCol:  buf.cursorCol,
-			top:        buf.top,
-			topRow:     buf.topRow,
-			search:     e.search,
-		},
+		origin:    searchOrigin{place: buf.place(), search: e.search},
 	}, nil
 }
 
@@ -41,8 +35,7 @@ type viewEditorSearch struct {
 // 화면 위치까지 들고 있어야 되돌릴 때 화면이 튀지 않는다. 커서만 되돌리면 scrollTo 가
 // 이미 옮겨둔 화면을 그대로 두어서, 커서는 제자리인데 보이는 곳이 달라진다.
 type searchOrigin struct {
-	cursorLine, cursorCol int
-	top, topRow           int
+	place viewPlace
 
 	search searchState
 }
@@ -128,7 +121,7 @@ func (m *viewEditorSearch) preview() {
 
 	buf := m.activeBuffer()
 
-	result, ok := buf.find(pattern, m.direction, m.origin.cursorLine, m.origin.cursorCol)
+	result, ok := buf.find(pattern, m.direction, m.origin.place.cursorLine, m.origin.place.cursorCol)
 	if !ok {
 		return
 	}
@@ -145,9 +138,7 @@ func (m *viewEditorSearch) preview() {
 func (m *viewEditorSearch) restore() {
 	buf := m.activeBuffer()
 
-	buf.cursorLine, buf.cursorCol = m.origin.cursorLine, m.origin.cursorCol
-	buf.top, buf.topRow = m.origin.top, m.origin.topRow
-	buf.updateDesiredCol(m.contentWidth())
+	buf.moveToPlace(m.origin.place, m.contentWidth())
 
 	m.search = m.origin.search
 }

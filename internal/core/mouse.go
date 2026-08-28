@@ -324,7 +324,7 @@ func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 	// tab 을 옮기기 전에 놓아야 한다. 옮기고 나면 놓을 Buffer 가 바뀌어서 고른 범위가
 	// 보이지 않는 tab 에 남는다.
-	m.activeBuffer().selection = selection{}
+	m.activeBuffer().clearSelection()
 
 	switch region {
 	case regionSidebar:

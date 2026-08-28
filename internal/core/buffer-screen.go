@@ -341,3 +341,22 @@ func (buf *Buffer) stickyAt(line, height int) []int {
 
 	return heads
 }
+
+// place 는 지금 보고 있는 자리다. 무르는 자리가 이것을 담아 두었다가 moveToPlace 로 되돌린다.
+func (buf Buffer) place() viewPlace {
+	return viewPlace{
+		cursorLine: buf.cursorLine, cursorCol: buf.cursorCol,
+		top: buf.top, topRow: buf.topRow,
+	}
+}
+
+// moveToPlace 는 담아 둔 자리로 커서와 화면을 되돌린다.
+//
+// **`desiredCol` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
+// 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
+// 칸으로 간다(ADR-0100).
+func (buf *Buffer) moveToPlace(at viewPlace, width int) {
+	buf.cursorLine, buf.cursorCol = at.cursorLine, at.cursorCol
+	buf.top, buf.topRow = at.top, at.topRow
+	buf.updateDesiredCol(width)
+}

@@ -69,3 +69,21 @@ func (buf Buffer) selectionOn(area motionRange, line int) (span []int, toEnd, ok
 
 	return []int{start, end}, true, true
 }
+
+// startSelection 은 커서 자리를 anchor 로 삼아 범위를 연다. `v`·`V` 와 드래그가 여기로 온다.
+func (buf *Buffer) startSelection(linewise bool) {
+	buf.selection = selection{
+		active:   true,
+		linewise: linewise,
+		line:     buf.cursorLine,
+		col:      buf.cursorCol,
+	}
+}
+
+// clearSelection 은 고른 범위를 닫는다.
+//
+// **닫는 자리가 넷이다** — normal 로 나갈 때, insert 로 들어갈 때, 팔레트를 열 때, 클릭할 때.
+// 밖에서 필드를 비우면 「비운다」가 무엇인지가 그 넷에 흩어진다(ADR-0100).
+func (buf *Buffer) clearSelection() {
+	buf.selection = selection{}
+}

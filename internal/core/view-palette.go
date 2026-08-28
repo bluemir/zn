@@ -295,7 +295,7 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 	// normalMode 가 **새 buffer 만** 지워서 원래 tab 에 유령 강조가 남는다.
 	// **tab 이 바뀌기 전이라 지우는 buffer 가 언제나 옳다.**
 	if m.hasTab() {
-		m.activeBuffer().selection = selection{}
+		m.activeBuffer().clearSelection()
 	}
 
 	if kind == paletteKindShell {

@@ -7,7 +7,7 @@ import (
 // viewEditorInsert 는 insert mode 다. 커서가 글자 사이에 있어서 줄 끝 다음 칸까지 갈 수 있다.
 func insertMode(e *editor) (tea.Model, tea.Cmd) {
 	// visual 에서 `c` 로 들어오는 길이 있다. 고른 범위를 놓는 문이 여기와 normalMode 둘뿐이다.
-	e.activeBuffer().selection = selection{}
+	e.activeBuffer().clearSelection()
 
 	return viewEditorInsert{editor: e}, nil
 }
