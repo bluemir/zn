@@ -2,21 +2,10 @@ package core
 
 // 지우는 것들이다. `d`·`x`·`dd` 다. 지운 것은 register 로 나간다 (ADR-0017).
 
-// deleteByMotion 은 motion 이 가리키는 범위를 지운다.
+// deleteRange 는 잡아 둔 범위를 지운다. 지울 것이 없으면 false 다.
 //
-// 잡을 것이 없거나 지울 것이 없으면 아무것도 하지 않고 false 다. 그래야 `d` 뒤에
-// 손이 미끄러진 키가 dirty 를 세우거나 되돌릴 앞날(redo) 을 날리지 않는다.
-func (buf *Buffer) deleteByMotion(m motion, count, width int) (register, bool) {
-	area, ok := m.span(*buf, count, width)
-	if !ok {
-		return register{}, false
-	}
-
-	return buf.deleteRange(area, width)
-}
-
-// deleteRange 는 잡아 둔 범위를 지운다.
-// motion 이 잡은 것도 visual 이 고른 것도 여기로 온다(ADR-0037).
+// **범위를 잡는 것은 부르는 쪽이다.** motion 이 잡은 것(`dw`) 도 visual 이 고른 것(`d`) 도
+// 여기로 온다 — 둘이 범위를 얻는 길만 다르고 그다음은 같다(action.go, ADR-0037).
 func (buf *Buffer) deleteRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		return buf.deleteLines(area.startLine, area.endLine, width), true
@@ -37,30 +26,10 @@ func (buf *Buffer) includeCursorCluster() {
 
 // wordForwardToDelete 는 `dw` 가 지울 끝 자리로 간다. 마지막 한 걸음은 줄을 넘지 않는다.
 //
-// vim 은 operator 와 함께 쓰인 `w` 를 줄 끝에서 멈춘다. 줄의 마지막 단어에서 `dw` 를 쳐도
-// 다음 줄이 끌려 올라오지 않는다 — 줄을 없애려면 `dd` 가 있고, `dw` 로 줄이 합쳐지는 것은
-// 단어 하나를 지우려던 손에는 사고다.
+// atWordEnd 는 커서가 단어의 마지막 글자 위인지다. 공백 위면 끝낼 단어가 없어서 false 다.
 //
-// 빈 줄에서는 그 줄 자체가 지울 것이라 다음 줄 시작까지 간다. 이것도 vim 과 같다.
-// 중간 걸음은 줄을 넘어도 된다 — `2dw` 는 다음 줄의 단어까지 지운다.
-func (buf *Buffer) wordForwardToDelete(n int, kind wordKind, width int) {
-	buf.moveWordForward(n-1, kind, width)
-
-	line := buf.cursorLine
-	if len(buf.lines[line]) == 0 {
-		if line+1 < len(buf.lines) {
-			buf.cursorLine, buf.cursorCol = line+1, 0
-		}
-
-		return
-	}
-
-	buf.wordForward(kind)
-	if buf.cursorLine != line {
-		buf.cursorLine, buf.cursorCol = line, len(buf.lines[line])
-	}
-}
-
+// `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
+// 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 // deleteText 는 (startLine, startCol) 부터 (endLine, endCol) 앞까지 지운다.
 // 지울 것이 없으면 아무것도 하지 않고 false 다.
 func (buf *Buffer) deleteText(startLine, startCol, endLine, endCol, width int) (register, bool) {

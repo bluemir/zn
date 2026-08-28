@@ -39,28 +39,31 @@ func charSpan(buf Buffer, moved Buffer) (motionRange, bool) {
 		return motionRange{
 			startLine: line, startCol: col,
 			endLine: buf.cursorLine, endCol: buf.cursorCol,
-			targetLine: line, targetCol: col,
 		}, true
 	}
 
 	return motionRange{
 		startLine: buf.cursorLine, startCol: buf.cursorCol,
 		endLine: line, endCol: col,
-		targetLine: line, targetCol: col,
 	}, true
 }
 
-// lineSpan 은 줄 단위 범위다. 커서 줄과 닿은 줄 사이의 줄 전체이고 커서 칸과 상관없다.
+// lineSpan 은 줄 단위 범위다. 커서 줄과 닿은 줄 사이의 줄 전체를 뜻한다.
 //
-// 칸은 복사가 쓴다. 이동을 실제로 실행해서 얻으므로 `k` 는 칸을 지키고 `gg` 는 첫 비공백으로
-// 간다 — 이동 키를 직접 쳤을 때와 같은 자리다(ADR-0017).
+// **고치는 자리는 칸을 보지 않지만 칸을 담아 둔다.** 줄 단위 연산은 전부 `linewise` 로 갈라
+// 줄 전체를 쓰므로(`deleteLines`·`changeCaseRange`·`selectionOn`) 이 칸은 그쪽에 닿지 않는다.
+// 담는 까닭은 **복사가 커서를 그 자리로 옮기기 때문**이다 — `yk` 는 칸을 지키고 `ygg` 는 첫
+// 비공백으로 가는데, 그 칸이 범위에 없으면 어디서도 만들어 낼 수 없다(ADR-0017, ADR-0100).
 func lineSpan(buf Buffer, moved Buffer) (motionRange, bool) {
+	start, end := buf, moved
+	if moved.cursorLine < buf.cursorLine {
+		start, end = moved, buf
+	}
+
 	return motionRange{
-		startLine:  min(buf.cursorLine, moved.cursorLine),
-		endLine:    max(buf.cursorLine, moved.cursorLine),
-		targetLine: moved.cursorLine,
-		targetCol:  moved.cursorCol,
-		linewise:   true,
+		startLine: start.cursorLine, startCol: start.cursorCol,
+		endLine: end.cursorLine, endCol: end.cursorCol,
+		linewise: true,
 	}, true
 }
 
@@ -159,7 +162,26 @@ func (m motionWordForward) move(buf *Buffer, count, width int) {
 
 func (m motionWordForward) span(buf Buffer, count, width int) (motionRange, bool) {
 	moved := buf
-	moved.wordForwardToDelete(max(count, 1), m.kind, width)
+
+	// 중간 걸음은 줄을 넘어도 된다 — `2dw` 는 다음 줄의 단어까지 지운다.
+	moved.moveWordForward(max(count, 1)-1, m.kind, width)
+
+	line := moved.cursorLine
+
+	// 빈 줄에서는 그 줄 자체가 지울 것이라 다음 줄 시작까지 간다. 파일 끝이면 갈 곳이 없다.
+	if len(moved.lines[line]) == 0 {
+		if line+1 < len(moved.lines) {
+			moved.moveTo(line+1, 0, width)
+		}
+
+		return charSpan(buf, moved)
+	}
+
+	// 마지막 한 걸음만 줄에서 멈춘다. 넘었으면 줄끝으로 되돌린다.
+	moved.wordForward(m.kind)
+	if moved.cursorLine != line {
+		moved.moveTo(line, len(moved.lines[line]), width)
+	}
 
 	return charSpan(buf, moved)
 }
@@ -288,7 +310,6 @@ func (m motionChangeWord) span(buf Buffer, count, width int) (motionRange, bool)
 	if len(buf.lines[buf.cursorLine]) == 0 {
 		return motionRange{
 			startLine: buf.cursorLine, endLine: buf.cursorLine,
-			targetLine: buf.cursorLine,
 		}, true
 	}
 
@@ -298,7 +319,15 @@ func (m motionChangeWord) span(buf Buffer, count, width int) (motionRange, bool)
 	}
 
 	moved := buf
-	moved.wordEndToChange(max(count, 1), m.kind, width)
+
+	// 첫 걸음만 지금 단어의 끝에서 멈춘다 — 이미 단어의 마지막 글자 위면 그 글자 하나가
+	// 전부다. `e` 를 그대로 쓰면 거기서 다음 단어의 끝까지 먹는다. 나머지 걸음은 `e` 와
+	// 같아서 `c2w` 는 다음 단어의 끝까지다. vim 이 첫 걸음에만 예외를 두는 것과 같다.
+	if !moved.atWordEnd(m.kind) {
+		moved.wordEnd(m.kind)
+	}
+	moved.moveWordEnd(max(count, 1)-1, m.kind, width)
+	moved.includeCursorCluster()
 
 	return charSpan(buf, moved)
 }
@@ -312,9 +341,11 @@ type motionWholeLines struct{}
 func (motionWholeLines) span(buf Buffer, count, width int) (motionRange, bool) {
 	end := min(buf.cursorLine+max(count, 1)-1, len(buf.lines)-1)
 
+	// 칸은 커서 그대로다. `yy` 가 커서를 옮기지 않는 것이 이 값으로 표현된다 — 범위의 시작이
+	// 곧 지금 자리라 「뒤로 갔나」가 거짓이 된다(buffer-yank.go 의 moveToRangeStart).
 	return motionRange{
-		startLine: buf.cursorLine, endLine: end,
-		targetLine: end, targetCol: buf.cursorCol,
+		startLine: buf.cursorLine, startCol: buf.cursorCol,
+		endLine: end, endCol: buf.cursorCol,
 		linewise: true,
 	}, true
 }
@@ -367,7 +398,6 @@ func (m motionWordObject) span(buf Buffer, count, width int) (motionRange, bool)
 	return motionRange{
 		startLine: line, startCol: start,
 		endLine: line, endCol: end,
-		targetLine: line, targetCol: start,
 	}, true
 }
 
@@ -399,17 +429,5 @@ func (buf Buffer) aroundWord(line, start, end int, kind wordKind) (int, int) {
 	return start, end
 }
 
-// motionRange 는 operator 가 motion 으로 잡은 범위다. `d` 와 `y` 가 같이 쓴다.
-//
-// 글자 단위면 (startLine, startCol) 부터 (endLine, endCol) **앞까지** 이고,
-// 줄 단위면 [startLine, endLine] 줄 전체다.
-//
-// targetLine/targetCol 은 motion 이 커서를 둔 자리다. 앞으로 가는 motion 이면 범위의 끝,
-// 뒤로 가는 motion 이면 범위의 시작이다. 지우기는 제 커서 규칙이 있어서 쓰지 않고 복사가 쓴다 —
-// vim 의 `yk` 는 칸을 지키고 `ygg` 는 첫 비공백으로 가는데, 그 차이가 곧 motion 이 둔 자리다.
-type motionRange struct {
-	startLine, startCol   int
-	endLine, endCol       int
-	targetLine, targetCol int
-	linewise              bool
-}
+// motionRange 는 range.go 에 있다. 만드는 곳이 넷이고 받는 곳이 `Buffer` 라 어느 한쪽에
+// 세 들어 살 자료가 아니다 (ADR-0100).

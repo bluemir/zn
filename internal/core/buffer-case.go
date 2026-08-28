@@ -85,8 +85,6 @@ func (buf *Buffer) changeCaseRange(area motionRange, kind caseKind, width int) {
 	// 바뀐 것이 없으면 손대지 않는다. 그냥 갈아끼우면 dirty 가 서고 redo 가 날아간다 —
 	// replaceIndented 와 같은 자리다(buffer-indent.go).
 	if same {
-		buf.moveToRangeStart(area, width)
-
 		return
 	}
 
@@ -96,8 +94,6 @@ func (buf *Buffer) changeCaseRange(area motionRange, kind caseKind, width int) {
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
 	buf.replaceLines(area.startLine, len(next), next)
 	buf.endEdit()
-
-	buf.moveToRangeStart(area, width)
 }
 
 // applyCase 는 글 한 덩이의 대소문자를 바꾼다.

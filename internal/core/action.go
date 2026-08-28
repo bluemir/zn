@@ -98,8 +98,14 @@ func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	if deleted, ok := e.activeBuffer().deleteByMotion(c.motion, c.count, e.contentWidth()); ok {
-		e.registers.storeDelete(deleted, c.reg)
+	buf := e.activeBuffer()
+
+	// 잡을 것이 없거나 지울 것이 없으면 아무것도 하지 않는다. 그래야 `d` 뒤에 손이 미끄러진
+	// 키가 dirty 를 세우거나 되돌릴 앞날(redo) 을 날리지 않는다.
+	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
+		if deleted, cut := buf.deleteRange(area, e.contentWidth()); cut {
+			e.registers.storeDelete(deleted, c.reg)
+		}
 	}
 	e.scrollToCursor()
 
@@ -114,9 +120,19 @@ type actionYank struct {
 }
 
 func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
-	if yanked, ok := e.activeBuffer().yankByMotion(c.motion, c.count, e.contentWidth()); ok {
-		e.registers.storeYank(yanked, c.reg)
-		e.notify(yanked.copiedMessage())
+	buf := e.activeBuffer()
+
+	// 범위를 잡는 자는 `d` 와 같은 것이다. 규칙이 두 벌이 되면 `dw` 와 `yw` 가 갈린다(ADR-0017).
+	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
+		// **복사하고, 커서를 옮긴다.** 둘은 별개의 걸음이라 여기서 그 차례로 한다 —
+		// 복사는 읽는 일이고 커서를 옮기는 것은 vim `y` 의 규칙이다(ADR-0100).
+		//
+		// 복사할 것이 없었으면 옮기지도 않는다. 아무 일도 안 일어난 것이 맞다.
+		if yanked, copied := buf.yankRange(area); copied {
+			e.registers.storeYank(yanked, c.reg)
+			e.notify(yanked.copiedMessage())
+			buf.moveToRangeStart(area, e.contentWidth())
+		}
 	}
 	e.scrollToCursor()
 
@@ -139,14 +155,18 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	removed, ok := e.activeBuffer().changeByMotion(c.motion, c.count, e.contentWidth())
+	buf := e.activeBuffer()
+
+	// 모르는 motion 이면 mode 도 바꾸지 않는다 — 손이 미끄러진 `c` 가 글자를 파일에 넣기
+	// 시작하면 무를 길이 없다(ADR-0033).
+	area, ok := c.motion.span(*buf, c.count, e.contentWidth())
 	if !ok {
 		return nil, nil
 	}
 
 	// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
 	// 숫자 링도 밀지 않는다 — 담기지 않은 것이 링을 흔들면 `"1` 이 뜻을 잃는다(ADR-0058).
-	if len(removed.lines) > 0 {
+	if removed, changed := buf.changeRange(area, e.contentWidth()); changed && len(removed.lines) > 0 {
 		e.registers.storeDelete(removed, c.reg)
 	}
 
@@ -335,9 +355,10 @@ func (c actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
-		if yanked, copied := buf.yankRange(area, e.contentWidth()); copied {
+		if yanked, copied := buf.yankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
 			e.notify(yanked.copiedMessage())
+			buf.moveToRangeStart(area, e.contentWidth())
 		}
 	}
 	e.scrollToCursor()
@@ -429,7 +450,10 @@ func (c actionVisualChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
+		// **바꾸고, 커서를 옮긴다.** `y` 와 달리 바뀐 것이 없어도 옮긴다 — visual 을 나가는
+		// 자리라 커서가 고른 범위의 시작에 서야 한다(ADR-0100).
 		buf.changeCaseRange(area, c.kind, e.contentWidth())
+		buf.moveToRangeStart(area, e.contentWidth())
 	}
 	e.scrollToCursor()
 

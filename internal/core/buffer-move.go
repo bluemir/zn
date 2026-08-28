@@ -243,6 +243,14 @@ func (buf *Buffer) moveDownLine(n int) {
 
 // placeCursorInLine 은 커서를 그 줄의 desiredCol 칸에 놓는다.
 //
+// **updateDesiredCol 을 부르지 않는다. 그것이 이 함수의 요점이다.** 커서를 옮기는 자리는
+// 대개 desiredCol 을 새로 정하는데(37 곳) 여기와 placeCursorInRow 둘만 반대로 **기억한 것을
+// 읽어 쓴다.** 긴 줄에서 `j` 로 짧은 줄을 지나 다시 `j` 를 쳤을 때 원래 칸으로 돌아오는 것이
+// 그 덕이다 — 여기서 새로 정하면 짧은 줄의 끝이 기억이 되어 다시는 못 돌아온다.
+//
+// 그래서 이름이 닮은 moveToLine 과 합칠 수 없다. 그쪽은 첫 비공백으로 가며 desiredCol 을
+// 새로 정하는 `gg`·`G` 쪽이다(ADR-0100).
+//
 // desiredCol 은 화면 행 안에서 센 칸이라, wrap 된 줄의 둘째 행 이후에서 넘어오면
 // vim 과 칸이 다르다. wrap 되지 않은 줄에서는 줄 시작에서 센 칸과 같아서 vim 과 같다.
 func (buf *Buffer) placeCursorInLine(line int) {

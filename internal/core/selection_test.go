@@ -25,24 +25,26 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 		},
 		{
 			name: "뒤로 고르기", anchorCol: 3,
-			want: motionRange{endCol: 4, targetCol: 0},
+			want: motionRange{endCol: 4},
 		},
 		{
 			name: "줄을 넘어", cursorLine: 1, cursorCol: 1,
-			want: motionRange{endLine: 1, endCol: 2, targetLine: 0},
+			want: motionRange{endLine: 1, endCol: 2},
 		},
 		{
 			// 한글 한 글자는 3 byte 다. cluster 통째로 든다.
 			name: "한글", anchorLine: 2, cursorLine: 2,
-			want: motionRange{startLine: 2, endLine: 2, endCol: 3, targetLine: 2},
+			want: motionRange{startLine: 2, endLine: 2, endCol: 3},
 		},
 		{
 			name: "빈 줄에는 밀 글자가 없다", anchorLine: 3, cursorLine: 3,
-			want: motionRange{startLine: 3, endLine: 3, targetLine: 3},
+			want: motionRange{startLine: 3, endLine: 3},
 		},
 		{
-			name: "줄 단위는 칸을 보지 않는다", anchorCol: 2, cursorLine: 1, cursorCol: 5, linewise: true,
-			want: motionRange{endLine: 1, targetCol: 2, linewise: true},
+			// 줄 단위도 칸을 담는다. 고치는 자리는 줄 전체를 쓰지만, 복사가 커서를 처음
+			// 짚은 자리로 되돌릴 때 그 칸이 필요하다(ADR-0100).
+			name: "줄 단위도 칸을 담는다", anchorCol: 2, cursorLine: 1, cursorCol: 5, linewise: true,
+			want: motionRange{startCol: 2, endLine: 1, endCol: 5, linewise: true},
 		},
 	}
 

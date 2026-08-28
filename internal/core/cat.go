@@ -122,5 +122,5 @@ func (e *editor) visibleRange() motionRange {
 
 	first, last := rows[0].line, rows[len(rows)-1].line
 
-	return motionRange{startLine: first, endLine: last, targetLine: first, linewise: true}
+	return motionRange{startLine: first, endLine: last, linewise: true}
 }

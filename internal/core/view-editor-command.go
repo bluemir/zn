@@ -400,11 +400,18 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 		return normalModeError(m.editor, err)
 	}
 
-	// 커서는 손으로 친 범위에서는 그대로다. area 가 target 을 커서로 두어서 moveToRangeStart
-	// 가 아무것도 하지 않는다. `:'<,'>y` 만 visual 의 `y` 처럼 범위 시작으로 간다(ADR-0089).
-	copied, ok := buf.yankRange(area, m.contentWidth())
+	copied, ok := buf.yankRange(area)
 	if !ok {
 		return normalMode(m.editor)
+	}
+
+	// **커서는 손으로 친 범위에서는 그대로다.** 따라갈 이동이 없어서 옮길 자리가 없다 —
+	// `:1,5y` 가 커서를 1 줄로 끌어가지 않는다(buffer-yank.go 의 yankLines 가 적어 둔 규칙이다).
+	//
+	// `'<,'>` 만 갈린다. 보고 있던 범위라 visual 의 `y` 처럼 시작으로 가는 것이 맞다
+	// (ADR-0089, ADR-0100).
+	if cmd.lines.isSelection() {
+		buf.moveToRangeStart(area, m.contentWidth())
 	}
 
 	m.registers.storeYank(copied, "")

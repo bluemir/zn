@@ -21,12 +21,13 @@ func (buf Buffer) selectionRange() (motionRange, bool) {
 		startLine, startCol, endLine, endCol = endLine, endCol, startLine, startCol
 	}
 
-	// 커서는 범위의 시작으로 간다. 어느 쪽 끝에서 골랐든 같다 — vim 의 visual `y` 가 그렇다.
-	// 복사가 moveToRangeStart 로 이 자리를 쓴다(yank.go).
+	// **줄 단위여도 칸을 담는다.** 고치는 자리는 줄 전체를 쓰지만(selectionOn) 복사가 커서를
+	// 범위의 시작으로 옮길 때 그 칸이 필요하다 — 어느 쪽 끝에서 골랐든 처음 짚은 자리로
+	// 돌아가는 것이 vim 의 visual `y` 다(buffer-yank.go 의 moveToRangeStart, ADR-0100).
 	if buf.selection.linewise {
 		return motionRange{
-			startLine: startLine, endLine: endLine,
-			targetLine: startLine, targetCol: startCol,
+			startLine: startLine, startCol: startCol,
+			endLine: endLine, endCol: endCol,
 			linewise: true,
 		}, true
 	}
@@ -39,7 +40,6 @@ func (buf Buffer) selectionRange() (motionRange, bool) {
 	return motionRange{
 		startLine: startLine, startCol: startCol,
 		endLine: endLine, endCol: endCol,
-		targetLine: startLine, targetCol: startCol,
 	}, true
 }
 

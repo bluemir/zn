@@ -3,28 +3,19 @@ package core
 // 바꾸는 것들이다. `c`·`cc` 다. 지우고 insert 로 들어가는 것이라 지우기와 나란한데,
 // `cc` 만 줄을 없애지 않고 들여쓰기를 남긴다 — vim 과 같다 (ADR-0017).
 
-// changeByMotion 은 motion 이 가리키는 범위를 바꾼다. `c` 뒤에 붙은 키가 motion 이다.
+// changeRange 는 잡아 둔 범위를 바꾼다. 되돌리기 구간을 열어 둔 채 나오므로 이어 친 글자가
+// 같은 `u` 로 함께 돌아간다(ADR-0033).
 //
-// 지우고 insert mode 로 들어가는 것이 `d` 와 다른 전부라 범위 계산도 register 도 같이 쓴다.
+// **범위를 잡는 것은 부르는 쪽이다.** motion 이 잡은 것(`cw`) 도 visual 이 고른 것(`c`) 도
+// 여기로 온다 — 둘이 범위를 얻는 길만 다르고 그다음은 같다(action.go, ADR-0037).
+//
+// 지우고 insert mode 로 들어가는 것이 `d` 와 다른 전부라 범위도 register 도 같이 쓴다.
 // 다만 두 자리에서 갈린다(ADR-0013, ADR-0017).
 //
 //   - 줄 단위(`cc` `cj` `cG`) 는 줄을 없애지 않고 들여쓰기만 남긴 채 비운다
 //   - `cw` 는 단어 뒤 공백을 남긴다. vim 의 예외다
 //
-// 모르는 motion 이면 false 다. 그래야 `c` 뒤에 손이 미끄러진 키가 insert mode 로 끌고 가지 않는다.
 // 바꿀 것이 없어도(빈 줄에서 친 `cw`) true 다 — vim 처럼 그 자리에서 넣기 시작한다.
-func (buf *Buffer) changeByMotion(m motion, count, width int) (register, bool) {
-	area, ok := m.span(*buf, count, width)
-	if !ok {
-		return register{}, false
-	}
-
-	return buf.changeRange(area, width)
-}
-
-// changeRange 는 잡아 둔 범위를 바꾼다. 되돌리기 구간을 열어 둔 채 나오므로 이어 친 글자가
-// 같은 `u` 로 함께 돌아간다(ADR-0033).
-// motion 이 잡은 것도 visual 이 고른 것도 여기로 온다(ADR-0037).
 func (buf *Buffer) changeRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		removed := buf.changeLines(area.startLine, area.endLine, width)
@@ -48,21 +39,10 @@ func (buf *Buffer) changeRange(area motionRange, width int) (register, bool) {
 	return removed, true
 }
 
-// wordEndToChange 는 `cw` 가 바꿀 끝 자리로 간다. 커서가 선 글자까지 넣은 자리다.
-//
-// 첫 걸음만 지금 단어의 끝에서 멈춘다 — 이미 단어의 마지막 글자 위면 그 글자 하나가 전부다.
-// `e` 를 그대로 쓰면 거기서 다음 단어의 끝까지 먹는다. 나머지 걸음은 `e` 와 같아서
-// `c2w` 는 다음 단어의 끝까지다. vim 이 첫 걸음에만 예외를 두는 것과 같다.
-func (buf *Buffer) wordEndToChange(n int, kind wordKind, width int) {
-	if !buf.atWordEnd(kind) {
-		buf.wordEnd(kind)
-	}
-
-	buf.moveWordEnd(n-1, kind, width)
-	buf.includeCursorCluster()
-}
-
 // atWordEnd 는 커서가 단어의 마지막 글자 위인지다. 공백 위면 끝낼 단어가 없어서 false 다.
+//
+// `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
+// 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 func (buf Buffer) atWordEnd(kind wordKind) bool {
 	class := buf.classAt(buf.cursorLine, buf.cursorCol, kind)
 	if class == classBlank {

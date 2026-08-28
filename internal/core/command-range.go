@@ -184,15 +184,11 @@ func (r lineRange) area(buf Buffer) (motionRange, error) {
 		}
 	}
 
-	// target 은 motion 이 커서를 둔 자리다(motion.go). **손으로 친 범위에는 따라갈 이동이
-	// 없어서 커서 그 자리다** — 그러면 `:y` 의 moveToRangeStart 가 아무것도 하지 않아서
-	// `:1,5y` 가 커서를 1 줄로 끌어가지 않는다(buffer-yank.go 의 yankLines 가 적어 둔 규칙이다).
-	//
-	// `'<,'>` 로 온 것은 위에서 고른 범위를 그대로 주므로 그쪽 target 이 산다. 보고 있던
-	// 범위라 visual 의 `y` 처럼 커서가 시작으로 가는 것이 맞다.
+	// **손으로 친 범위에는 따라갈 이동이 없다.** 그래서 커서를 옮길지도 여기서 정하지 않는다 —
+	// `:y` 가 `isSelection()` 을 보고 가른다. `:1,5y` 는 커서를 1 줄로 끌어가지 않고
+	// `:'<,'>y` 만 visual 의 `y` 처럼 범위 시작으로 간다(view-editor-command.go, ADR-0100).
 	return motionRange{
 		startLine: from, endLine: to,
-		targetLine: buf.cursorLine, targetCol: buf.cursorCol,
 		linewise: true,
 	}, nil
 }
