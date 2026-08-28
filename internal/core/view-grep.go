@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -601,7 +602,10 @@ func (m viewGrep) renderRow(hit grepHit, selected bool, inner int) string {
 	// 들여쓰기는 떼고 보인다. 깊이 들여쓴 줄이 오면 내용 칸이 공백으로만 찬다.
 	// 뗀 만큼 매칭 자리도 당겨진다.
 	text := strings.TrimLeft(hit.text, " \t")
-	col := max(hit.col-(len(hit.text)-len(text)), 0)
+	trimmed := len(hit.text) - len(text)
+
+	// 줄 가운데 tab 을 빈 칸으로 편다. 매칭 자리도 같이 옮겨진다(ADR-0098).
+	text, col, end := grepExpandTabs(text, max(hit.col-trimmed, 0), max(hit.end-trimmed, 0))
 
 	// 내용 칸은 경로 칸과 사이 한 칸을 뺀 나머지다.
 	rest := max(body-width-1, 0)
@@ -615,7 +619,7 @@ func (m viewGrep) renderRow(hit grepHit, selected bool, inner int) string {
 	// 매칭이 행 어디에 앉았는지는 창이 안다. 창은 앞쪽만 접으므로 매칭 byte 는 길이가 그대로다.
 	start := len(head) + at
 
-	return grepHighlight(row, start, start+max(hit.end-hit.col, 0), selected)
+	return grepHighlight(row, start, start+max(end-col, 0), selected)
 }
 
 // grepHighlight 는 세운 행에서 매칭 구간에만 다른 색을 입힌다.
@@ -683,4 +687,62 @@ func grepWindow(text string, col, width int) (string, int) {
 	head := trimLeftToWidth(text[:col], grepContextCols)
 
 	return head + text[col:], len(head)
+}
+
+// grepExpandTabs 는 목록에 그릴 줄의 tab 을 빈 칸으로 편다. 매칭의 byte 자리도 옮겨서 준다.
+//
+// **편집 영역이 하는 일과 같다.** bubbletea 의 셀 렌더러는 폭 0 인 제어문자를 셀에 담지
+// 못해 버리는데(render-row.go 의 expandRow), 이 판은 그 길을 지나지 않아서 tab 이 화면에서
+// 사라졌다. 그런데 칸을 채우고 자르는 자(`screenWidthOf`) 는 tab 을 폭 있는 것으로 세므로
+// **센 것과 그린 것이 갈려 오른쪽 테두리가 들쭉날쭉해졌다.** 펴고 나면 tab 이 남지 않아
+// 둘이 같아진다 (ADR-0098).
+//
+// 폭은 기본값이다. 그 파일의 `tab_width` 를 쓰지 않는 까닭은 **앞의 들여쓰기를 이미 뗐기
+// 때문**이다 — 뗀 순간 tab stop 의 원점이 파일과 어긋나서, 어느 폭을 가져와도 파일에서
+// 보이던 자리가 되지 않는다(ADR-0096, ADR-0098).
+func grepExpandTabs(text string, col, end int) (string, int, int) {
+	if !strings.Contains(text, "\t") {
+		return text, col, end
+	}
+
+	line := []byte(text)
+	out := make([]byte, 0, len(line)+defaultTabWidth)
+
+	newCol, newEnd := -1, -1
+	width, offset := 0, 0
+
+	for offset < len(line) {
+		// 자리는 **지나가는 순간** 적는다. 매칭 경계가 글자 가운데일 수 있어서 같은지만
+		// 보면 못 잡고 지나친다.
+		if newCol < 0 && offset >= col {
+			newCol = len(out)
+		}
+		if newEnd < 0 && offset >= end {
+			newEnd = len(out)
+		}
+
+		if line[offset] == '\t' {
+			gap := defaultTabWidth - width%defaultTabWidth
+			out = append(out, bytes.Repeat([]byte{' '}, gap)...)
+			width += gap
+			offset++
+
+			continue
+		}
+
+		size, w := clusterAt(line, offset, width, defaultTabWidth)
+		out = append(out, line[offset:offset+size]...)
+		width += w
+		offset += size
+	}
+
+	// 줄 끝에 걸린 자리다. 매칭이 줄 끝까지면 end 가 여기다.
+	if newCol < 0 {
+		newCol = len(out)
+	}
+	if newEnd < 0 {
+		newEnd = len(out)
+	}
+
+	return string(out), newCol, newEnd
 }

@@ -532,3 +532,66 @@ func TestGrepOnEmptyScreenOpensAndCancels(t *testing.T) {
 	assert.False(t, back.(viewEditorEmpty).hasTab())
 	assert.Zero(t, back.(viewEditorEmpty).drawerHeight, "판이 걷힌다")
 }
+
+func TestGrepExpandTabs(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		col, end int
+		want     string
+		wantCol  int
+		wantEnd  int
+	}{
+		{name: "tab 이 없으면 그대로다", text: "func f()", col: 0, end: 4,
+			want: "func f()", wantCol: 0, wantEnd: 4},
+		{name: "다음 칸 경계까지 편다", text: "Age\tint", col: 0, end: 3,
+			want: "Age int", wantCol: 0, wantEnd: 3},
+		{name: "경계에 서 있으면 한 칸 전부", text: "Name\tstring", col: 0, end: 4,
+			want: "Name    string", wantCol: 0, wantEnd: 4},
+		{name: "tab 뒤의 매칭은 편 만큼 밀린다", text: "Age\tint", col: 4, end: 7,
+			want: "Age int", wantCol: 4, wantEnd: 7},
+		{name: "tab 둘", text: "a\tb\tc", col: 0, end: 1,
+			want: "a   b   c", wantCol: 0, wantEnd: 1},
+		{name: "매칭이 tab 을 품으면 그만큼 길어진다", text: "a\tb", col: 0, end: 3,
+			want: "a   b", wantCol: 0, wantEnd: 5},
+		{name: "한글 뒤의 tab 은 두 칸으로 세고 민다", text: "한\tx", col: 0, end: 3,
+			want: "한  x", wantCol: 0, wantEnd: 3},
+		{name: "매칭이 줄 끝까지", text: "a\tbb", col: 2, end: 5,
+			want: "a   bb", wantCol: 4, wantEnd: 6},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			text, col, end := grepExpandTabs(test.text, test.col, test.end)
+
+			assert.Equal(t, test.want, text)
+			assert.Equal(t, test.wantCol, col, "매칭 시작")
+			assert.Equal(t, test.wantEnd, end, "매칭 끝")
+		})
+	}
+}
+
+// tab 이 든 줄도 다른 행과 **정확히 같은 폭**이어야 한다.
+//
+// 펴지 않으면 bubbletea 가 tab 을 버리는데 칸을 채우는 자는 폭 있는 것으로 세어서, 그 행만
+// 짧아지고 오른쪽 테두리가 들쭉날쭉해진다(ADR-0098).
+func TestGrepRowKeepsWidthWithTabs(t *testing.T) {
+	e, paths := jumpEditor(t)
+	e.active = 0
+	require.NoError(t, gotoFile(e, paths[0], 0))
+
+	// 줄 가운데 tab 이 든 적중을 손으로 짓는다. 뛰지 않으므로 줄 번호만 있으면 된다.
+	m := newGrepView(t, "int",
+		grepHit{path: paths[0], line: 2, col: 4, end: 7, text: "\tAge\tint"},
+		grepHit{path: paths[0], line: 4, col: 0, end: 3, text: "func a() {}"},
+	)
+
+	inner := m.textWidth() - 4
+
+	for i, row := range m.renderListRows(inner) {
+		plain := ansi.Strip(row)
+		assert.Equal(t, m.textWidth(), screenColAt([]byte(plain), len(plain), defaultTabWidth),
+			"행 %d 이 판 폭과 같다: %q", i, plain)
+		assert.NotContains(t, plain, "\t", "행 %d 에 tab 이 남지 않는다", i)
+	}
+}
