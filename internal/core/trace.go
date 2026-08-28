@@ -74,6 +74,11 @@ func traceLine(model tea.Model, msg tea.Msg) string {
 		return "tick git" + traceBuffer(model)
 	case fileTickMsg:
 		return "tick file" + traceBuffer(model)
+
+	// 감시기가 무언가를 잡았다. tick 과 달리 **밖에서 실제로 일이 일어났을 때만** 오므로,
+	// 손을 대지 않았는데 이것이 쏟아지면 무엇이 그 저장소를 만지고 있다는 뜻이다(watch.go).
+	case watchMsg:
+		return "watch" + traceBuffer(model)
 	case jobProgressMsg:
 		return "job progress"
 	case jobDoneMsg:

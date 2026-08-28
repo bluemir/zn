@@ -57,42 +57,92 @@ type outsideResult struct {
 	err error
 }
 
-// startOutsideCheck 는 보고 있는 파일을 백그라운드에서 맞춰 보는 작업을 시작한다.
+// outsideTarget 은 맞춰 볼 파일 하나와 그때의 기준이다.
+//
+// 시작하는 자리에서 떠 둔다. 결과가 돌아올 때는 tab 이 닫히거나 바뀌어 있을 수 있어서
+// 검사하는 쪽이 buffer 를 들고 있으면 안 된다(ADR-0044).
+type outsideTarget struct {
+	path  string
+	seen  []byte
+	size  int64
+	mtime time.Time
+}
+
+// outsideTargets 는 열려 있는 buffer 전부를 맞춰 볼 거리로 만든다.
+//
+// **활성 buffer 하나가 아니라 전부다.** 보고 있지 않은 tab 의 파일이 밖에서 바뀌면 그
+// 낡은 내용이 tab 을 옮길 때까지 남고, gopls 에는 그 낡은 overlay 가 계속 실려 간다 —
+// ADR-0092 가 「알리지 않는 것보다 나쁜 자리」로 적어 둔 것이 그것이다(ADR-0093).
+//
+// 값 걱정은 앞잡이가 답한다. 유휴 상태의 검사 하나는 Lstat 하나라(ADR-0044) tab 이 열
+// 개여도 tick 마다 Lstat 열 번이다.
+func (e *editor) outsideTargets() []outsideTarget {
+	targets := make([]outsideTarget, 0, len(e.buffers))
+
+	for i := range e.buffers {
+		targets = append(targets, outsideTargetOf(&e.buffers[i]))
+	}
+
+	return targets
+}
+
+// outsideTargetOf 는 buffer 하나에서 기준을 뜬다.
+func outsideTargetOf(buf *Buffer) outsideTarget {
+	return outsideTarget{
+		path:  buf.path,
+		seen:  buf.diskHash,
+		size:  buf.diskSize,
+		mtime: buf.diskTime,
+	}
+}
+
+// startOutsideCheck 는 열려 있는 파일들을 백그라운드에서 맞춰 보는 작업을 시작한다.
 //
 // 읽기와 해시와 새 Buffer 만들기가 모두 이 작업 안에서 끝난다. `Update` 에는 아무 I/O 도
 // 남지 않는다 — 예전에는 이것이 `Update` 안에서 동기로 돌아, 100MB 파일에서 5 초마다 편집기가
 // 42ms(바뀐 것을 만나면 122ms) 멈췄다(ADR-0044).
 //
-// 무엇을 검사할지는 시작하는 이 자리에서 정한다. 결과가 돌아올 때는 tab 이 바뀌어 있을 수
-// 있으므로 경로로 다시 찾는다.
+// **인자 없는 작업 하나가 전부를 본다.** 파일마다 따로 시작하면 그것들이 「이미 도는 중」이라
+// 건너뛰어질 때 `jobDoneMsg` 가 하나도 오지 않고 cooldown 고리가 조용히 멈춘다. tab 이 없어도
+// 작업이 도는 것과 같은 까닭이다 — 시작하지 않으면 끝나지도 않는다(ADR-0044, ADR-0064).
 func (e *editor) startOutsideCheck() tea.Cmd {
-	// **tab 이 없어도 작업은 돈다.** 시작하지 않으면 끝나지도 않아서 cooldown 고리가 그
-	// 자리에서 멈추고, 그러면 빈 화면에서 파일을 열어도 검사가 다시 돌지 않는다. 이름 없는
-	// buffer 와 같은 자리로 보낸다 — checkOutsideFile 이 빈 경로를 「그대로인 것」 으로
-	// 끝낸다(ADR-0044, ADR-0064).
-	var (
-		path  string
-		seen  []byte
-		size  int64
-		mtime time.Time
-	)
-
-	if e.hasTab() {
-		buf := e.activeBuffer()
-
-		path = buf.path
-		seen = buf.diskHash
-		size = buf.diskSize
-		mtime = buf.diskTime
-	}
+	targets := e.outsideTargets()
 
 	return e.startJob(fileJobName, nil, func(ctx context.Context) <-chan jobProgress {
-		ch := make(chan jobProgress, 1)
+		return checkOutsideFiles(ctx, targets)
+	})
+}
 
-		go func() {
-			defer close(ch)
+// startOutsideCheckFor 는 파일 하나만 맞춰 본다. 감시기가 부르는 자리다(watch.go).
+//
+// **이름은 주기 검사와 같고 인자로 갈린다**(ADR-0075). 같은 이름이라 이 작업이 끝나는 것도
+// cooldown 을 잇는 자리를 그대로 지나고, 인자가 달라서 주기 검사와 서로를 막지 않는다.
+// 같은 파일에 이벤트가 잇달아 와도 신원이 같아 두 번 돌지 않는다.
+func (e *editor) startOutsideCheckFor(path string) tea.Cmd {
+	buf := e.bufferByPath(path)
+	if buf == nil {
+		return nil
+	}
 
-			result := checkOutsideFile(path, seen, size, mtime)
+	target := outsideTargetOf(buf)
+
+	return e.startJob(fileJobName, []string{path}, func(ctx context.Context) <-chan jobProgress {
+		return checkOutsideFiles(ctx, []outsideTarget{target})
+	})
+}
+
+// checkOutsideFiles 는 거리들을 차례로 맞춰 보고 하나씩 알린다. 작업 goroutine 이 도는 자리다.
+//
+// 거리가 없으면 아무것도 보내지 않고 채널을 닫는다. 그것으로 `jobDoneMsg` 가 오므로
+// tab 이 하나도 없어도 cooldown 고리는 이어진다.
+func checkOutsideFiles(ctx context.Context, targets []outsideTarget) <-chan jobProgress {
+	ch := make(chan jobProgress)
+
+	go func() {
+		defer close(ch)
+
+		for i, target := range targets {
+			result := checkOutsideFile(target.path, target.seen, target.size, target.mtime)
 
 			if err := ctx.Err(); err != nil {
 				ch <- jobProgress{err: err}
@@ -100,16 +150,29 @@ func (e *editor) startOutsideCheck() tea.Cmd {
 				return
 			}
 
-			ch <- jobProgress{
-				done:    1,
-				total:   1,
+			progress := jobProgress{
+				done:    i + 1,
+				total:   len(targets),
 				summary: outsideSummary(result),
-				apply:   func(e *editor) { e.applyOutsideResult(path, seen, result) },
+				apply:   func(e *editor) { e.applyOutsideResult(target.path, target.seen, result) },
 			}
-		}()
 
-		return ch
-	})
+			// 알아낸 것이 없는 파일은 요약을 덮지 않는다. 여럿을 볼 때 마지막 하나가
+			// 「그대로」라고 해서 앞에서 찾은 것이 `:jobs` 에서 지워지면 안 된다
+			// (updateJob 은 빈 요약을 흘려보낸다). 첫 조각만 바닥을 깔아 둔다.
+			if result.change == outsideSame && i > 0 {
+				progress.summary = ""
+			}
+
+			select {
+			case ch <- progress:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch
 }
 
 // checkOutsideFile 은 파일 하나를 맞춰 본다. 작업 goroutine 이 부르는 자리다.

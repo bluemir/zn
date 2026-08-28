@@ -219,6 +219,10 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		e.lspTickScheduled = false
 
 		return nil, e.syncGopls()
+	case watchMsg:
+		// 감시기가 무언가를 모아 두었다. 꺼내서 gopls 와 buffer 로 보내고 고리를 다시 잇는다
+		// (watch.go, ADR-0093).
+		return nil, e.applyWatch()
 	case goplsReadyMsg:
 		return nil, e.finishGopls(msg)
 	case diagnosticsMsg:

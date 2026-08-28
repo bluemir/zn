@@ -78,3 +78,59 @@ func TestReadGitExcludesFileExpandsHome(t *testing.T) {
 	rules := gitIgnore{root: dir, patterns: patterns, matcher: gitignore.NewMatcher(patterns)}
 	assert.True(t, rules.match("a.tmp", false))
 }
+
+// walkGitDirs 는 뿌리를 빈 문자열로 먼저 주고, 무시되는 디렉터리에는 들어가지 않는다.
+//
+// 감시를 붙일 목록이 이것이다(watch.go). 층층이 쌓이는 규칙을 따르므로 하위 `.gitignore`
+// 도 듣는다.
+func TestWalkGitDirs(t *testing.T) {
+	root := t.TempDir()
+
+	for _, dir := range []string{
+		".git", ".git/objects",
+		"zn-kept", "zn-kept/deep",
+		"zn-hidden", "zn-hidden/deep",
+		"zn-outer", "zn-outer/zn-inner",
+	} {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0755))
+	}
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte("zn-hidden/\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "zn-outer", ".gitignore"), []byte("zn-inner/\n"), 0644))
+
+	seen := []string{}
+	walkGitDirs(t.Context(), root, func(rel string) bool {
+		seen = append(seen, rel)
+
+		return true
+	})
+
+	assert.Equal(t, "", seen[0], "뿌리가 빈 문자열로 먼저 와야 감시가 뿌리에도 붙는다")
+
+	assert.Contains(t, seen, "zn-kept")
+	assert.Contains(t, seen, "zn-kept/deep")
+	assert.Contains(t, seen, "zn-outer")
+
+	assert.NotContains(t, seen, ".git", ".git 은 어느 깊이에서든 건너뛴다")
+	assert.NotContains(t, seen, ".git/objects", "무시된 디렉터리 안으로 들어갔다")
+	assert.NotContains(t, seen, "zn-hidden")
+	assert.NotContains(t, seen, "zn-hidden/deep")
+
+	// 하위 `.gitignore` 도 듣는다. 내려가기 전에 그 층의 규칙을 얹기 때문이다.
+	assert.NotContains(t, seen, "zn-outer/zn-inner")
+}
+
+// visit 이 그만두라고 하면 그 자리에서 멈춘다.
+func TestWalkGitDirsStops(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "zn-kept/deep"), 0755))
+
+	seen := 0
+	walkGitDirs(t.Context(), root, func(string) bool {
+		seen++
+
+		return false
+	})
+
+	assert.Equal(t, 1, seen, "그만두라고 했는데 계속 걸었다")
+}

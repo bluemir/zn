@@ -189,6 +189,70 @@ func gitIgnoreAt(root, startRel string) gitIgnore {
 	return ignore
 }
 
+// walkGitDirs 는 무시되지 않은 디렉터리를 뿌리 기준 상대 경로(`/` 로 나뉜 것) 로 하나씩 준다.
+// 뿌리 자신이 빈 문자열로 먼저 온다.
+//
+// 감시를 붙이는 자리가 부른다(watch.go). fsnotify 에는 재귀 감시가 없어서 디렉터리마다
+// 따로 등록해야 하고, 그 등록할 목록이 곧 이 함수의 답이다.
+//
+// **무시 규칙을 따르는 것이 이 함수의 값 전부다.** `node_modules` 와 `.git` 을 감시하면
+// 디렉터리 수가 자릿수로 뛴다 — 이 저장소만 해도 `.git` 을 세면 39 개가 313 개가 된다.
+// kqueue(macOS) 는 디렉터리 안의 항목마다 fd 를 열어서 그 차이가 그대로 fd 수다.
+//
+// walkGitDir 과 합치지 않는다. 그쪽은 파일만 주는데, 하나로 만들면 visit 이 「디렉터리인가」를
+// 인자로 받아야 하고 지금 부르는 셋 중 둘은 그 값을 버린다. 층층이 쌓는 규칙은 gitIgnore 가
+// 들고 있어서 여기에 겹치는 것은 걷는 뼈대뿐이다.
+func walkGitDirs(ctx context.Context, root string, visit func(rel string) bool) {
+	if !visit("") {
+		return
+	}
+
+	walkGitDirTree(ctx, root, "", gitIgnoreAt(root, ""), visit)
+}
+
+// walkGitDirTree 는 한 디렉터리의 하위 디렉터리들을 훑는다. false 는 「그만두라」는 뜻이다.
+//
+// 심볼릭 링크로 걸린 디렉터리는 들어가지 않는다. `entry.IsDir()` 이 링크에는 false 라
+// 저절로 그렇게 되고, 그 덕에 고리를 도는 일도 없다. walkGitDir 과 같은 자리다.
+func walkGitDirTree(ctx context.Context, root, rel string, ignore gitIgnore, visit func(rel string) bool) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+
+	entries, err := os.ReadDir(filepath.Join(root, rel))
+	if err != nil {
+		return true
+	}
+
+	for _, entry := range entries {
+		// .git 은 어느 깊이에서든 건너뛴다. worktree 나 submodule 에서는 디렉터리가 아니라
+		// 파일이라 종류보다 이름을 먼저 본다(walkGitDir 과 같은 태도다).
+		if entry.Name() == ".git" || !entry.IsDir() {
+			continue
+		}
+
+		childRel := entry.Name()
+		if rel != "" {
+			childRel = rel + "/" + entry.Name()
+		}
+
+		if ignore.match(childRel, true) {
+			continue
+		}
+
+		if !visit(childRel) {
+			return false
+		}
+
+		// 내려가기 전에 그 디렉터리의 `.gitignore` 를 먼저 얹는다.
+		if !walkGitDirTree(ctx, root, childRel, ignore.descend(childRel), visit) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // walkGitFiles 는 무시되지 않은 파일을 뿌리 기준 상대 경로(`/` 로 나뉜 것) 로 하나씩 준다.
 //
 // startRel 아래만 본다. 뿌리 전체를 볼 때는 빈 문자열이다 — 위쪽 층의 무시 규칙은 어느

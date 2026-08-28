@@ -77,6 +77,7 @@ func Run(ctx context.Context, files []string) error {
 	// 언어 서버는 Go 파일을 열 때 뜬다(ADR-0051). 나가는 길에 내리는 자리는 여기 하나다 —
 	// Program 이 돌아온 뒤가 편집기의 마지막이다.
 	defer editor.shutdownGopls()
+	defer editor.stopWatch()
 
 	// tab 이 없으면 normalMode 가 빈 화면을 준다. 여기서 가르지 않는다 — 편집 화면으로
 	// 가는 길이 다 그 함수를 지나므로 갈림길도 그 안에 있다(ADR-0064).

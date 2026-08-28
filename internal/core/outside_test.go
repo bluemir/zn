@@ -415,3 +415,45 @@ func TestOutsideCheckRunsWithoutTab(t *testing.T) {
 
 	assert.NotNil(t, e.startOutsideCheck(), "고리가 여기서 끊기면 안 된다")
 }
+
+// 주기 검사가 열려 있는 tab 전부를 본다.
+//
+// **보고 있지 않은 tab 이 여기서 풀린다.** 예전에는 활성 buffer 하나만 봐서, 다른 tab 의
+// 파일이 밖에서 바뀌면 그 낡은 내용이 tab 을 옮길 때까지 남았고 gopls 에는 그 낡은 overlay
+// 가 계속 실려 갔다. ADR-0092 가 「알리지 않는 것보다 나쁜 자리」로 적어 둔 것이다(ADR-0093).
+func TestTickChecksEveryOpenTab(t *testing.T) {
+	m, _ := newWideFileEditor(t, "첫째\n")
+
+	second := filepath.Join(t.TempDir(), "second.txt")
+	require.NoError(t, os.WriteFile(second, []byte("둘째\n"), 0644))
+
+	buf, err := OpenBuffer(second)
+	require.NoError(t, err)
+
+	m.buffers = append(m.buffers, buf)
+
+	// 보고 있지 않은 쪽을 밖에서 고친다. 활성 tab 은 첫째 그대로다.
+	require.NoError(t, os.WriteFile(second, []byte("남이 쓴 것\n"), 0644))
+
+	model := afterFileTick(t, m)
+
+	editor := model.(viewEditorNormal).editor
+	require.Equal(t, 0, editor.active, "활성 tab 이 옮겨졌다")
+
+	assert.Equal(t, "첫째", string(editor.buffers[0].lines[0]), "보고 있는 tab 이 건드려졌다")
+	assert.Equal(t, "남이 쓴 것", string(editor.buffers[1].lines[0]), "보고 있지 않은 tab 을 다시 읽지 않았다")
+}
+
+// tab 이 하나도 없어도 검사 작업은 돌고 끝난다.
+//
+// 시작하지 않으면 끝나지도 않아서 cooldown 고리가 그 자리에서 멈추고, 그러면 빈 화면에서
+// 파일을 열어도 검사가 다시 돌지 않는다(ADR-0044, ADR-0064).
+func TestTickRunsWithoutTabs(t *testing.T) {
+	m := newTestEditor("abc\n", 80, 10)
+	m.buffers = nil
+	m.active = -1
+
+	_, cmd := m.Update(fileTickMsg{})
+
+	assert.NotNil(t, cmd, "tab 이 없다고 고리가 끊긴다")
+}

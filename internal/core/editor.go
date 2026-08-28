@@ -102,6 +102,10 @@ type editor struct {
 	// 보내는 것은 250ms 뒤 한 번이다.
 	lspTickScheduled bool
 
+	// watch 는 디스크를 보고 있는 감시기다. 없으면 붙이지 못한 것이고, 그때도 주기 검사는
+	// 그대로 돌아서 정확성은 남고 반응만 느려진다(watch.go, ADR-0093).
+	watch *watcher
+
 	// ctx 는 편집기의 수명이다. core.Run 이 받은 것을 그대로 든다.
 	// 백그라운드 작업이 여기서 갈라져 나오므로 편집기를 끝내면 도는 것이 전부 정리된다(ADR-0027).
 	ctx context.Context
@@ -655,7 +659,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 // 첫 git 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
 // `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
 func (e *editor) startInitialJobs() tea.Cmd {
-	return tea.Batch(e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startGoplsForOpenBuffers())
+	return tea.Batch(e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startGoplsForOpenBuffers(), e.startWatch())
 }
 
 // editorView 는 mode 가 공유하는 화면이다.
