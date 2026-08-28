@@ -335,62 +335,34 @@ func (m viewLocations) View() tea.View {
 
 // hint 는 statusBar 아래 줄에 적는 말이다.
 //
-// 「무엇을 고르는 중이고 몇 개인가」가 판 안이 아니라 여기 있다. 판에 제목줄을 두면 목록에
-// 쓸 행이 하나 줄고, 그 한 줄이 낮은 화면에서는 목록의 절반이다. 기호 판이 개수를 판 안에
-// 둔 것과 갈리는데, 저쪽은 치면서 줄어드는 수라 눈이 입력줄에 붙어 있다(ADR-0056).
+// 「무엇을 고르는 중인가」가 판 안이 아니라 여기 있다. 판에 제목줄을 두면 목록에 쓸 행이
+// 하나 줄고, 그 한 줄이 낮은 화면에서는 목록의 절반이다. 기호 판이 개수를 판 안에 둔 것과
+// 갈리는데, 저쪽은 치면서 줄어드는 수라 눈이 입력줄에 붙어 있다(ADR-0056).
+//
+// **몇 번째인지도 몇 개인지도 적지 않는다.** 둘 다 아랫 테두리가 든다 — 숫자가 설명하는
+// 대상 옆에 있는 것이 낫고, 여기는 그만큼 키 안내에 자리를 넘긴다(ADR-0079, ADR-0101).
 func (m viewLocations) hint() string {
-	return fmt.Sprintf("%s %d 개  j/k 둘러보기  enter 확정  esc 취소", m.title, len(m.locations))
+	return m.title + "  j/k 둘러보기  enter 확정  esc 취소"
 }
 
 // renderDrawer 는 판 전체를 화면 행 문자열로 만든다. 각 행이 정확히 textWidth() 칸이다.
-//
-// 테두리는 다른 두 판과 같이 손으로 붙인다. lipgloss 의 Border 는 안쪽 내용의 폭을 스스로
-// 재는데 강조 escape 가 이미 섞여 있어서 그 계산을 믿을 수 없다.
 func (m viewLocations) renderDrawer() string {
-	width := m.textWidth()
-	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
-
-	chars := m.boxChars
-	line := strings.Repeat(chars.horizontal, width-2)
-
-	rows := []string{chars.topLeft + line + chars.topRight}
-	rows = append(rows, m.renderListRows(inner)...)
-	rows = append(rows, chars.bottomLeft+line+chars.bottomRight)
-
-	return strings.Join(rows, "\n")
+	return drawer{
+		chars:  m.boxChars,
+		width:  m.textWidth(),
+		height: m.locationsRows(),
+		top:    m.top,
+		count:  len(m.locations),
+		empty:  "갈 곳이 없습니다",
+		row: func(at, inner int) string {
+			return m.renderRow(m.locations[at], at == m.selected, inner)
+		},
+		at: m.selected + 1,
+	}.render()
 }
 
 // locationsMarkWidth 는 고른 자리 표시가 쓰는 폭이다.
 const locationsMarkWidth = 2
-
-// renderListRows 는 목록 행들이다. 갈 곳이 없으면 그 사실을 한 줄로 알린다.
-func (m viewLocations) renderListRows(inner int) []string {
-	side := m.boxChars.vertical
-	height := m.locationsRows()
-
-	body := make([]string, 0, height)
-	for at := m.top; at < len(m.locations) && len(body) < height; at++ {
-		body = append(body, m.renderRow(m.locations[at], at == m.selected, inner))
-	}
-
-	if len(m.locations) == 0 && height > 0 {
-		// padTo 는 채우기만 하고 자르지 않는다. 좁은 편집 영역에서는 이 문구가 상자보다
-		// 넓어서 오른쪽 테두리를 밀어낸다 — 먼저 자른다(view-registers.go).
-		empty := padTo(truncateToWidth("갈 곳이 없습니다", inner), inner)
-		body = append(body, styleDetail.Render(empty))
-	}
-
-	for len(body) < height {
-		body = append(body, strings.Repeat(" ", inner))
-	}
-
-	rows := make([]string, 0, len(body))
-	for _, text := range body {
-		rows = append(rows, side+" "+text+" "+side)
-	}
-
-	return rows
-}
 
 // renderRow 는 갈 곳 한 줄이다.
 //

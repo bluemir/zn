@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -303,50 +302,20 @@ func (m viewJumplogs) hint() string {
 
 // renderDrawer 는 판 전체를 화면 행 문자열로 만든다. 각 행이 정확히 textWidth() 칸이다.
 func (m viewJumplogs) renderDrawer() string {
-	width := m.textWidth()
-	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
-
-	chars := m.boxChars
-	line := strings.Repeat(chars.horizontal, width-2)
-
-	rows := []string{chars.topLeft + line + chars.topRight}
-	rows = append(rows, m.renderListRows(inner)...)
-
-	// 아랫 테두리가 몇 번째를 보고 있는지 든다(render-drawer-count.go, ADR-0079).
-	rows = append(rows, renderCountBorder(chars, width, m.selected+1, len(m.logs.places)))
-
-	return strings.Join(rows, "\n")
+	return drawer{
+		chars:  m.boxChars,
+		width:  m.textWidth(),
+		height: m.jumplogsRows(),
+		top:    m.top,
+		count:  len(m.logs.places),
+		empty:  "방문한 자리가 없습니다",
+		row:    m.renderRow,
+		at:     m.selected + 1,
+	}.render()
 }
 
 // jumplogsMarkWidth 는 고른 자리 표시가 쓰는 폭이다.
 const jumplogsMarkWidth = 2
-
-// renderListRows 는 목록 행들이다. 기록이 없으면 그 사실을 한 줄로 알린다.
-func (m viewJumplogs) renderListRows(inner int) []string {
-	side := m.boxChars.vertical
-	height := m.jumplogsRows()
-
-	body := make([]string, 0, height)
-	for at := m.top; at < len(m.logs.places) && len(body) < height; at++ {
-		body = append(body, m.renderRow(at, inner))
-	}
-
-	if len(m.logs.places) == 0 && height > 0 {
-		empty := padTo(truncateToWidth("방문한 자리가 없습니다", inner), inner)
-		body = append(body, styleDetail.Render(empty))
-	}
-
-	for len(body) < height {
-		body = append(body, strings.Repeat(" ", inner))
-	}
-
-	rows := make([]string, 0, len(body))
-	for _, text := range body {
-		rows = append(rows, side+" "+text+" "+side)
-	}
-
-	return rows
-}
 
 // renderRow 는 방문 한 줄이다. **맨 위가 가장 최근**이다 — 브라우저 방문 기록과 같다.
 //

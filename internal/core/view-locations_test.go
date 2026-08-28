@@ -256,15 +256,18 @@ func TestLocationsScrolls(t *testing.T) {
 
 // 화면에 제목과 개수와 고른 표시가 보인다.
 //
-// 「무엇을 고르는 중이고 몇 개인가」는 판 안이 아니라 statusBar 아래 줄에 있다 — 판에
-// 제목줄을 두면 목록에 쓸 행이 하나 줄고, 낮은 화면에서는 그 한 줄이 목록의 절반이다.
+// 「무엇을 고르는 중인가」는 판 안이 아니라 statusBar 아래 줄에 있다 — 판에 제목줄을 두면
+// 목록에 쓸 행이 하나 줄고, 낮은 화면에서는 그 한 줄이 목록의 절반이다.
+//
+// 「몇 번째 중 몇 개인가」는 아랫 테두리가 든다. 다른 판 셋과 같은 자리다(ADR-0101).
 func TestLocationsView(t *testing.T) {
 	m, _ := locationsFixture(t)
 
 	view := m.View()
 	content := ansi.Strip(view.Content)
 
-	assert.Contains(t, content, "정의 후보 3 개")
+	assert.Contains(t, content, "정의 후보  j/k 둘러보기")
+	assert.Contains(t, lastLine(ansi.Strip(m.renderDrawer())), "1/3")
 	assert.Contains(t, content, "▸ ")
 	// 경로가 화면보다 길면 왼쪽이 접히고 파일 이름과 줄 번호가 남는다.
 	assert.Contains(t, content, "first.go:3", "줄 번호는 1 부터 센다")
