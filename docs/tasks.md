@@ -545,16 +545,22 @@
 - [ ] visual 의 `viw` 를 넣을지 정한다. 지금은 `i` 가 버려지고 `w` 가 이동 키로 먹혀서 고른 범위가 한 낱말 늘어난다. visual 의 키 면적이 넓어지는 자리다 (ADR-0037, ADR-0091)
 - [ ] 검색 기록
 - [ ] 명령 기록
-- [ ] js lexer 가 정규식 리터럴(`/ab+/`) 을 모른다. `/` 가 나눗셈인지 정규식인지는 앞 토큰의 갈래를 봐야 갈리고, 반쯤 맞히면 정규식 안의 따옴표가 문자열을 연다 (ADR-0039)
-- [ ] js 의 template 보간(`${...}`) 안을 가른다. 지금은 통째로 문자열이다 (ADR-0039)
-- [ ] python 의 f-string 보간과 세 겹 따옴표 안의 escape. 세 겹 따옴표 안에서 escape 를 보지 않아서 닫는 따옴표 앞에 `\` 가 오면 문맥이 일찍 닫힌다 (ADR-0039)
-- [ ] Makefile 조리법과 Dockerfile `RUN` 본문을 shell lexer 로 잇는다. 지금은 둘 다 값 참조만 집는다 (ADR-0039, ADR-0040)
-- [ ] shell 의 heredoc(`<<EOF`). `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와 헷갈려 가장 틀리기 쉬운 자리다 (ADR-0039, ADR-0040)
-- [ ] dockerfile 의 heredoc(`RUN <<EOF`). 상태 하나가 늘고, shell 의 heredoc 과 같이 본다 (ADR-0039, ADR-0040)
-- [ ] makefile 의 `define`/`endef` 본문. 지금은 보통 줄로 읽는다 (ADR-0039)
-- [ ] css 의 nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다 (ADR-0039)
-- [ ] html 의 `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다 (ADR-0039, ADR-0040)
 - 언어 지원 추가. 강조 lexer 는 일부분일 뿐이고 언어 서버·자동완성·저장 hook 까지가 한 언어를 「지원한다」는 뜻이다. 지금 거기까지 간 것은 Go 하나다 (ADR-0051, ADR-0065, ADR-0066)
 	- [ ] python
+		- [ ] f-string 보간과 세 겹 따옴표 안의 escape. 세 겹 따옴표 안에서 escape 를 보지 않아서 닫는 따옴표 앞에 `\` 가 오면 문맥이 일찍 닫힌다 (ADR-0039)
 	- [ ] Javascript
+		- [ ] 정규식 리터럴(`/ab+/`) 을 모른다. `/` 가 나눗셈인지 정규식인지는 앞 토큰의 갈래를 봐야 갈리고, 반쯤 맞히면 정규식 안의 따옴표가 문자열을 연다 (ADR-0039)
+		- [ ] template 보간(`${...}`) 안을 가른다. 지금은 통째로 문자열이다 (ADR-0039)
+	- [ ] shell
+		- [ ] heredoc(`<<EOF`). `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와 헷갈려 가장 틀리기 쉬운 자리다. dockerfile 의 `RUN <<EOF` 와 같이 본다 (ADR-0039, ADR-0040)
+	- [ ] makefile
+		- [ ] 조리법 본문을 shell lexer 로 잇는다. 지금은 값 참조만 집는다. dockerfile 의 `RUN` 본문과 같이 본다 (ADR-0039, ADR-0040)
+		- [ ] `define`/`endef` 본문. 지금은 보통 줄로 읽는다 (ADR-0039)
+	- [ ] dockerfile
+		- [ ] `RUN` 본문을 shell lexer 로 잇는다. makefile 의 조리법과 같이 본다 (ADR-0039, ADR-0040)
+		- [ ] heredoc(`RUN <<EOF`). 상태 하나가 늘고, shell 의 heredoc 과 같이 본다 (ADR-0039, ADR-0040)
+	- [ ] css
+		- [ ] nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다 (ADR-0039)
+	- [ ] html
+		- [ ] `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다 (ADR-0039, ADR-0040)
 	- [ ] rust
