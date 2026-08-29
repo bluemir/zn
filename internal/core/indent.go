@@ -87,6 +87,10 @@ func editorconfigUnit(path string) []byte {
 // 명세대로 읽는 쪽이 다른 편집기와 같은 화면을 낸다 (ADR-0096).
 //
 // 1 보다 작으면 기본값이다. 0 을 그대로 넘기면 clusterAt 의 나머지 연산이 죽는다.
+//
+// **위로는 상한을 두지 않는다.** `tab_width = 200` 이면 tab 하나가 화면을 넘는데, 적어 둔
+// 사람의 뜻이 그렇다면 그대로 보이는 것이 맞다. 상한을 두면 적힌 것과 보이는 것이 갈리고
+// 그것이 이 값을 읽기로 한 까닭을 지운다. 줄바꿈은 그런 폭에서도 버틴다(`col > 0`).
 func resolveTabWidth(path string) int {
 	def := editorconfigFor(path)
 	if def == nil || def.TabWidth < 1 {
