@@ -153,16 +153,10 @@
 	- [x] markdown 코드펜스와 html 의 `<script>`·`<style>` 안을 그 언어로 훑는다 (ADR-0039, ADR-0040)
 	- [x] shell lexer 를 넣는다 (ADR-0040)
 	- [x] BUG| `<script>x</script>` 처럼 한 줄에서 닫히면 그 뒤 파일 나머지 전부가 script 안으로 읽혔다 (ADR-0040)
-	- [ ] Makefile 조리법과 Dockerfile `RUN` 본문을 shell lexer 로 잇는다. 지금은 둘 다 값 참조만 집는다 (ADR-0040)
-	- [ ] shell 의 heredoc(`<<EOF`). `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와 헷갈려 가장 틀리기 쉬운 자리다. Dockerfile 의 `RUN <<EOF` 와 같이 본다 (ADR-0040)
 	- [ ] 코드펜스 info string 의 첫 낱말만 색을 줄지 정한다. 언어는 첫 낱말로 고르는데 색은 전체에 붙어서 ```go title=x 가 통째로 type 색이다 (ADR-0040)
 	- [ ] 들여쓴 코드펜스의 들여쓰기를 안쪽 언어에 넘기기 전에 벗기지 않는다(CommonMark 는 벗긴다). 우리 lexer 중 앞 공백을 보는 것은 makefile 의 조리법 판정뿐이라 「들여쓴 펜스 안의 makefile」만 걸린다 (ADR-0040)
 	- [x] 코드펜스 중첩 깊이에 상한이 없다. 여는 줄만 이어지면 문맥 사슬이 줄 수만큼 깊어지고 `==` 가 그만큼 걷는다. 닫는 줄 하나가 사슬을 통째로 버리므로 실제 문서에서는 1~2 다 (ADR-0040)
 	- [ ] markdown 의 setext 제목(`===` 밑줄)·들여쓴 코드블록·표·참조 링크. 앞의 둘은 문단 상태가 필요하다
-	- [ ] css 의 nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다
-	- [ ] makefile 의 `define`/`endef` 본문. 지금은 보통 줄로 읽는다
-	- [ ] dockerfile 의 heredoc(`RUN <<EOF`). 상태 하나가 는다
-	- [ ] 조리법·`RUN` 본문의 shell 문법. shell lexer 가 없어서 값 참조만 집는다
 	- [ ] 파일 내용으로 언어를 알아본다(shebang). 지금은 이름만 봐서 파일이 없어도 같은 답이 나온다
 	- [ ] `treeRow.style()` 과 `styleSyntax` 가 확장자 표를 둘로 들고 있다. 트리는 묶음이 더 굵고 `.txt` 도 색이 있어서 일부러 합치지 않았는데, 언어를 더할 때 둘이 어긋날 수 있다
 	- [x] 밝은 테마와 어두운 테마에서 색을 따로 줄지 정한다 (ADR-0041)
@@ -173,7 +167,6 @@
 	- [x] 식별자 바로 뒤에 결합 문자(`e` + U+0301) 가 오면 토큰 경계가 글자 가운데를 가른다. `go/scanner` 가 결합 문자를 이름으로 보지 않아서다. 소스에서 나올 일이 거의 없어 두었다
 	- [x] Go 의 type 자리를 「식별자 둘이 붙으면 뒤쪽이 type」으로 잡는데, 포인터는 gofmt 가 `*` 를 이름에 붙이는 것에 기대고 있다(`*Buffer` 대 `a * b`). gofmt 를 거치지 않은 소스에서는 곱셈이 type 으로 보일 수 있다
 	- [ ] Go 의 generic 인자(`List[T]`) 와 함수 type 필드(`handler func()`) 는 아직 type 자리로 보지 않는다
-	- [ ] html 의 `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다
 	- [x] sticky header 와 autoindent 가 같은 토큰을 쓰게 한다 (ADR-0039, ADR-0047)
 - [x] sidebar 에서 `ma` 혹은 `mc` 로 새 파일 생성 (ADR-0054)
 - [x] sidebar 에서 `md` 로 파일 삭제 (ADR-0054)
@@ -555,7 +548,13 @@
 - [ ] js lexer 가 정규식 리터럴(`/ab+/`) 을 모른다. `/` 가 나눗셈인지 정규식인지는 앞 토큰의 갈래를 봐야 갈리고, 반쯤 맞히면 정규식 안의 따옴표가 문자열을 연다 (ADR-0039)
 - [ ] js 의 template 보간(`${...}`) 안을 가른다. 지금은 통째로 문자열이다 (ADR-0039)
 - [ ] python 의 f-string 보간과 세 겹 따옴표 안의 escape. 세 겹 따옴표 안에서 escape 를 보지 않아서 닫는 따옴표 앞에 `\` 가 오면 문맥이 일찍 닫힌다 (ADR-0039)
-- 언어 지원 추가
+- [ ] Makefile 조리법과 Dockerfile `RUN` 본문을 shell lexer 로 잇는다. 지금은 둘 다 값 참조만 집는다 (ADR-0039, ADR-0040)
+- [ ] shell 의 heredoc(`<<EOF`). `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와 헷갈려 가장 틀리기 쉬운 자리다 (ADR-0039, ADR-0040)
+- [ ] dockerfile 의 heredoc(`RUN <<EOF`). 상태 하나가 늘고, shell 의 heredoc 과 같이 본다 (ADR-0039, ADR-0040)
+- [ ] makefile 의 `define`/`endef` 본문. 지금은 보통 줄로 읽는다 (ADR-0039)
+- [ ] css 의 nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다 (ADR-0039)
+- [ ] html 의 `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다 (ADR-0039, ADR-0040)
+- 언어 지원 추가. 강조 lexer 는 일부분일 뿐이고 언어 서버·자동완성·저장 hook 까지가 한 언어를 「지원한다」는 뜻이다. 지금 거기까지 간 것은 Go 하나다 (ADR-0051, ADR-0065, ADR-0066)
 	- [ ] python
 	- [ ] Javascript
 	- [ ] rust
