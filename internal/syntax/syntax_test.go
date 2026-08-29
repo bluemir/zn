@@ -29,9 +29,10 @@ var kindNames = map[Kind]string{
 	KindVariable: "var",
 	KindKey:      "key",
 	KindHeading:  "heading",
-	KindEmphasis: "em",
-	KindStrong:   "strong",
-	KindLink:     "link",
+	KindEmphasis:      "em",
+	KindStrong:        "strong",
+	KindStrikethrough: "strike",
+	KindLink:          "link",
 }
 
 // lexed 는 문맥에 줄을 먹여 토큰을 `갈래:글자` 로 늘어놓는다.
@@ -98,7 +99,7 @@ var languageSamples = []struct {
 		lines: []string{
 			"# 언어별 syntax highlighting",
 			"",
-			"한글 본문에 `replaceLines` 와 *강조* 가 있고 [문서](https://example.com) 도 있다.",
+			"한글 본문에 `replaceLines` 와 *강조* 와 **굵게** 와 ~~지운 것~~ 이 있고 [문서](https://example.com) 도 있다.",
 			"> 인용문이다",
 			"```go",
 			"func main() {}",

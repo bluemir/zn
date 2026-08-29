@@ -216,6 +216,15 @@ func mdLexInline(line []byte) []Token {
 
 				continue
 			}
+		case '~':
+			// **표시가 둘일 때만 받는다.** `~` 하나는 홈 경로(`~/.config`) 와 범위(`1~2`) 에
+			// 홀로 쓰이는 글자라, 열어 주면 그 뒤 아무 `~` 까지가 통째로 그어진다.
+			if end, run, ok := mdEmphasisEnd(line, at); ok && run == 2 {
+				tokens = append(tokens, Token{Start: at, End: end, Kind: KindStrikethrough})
+				at = end
+
+				continue
+			}
 		}
 
 		at++
@@ -290,6 +299,9 @@ func mdAutolinkEnd(line []byte, at int) (int, bool) {
 }
 
 // mdEmphasisEnd 는 강조가 끝나는 자리와 표시의 개수다. 개수가 기울임(1) 과 굵기(2) 를 가른다.
+//
+// 취소선(`~~`) 도 이것을 쓴다. 표시 글자만 다르고 찾는 법이 같아서다. 몇 개를 받을지는
+// 부르는 쪽이 정한다 — `~` 는 둘만이다(mdLexInline).
 //
 // 여는 표시 뒤와 닫는 표시 앞에 빈 칸이 없어야 한다.
 //

@@ -79,6 +79,26 @@ func TestMarkdownLexLine(t *testing.T) {
 			line: "- [ ] 할 일이다",
 			want: []string{},
 		},
+		{
+			name: "취소선",
+			line: "이것은 ~~아니다~~ 로 남긴다",
+			want: []string{"strike:~~아니다~~"},
+		},
+		{
+			name: "표시 하나는 취소선이 아니다. 홈 경로가 그 글자를 쓴다",
+			line: "`~/.config/git/ignore` 와 `~/.gitconfig` 를 본다",
+			want: []string{"string:`~/.config/git/ignore`", "string:`~/.gitconfig`"},
+		},
+		{
+			name: "범위를 적는 물결도 열지 않는다",
+			line: "실제 문서에서는 1~2 다. 본문 색이 1.5~2.5:1 로 약해진다",
+			want: []string{},
+		},
+		{
+			name: "코드 스팬이 취소선보다 세다",
+			line: "`a ~~b~~ c` 다",
+			want: []string{"string:`a ~~b~~ c`"},
+		},
 	}
 
 	for _, test := range tests {

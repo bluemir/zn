@@ -58,6 +58,13 @@ const (
 	// 어긋난다.
 	KindStrong
 
+	// KindStrikethrough 는 markdown 의 `~~foo~~` 다.
+	//
+	// **표시가 둘뿐인 것이 다른 강조와 다르다.** `*` `_` 는 하나로도 열리는데 `~` 는 안 된다.
+	// 홈 경로(`~/.config`) 와 범위(`1~2`) 에 홀로 쓰이는 글자라, 하나로 열어 주면 그 뒤
+	// 아무 `~` 까지가 통째로 그어진다.
+	KindStrikethrough
+
 	// KindLink 는 가리키는 자리다. markdown 의 `[글](주소)` 의 주소와 `<주소>` 다.
 	// 앞으로 html 의 `href`·`src` 값도 여기다.
 	//
