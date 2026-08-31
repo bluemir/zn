@@ -71,7 +71,7 @@ type outsideTarget struct {
 // outsideTargets 는 열려 있는 buffer 전부를 맞춰 볼 거리로 만든다.
 //
 // **활성 buffer 하나가 아니라 전부다.** 보고 있지 않은 tab 의 파일이 밖에서 바뀌면 그
-// 낡은 내용이 tab 을 옮길 때까지 남고, gopls 에는 그 낡은 overlay 가 계속 실려 간다 —
+// 낡은 내용이 tab 을 옮길 때까지 남고, 언어 서버에는 그 낡은 overlay 가 계속 실려 간다 —
 // ADR-0092 가 「알리지 않는 것보다 나쁜 자리」로 적어 둔 것이 그것이다(ADR-0093).
 //
 // 값 걱정은 앞잡이가 답한다. 유휴 상태의 검사 하나는 Lstat 하나라(ADR-0044) tab 이 열

@@ -45,7 +45,7 @@ type jobProgress struct {
 // 이어 붙이던 때는 신원이 곧 화면 글자라, 같은 일을 하는 작업들이 목록에서 서로 남이었다
 // (ADR-0075).
 //
-// args 가 빈 작업이 여섯이고(git 상태·파일 검사·gopls 설치·goimports 설치·파일 인덱싱·
+// args 가 빈 작업이 여섯이고(git 상태·파일 검사·언어 서버 설치·goimports 설치·파일 인덱싱·
 // 유니코드 훑기) 그것들은 신원이 곧 이름이라 한 번에 하나만 돈다.
 type job struct {
 	name        string
@@ -224,24 +224,27 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// 문법 토큰도 여기서 묻는다. 이동 키도 이 tick 을 예약하므로 화면이 굴러간 것까지
 		// 같은 자리가 받는다(semantic.go, ADR-0103).
-		return nil, tea.Batch(e.syncGopls(), e.startSemanticTokens())
+		return nil, tea.Batch(e.syncServers(), e.startSemanticTokens())
 	case watchMsg:
-		// 감시기가 무언가를 모아 두었다. 꺼내서 gopls 와 buffer 로 보내고 고리를 다시 잇는다
+		// 감시기가 무언가를 모아 두었다. 꺼내서 언어 서버와 buffer 로 보내고 고리를 다시 잇는다
 		// (watch.go, ADR-0093).
 		return nil, e.applyWatch()
-	case goplsReadyMsg:
-		return nil, e.finishGopls(msg)
+	case serverReadyMsg:
+		return nil, e.finishServer(msg)
 	case diagnosticsMsg:
 		// 서버가 진단을 밀어 주었다. 우리가 물은 답이 아니라 서버가 자기 때에 보낸 것이라
 		// 여기서 화면에 올리고 다음 것을 기다리는 고리를 다시 잇는다(diagnostics.go, ADR-0086).
 		e.applyDiagnostics()
 
-		if e.gopls == nil {
+		// 고리는 울린 그 서버에 다시 건다. 서버가 여럿이라 남의 고리를 다시 걸면 그 서버의
+		// 고리가 둘이 되고 울린 쪽은 끊긴다(ADR-0107).
+		client := e.clientNamed(msg.server)
+		if client == nil {
 			// 서버를 내리는 중에 마지막 종이 울린 것이다. 기다릴 상대가 없다.
 			return nil, nil
 		}
 
-		return nil, waitDiagnostics(e.gopls)
+		return nil, waitDiagnostics(msg.server, client)
 	case semanticTokensMsg:
 		// 언어 서버가 창 안의 갈래를 말해 주었다. 얹기만 하고 다음을 예약하지 않는다 —
 		// 다음에 묻는 것은 타이핑이나 이동이 멎는 자리다(semantic.go, ADR-0103).
@@ -284,9 +287,13 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil, e.scheduleGitTick()
 		case fileJobName:
 			return nil, e.scheduleFileTick()
-		case goplsJobName:
-			if !e.goplsFailed {
-				return nil, e.startGoplsForOpenBuffers()
+		}
+
+		// 언어 서버를 깐 것이 끝났으면 그 서버를 띄워 본다. `switch` 의 case 로 적지 못하는
+		// 것은 설치 작업 이름이 서버마다 달라서다(language-server.go 의 serverJobName).
+		if server := serverForJobName(msg.name); server != nil {
+			if !e.serverState(server).failed {
+				return nil, e.startServer(server)
 			}
 		}
 

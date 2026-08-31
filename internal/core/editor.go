@@ -11,7 +11,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/assets"
-	"github.com/bluemir/zn/internal/lsp"
 )
 
 // editor 는 mode 가 바뀌어도 유지되는 상태다.
@@ -68,23 +67,16 @@ type editor struct {
 	gitTickScheduled  bool
 	fileTickScheduled bool
 
-	// gopls 는 도는 언어 서버다. Go 파일을 처음 열 때 뜨고 그 뒤로 하나뿐이다(ADR-0051).
+	// servers 는 도는 언어 서버들이다. 키는 서버 이름이고, 그 언어의 파일을 처음 열 때
+	// 뜬다(ADR-0051, ADR-0107).
 	//
-	// goplsStarting 은 뜨는 중인지고 goplsFailed 는 한 번 실패했는지다. 실패한 뒤에는
-	// 다시 걸지 않는다 — 까닭이 대개 「깔려 있지 않다」 라서 파일을 열 때마다 다시 시도해도
-	// 나아지지 않고, 그때마다 오류 문구가 화면 아래를 차지한다.
-	gopls         *lsp.Client
-	goplsStarting bool
-	goplsFailed   bool
+	// **서버마다 자기 상태를 든다.** 뜨는 중인지·실패했는지·몇 번 죽었는지가 서버마다
+	// 다른 값이다(language-server.go 의 languageServer).
+	servers map[string]*languageServer
 
-	// goplsDeaths 는 서버가 뜬 뒤에 죽은 횟수다. **되살리기를 멈추는 자리가 있어야 해서
-	// 센다** — 뜨자마자 죽는 서버를 끝없이 되살리면 tick 마다 프로세스가 하나씩 뜬다
-	// (goplsClient, ADR-0092).
-	goplsDeaths int
-
-	// goplsRoot 는 서버에게 준 뿌리, 곧 편집기를 연 자리다. 서버가 참조를 찾는 범위가
+	// serverRoot 는 서버들에게 준 뿌리, 곧 편집기를 연 자리다. 서버가 참조를 찾는 범위가
 	// 여기까지라, 이름 바꾸기가 이 밖의 파일을 거절하는 근거가 된다(rename.go, ADR-0067).
-	goplsRoot string
+	serverRoot string
 
 	// completion 은 insert 에서 떠 있는 자동완성 목록이다. 비어 있으면 닫힌 것이다.
 	//
@@ -95,13 +87,16 @@ type editor struct {
 	completionSeq    int
 	completionAsking bool
 
-	// saveHooks 는 폴더마다 찾아 둔 저장 포매터다. 없다고 판정한 것은 nil 로 담긴다 —
-	// 「아직 안 찾아봤다」와 「찾아봤는데 없다」가 갈려야 저장마다 다시 뒤지지 않는다.
+	// saveHooks 는 「어느 포매터를 어느 폴더에서」마다 찾아 둔 명령이다. 없다고 판정한 것은
+	// nil 로 담긴다 — 「아직 안 찾아봤다」와 「찾아봤는데 없다」가 갈려야 저장마다 다시
+	// 뒤지지 않는다.
 	//
-	// goimportsDeclined 는 설치를 거절했는지다. 거절한 뒤로는 묻지 않는다 — 저장은 손이
-	// 가장 자주 가는 자리라, 물음이 되풀이되면 그것이 곧 방해다(save-hook.go, ADR-0065).
-	saveHooks         map[string]*saveHook
-	goimportsDeclined bool
+	// formattersDeclined 는 포매터마다 설치를 거절했는지다. 거절한 뒤로는 묻지 않는다 —
+	// 저장은 손이 가장 자주 가는 자리라, 물음이 되풀이되면 그것이 곧 방해다. 포매터마다
+	// 따로 적는 것은 한쪽을 거절한 것이 다른 언어의 물음을 삼키지 않게 하려는 것이다
+	// (save-hook.go, ADR-0065, ADR-0107).
+	saveHooks          map[saveHookKey]*saveHook
+	formattersDeclined map[string]bool
 
 	// editTickScheduled 는 서버와 맞출 예약이 이미 걸려 있는지다. git·파일 검사와 같은 자리다
 	// (ADR-0043). 이것이 타이핑을 모아 주는 자리이기도 하다 — 예약이 하나라 키를 여러 번 쳐도
@@ -386,7 +381,7 @@ func (e *editor) openTab(path string) (tea.Cmd, error) {
 
 	// Go 파일을 열었으면 언어 서버를 미리 띄운다. 첫 요청이 서버가 모듈을 훑는 동안 1 초
 	// 남짓 걸려서, 파일을 여는 자리에서 시작해 두면 그 기다림이 `\gd` 앞으로 옮겨간다(ADR-0051).
-	return tea.Batch(e.revealInSidebar(path), e.startGoplsForOpenFile(path)), nil
+	return tea.Batch(e.revealInSidebar(path), e.startServerForOpenFile(path)), nil
 }
 
 // replaceTab 은 활성 tab 의 내용을 그 파일로 갈아끼운다. tab 수는 그대로다. `:e <파일>` 이 쓴다.
@@ -420,7 +415,7 @@ func (e *editor) replaceTab(path string) (tea.Cmd, error) {
 
 	e.buffers[e.active] = buf
 
-	return tea.Batch(e.revealInSidebar(path), e.startGoplsForOpenFile(path)), nil
+	return tea.Batch(e.revealInSidebar(path), e.startServerForOpenFile(path)), nil
 }
 
 // tabOf 는 그 파일을 이미 열어둔 tab 을 찾는다.
@@ -673,7 +668,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 // 첫 git 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
 // `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
 func (e *editor) startInitialJobs() tea.Cmd {
-	return tea.Batch(e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startGoplsForOpenBuffers(), e.startWatch())
+	return tea.Batch(e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startServersForOpenBuffers(), e.startWatch())
 }
 
 // editorView 는 mode 가 공유하는 화면이다.

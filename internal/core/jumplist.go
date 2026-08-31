@@ -76,7 +76,7 @@ func jumpMotion(mo moveMotion) bool {
 //
 // 담는 것은 「뛴 곳」이 아니라 「뛰기 전 자리」다. `ctrl+o` 가 데려다줄 곳이 그것이다.
 //
-// 부르는 자리는 넷이다 — 정의·사용처가 곧바로 뛸 때(gopls.go, references.go), `GOTO` 판에서
+// 부르는 자리는 넷이다 — 정의·사용처가 곧바로 뛸 때(language-server.go, references.go), `GOTO` 판에서
 // 처음 뛸 때(view-locations.go), 검색이 옮길 때(view-editor-search.go 의 jumpToMatch).
 // 되짚는 이동(goToPlace) 은 부르지 않는다.
 //
@@ -181,7 +181,7 @@ func (e *editor) jumpForward() tea.Cmd {
 // **이 이동은 이력에 담지 않는다.** 되짚는 것이 새 jump 가 되면 되돌아갈 수 없다.
 //
 // 줄이 파일 밖을 가리키면 moveTo 가 안쪽으로 잡아 준다 — 담아 둔 뒤에 그 파일이 짧아진
-// 경우이고, 그때는 엉뚱한 줄보다 파일 끝이 낫다(gopls.go 의 moveToLocation 과 같다).
+// 경우이고, 그때는 엉뚱한 줄보다 파일 끝이 낫다(language-server.go 의 moveToLocation 과 같다).
 func (e *editor) goToPlace(place jumpPlace) tea.Cmd {
 	cmd, err := e.openTab(place.path)
 	if err != nil {

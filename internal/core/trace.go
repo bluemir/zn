@@ -253,7 +253,7 @@ func modeName(model tea.Model) string {
 		return "GOTO"
 	case viewMessages:
 		return "MESSAGES"
-	case viewConfirmDiscard, viewGoplsInstallConfirm, viewGoimportsInstallConfirm:
+	case viewConfirmDiscard, viewServerInstallConfirm, viewFormatterInstallConfirm:
 		return "CONFIRM"
 	}
 

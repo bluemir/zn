@@ -106,8 +106,8 @@ func (c *Client) Diagnostics(path string) []Diagnostic {
 // DiagnosticsChanged 는 진단이 바뀌었다고 울리는 종이다.
 //
 // 받은 쪽은 Diagnostics 로 지금 상태를 읽어간다. 무엇이 바뀌었는지는 싣지 않는다 —
-// 열려 있는 파일을 훑어 다시 맞추는 것이 gopls 와 맞추는 자리에서 이미 쓰는 손이다
-// (core/gopls.go 의 syncGopls).
+// 열려 있는 파일을 훑어 다시 맞추는 것이 서버와 맞추는 자리에서 이미 쓰는 손이다
+// (core/language-server.go 의 syncServers).
 func (c *Client) DiagnosticsChanged() <-chan struct{} {
 	return c.diagnostics.changed
 }

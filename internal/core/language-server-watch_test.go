@@ -12,7 +12,7 @@ import (
 	"github.com/bluemir/zn/internal/lsp"
 )
 
-// HEAD 가 움직인 사이에 달라진 Go 파일을 골라내는 자리다(ADR-0092).
+// HEAD 가 움직인 사이에 달라진 파일을 서버별로 골라내는 자리다(ADR-0092, ADR-0107).
 
 // gitCommitFixture 는 commit 둘이 든 저장소를 만들고 두 해시를 준다.
 //
@@ -55,16 +55,19 @@ func gitCommitFixture(t *testing.T) (root, first, second string) {
 
 	write("keep.go", "package p\n\nfunc Keep() {}\n")
 	write("gone.go", "package p\n\nfunc Gone() {}\n")
+	write("app.py", "def keep():\n    pass\n")
 	write("notes.md", "첫 글\n")
 	run("add", "-A")
 	run("commit", "-qm", "첫째")
 
 	first = run("rev-parse", "HEAD")
 
-	// 하나는 고치고, 하나는 지우고, 하나는 만든다. Go 가 아닌 것도 하나 고친다.
+	// 하나는 고치고, 하나는 지우고, 하나는 만든다. python 파일과 어느 서버도 안 보는 것도
+	// 같이 고쳐서, 갈라 담는지를 함께 잰다.
 	write("keep.go", "package p\n\nfunc Keep() int { return 1 }\n")
 	require.NoError(t, os.Remove(filepath.Join(root, "gone.go")))
 	write("deep/new.go", "package deep\n\nfunc New() {}\n")
+	write("app.py", "def keep():\n    return 1\n")
 	write("notes.md", "둘째 글\n")
 	run("add", "-A")
 	run("commit", "-qm", "둘째")
@@ -83,7 +86,8 @@ func trimHash(out string) string {
 	return out
 }
 
-// 고친 것·지운 것·만든 것이 각각의 갈래로 온다. Go 가 아닌 것은 빠진다.
+// 고친 것·지운 것·만든 것이 각각의 갈래로 온다. 서버마다 자기 몫만 담기고, 어느 서버도
+// 보지 않는 것은 빠진다.
 func TestGitTreeChanges(t *testing.T) {
 	root, first, second := gitCommitFixture(t)
 
@@ -99,25 +103,37 @@ func TestGitTreeChanges(t *testing.T) {
 	resolved, err := filepath.EvalSymlinks(root)
 	require.NoError(t, err)
 
-	got := map[string]lsp.FileChangeKind{}
-	for _, change := range changes {
-		rel, err := filepath.Rel(resolved, change.Path)
-		require.NoError(t, err)
+	relative := func(name string) map[string]lsp.FileChangeKind {
+		got := map[string]lsp.FileChangeKind{}
+		for _, change := range changes[name] {
+			rel, err := filepath.Rel(resolved, change.Path)
+			require.NoError(t, err)
 
-		got[filepath.ToSlash(rel)] = change.Kind
+			got[filepath.ToSlash(rel)] = change.Kind
+		}
+
+		return got
 	}
 
 	assert.Equal(t, map[string]lsp.FileChangeKind{
 		"keep.go":     lsp.FileChanged,
 		"gone.go":     lsp.FileDeleted,
 		"deep/new.go": lsp.FileCreated,
-	}, got, "Go 파일만, 갈래를 맞춰서 온다")
+	}, relative("gopls"), "Go 파일만, 갈래를 맞춰서 온다")
 
-	assert.NotContains(t, got, "notes.md", "gopls 가 볼 것이 아니다")
+	assert.Equal(t, map[string]lsp.FileChangeKind{
+		"app.py": lsp.FileChanged,
+	}, relative("pyright"), "python 파일은 python 서버 몫이다")
 
-	// 경로는 절대 경로다. URI 로 감싸는 쪽이 그것을 요구한다(goplsPath 와 같은 기준이다).
-	for _, change := range changes {
-		assert.True(t, filepath.IsAbs(change.Path), "절대 경로여야 한다: %s", change.Path)
+	assert.NotContains(t, relative("gopls"), "app.py", "남의 언어 파일이 섞이지 않는다")
+	assert.NotContains(t, relative("gopls"), "notes.md", "어느 서버도 볼 것이 아니다")
+	assert.NotContains(t, relative("pyright"), "notes.md")
+
+	// 경로는 절대 경로다. URI 로 감싸는 쪽이 그것을 요구한다(serverPath 와 같은 기준이다).
+	for _, files := range changes {
+		for _, change := range files {
+			assert.True(t, filepath.IsAbs(change.Path), "절대 경로여야 한다: %s", change.Path)
+		}
 	}
 }
 
@@ -135,12 +151,13 @@ func TestGitTreeChangesNothingToCompare(t *testing.T) {
 	assert.Nil(t, gitTreeChanges(t.Context(), first, ""), "없는 해시는 commit 을 못 찾는다")
 }
 
-// **알릴 곳이 없으면 아무 일도 하지 않는다.** 서버가 없거나 HEAD 가 그대로인 때다.
-func TestGoplsWatchChangesGuards(t *testing.T) {
-	// nil client 로 불러도 터지지 않는다. gopls 가 안 떠 있는 것이 흔한 상태다.
-	goplsWatchChanges(t.Context(), nil, "aaa", "bbb")
-	goplsWatchChanges(t.Context(), nil, "", "bbb")
-	goplsWatchChanges(t.Context(), nil, "aaa", "aaa")
+// **알릴 곳이 없으면 아무 일도 하지 않는다.** 떠 있는 서버가 없거나 HEAD 가 그대로인 때다.
+func TestServerWatchChangesGuards(t *testing.T) {
+	// 빈 목록으로 불러도 터지지 않는다. 서버가 안 떠 있는 것이 흔한 상태다.
+	serverWatchChanges(t.Context(), nil, "aaa", "bbb")
+	serverWatchChanges(t.Context(), nil, "", "bbb")
+	serverWatchChanges(t.Context(), nil, "aaa", "aaa")
+	serverWatchChanges(t.Context(), map[string]*lsp.Client{}, "aaa", "bbb")
 }
 
 // 저장소가 아니면 볼 것이 없다.

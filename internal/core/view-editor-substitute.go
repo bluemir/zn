@@ -101,7 +101,7 @@ func (m viewEditorSubstitute) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// 진행도와 주기 tick 은 mode 와 무관하다. 다른 mode 와 같은 공용 처리다(job.go).
 		//
 		// **다만 mode 는 바꾸지 않는다.** 여기는 되돌리기 구간을 연 채 물어보는 자리라,

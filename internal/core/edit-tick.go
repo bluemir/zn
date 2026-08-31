@@ -36,7 +36,7 @@ func (e *editor) scheduleEditTick() tea.Cmd {
 		return nil
 	}
 
-	if e.gopls == nil && !e.hasGitBase() {
+	if !e.anyServerRunning() && !e.hasGitBase() {
 		return nil
 	}
 

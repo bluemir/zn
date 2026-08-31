@@ -5,19 +5,21 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 )
 
-// Client 는 도는 언어 서버 하나다. 지금은 gopls 다(ADR-0051).
+// Client 는 도는 언어 서버 하나다(ADR-0051, ADR-0107).
 //
-// 편집기가 도는 동안 하나만 있고, Go 파일을 처음 열 때 뜬다. 편집기가 끝나면 ctx 가 끊겨
+// 서버마다 하나씩 있고, 그 언어의 파일을 처음 열 때 뜬다. 편집기가 끝나면 ctx 가 끊겨
 // 프로세스도 같이 죽는다 — 작업들이 편집기 수명에서 갈라져 나오는 것과 같다(ADR-0027).
 type Client struct {
 	conn *conn
 	cmd  *exec.Cmd
+
+	// server 는 이것이 어느 서버인지다. 이름은 오류 문구에, languageID 는 didOpen 에 든다.
+	server *Server
 
 	// mu 는 docs 를 지킨다. 요청은 tea 의 Cmd goroutine 에서 오므로 여럿이 동시에 온다.
 	mu   sync.Mutex
@@ -40,35 +42,38 @@ type Client struct {
 // 부르는 쪽이 Cmd 안에서 부른다(ADR-0051).
 //
 // root 는 서버가 볼 작업 폴더다. zn 을 띄운 자리를 그대로 넘긴다 — 파일 트리의 뿌리와 같다.
-func Start(ctx context.Context, root string) (*Client, error) {
-	binary, err := findGopls()
+//
+// server 는 띄울 서버 한 줄이다(server.go 의 표). 실행 파일을 찾는 법도 그 줄이 안다.
+func Start(ctx context.Context, root string, server *Server) (*Client, error) {
+	binary, err := server.find(root)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.CommandContext(ctx, binary, "-mode=stdio")
+	cmd := exec.CommandContext(ctx, binary, server.args...)
 	cmd.Dir = root
 
-	// stderr 는 버린다. gopls 가 쓰는 것은 자기 로그이고, 우리 화면은 터미널을 나눠 쓰고 있어서
+	// stderr 는 버린다. 서버가 쓰는 것은 자기 로그이고, 우리 화면은 터미널을 나눠 쓰고 있어서
 	// 그대로 두면 그림 위에 글자가 쏟아진다.
 	cmd.Stderr = nil
 
 	in, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, errors.Wrap(err, "gopls 의 stdin 을 열지 못했다")
+		return nil, errors.Wrapf(err, "%s 의 stdin 을 열지 못했다", server.Name)
 	}
 
 	out, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, errors.Wrap(err, "gopls 의 stdout 을 열지 못했다")
+		return nil, errors.Wrapf(err, "%s 의 stdout 을 열지 못했다", server.Name)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, errors.Wrapf(err, "gopls 를 띄우지 못했다 (%s)", binary)
+		return nil, errors.Wrapf(err, "%s 를 띄우지 못했다 (%s)", server.Name, binary)
 	}
 
 	client := &Client{
 		cmd:         cmd,
+		server:      server,
 		docs:        map[string]*document{},
 		diagnostics: newDiagnosticStore(),
 	}
@@ -104,22 +109,28 @@ func Start(ctx context.Context, root string) (*Client, error) {
 //
 // **문법 토큰은 설정으로 켠다.** gopls 의 `semanticTokens` 는 기본값이 꺼짐이라(v0.23.0 의
 // `gopls api-json` 에서 확인) 켜지 않으면 악수 응답에 이름표가 아예 없다. 능력 칸이 아니라
-// 서버 설정이라 이 한 줄로 끝나고, 빈 능력은 그대로다 — 재 보니 능력을 비운 채로도 토큰이
-// 온다(ADR-0103).
+// 서버 설정이라 표의 한 칸으로 끝나고, 빈 능력은 그대로다 — 재 보니 능력을 비운 채로도
+// 토큰이 온다(server.go 의 initOptions, ADR-0103).
+//
+// **설정이 없는 서버는 빈 객체로 간다.** pyright 는 그 칸이 비어 있다 — 재보니 켤 것이
+// 없고, `typeCheckingMode` 를 여기 실어 봐도 진단이 달라지지 않았다(ADR-0107).
 func (c *Client) initialize(root string) error {
+	options := c.server.initOptions
+	if options == nil {
+		options = map[string]any{}
+	}
+
 	result, err := c.conn.call("initialize", map[string]any{
 		"processId": os.Getpid(),
 		"rootUri":   fileURI(root),
 		"clientInfo": map[string]any{
 			"name": "zn",
 		},
-		"capabilities": map[string]any{},
-		"initializationOptions": map[string]any{
-			"semanticTokens": true,
-		},
+		"capabilities":          map[string]any{},
+		"initializationOptions": options,
 	})
 	if err != nil {
-		return errors.Wrap(err, "gopls 와 악수하지 못했다")
+		return errors.Wrapf(err, "%s 와 악수하지 못했다", c.server.Name)
 	}
 
 	c.semantic = readSemanticLegend(result)
@@ -146,7 +157,7 @@ func (c *Client) Open(path string, lines [][]byte) error {
 	return c.conn.notify("textDocument/didOpen", map[string]any{
 		"textDocument": textDocumentItem{
 			URI:        fileURI(path),
-			LanguageID: "go",
+			LanguageID: c.server.languageID,
 			Version:    1,
 			Text:       text(lines),
 		},
@@ -173,7 +184,7 @@ func (c *Client) Close(path string) error {
 //
 // 닫는 자리에 갈고리를 걸지 않고 이렇게 하는 것은, 닫히는 길이 여럿이라서다 — tab 닫기,
 // 다른 tab 모두 닫기, `:e` 로 갈아끼우기가 모두 파일을 하나 떨군다. 열려 있는 목록을
-// 견주면 그 셋이 한 자리로 모인다(core/gopls.go 의 syncGopls).
+// 견주면 그 셋이 한 자리로 모인다(core/language-server.go 의 syncServers).
 func (c *Client) CloseAllExcept(alive map[string]bool) {
 	c.mu.Lock()
 	stale := make([]string, 0, len(c.docs))
@@ -257,7 +268,7 @@ func (c *Client) Tracks(path string) bool {
 }
 
 // Closed 는 서버가 죽었는지다. 죽은 뒤의 요청은 전부 오류이므로 부르는 쪽이 이 자리를 보고
-// 새로 띄운다(core 의 goplsClient).
+// 새로 띄운다(core 의 clientOf).
 func (c *Client) Closed() bool {
 	return c.conn.isClosed()
 }
@@ -362,43 +373,7 @@ func (c *Client) Shutdown() {
 	_ = c.conn.close()
 }
 
-// findGopls 는 gopls 실행 파일을 찾는다.
-//
-// **PATH 만 보지 않는다.** `go install` 은 `$GOBIN` 또는 `$GOPATH/bin` 에 넣고 그 자리가
-// PATH 에 없는 기계가 흔하다 — 이 기능을 만든 기계가 그랬다(ADR-0051). 그래서 go 의 관례
-// 자리까지 본다.
-func findGopls() (string, error) {
-	if path, err := exec.LookPath("gopls"); err == nil {
-		return path, nil
-	}
-
-	for _, dir := range goBinDirs() {
-		path := filepath.Join(dir, "gopls")
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path, nil
-		}
-	}
-
-	return "", errors.New("gopls 를 찾지 못했다. `go install golang.org/x/tools/gopls@latest` 로 넣는다")
-}
-
-// goBinDirs 는 `go install` 이 실행 파일을 넣는 자리들이다. 앞에 있는 것이 먼저다.
-func goBinDirs() []string {
-	if bin := os.Getenv("GOBIN"); bin != "" {
-		return []string{bin}
-	}
-
-	dirs := []string{}
-	for _, root := range filepath.SplitList(os.Getenv("GOPATH")) {
-		if root != "" {
-			dirs = append(dirs, filepath.Join(root, "bin"))
-		}
-	}
-
-	// GOPATH 가 비어 있으면 go 의 기본값은 `~/go` 다.
-	if home, err := os.UserHomeDir(); err == nil {
-		dirs = append(dirs, filepath.Join(home, "go", "bin"))
-	}
-
-	return dirs
+// Name 은 이 서버의 이름이다. 알림 문구가 이것으로 적힌다.
+func (c *Client) Name() string {
+	return c.server.Name
 }

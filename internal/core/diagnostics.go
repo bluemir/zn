@@ -9,7 +9,7 @@ import (
 	"github.com/bluemir/zn/internal/lsp"
 )
 
-// gopls 가 밀어주는 진단(오류·경고) 을 화면에 올리는 자리다(ADR-0086).
+// 언어 서버가 밀어주는 진단(오류·경고) 을 화면에 올리는 자리다(ADR-0086).
 //
 // 서버 쪽 이야기는 internal/lsp 가 안다. 여기 있는 것은 「언제 받아오고 어디에 그리는가」다.
 //
@@ -23,44 +23,55 @@ const (
 	markerDiagnosticWarning = "⚠" // U+26A0
 )
 
-// diagnosticsMsg 는 진단이 바뀌었다는 것이다. 무엇이 바뀌었는지는 싣지 않는다 —
-// 받은 자리에서 열려 있는 파일을 훑어 다시 맞춘다(applyDiagnostics).
-type diagnosticsMsg struct{}
+// diagnosticsMsg 는 진단이 바뀌었다는 것이다. **어느 파일의 무엇이** 바뀌었는지는 싣지
+// 않는다 — 받은 자리에서 열려 있는 파일을 훑어 다시 맞춘다(applyDiagnostics).
+//
+// 어느 서버가 울렸는지는 싣는다. 고리를 그 서버에 다시 걸어야 하고, 서버가 여럿이라
+// 종만 보고는 누구의 것인지 알 수 없다(ADR-0107).
+type diagnosticsMsg struct {
+	server string
+}
 
 // waitDiagnostics 는 종이 울릴 때까지 기다려 msg 로 바꾸는 Cmd 다.
 //
 // 받을 때마다 다시 발행해야 다음 것이 온다. 작업 진행 조각을 받는 것과 같은 고리다
 // (job.go 의 waitJob).
-func waitDiagnostics(client *lsp.Client) tea.Cmd {
+//
+// **고리는 서버마다 하나다.** 서버가 자기 때에 보내는 것이라 종도 서버마다 따로 울린다.
+func waitDiagnostics(name string, client *lsp.Client) tea.Cmd {
 	changed := client.DiagnosticsChanged()
 
 	return func() tea.Msg {
 		<-changed
 
-		return diagnosticsMsg{}
+		return diagnosticsMsg{server: name}
 	}
 }
 
 // applyDiagnostics 는 열려 있는 파일들의 진단을 서버에서 읽어 buffer 에 담는다.
 //
 // **여기서도 무엇이 바뀌었는지 적어 두지 않는다.** 열려 있는 목록을 훑어 지금 상태로
-// 다시 맞추는 것이 gopls 와 맞추는 자리에서 이미 쓰는 손이다(gopls.go 의 syncGopls).
+// 다시 맞추는 것이 서버와 맞추는 자리에서 이미 쓰는 손이다(language-server.go 의 syncServers).
 //
 // 열지 않은 파일의 진단은 버린다. gopls 는 같은 패키지의 열지 않은 파일 것도 보내는데
 // (잰 값이다) 지금 그것을 그릴 자리가 없다 — 담아 두면 아무도 읽지 않는 낡은 진단이
 // 조용히 쌓인다(ADR-0086).
+//
+// **파일마다 자기 서버에게 묻는다.** 서버가 여럿이라 한 서버에 다 물으면 남의 언어 파일이
+// 진단 없는 것으로 읽힌다.
 func (e *editor) applyDiagnostics() {
-	if e.gopls == nil {
-		return
-	}
-
 	for i := range e.buffers {
-		path, ok := goplsPath(e.buffers[i].path)
+		server, path, ok := serverPath(e.buffers[i].path)
 		if !ok {
 			continue
 		}
 
-		e.buffers[i].setDiagnostics(e.gopls.Diagnostics(path))
+		client := e.clientOf(server)
+		if client == nil {
+			continue
+		}
+
+		e.buffers[i].setDiagnostics(client.Diagnostics(path))
 	}
 }
 
@@ -101,7 +112,7 @@ func (b *Buffer) setDiagnostics(list []lsp.Diagnostic) {
 
 // diagnosticAt 은 그 줄의 진단들이다. 없으면 nil 이다.
 //
-// **줄이 어긋나 있을 수 있다.** 서버에 보내는 것은 마지막 키에서 250ms 뒤라(gopls.go 의
+// **줄이 어긋나 있을 수 있다.** 서버에 보내는 것은 마지막 키에서 250ms 뒤라(language-server.go 의
 // editIdleDelay) 줄을 넣거나 지운 직후에는 진단이 낡은 판 기준이다. 그것을 보정하지 않고
 // 그대로 두는 것이 결정이다 — 다음 publish 가 갈아치운다(ADR-0086).
 func (b *Buffer) diagnosticAt(line int) []lsp.Diagnostic {

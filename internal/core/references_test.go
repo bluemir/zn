@@ -17,18 +17,20 @@ func TestStartReferencesWithoutServer(t *testing.T) {
 		e := &editor{buffers: []Buffer{newEmptyBuffer("README.md")}}
 
 		assert.Nil(t, e.startReferences())
-		assert.Equal(t, "Go 파일에서만 사용처를 찾습니다", e.notice)
+		assert.Equal(t, "언어 서버가 붙는 파일에서만 사용처를 찾습니다", e.notice)
 	})
 
 	t.Run("서버를 못 띄운 뒤", func(t *testing.T) {
-		e := &editor{buffers: []Buffer{newEmptyBuffer("main.go")}, goplsFailed: true}
+		e := &editor{buffers: []Buffer{newEmptyBuffer("main.go")}}
+		e.serverState(lsp.ServerFor("main.go")).failed = true
 
 		assert.Nil(t, e.startReferences())
 		assert.Equal(t, "gopls 가 없어 사용처를 찾을 수 없습니다", e.notice)
 	})
 
 	t.Run("아직 뜨는 중이다", func(t *testing.T) {
-		e := &editor{buffers: []Buffer{newEmptyBuffer("main.go")}, goplsStarting: true}
+		e := &editor{buffers: []Buffer{newEmptyBuffer("main.go")}}
+		e.serverState(lsp.ServerFor("main.go")).starting = true
 
 		assert.Nil(t, e.startReferences())
 		assert.Equal(t, "gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다", e.notice)
@@ -94,20 +96,20 @@ func TestFinishReferencesNothing(t *testing.T) {
 	assert.Equal(t, "사용처를 찾지 못했습니다", e.notice)
 }
 
-// gopls 가 없으면 설치를 묻는다. 정의로 가기와 같은 확인창이다.
+// 서버가 없으면 설치를 묻는다. 정의로 가기와 같은 확인창이다.
 func TestGotoReferencesPromptsInstallWhenMissing(t *testing.T) {
 	editor := newTestEditor("package main\nfunc main() {}\n", 80, 20)
 	editor.editor.buffers[0].path = "main.go"
-	editor.editor.goplsFailed = true
+	editor.editor.serverState(lsp.ServerFor("main.go")).failed = true
 
 	normal, _ := normalMode(editor.editor)
 	model, cmd := gotoReferences(normal, editor.editor)
 
-	require.IsType(t, viewGoplsInstallConfirm{}, model)
+	require.IsType(t, viewServerInstallConfirm{}, model)
 	assert.Nil(t, cmd)
 }
 
-func TestGotoReferencesInNonGoFileNotifies(t *testing.T) {
+func TestGotoReferencesWithoutServerForFileNotifies(t *testing.T) {
 	editor := newTestEditor("# Hello\n", 80, 20)
 	editor.editor.buffers[0].path = "README.md"
 
@@ -116,15 +118,15 @@ func TestGotoReferencesInNonGoFileNotifies(t *testing.T) {
 
 	assert.Nil(t, model)
 	assert.Nil(t, cmd)
-	assert.Equal(t, "Go 파일에서만 사용처를 찾습니다", editor.editor.notice)
+	assert.Equal(t, "언어 서버가 붙는 파일에서만 사용처를 찾습니다", editor.editor.notice)
 }
 
 func TestActionGotoReferencesPromptsConfirm(t *testing.T) {
 	editor := newTestEditor("package main\n", 80, 20)
 	editor.editor.buffers[0].path = "main.go"
-	editor.editor.goplsFailed = true
+	editor.editor.serverState(lsp.ServerFor("main.go")).failed = true
 
 	model, cmd := actionGotoReferences{}.run(editor.editor)
-	require.IsType(t, viewGoplsInstallConfirm{}, model)
+	require.IsType(t, viewServerInstallConfirm{}, model)
 	assert.Nil(t, cmd)
 }

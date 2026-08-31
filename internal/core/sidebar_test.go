@@ -103,7 +103,7 @@ func settle(t *testing.T, model tea.Model, cmd tea.Cmd) tea.Model {
 			// 들어 있고, 그것은 종이 울릴 때까지 막힌다(diagnostics.go 의 waitDiagnostics).
 			// bubbletea 는 Cmd 를 goroutine 에서 돌려 막히지 않는데 여기서는 이 goroutine 이
 			// 그대로 돈다. jobDoneMsg 에서 고리를 끊는 것과 같은 자리다(ADR-0086).
-			if _, ready := msg.(goplsReadyMsg); ready {
+			if _, ready := msg.(serverReadyMsg); ready {
 				continue
 			}
 

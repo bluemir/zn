@@ -96,7 +96,7 @@ func (m viewJumplogs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// **판 높이는 여기서 지우지 않는다.** 넘어가는 곳이 또 판이면 그쪽이 방금 잡은
 		// 높이를 우리가 지우게 된다(ADR-0069).
 		next, cmd := m.handleJob(msg)
@@ -118,7 +118,7 @@ func (m viewJumplogs) press(key string) (tea.Model, tea.Cmd) {
 	// **미리보기가 낸 Cmd 를 모아서 나간다.** 자모 하나가 키 여럿으로 풀리므로(`접` 은
 	// `w`·`j`·`q` 다) 앞 키가 미리보기를 태우고 뒤 키가 이 화면을 벗어날 수 있다. 그때
 	// 흘리면 안 되는 것이 그 안에 있다 — 파일을 연 뒤 언어 서버를 띄우는 Cmd 인데,
-	// startGopls 는 이미 `goplsStarting` 을 세워 두어서 Cmd 를 버리면 서버가 영영 뜨지
+	// startServer 는 이미 그 서버의 `starting` 을 세워 두어서 Cmd 를 버리면 서버가 영영 뜨지
 	// 않는다(ADR-0008, ADR-0051).
 	var previews []tea.Cmd
 

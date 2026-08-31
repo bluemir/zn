@@ -108,7 +108,7 @@ func (m viewJumps) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// **판 높이는 여기서 지우지 않는다.** 넘어가는 곳이 또 판이면 그쪽이 방금 잡은
 		// 높이를 우리가 지우게 된다. 판이 아닌 곳으로 가는 길은 normalMode 가 지운다(ADR-0069).
 		next, cmd := m.handleJob(msg)
@@ -130,7 +130,7 @@ func (m viewJumps) press(key string) (tea.Model, tea.Cmd) {
 	// **미리보기가 낸 Cmd 를 모아서 나간다.** 자모 하나가 키 여럿으로 풀리므로(`접` 은
 	// `w`·`j`·`q` 다) 앞 키가 미리보기를 태우고 뒤 키가 이 화면을 벗어날 수 있다. 그때
 	// 흘리면 안 되는 것이 그 안에 있다 — 파일을 연 뒤 언어 서버를 띄우는 Cmd 인데,
-	// startGopls 는 이미 `goplsStarting` 을 세워 두어서 Cmd 를 버리면 서버가 영영 뜨지
+	// startServer 는 이미 그 서버의 `starting` 을 세워 두어서 Cmd 를 버리면 서버가 영영 뜨지
 	// 않는다(ADR-0008, ADR-0051).
 	var previews []tea.Cmd
 
@@ -337,7 +337,7 @@ const jumpsMarkWidth = 3
 
 // renderRow 는 이력 한 줄이다. 위가 오래된 것이고 아래로 갈수록 새것이다. vim 의 `:jumps` 와 같다.
 //
-//	▸● internal/core/gopls.go:7
+//	▸● internal/core/language-server.go:7
 //	   internal/core/rename.go:42
 //
 // **표시가 둘이다.** `▸` 는 이 판에서 고른 줄이고 `●` 는 `ctrl+o`·`ctrl+i` 가 서 있는

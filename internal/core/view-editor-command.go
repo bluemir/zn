@@ -90,7 +90,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wheel(msg.Mouse())
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은
 		// 여기서 보지 않고 주기만 이어 간다 — 보는 것은 normal·트리다(ADR-0038).
@@ -624,8 +624,8 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	// 포매터를 찾지 못했으면 여기서 한 번 묻는다. **저장은 이미 끝났다** — 깔지 않기로 해도
 	// 파일은 쓰인 상태다. 창은 방금 그린 화면 위에 얹히고 Yes·No 둘 다 그 화면으로 돌아온다
 	// (ADR-0065).
-	if errors.Is(hookErr, errHookNotInstalled) && m.askGoimports() {
-		confirm, _ := goimportsInstallConfirmMode(model, m.editor)
+	if spec := formatterFor(buf.path); errors.Is(hookErr, errHookNotInstalled) && spec != nil && m.askFormatter(spec) {
+		confirm, _ := formatterInstallConfirmMode(model, m.editor, spec)
 
 		return confirm, tea.Batch(next, refresh)
 	}

@@ -147,7 +147,7 @@ func (m viewGrep) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// **판 높이를 여기서 다시 잰다.** 적중이 도착하는 대로 목록이 자라므로 판도 같이
 		// 자라야 하고, 열여섯에서 멈추니 곧 가라앉는다. 지우지는 않는다 — 넘어가는 곳이 또
 		// 판이면 그쪽이 방금 잡은 높이를 우리가 지우게 된다(ADR-0069).

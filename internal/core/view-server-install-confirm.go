@@ -5,32 +5,33 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/lsp"
 )
 
-// goimportsInstallConfirmMode 는 goimports 가 없을 때 설치 여부를 묻는 모달 화면이다.
-// Go 파일을 저장할 때 들어온다(save-hook.go, ADR-0065).
+// serverInstallConfirmMode 는 언어 서버가 없을 때 설치 여부를 묻는 모달 화면이다.
+// `\gd`·`\gr` 또는 팔레트의 「정의로 가기」·「사용처로 가기」에서 들어온다.
 //
-// **gopls 확인창(view-gopls-install-confirm.go) 과 같은 모양이고 따로 산다.** 하나로 묶어
-// 물음과 설치를 값으로 받게 하면 창 하나에 부르는 쪽 둘이 매달리는데, 그 둘은 뜨는 까닭도
-// 거절의 뜻도 다르다 — 이쪽은 저장에 딸려 와서 거절을 적어 두고, 저쪽은 사용자가 친 키에서만
-// 온다. 같아 보이는 것을 묶는 값보다 각자 고쳐지는 값이 크다고 보았다.
-func goimportsInstallConfirmMode(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
-	return viewGoimportsInstallConfirm{editor: e, parent: parent}, nil
+// **어느 서버를 묻는지 받는다.** 서버가 여럿이라 화면이 이름과 설치 명령을 그 줄에서
+// 읽어야 한다 — 문구를 여기 적어 두면 서버를 더할 때 이 화면도 같이 손봐야 한다(ADR-0107).
+func serverInstallConfirmMode(parent tea.Model, e *editor, server *lsp.Server) (tea.Model, tea.Cmd) {
+	return viewServerInstallConfirm{editor: e, parent: parent, server: server}, nil
 }
 
-// viewGoimportsInstallConfirm 은 goimports 설치 확인창의 상태를 든다.
-type viewGoimportsInstallConfirm struct {
+// viewServerInstallConfirm 은 언어 서버 설치 확인창의 상태를 든다.
+type viewServerInstallConfirm struct {
 	*editor
 
 	parent tea.Model
+	server *lsp.Server
 	cursor int // 0: Yes, 1: No
 }
 
-func (m viewGoimportsInstallConfirm) Init() tea.Cmd {
+func (m viewServerInstallConfirm) Init() tea.Cmd {
 	return nil
 }
 
-func (m viewGoimportsInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m viewServerInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		// 한글 입력 상태에서 온 키는 두벌식 자리의 영문 키로 바꾼다(ADR-0008).
@@ -41,7 +42,7 @@ func (m viewGoimportsInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		var model tea.Model = m
 		for _, key := range keys {
-			confirm, ok := model.(viewGoimportsInstallConfirm)
+			confirm, ok := model.(viewServerInstallConfirm)
 			if !ok {
 				return model, nil
 			}
@@ -55,7 +56,7 @@ func (m viewGoimportsInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return model, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		next, cmd := m.handleJob(msg)
 		if next != nil {
 			return next, cmd
@@ -68,7 +69,7 @@ func (m viewGoimportsInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // press 는 키 하나를 처리한다.
-func (m viewGoimportsInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
+func (m viewServerInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return Exit()
@@ -79,17 +80,11 @@ func (m viewGoimportsInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
 		m.cursor = 1
 		return m, nil
 	case "esc":
-		m.goimportsDeclined = true
-
 		return m.parent, nil
 	case "enter":
 		if m.cursor == 0 {
-			return m.parent, m.installGoimports()
+			return m.parent, m.installServer(m.server)
 		}
-
-		// **거절을 적어 둔다.** 이 물음은 사용자가 부른 것이 아니라 저장에 딸려 오므로,
-		// 적어 두지 않으면 저장할 때마다 창이 뜬다 — 그러면 그것이 곧 방해다(ADR-0065).
-		m.goimportsDeclined = true
 
 		return m.parent, nil
 	default:
@@ -97,9 +92,14 @@ func (m viewGoimportsInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m viewGoimportsInstallConfirm) boxWidth() int {
-	title := "goimports 가 설치되어 있지 않습니다."
-	question := "지금 설치하시겠습니까? (go install golang.org/x/tools/cmd/goimports@latest)"
+// lines 는 창에 적는 두 줄이다. 폭을 재는 자리와 그리는 자리가 같은 글을 보아야 한다.
+func (m viewServerInstallConfirm) lines() (string, string) {
+	return m.server.Name + " 가 설치되어 있지 않습니다.",
+		"지금 설치하시겠습니까? (" + m.server.InstallHint() + ")"
+}
+
+func (m viewServerInstallConfirm) boxWidth() int {
+	title, question := m.lines()
 
 	maxContent := max(screenWidthOf(title), screenWidthOf(question))
 	wanted := maxContent + 8
@@ -110,13 +110,12 @@ func (m viewGoimportsInstallConfirm) boxWidth() int {
 	return min(max(wanted, 40), max(m.width-2, 10))
 }
 
-func (m viewGoimportsInstallConfirm) renderBox(width int) string {
+func (m viewServerInstallConfirm) renderBox(width int) string {
 	inner := width - 4
 	chars := m.boxChars
 	line := strings.Repeat(chars.horizontal, width-2)
 
-	title := "goimports 가 설치되어 있지 않습니다."
-	question := "지금 설치하시겠습니까? (go install golang.org/x/tools/cmd/goimports@latest)"
+	title, question := m.lines()
 	buttons := cursor(m.cursor == 0, "Yes") + "    " + cursor(m.cursor == 1, "No")
 
 	rows := []string{
@@ -134,7 +133,7 @@ func (m viewGoimportsInstallConfirm) renderBox(width int) string {
 	return strings.Join(rows, "\n")
 }
 
-func (m viewGoimportsInstallConfirm) View() tea.View {
+func (m viewServerInstallConfirm) View() tea.View {
 	width := m.boxWidth()
 	box := m.renderBox(width)
 	boxRows := strings.Split(box, "\n")

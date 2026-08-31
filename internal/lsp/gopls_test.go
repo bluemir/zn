@@ -23,17 +23,20 @@ func startForTest(t *testing.T) (*Client, string) {
 		t.Skip("gopls 에게 실제로 묻는 시험이라 -short 에서는 건너뛴다")
 	}
 
-	if _, err := findGopls(); err != nil {
-		t.Skip("gopls 가 없다: " + err.Error())
-	}
-
 	root, err := filepath.Abs("../..")
 	require.NoError(t, err)
+
+	server := serverNamed("gopls")
+	require.NotNil(t, server, "표에 gopls 줄이 있어야 한다")
+
+	if _, err := server.find(root); err != nil {
+		t.Skip("gopls 가 없다: " + err.Error())
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	client, err := Start(ctx, root)
+	client, err := Start(ctx, root, server)
 	require.NoError(t, err)
 	t.Cleanup(client.Shutdown)
 
@@ -368,11 +371,17 @@ func startForTestInBrokenModule(t *testing.T) (*Client, string) {
 		t.Skip("gopls 에게 실제로 묻는 시험이라 -short 에서는 건너뛴다")
 	}
 
-	if _, err := findGopls(); err != nil {
+	root := t.TempDir()
+
+	server := serverNamed("gopls")
+	if server == nil {
+		t.Skip("표에 gopls 줄이 없다")
+	}
+
+	if _, err := server.find(root); err != nil {
 		t.Skip("gopls 가 없다: " + err.Error())
 	}
 
-	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module broken\n\ngo 1.22\n"), 0o644))
 
 	path := filepath.Join(root, "main.go")
@@ -381,7 +390,7 @@ func startForTestInBrokenModule(t *testing.T) (*Client, string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	client, err := Start(ctx, root)
+	client, err := Start(ctx, root, server)
 	require.NoError(t, err)
 	t.Cleanup(client.Shutdown)
 

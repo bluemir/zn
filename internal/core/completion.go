@@ -78,21 +78,25 @@ func completionTriggers(text string) bool {
 // (SyncFull) 도 겹쳐서 서버가 마지막에 받는 것이 지금 화면이라는 보장이 없어진다.
 // 도는 동안 더 친 글자는 답이 온 뒤 finishCompletion 이 한 번 더 걸어서 따라잡는다.
 //
-// gopls 를 여기서 띄우지 않는다. Go 파일을 열 때 이미 뜨고(ADR-0051), 글자마다 지나는
+// 서버를 여기서 띄우지 않는다. 그 언어의 파일을 열 때 이미 뜨고(ADR-0051), 글자마다 지나는
 // 자리에서 남의 프로세스를 띄우는 일이 일어나서는 안 된다.
 func (e *editor) startCompletion() tea.Cmd {
-	if !e.hasTab() || e.completionAsking || e.goplsClient() == nil {
+	if !e.hasTab() || e.completionAsking {
 		return nil
 	}
 
 	buf := e.activeBuffer()
 
-	path, ok := goplsPath(buf.path)
-	if !ok || !e.gopls.Tracks(path) {
+	server, path, ok := serverPath(buf.path)
+	if !ok {
 		return nil
 	}
 
-	client := e.gopls
+	client := e.clientOf(server)
+	if client == nil || !client.Tracks(path) {
+		return nil
+	}
+
 	lines := buf.lines
 	position := lsp.Position{
 		Line:      buf.cursorLine,

@@ -129,7 +129,7 @@ func (m viewLocations) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// model 이 오면 mode 가 바뀐 것이다. 정의나 사용처를 또 물은 답이 오면 이 판이
 		// 새 판으로 갈리는 자리이기도 하다(job.go).
 		//
@@ -160,7 +160,7 @@ func (m viewLocations) press(key string) (tea.Model, tea.Cmd) {
 	// **미리보기가 낸 Cmd 를 모아서 나간다.** 자모 하나가 키 여럿으로 풀리므로(`접` 은
 	// `w`·`j`·`q` 다) 앞 키가 미리보기를 태우고 뒤 키가 이 화면을 벗어날 수 있다. 그때
 	// 흘리면 안 되는 것이 그 안에 있다 — 파일을 연 뒤 언어 서버를 띄우는 Cmd 인데,
-	// startGopls 는 이미 `goplsStarting` 을 세워 두어서 Cmd 를 버리면 서버가 영영 뜨지
+	// startServer 는 이미 그 서버의 `starting` 을 세워 두어서 Cmd 를 버리면 서버가 영영 뜨지
 	// 않는다(ADR-0008, ADR-0051).
 	var previews []tea.Cmd
 

@@ -18,7 +18,7 @@ import (
 // 디스크를 감시하는 자리다(ADR-0093).
 //
 // **이것 없이는 다른 도구가 고친 파일을 끝까지 모른다.** 주기 검사는 활성 buffer 하나만 보고
-// (ADR-0044) gopls 에 알리는 것은 HEAD 가 움직일 때뿐이라(ADR-0092) 다른 창의 편집기나 AI 가
+// (ADR-0044) 언어 서버에 알리는 것은 HEAD 가 움직일 때뿐이라(ADR-0092) 다른 창의 편집기나 AI 가
 // 고친 파일은 어느 쪽에도 걸리지 않는다.
 //
 // **감시는 앞잡이일 뿐이다.** 이벤트를 받으면 검사를 앞당길 뿐 판정은 그대로 sha256 이 한다
@@ -31,7 +31,7 @@ const watchJobName = "파일 감시"
 // watchQuiet 은 첫 종을 받고 답할 때까지 두는 짬이다.
 //
 // **이 한 줄이 debounce 다.** 포매터나 빌드가 한 번에 이벤트를 수십 개 내는데, 그때마다
-// gopls 에 알림을 보내고 검사를 시작하면 그 값이 그대로 든다. 짬을 두는 동안 온 것은
+// 서버에 알림을 보내고 검사를 시작하면 그 값이 그대로 든다. 짬을 두는 동안 온 것은
 // pending 에 모여 한 번에 나온다. 예약 상태를 하나 더 두는 대신 Cmd goroutine 이 자는
 // 것이라 편집기에 상태가 늘지 않는다.
 //
@@ -152,7 +152,7 @@ func (w *watcher) record(event fsnotify.Event) {
 	//
 	// 재서 알았다. 원자적 저장(임시 파일에 쓰고 rename 으로 덮기) 을 macOS 에서 하면 그
 	// 파일이 `Remove` 로 온다 — 감시하던 inode 가 정말로 사라지기 때문이다. 이대로 넘기면
-	// gopls 가 **살아 있는 파일을 지운 것으로 알고** 자기 view 에서 뺀다. 편집기와 포매터가
+	// 언어 서버가 **살아 있는 파일을 지운 것으로 알고** 자기 view 에서 뺀다. 편집기와 포매터가
 	// 이 방식으로 쓰므로 흔하게 밟는 자리다.
 	//
 	// 반대 방향(만들었다는데 없는 것) 은 보지 않는다. 그 자리를 보려면 이벤트마다 Lstat 을
@@ -288,7 +288,7 @@ func mergeWatchKind(was, now lsp.FileChangeKind) lsp.FileChangeKind {
 
 // startWatch 는 뿌리 아래를 감시하기 시작한다. Init 이 한 번 지나는 자리다(startInitialJobs).
 //
-// **뿌리는 cwd 다.** 트리·팔레트 뿌리와 같고 gopls 에게 준 뿌리와도 같다. 저장소 뿌리를
+// **뿌리는 cwd 다.** 트리·팔레트 뿌리와 같고 서버에게 준 뿌리와도 같다. 저장소 뿌리를
 // 쓰지 않는 것은 하위 디렉터리에서 zn 을 열었을 때 위쪽 전체를 감시하게 되기 때문이다.
 // 그 대신 cwd 위의 변경은 감시가 못 잡는다(ADR-0093).
 func (e *editor) startWatch() tea.Cmd {
@@ -376,7 +376,7 @@ func waitWatch(w *watcher) tea.Cmd {
 
 // applyWatch 는 감시기가 모아 둔 것을 꺼내 갈 곳으로 보낸다. `Update` 안에서 불린다(job.go).
 //
-// 갈 곳이 둘이고 쓰는 법이 다르다. gopls 는 **이벤트를 그대로** 받아 자기가 디스크를 다시
+// 갈 곳이 둘이고 쓰는 법이 다르다. 언어 서버는 **이벤트를 그대로** 받아 자기가 디스크를 다시
 // 읽고(ADR-0092), buffer 는 **앞잡이로만** 받아 검사를 앞당길 뿐 판정은 해시가 한다(ADR-0015).
 func (e *editor) applyWatch() tea.Cmd {
 	if e.watch == nil {
@@ -389,7 +389,7 @@ func (e *editor) applyWatch() tea.Cmd {
 		e.notifyError(errors.Wrap(err, "파일 감시"))
 	}
 
-	e.goplsWatchFiles(changes)
+	e.serverWatchFiles(changes)
 
 	cmds := []tea.Cmd{waitWatch(e.watch)}
 
@@ -408,31 +408,35 @@ func (e *editor) applyWatch() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// goplsWatchFiles 는 밖에서 바뀐 Go 파일을 서버에 알린다.
+// serverWatchFiles 는 밖에서 바뀐 파일을 각자의 서버에 알린다.
 //
-// **Go 파일만 보낸다.** 서버가 볼 것만 보낸다 — `go.mod`·`go.sum`·`go.work` 를 같이 보낼지는
-// 아직 정하지 않았다(docs/tasks.md).
+// **서버가 볼 것만 보낸다.** 그 언어의 파일이 아니면 서버가 읽을 이유가 없고, 남의 언어
+// 파일을 알리면 그 서버가 그것을 자기 언어로 읽으려 든다 — `go.mod`·`go.sum`·`go.work` 를
+// 같이 보낼지는 아직 정하지 않았다(docs/tasks.md).
 //
 // **열어 둔 파일도 걸러내지 않는다.** overlay 가 디스크를 이기므로 그 파일에 대한 알림은
 // 서버가 알아서 무시한다(ADR-0092 §3).
 //
 // 실패는 삼킨다. 있으면 정확해지는 알림이고, 없으면 예전처럼 낡은 채로 도는 것이라
 // 알릴 실패가 아니다.
-func (e *editor) goplsWatchFiles(changes []lsp.FileChange) {
-	client := e.goplsClient()
-	if client == nil {
-		return
-	}
-
-	files := make([]lsp.FileChange, 0, len(changes))
+func (e *editor) serverWatchFiles(changes []lsp.FileChange) {
+	byServer := map[string][]lsp.FileChange{}
 
 	for _, change := range changes {
-		if !isGoFile(change.Path) {
+		server := lsp.ServerFor(change.Path)
+		if server == nil {
 			continue
 		}
 
-		files = append(files, change)
+		byServer[server.Name] = append(byServer[server.Name], change)
 	}
 
-	_ = client.FilesChanged(files)
+	for name, files := range byServer {
+		client := e.clientNamed(name)
+		if client == nil {
+			continue
+		}
+
+		_ = client.FilesChanged(files)
+	}
 }

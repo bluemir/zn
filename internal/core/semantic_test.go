@@ -273,7 +273,7 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	client, err := lsp.Start(ctx, dir)
+	client, err := lsp.Start(ctx, dir, lsp.ServerFor("main.go"))
 	if err != nil {
 		t.Skip("gopls 가 없다: " + err.Error())
 	}
@@ -283,7 +283,8 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, gopls: client, width: 100, height: 30}
+	e := &editor{buffers: []Buffer{buf}, width: 100, height: 30}
+	e.serverState(lsp.ServerFor("main.go")).client = client
 	require.NoError(t, client.Open(path, e.activeBuffer().lines))
 	e.activeBuffer().lexSyntaxTo(len(e.activeBuffer().lines) - 1)
 

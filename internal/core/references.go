@@ -8,7 +8,7 @@ import (
 
 // 사용처로 가기다(ADR-0068).
 //
-// 정의로 가기(gopls.go) 와 짝이다 — 그쪽은 「이 이름은 어디서 왔나」이고 이쪽은 「이 이름을
+// 정의로 가기(language-server.go) 와 짝이다 — 그쪽은 「이 이름은 어디서 왔나」이고 이쪽은 「이 이름을
 // 누가 쓰나」다. 묻는 요청만 다르고, 답의 모양(Location 목록) 도 그것을 보이는 화면
 // (view-locations.go) 도 같아서 붙는 데 든 것은 요청 하나와 이 파일뿐이다.
 //
@@ -21,9 +21,9 @@ type referencesMsg struct {
 	err       error
 }
 
-// gotoReferences 는 커서 자리의 사용처를 찾거나, gopls 가 없으면 설치를 묻는다.
+// gotoReferences 는 커서 자리의 사용처를 찾거나, 서버가 없으면 설치를 묻는다.
 //
-// 문 앞의 검사는 정의로 가기와 같은 것을 같은 순서로 본다(gopls.go 의 gotoDefinition).
+// 문 앞의 검사는 정의로 가기와 같은 것을 같은 순서로 본다(language-server.go 의 gotoDefinition).
 // 하나로 묶지 않은 것은 알리는 문구가 「무엇을 찾는 중인가」로 갈리기 때문이다 — 묶으면
 // 그 문구가 인자가 되고, 그 인자는 여기 있는 대여섯 줄보다 읽기 어렵다.
 func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
@@ -33,36 +33,36 @@ func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	buf := e.activeBuffer()
-
-	_, ok := goplsPath(buf.path)
+	server, _, ok := serverPath(e.activeBuffer().path)
 	if !ok {
-		e.notify("Go 파일에서만 사용처를 찾습니다")
+		e.notify("언어 서버가 붙는 파일에서만 사용처를 찾습니다")
 
 		return nil, nil
 	}
 
 	// 죽은 서버는 여기서 자리를 비운다(ADR-0092).
-	if e.goplsClient() == nil {
-		if e.jobRunning(goplsJobName, nil) {
-			e.notify("gopls 를 설치하는 중입니다")
+	if e.clientOf(server) == nil {
+		state := e.serverState(server)
+
+		if e.jobRunning(serverJobName(server), nil) {
+			e.notify(server.Name + " 를 설치하는 중입니다")
 
 			return nil, nil
 		}
 
-		if e.goplsStarting {
-			e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
+		if state.starting {
+			e.notify(server.Name + " 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
 
 			return nil, nil
 		}
 
-		if e.goplsFailed {
-			return goplsInstallConfirmMode(parent, e)
+		if state.failed {
+			return serverInstallConfirmMode(parent, e, server)
 		}
 
-		e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
+		e.notify(server.Name + " 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
 
-		return nil, e.startGopls()
+		return nil, e.startServer(server)
 	}
 
 	return nil, e.startReferences()
@@ -75,26 +75,26 @@ func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 func (e *editor) startReferences() tea.Cmd {
 	buf := e.activeBuffer()
 
-	path, ok := goplsPath(buf.path)
+	server, path, ok := serverPath(buf.path)
 	if !ok {
-		e.notify("Go 파일에서만 사용처를 찾습니다")
+		e.notify("언어 서버가 붙는 파일에서만 사용처를 찾습니다")
 
 		return nil
 	}
 
-	if e.goplsClient() == nil {
-		if e.goplsFailed {
-			e.notify("gopls 가 없어 사용처를 찾을 수 없습니다")
+	client := e.clientOf(server)
+	if client == nil {
+		if e.serverState(server).failed {
+			e.notify(server.Name + " 가 없어 사용처를 찾을 수 없습니다")
 
 			return nil
 		}
 
-		e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
+		e.notify(server.Name + " 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
 
-		return e.startGopls()
+		return e.startServer(server)
 	}
 
-	client := e.gopls
 	lines := buf.lines
 	position := lsp.Position{
 		Line:      buf.cursorLine,
@@ -117,7 +117,7 @@ func (e *editor) startReferences() tea.Cmd {
 
 // finishReferences 는 답을 받아 목록을 열거나 그 자리로 간다.
 //
-// 하나면 곧바로 뛴다 — 정의로 가기와 같은 규칙이다(gopls.go 의 finishDefinition).
+// 하나면 곧바로 뛴다 — 정의로 가기와 같은 규칙이다(language-server.go 의 finishDefinition).
 // 한 줄짜리 목록을 보여 주고 enter 를 또 받는 것은 손이 하나 더 드는 일이다.
 //
 // 선언 자리는 목록에 없다(lsp/references.go). 그래서 아무도 쓰지 않는 이름은 0 개로 온다 —

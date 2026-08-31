@@ -53,7 +53,7 @@ func (e *editor) recordVisit(place jumpPlace) {
 //
 // 부르는 자리는 이것으로 전부다.
 //
-//   - 정의·사용처가 곧바로 뛸 때(gopls.go, references.go) 와 판에서 확정할 때(view-locations.go)
+//   - 정의·사용처가 곧바로 뛸 때(language-server.go, references.go) 와 판에서 확정할 때(view-locations.go)
 //   - 검색이 옮길 때(view-editor-search.go 의 jumpToMatch)
 //   - `ctrl+o`·`ctrl+i` 와 두 판의 확정(jumplist.go, view-jumps.go, view-jumplogs.go)
 //   - 파일 안에서 멀리 뛸 때(`G`·`gg`·`:번호`). 그쪽은 arrive 가 아니라 recordJumpMove 가

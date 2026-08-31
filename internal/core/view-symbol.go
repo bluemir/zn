@@ -188,7 +188,7 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// 다른 mode 와 같이 공용 처리에 넘기고, 여기서만 목록을 다시 거른다.
 		// 훑기가 끝나면 후보가 한꺼번에 늘어나므로 치고 있던 패턴에 새것도 걸려야 한다.
 		next, cmd := m.handleJob(msg)

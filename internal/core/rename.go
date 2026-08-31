@@ -29,7 +29,7 @@ type renameMsg struct {
 // startRename 은 커서 자리의 이름을 바꾸면 어디가 달라지는지 묻는다.
 //
 // 답을 기다리지 않는다 — 잰 값으로 664ms 이고, 기다리면 그동안 편집기가 멈춘다.
-// 정의로 가기와 같은 모양이다(gopls.go 의 startDefinition, ADR-0051).
+// 정의로 가기와 같은 모양이다(language-server.go 의 startDefinition, ADR-0051).
 func (e *editor) startRename(newName string) tea.Cmd {
 	if e.refuseNoBuffer() {
 		return nil
@@ -37,9 +37,9 @@ func (e *editor) startRename(newName string) tea.Cmd {
 
 	buf := e.activeBuffer()
 
-	path, ok := goplsPath(buf.path)
+	server, path, ok := serverPath(buf.path)
 	if !ok {
-		e.notify("Go 파일에서만 이름을 바꿉니다")
+		e.notify("언어 서버가 붙는 파일에서만 이름을 바꿉니다")
 
 		return nil
 	}
@@ -50,29 +50,29 @@ func (e *editor) startRename(newName string) tea.Cmd {
 		return nil
 	}
 
-	// **서버가 보는 자리 밖이면 거절한다.** 뿌리가 편집기를 연 자리라(gopls.go) 그 밖의
+	// **서버가 보는 자리 밖이면 거절한다.** 뿌리가 편집기를 연 자리라(language-server.go) 그 밖의
 	// 파일은 참조를 찾을 범위에 들지 않는다 — 그때 rename 은 그 파일 안에서만 일어나고,
 	// 나머지 참조가 옛 이름으로 남아 **빌드가 조용히 깨진다.** 반쪽짜리보다 안 하는 것이 낫다.
-	if !underRoot(e.goplsRoot, path) {
-		e.notify("편집기를 연 자리 밖의 파일이라 참조를 다 찾을 수 없습니다: " + shortenPath(e.goplsRoot))
+	if !underRoot(e.serverRoot, path) {
+		e.notify("편집기를 연 자리 밖의 파일이라 참조를 다 찾을 수 없습니다: " + shortenPath(e.serverRoot))
 
 		return nil
 	}
 
 	// 죽은 서버는 여기서 자리를 비운다(ADR-0092).
-	if e.goplsClient() == nil {
-		if e.goplsFailed {
-			e.notify("gopls 가 없어 이름을 바꿀 수 없습니다")
+	client := e.clientOf(server)
+	if client == nil {
+		if e.serverState(server).failed {
+			e.notify(server.Name + " 가 없어 이름을 바꿀 수 없습니다")
 
 			return nil
 		}
 
-		e.notify("gopls 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
+		e.notify(server.Name + " 를 띄우는 중입니다. 잠시 뒤 다시 칩니다")
 
-		return e.startGopls()
+		return e.startServer(server)
 	}
 
-	client := e.gopls
 	lines := buf.lines
 	position := lsp.Position{
 		Line:      buf.cursorLine,

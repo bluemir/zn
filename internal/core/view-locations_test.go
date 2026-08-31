@@ -369,7 +369,7 @@ func TestLocationsRecordsOriginOnConfirm(t *testing.T) {
 //
 // `접` 은 두벌식에서 `w`·`j`·`q` 다 — `j` 가 미리보기를 태우고 `q` 가 그 자리에서 나간다.
 // 예전에는 나가는 길이 앞서 모은 Cmd 를 버렸는데, 그 안에 「파일을 연 뒤 언어 서버를
-// 띄우는」 Cmd 가 있다. startGopls 는 이미 `goplsStarting` 을 세워 두므로 버리면 서버가
+// 띄우는」 Cmd 가 있다. startServer 는 이미 그 서버의 `starting` 을 세워 두므로 버리면 서버가
 // 영영 뜨지 않는다(ADR-0008, ADR-0051).
 func TestLocationsKeepsPreviewCmdWhenLeavingMidKey(t *testing.T) {
 	m, paths := locationsFixture(t)
@@ -381,8 +381,9 @@ func TestLocationsKeepsPreviewCmdWhenLeavingMidKey(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, model, "`q` 로 나가야 한다")
 
 	// `j` 의 미리보기가 Go 파일을 열면서 서버를 띄우기 시작했다. 그 Cmd 가 같이 나와야 한다.
-	require.True(t, m.goplsStarting, "미리보기가 서버를 띄우기 시작한 상태여야 재는 뜻이 있다")
-	assert.NotNil(t, cmd, "그 Cmd 를 흘리면 goplsStarting 이 참으로 굳어 서버가 영영 안 뜬다")
+	require.True(t, m.serverState(lsp.ServerFor("main.go")).starting,
+		"미리보기가 서버를 띄우기 시작한 상태여야 재는 뜻이 있다")
+	assert.NotNil(t, cmd, "그 Cmd 를 흘리면 starting 이 참으로 굳어 서버가 영영 안 뜬다")
 
 	// 나가는 길은 취소라 판을 열기 전 자리로 돌아온다.
 	assert.Equal(t, paths[0], m.activeBuffer().path)

@@ -26,6 +26,10 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 - 현대화된 tab 기능
 - 언어별 syntax highlight
 	- golang, markdown, html, css, js, python, shell, makefile, dockerfile
+- 언어 서버를 붙여 자동 완성, 정의·사용처로 이동, 이름 바꾸기, 진단을 낸다
+	- golang은 gopls, python은 pyright다. 깔려 있지 않으면 설치를 한 번 묻는다
+- 저장할 때 포매터를 통과시킨다
+	- golang은 goimports, python은 `ruff format`이다
 - sidebar에서 열리는 file tree
 - vscode와 유사한 command palette
 	- 기본으로는 file matching
@@ -42,11 +46,9 @@ ai 시대가 되면서 다양한 요구사항을 만족하기 위해 굳이 복�
 
 앞으로 feature에 추가할 기능. 자세한 항목은 [docs/tasks.md](docs/tasks.md)에 있다.
 
-- 언어 지원을 내장한다(golang, markdown, html, css, js, python)
-	- 자동 완성
-	- 정의/구현으로 이동
-	- 사용처로 이동
-	- 저장시 hook(eg. go fmt)
+- 언어 지원을 넓힌다. 지금 언어 서버와 저장 hook까지 간 것은 golang과 python이다
+	- js에도 언어 서버를 붙인다
+	- 구현으로 이동
 - home, end, page up, page down의 일관적인 동작
 
 ### DONOT

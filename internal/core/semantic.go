@@ -44,15 +44,15 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 		return nil
 	}
 
-	client := e.goplsClient()
-	if client == nil {
+	buf := e.activeBuffer()
+
+	server, path, ok := serverPath(buf.path)
+	if !ok {
 		return nil
 	}
 
-	buf := e.activeBuffer()
-
-	path, ok := goplsPath(buf.path)
-	if !ok {
+	client := e.clientOf(server)
+	if client == nil {
 		return nil
 	}
 
@@ -68,7 +68,7 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 
 	return func() tea.Msg {
 		// 서버가 아직 이 파일을 모르면 묻지 않는다. 여는 것은 맞추는 자리의 몫이고
-		// (syncGopls) 그것이 끝나면 다음 tick 이 다시 묻는다.
+		// (syncServers) 그것이 끝나면 다음 tick 이 다시 묻는다.
 		if !client.Tracks(path) {
 			return nil
 		}
@@ -93,7 +93,7 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 // applySemanticTokens 는 받은 답을 그 파일의 줄들에 얹는다.
 func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 	for i := range e.buffers {
-		path, ok := goplsPath(e.buffers[i].path)
+		_, path, ok := serverPath(e.buffers[i].path)
 		if !ok || path != msg.path {
 			continue
 		}
@@ -154,7 +154,7 @@ func (buf *Buffer) setSemanticTokens(msg semanticTokensMsg) {
 // semanticKind 는 서버가 말한 갈래를 우리 갈래로 옮긴다. 그릴 것이 없으면 KindPlain 이다.
 //
 // 이름은 서버가 악수에서 알린 표의 것이다(lsp/semantic.go). LSP 규격이 정한 이름이라
-// gopls 말고 다른 서버가 붙어도 같은 표로 읽힌다.
+// 서버가 달라도 같은 표로 읽힌다 — pyright 는 이 표를 쓰지 않는다(문법 토큰을 내지 않는다, ADR-0107).
 func semanticKind(token lsp.SemanticToken) syntax.Kind {
 	switch token.Type {
 	case "type", "typeParameter", "namespace":

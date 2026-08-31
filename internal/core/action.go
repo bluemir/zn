@@ -710,7 +710,7 @@ func (c actionVisualFormatTables) run(e *editor) (tea.Model, tea.Cmd) {
 //
 // 답을 기다리지 않는다 — 물어보는 Cmd 를 내고 돌아온다. 첫 요청은 서버가 모듈을 훑는 동안
 // 1 초 남짓 걸려서, 기다리면 그동안 편집기가 멈춘다. 답이 오면 그때 tab 을 열고 뛴다
-// (gopls.go 의 finishDefinition).
+// (language-server.go 의 finishDefinition).
 type actionGotoDefinition struct{}
 
 func (c actionGotoDefinition) run(e *editor) (tea.Model, tea.Cmd) {

@@ -30,17 +30,19 @@ func TestSaveHookTableSkipsOtherFiles(t *testing.T) {
 	}
 }
 
-// 폴더마다 한 번만 찾는다. 담아 둔 것이 있으면 그것을 그대로 쓴다.
+// 포매터와 폴더 짝마다 한 번만 찾는다. 담아 둔 것이 있으면 그것을 그대로 쓴다.
 func TestSaveHookCachesPerDirectory(t *testing.T) {
 	hook := shellHook("cat")
-	e := &editor{saveHooks: map[string]*saveHook{"pkg": hook}}
+	e := &editor{saveHooks: map[saveHookKey]*saveHook{
+		{tool: "goimports", dir: "pkg"}: hook,
+	}}
 
 	found, err := e.saveHookFor(filepath.Join("pkg", "a.go"))
 	require.NoError(t, err)
 	assert.Same(t, hook, found)
 
 	// 「찾아봤는데 없다」도 담긴다. nil 이 담겨 있으면 다시 찾지 않는다.
-	e.saveHooks["none"] = nil
+	e.saveHooks[saveHookKey{tool: "goimports", dir: "none"}] = nil
 
 	found, err = e.saveHookFor(filepath.Join("none", "a.go"))
 	assert.Nil(t, found)
@@ -188,20 +190,20 @@ func TestSaveAsksToInstallGoimports(t *testing.T) {
 
 	m := newTestEditorFile(path, "package a\n", 80, 6)
 	// 「찾아봤는데 없다」를 담아 둔다. 시험이 이 판에 goimports 가 깔려 있는지에 매이지 않는다.
-	m.editor.saveHooks = map[string]*saveHook{dir: nil}
+	m.editor.saveHooks = map[saveHookKey]*saveHook{{tool: "goimports", dir: dir}: nil}
 
 	var model tea.Model = m
 	model = send(model, ":", "w", "enter")
 
-	require.IsType(t, viewGoimportsInstallConfirm{}, model)
+	require.IsType(t, viewFormatterInstallConfirm{}, model)
 
 	saved, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "package a\n", string(saved), "묻기 전에 저장은 끝났다")
 
 	// 거절하면 그 뒤로는 묻지 않는다.
-	back, _ := model.(viewGoimportsInstallConfirm).press("esc")
-	assert.True(t, back.(viewEditorNormal).goimportsDeclined)
+	back, _ := model.(viewFormatterInstallConfirm).press("esc")
+	assert.True(t, back.(viewEditorNormal).formattersDeclined["goimports"])
 
 	model = send(back, ":", "w", "enter")
 	assert.IsType(t, viewEditorNormal{}, model, "두 번째 저장은 조용하다")
@@ -214,12 +216,12 @@ func TestSaveAndQuitDoesNotAsk(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("package a\n"), 0644))
 
 	m := newTestEditorFile(path, "package a\n", 80, 6)
-	m.editor.saveHooks = map[string]*saveHook{dir: nil}
+	m.editor.saveHooks = map[saveHookKey]*saveHook{{tool: "goimports", dir: dir}: nil}
 
 	model := send(tea.Model(m), ":", "w", "q", "enter")
 
-	assert.NotEqual(t, "viewGoimportsInstallConfirm", fmt.Sprintf("%T", model), "묻지 않는다")
-	assert.False(t, m.editor.goimportsDeclined, "거절한 적도 없다 — 다음 `:w` 가 묻는다")
+	assert.NotEqual(t, "viewFormatterInstallConfirm", fmt.Sprintf("%T", model), "묻지 않는다")
+	assert.False(t, m.editor.formattersDeclined["goimports"], "거절한 적도 없다 — 다음 `:w` 가 묻는다")
 }
 
 // `go env GOBIN GOPATH` 는 GOBIN 이 비면 **첫 줄을 빈 줄로** 준다. 통째로 다듬고 나누면
@@ -247,4 +249,64 @@ func TestCountChangedLines(t *testing.T) {
 	assert.Equal(t, 1, countChangedLines(old, [][]byte{[]byte("a"), []byte("B")}))
 	assert.Equal(t, 1, countChangedLines(old, [][]byte{[]byte("a"), []byte("b"), []byte("c")}),
 		"늘어난 줄도 달라진 것이다")
+}
+
+// python 파일은 ruff 를 통과한다. 표에 줄이 하나 는 것이 python 지원의 이 몫이다(ADR-0107).
+func TestFormatterTableHasPython(t *testing.T) {
+	spec := formatterFor("app.py")
+	require.NotNil(t, spec)
+
+	assert.Equal(t, "ruff", spec.name)
+	assert.Equal(t, "uv tool install ruff", spec.InstallHint())
+
+	assert.Equal(t, "goimports", formatterFor("main.go").name)
+	assert.Nil(t, formatterFor("notes.md"))
+	assert.Nil(t, formatterFor(""))
+}
+
+// **한 폴더에 `.go` 와 `.py` 가 같이 있으면 서로 덮지 않는다.** 담아 두는 자리의 키가
+// 폴더만이던 때에는 먼저 저장한 쪽의 답이 다른 언어에 실려 갔다(ADR-0107).
+func TestSaveHookCacheDoesNotMixLanguages(t *testing.T) {
+	goHook := shellHook("cat")
+	pyHook := shellHook("tr a-z A-Z")
+
+	e := &editor{saveHooks: map[saveHookKey]*saveHook{
+		{tool: "goimports", dir: "pkg"}: goHook,
+		{tool: "ruff", dir: "pkg"}:      pyHook,
+	}}
+
+	found, err := e.saveHookFor(filepath.Join("pkg", "a.go"))
+	require.NoError(t, err)
+	assert.Same(t, goHook, found, "Go 파일은 Go 쪽 답을 받는다")
+
+	found, err = e.saveHookFor(filepath.Join("pkg", "a.py"))
+	require.NoError(t, err)
+	assert.Same(t, pyHook, found, "python 파일은 python 쪽 답을 받는다")
+}
+
+// 거절은 포매터마다 따로 적힌다. 한쪽을 거절한 것이 다른 언어의 물음을 삼키지 않는다.
+func TestFormatterDeclineIsPerFormatter(t *testing.T) {
+	e := &editor{}
+
+	goimports := formatterFor("main.go")
+	ruff := formatterFor("app.py")
+
+	require.True(t, e.askFormatter(goimports))
+	require.True(t, e.askFormatter(ruff))
+
+	e.declineFormatter(goimports)
+
+	assert.False(t, e.askFormatter(goimports), "거절한 뒤로는 묻지 않는다")
+	assert.True(t, e.askFormatter(ruff), "남의 거절이 옮지 않는다")
+}
+
+// 설치 작업이 도는 중에는 묻지 않는다. 포매터마다 따로 본다.
+func TestFormatterAskWhileInstalling(t *testing.T) {
+	e := &editor{}
+
+	ruff := formatterFor("app.py")
+	e.putJob(job{name: formatterJobName(ruff)})
+
+	assert.False(t, e.askFormatter(ruff))
+	assert.True(t, e.askFormatter(formatterFor("main.go")), "남의 작업은 이 물음을 막지 않는다")
 }
