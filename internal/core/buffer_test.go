@@ -669,6 +669,46 @@ func TestCursorKeepsDesiredColAcrossWrappedRows(t *testing.T) {
 	assert.Equal(t, 10, buf.cursorCol, "세 번째 행의 2 칸. 줄이 짧아 끝")
 }
 
+// **wrap 된 줄의 둘째 행에서 `j` 를 누르면 다음 줄의 첫 화면 행에 선다**(ADR-0108).
+//
+// desiredCol 이 화면 행 안에서 센 칸이라 늘 width 보다 작고, `j` 는 그것을 줄 시작에서 센
+// 칸으로 읽는다. vim 은 이 칸을 줄 시작에서 세므로 여기서 결과가 갈린다. 잰 값으로 vim 9.1
+// 은 offset 25 에 서고 우리는 offset 5 에 선다.
+//
+// **그대로 두기로 정한 것을 여기서 못 박는다.** 「vim 과 다르다」가 아니라 「이 편집기는
+// 이렇게 움직인다」라서, 표현을 바꾸면 이 시험이 먼저 걸려야 한다.
+func TestDesiredColIsRowRelativeAcrossLines(t *testing.T) {
+	const width = 20
+
+	long := "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMN" // 50 글자, 화면 행 셋
+	buf := newBuffer("test.txt", []byte(long+"\n"+long+"\n"))
+
+	// 첫 줄 offset 25 는 둘째 화면 행(행 시작 20) 의 6 번째 칸이다.
+	buf.cursorLine = 0
+	buf.cursorCol = 25
+	buf.updateDesiredCol(width)
+	require.Equal(t, 5, buf.desiredCol, "행 시작을 뺀 칸이다")
+	require.Equal(t, byte('z'), buf.lines[0][25])
+
+	buf.moveDownLine(1)
+
+	assert.Equal(t, 1, buf.cursorLine)
+	assert.Equal(t, 5, buf.cursorCol, "줄 시작에서 5 칸. vim 은 25 로 간다")
+	assert.Equal(t, byte('f'), buf.lines[1][buf.cursorCol])
+
+	offsets := wrapOffsets(buf.lines[1], width, buf.tabWidth())
+	assert.Equal(t, 0, rowIndexAt(offsets, buf.cursorCol), "언제나 첫 화면 행이다")
+
+	// 셋째 행에서 눌렀으면 두 행 몫이 당겨진다. 같은 규칙의 더 센 모습이다.
+	buf.cursorLine = 0
+	buf.cursorCol = 45
+	buf.updateDesiredCol(width)
+	require.Equal(t, 5, buf.desiredCol, "셋째 행(행 시작 40) 의 6 번째 칸")
+
+	buf.moveDownLine(1)
+	assert.Equal(t, 5, buf.cursorCol, "행이 달라져도 같은 자리로 온다")
+}
+
 // wrap 된 줄이 화면을 넘으면 그 줄 중간부터 그려야 한다.
 func TestScrollToWithinWrappedLine(t *testing.T) {
 	width, height := 4, 3

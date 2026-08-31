@@ -251,8 +251,14 @@ func (buf *Buffer) moveDownLine(n int) {
 // 그래서 이름이 닮은 moveToLine 과 합칠 수 없다. 그쪽은 첫 비공백으로 가며 desiredCol 을
 // 새로 정하는 `gg`·`G` 쪽이다(ADR-0100).
 //
-// desiredCol 은 화면 행 안에서 센 칸이라, wrap 된 줄의 둘째 행 이후에서 넘어오면
-// vim 과 칸이 다르다. wrap 되지 않은 줄에서는 줄 시작에서 센 칸과 같아서 vim 과 같다.
+// **desiredCol 은 화면 행 안에서 센 칸이다**(ADR-0108). 그 값이 늘 width 보다 작으므로,
+// wrap 된 줄의 둘째 행 이후에서 넘어오면 여기가 놓는 자리는 **언제나 다음 줄의 첫 화면 행**
+// 이다. vim 은 이 칸을 줄 시작에서 세므로 그 자리에서 다르다. wrap 되지 않은 줄과 첫 화면
+// 행에서는 두 틀이 같은 값이라 vim 과 같다.
+//
+// 그대로 두기로 정했다. `↑`/`↓` 가 화면 행 단위인 것과 앞뒤가 맞고(ADR-0006, ADR-0076),
+// 줄 기준으로 바꾸면 placeCursorInRow 가 desiredCol 을 갱신하게 되어 「기억한 것을 읽어
+// 쓰는 자리」와 「새로 정하는 자리」의 가름이 흐려진다(ADR-0108 §3).
 func (buf *Buffer) placeCursorInLine(line int) {
 	buf.cursorLine = line
 	buf.cursorCol = offsetAtScreenCol(buf.lines[line], buf.desiredCol, buf.tabWidth())

@@ -115,7 +115,12 @@ type Buffer struct {
 
 	cursorLine int // lines 의 index
 	cursorCol  int // lines[cursorLine] 안의 byte offset
-	desiredCol int // 현재 cursor 가 있는 열. 위아래로 움직일떄 현재 열로 올수 있도록 한다. 화면행 안에서의 칸으로 센다.
+	// desiredCol 은 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
+	//
+	// 그렇게 둔 것은 `↑`/`↓` 가 화면 행 단위라서다(ADR-0006, ADR-0076). 대가로 wrap 된 줄의
+	// 둘째 행 이후에서 `j`/`k` 를 누르면 다음 줄의 첫 화면 행에 선다. vim 은 이 칸을 줄
+	// 시작에서 세므로 그 자리에서 다르고, 그대로 두기로 정했다(placeCursorInLine).
+	desiredCol int
 
 	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
 	selection selection
