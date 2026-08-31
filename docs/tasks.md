@@ -300,8 +300,9 @@
 	- go to definition
 	- go to reference
 	- rename
-- [ ] terminal 제목줄에 현재 파일 표시
-	- 이건 terminal spec 에 따라 못할수도 있다.
+- [x] terminal 제목줄에 현재 파일 표시
+	- [ ] 나갈 때 원래 제목으로 되돌릴지 다시 본다. bubbletea 는 빈 제목을 쓰고, OSC 22/23 으로 되돌리려면 bubbletea 밖에서 escape 를 쓰는 자리가 생긴다. 셸이 제목을 다시 쓰지 않는 판에서 거슬리면 그때 본다 (ADR-0110)
+	- [ ] 제목에 tab 개수·mode·git branch 를 적을지 정한다. 지금은 「무엇을 고치고 있나」 하나다 (ADR-0110)
 - command palette 명령 추가
 	- [ ] 고른 범위를 넘겨받는 명령들. 대소문자 바꾸기(`transfer to upper`·`lower`) 와 `format selection` 이 그것이다. 팔레트가 명령을 돌리기 직전에 고른 범위를 놓아서(view-palette.go) 그 자리를 먼저 정해야 한다. 지금은 visual 의 `u`·`U`·`~`·`\mt` 가 그 몫을 맡는다 (ADR-0011, ADR-0037, ADR-0109)
 	- [x] sort line assendting

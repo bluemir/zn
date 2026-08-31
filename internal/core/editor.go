@@ -736,7 +736,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 	//
 	// 커서는 얹지 않는다. 놓을 글자가 없어서 터미널이 숨긴다.
 	if !e.hasTab() {
-		return newView(e.renderScreen(e.renderEmptyScreen(), mode, bottom))
+		return newView(e.renderScreen(e.renderEmptyScreen(), mode, bottom), e.renderWindowTitle())
 	}
 
 	buf := e.activeBuffer()
@@ -803,7 +803,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 		textRows[i] = e.renderStickyRow(buf, line)
 	}
 
-	view := newView(e.renderScreen(textRows, mode, bottom))
+	view := newView(e.renderScreen(textRows, mode, bottom), e.renderWindowTitle())
 
 	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
@@ -821,9 +821,19 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 // 커서는 부르는 쪽이 얹는다 — 어디에 둘지가 화면마다 다르다.
 //
 // editor 를 받지 않는다. 그릴 것은 부르는 쪽이 이미 다 만들어서 오므로 이것은 층이
-// 아니라 정해진 설정을 붙여 주는 자리다(ADR-0036).
-func newView(rows []string) tea.View {
+// 아니라 정해진 설정을 붙여 주는 자리다(ADR-0036). 제목도 다 만들어진 글로 받는다.
+//
+// **제목이 여기 있는 것이 요점이다.** 겹쳐 그리는 화면들은 부모의 view 를 그대로 쓰므로
+// (view-quit-confirm.go) 제목을 붙이는 자리도 이 하나로 남는다(ADR-0110).
+func newView(rows []string, title string) tea.View {
 	view := tea.NewView(strings.Join(rows, "\n"))
+
+	// 터미널이 받으면 창 제목이 바뀌고, 안 받으면 아무 일도 일어나지 않는다. 되묻지 않는
+	// 일방 통보라 ADR-0041 이 OSC 11 을 기각한 자리와 성격이 다르다(ADR-0110).
+	//
+	// bubbletea 는 이 값이 **바뀔 때만** escape 를 쓴다(cursed_renderer.go). 프레임마다
+	// 쓰지 않으므로 여기서 매번 만들어 넘겨도 값이 붙지 않는다.
+	view.WindowTitle = title
 
 	view.MouseMode = tea.MouseModeCellMotion
 	view.AltScreen = true
@@ -837,6 +847,48 @@ func newView(rows []string) tea.View {
 	view.ReportFocus = true
 
 	return view
+}
+
+// renderWindowTitle 은 터미널 창 제목에 적을 한 줄이다(ADR-0110).
+//
+//	zn                                  볼 파일이 없을 때
+//	zn editor.go (internal/core)        저장소 아래의 파일
+//	zn editor.go + (internal/core)      저장하지 않은 변경이 있을 때
+//	zn go.mod                           뿌리에 있는 파일이라 적을 폴더가 없다
+//	zn [No Name]                        아직 이름이 없는 buffer
+//
+// **`zn` 이 앞이다.** 창 목록이나 tmux 상태줄은 뒤를 자르는 쪽이라, 무엇이 띄운 제목인지가
+// 먼저 서야 잘려도 남는다.
+//
+// `+` 는 tabline 이 쓰는 것과 같은 글자다(tabLabel). 창을 여럿 띄워 둔 사람이 어느 창에
+// 저장하지 않은 것이 있는지 보는 것이 이 제목의 가장 큰 값이다.
+//
+// **tab 개수는 적지 않는다.** 제목이 tabline 을 옮겨 적는 자리가 아니고, 창 밖에서 알고 싶은
+// 것은 「지금 무엇을 고치고 있나」다.
+func (e editor) renderWindowTitle() string {
+	const name = "zn"
+
+	if !e.hasTab() {
+		return name
+	}
+
+	buf := e.buffers[e.active]
+
+	title := name + " " + e.tabName(e.active)
+	if buf.dirty {
+		title += " +"
+	}
+
+	if buf.path == "" {
+		return title
+	}
+
+	// 폴더만 덧붙인다. 파일 이름은 이미 앞에 있다.
+	if dir := filepath.Dir(shortenPath(buf.path)); dir != "." && dir != "" {
+		title += " (" + dir + ")"
+	}
+
+	return title
 }
 
 // renderScreen 는 편집 내용에 tabline·sidebar·statusBar 를 맞물려 화면 전체 행을 만든다.

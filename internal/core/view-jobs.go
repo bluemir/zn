@@ -420,7 +420,7 @@ func (m viewJobs) View() tea.View {
 	screen = append(screen, styleDetail.Render(" j/k 이동  enter 펼치기  x 취소  q 닫기"))
 	screen = append(screen, m.renderBareStatusBar()...)
 
-	view := newView(screen)
+	view := newView(screen, m.renderWindowTitle())
 
 	// 커서는 고른 행 왼쪽 끝에 둔다. 제목줄이 한 줄을 쓰므로 목록은 그 아래에서 시작한다.
 	if len(rows) > 0 {

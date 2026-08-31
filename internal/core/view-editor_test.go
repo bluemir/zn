@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -122,6 +124,91 @@ func TestViewEditorRendersVisibleLines(t *testing.T) {
 	assert.Equal(t, "a\nb\nc", textOf(t, m), "화면 높이만큼만 그린다")
 	assert.True(t, view.AltScreen)
 	assert.Equal(t, tea.MouseModeCellMotion, view.MouseMode)
+}
+
+// 터미널 창 제목이다(ADR-0110). `zn` 이 앞이고 폴더는 뒤에 괄호로 붙는다.
+func TestWindowTitle(t *testing.T) {
+	// **symlink 를 풀어서 쓴다.** macOS 의 `/var` 는 `/private/var` 라 t.TempDir() 이 준 것과
+	// os.Getwd() 가 주는 것이 다르고, 그러면 shortenPath 가 경로를 줄이지 못한다
+	// (language-server-watch_test.go 가 같은 자리에 적어 둔 이야기다).
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+
+	root := filepath.Join(dir, "go.mod")
+	require.NoError(t, os.WriteFile(root, []byte("module x\n"), 0644))
+
+	nested := filepath.Join(dir, "internal", "core")
+	require.NoError(t, os.MkdirAll(nested, 0755))
+
+	deep := filepath.Join(nested, "editor.go")
+	require.NoError(t, os.WriteFile(deep, []byte("package core\n"), 0644))
+
+	// cwd 를 뿌리로 옮긴다. shortenPath 가 그 기준으로 경로를 줄인다.
+	before, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(before) })
+
+	t.Run("폴더가 있는 파일", func(t *testing.T) {
+		buf, err := OpenBuffer(deep)
+		require.NoError(t, err)
+
+		e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+		assert.Equal(t, "zn editor.go (internal/core)", e.renderWindowTitle())
+	})
+
+	t.Run("저장하지 않은 변경", func(t *testing.T) {
+		buf, err := OpenBuffer(deep)
+		require.NoError(t, err)
+
+		e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+		e.activeBuffer().insert([]byte("X"), 80)
+
+		assert.Equal(t, "zn editor.go + (internal/core)", e.renderWindowTitle())
+	})
+
+	t.Run("뿌리에 있는 파일은 폴더를 적지 않는다", func(t *testing.T) {
+		buf, err := OpenBuffer(root)
+		require.NoError(t, err)
+
+		e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+		assert.Equal(t, "zn go.mod", e.renderWindowTitle())
+	})
+
+	t.Run("이름 없는 buffer", func(t *testing.T) {
+		e := &editor{buffers: []Buffer{newEmptyBuffer("")}, width: 80, height: 12}
+		assert.Equal(t, "zn [No Name]", e.renderWindowTitle())
+	})
+
+	t.Run("볼 파일이 없으면 이름만", func(t *testing.T) {
+		e := &editor{width: 80, height: 12, active: -1}
+		assert.Equal(t, "zn", e.renderWindowTitle())
+	})
+}
+
+// 제목이 view 에 실려 나간다. bubbletea 가 이 칸을 보고 OSC 2 를 쓴다.
+func TestWindowTitleReachesView(t *testing.T) {
+	m := newTestEditor("a\n", 80, 6)
+	m.editor.buffers[0].path = "main.go"
+
+	assert.Equal(t, "zn main.go", m.View().WindowTitle)
+}
+
+// **겹쳐 그리는 화면도 제목을 그대로 든다.** 부모의 view 를 쓰기 때문이다(ADR-0110).
+// 새 view 를 만들어 칸을 베끼던 손이면 창이 열릴 때마다 제목이 사라진다.
+func TestWindowTitleSurvivesOverlays(t *testing.T) {
+	m := newTestEditor("a\n", 80, 12)
+	m.editor.buffers[0].path = "main.go"
+
+	want := m.View().WindowTitle
+	require.Equal(t, "zn main.go", want)
+
+	back, _ := normalMode(m.editor)
+	confirm := ConfirmDiscard(back, m.editor, "물음", func() (tea.Model, tea.Cmd) { return nil, nil })
+	assert.Equal(t, want, confirm.View().WindowTitle, "종료 확인창")
+
+	palette, _ := paletteMode(m.editor)
+	assert.Equal(t, want, palette.View().WindowTitle, "팔레트")
 }
 
 // 화면보다 긴 줄은 잘리지 않고 다음 행으로 넘어간다.

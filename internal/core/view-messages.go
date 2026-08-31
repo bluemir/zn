@@ -259,7 +259,7 @@ func (m viewMessages) View() tea.View {
 	screen = append(screen, styleDetail.Render(m.renderHint()))
 	screen = append(screen, m.renderBareStatusBar()...)
 
-	view := newView(screen)
+	view := newView(screen, m.renderWindowTitle())
 
 	if len(rows) > 0 {
 		view.Cursor = tea.NewCursor(0, m.selected-m.top+jobsTitleHeight)
