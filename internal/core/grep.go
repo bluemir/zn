@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
@@ -44,7 +43,7 @@ const grepProbeBytes = 8000
 // (ADR-0073 이 `GOTO` 를 둘러보기 판으로 만든 까닭이다) 검색은 수백 곳이 와서 하나하나 가 볼
 // 수가 없다. 내용이 목록에 있으면 눈으로 훑어 고른다(ADR-0077).
 type grepHit struct {
-	path string // 뿌리 기준 상대 경로
+	path string // 뿌리 기준 상대 경로. 뿌리 밖에 열어 둔 파일이면 `../` 로 시작한다
 	line int    // 0 부터
 	col  int    // 매칭이 시작하는 byte offset. 뛸 때 칸까지 맞춘다
 	end  int    // 매칭이 끝나는 byte offset. 목록에서 그 글자만 강조한다
@@ -105,10 +104,10 @@ func (e *editor) startGrep(input string) tea.Cmd {
 	// 열린다. `:replace` 는 이 함수를 부른 **뒤에** 자기 것을 세운다(replace.go 의 runReplace).
 	e.replace = replacePending{}
 
-	overlay := e.dirtyOverlay(root)
+	open, overlay := e.dirtyOverlay(root)
 
 	return e.startJob(grepJobName, []string{input}, func(ctx context.Context) <-chan jobProgress {
-		return grepFiles(ctx, root, input, pattern, overlay)
+		return grepFiles(ctx, root, input, pattern, open, overlay)
 	})
 }
 
@@ -131,15 +130,26 @@ func runGrep(e *editor, input string) (tea.Model, tea.Cmd) {
 	return model, tea.Batch(next, start)
 }
 
-// dirtyOverlay 는 고치던 buffer 의 글을 뿌리 기준 상대 경로로 담은 것이다.
+// dirtyOverlay 는 열려 있는 파일들과, 그중 고치던 것의 글이다. 둘 다 뿌리 기준 상대 경로다.
+//
+// **한 자리에서 둘을 낸다.** buf.path 를 뿌리 기준으로 맞추는 셈이 하나뿐이어야 두 답이
+// 같은 자를 쓴다. 갈라 두면 목록에는 든 파일이 overlay 에서는 빠지는 자리가 생긴다.
+//
+// open 은 고치지 않은 것도 담는다. 훑는 목록에 없는 파일을 검색에 넣는 데 쓰는데(grepFiles)
+// `.gitignore` 가 가린 파일은 고쳤든 아니든 목록에 없다.
+//
+// **뿌리 밖의 파일도 담는다.** 그때 자는 `../other/x.go` 가 되는데, 읽는 자리도 쓰는 자리도
+// `filepath.Join(root, path)` 를 지나므로 제 파일로 풀린다. 적중에서 뛰는 것도 `samePath` 가
+// 양쪽을 `Abs` 로 맞춰 견주어서 이미 열려 있는 그 tab 을 찾는다.
 //
 // 작업에 넘기고 나면 이쪽에서 건드리지 않는다. 줄을 이어 만든 새 byte 열이라 buffer 가
 // 그 뒤로 바뀌어도 실어 보낸 것은 그대로다 — 검색 결과는 **시작한 순간의 글**이다.
-func (e editor) dirtyOverlay(root string) map[string][]byte {
+func (e editor) dirtyOverlay(root string) ([]string, map[string][]byte) {
+	open := []string{}
 	overlay := map[string][]byte{}
 
 	for _, buf := range e.buffers {
-		if !buf.dirty || buf.path == "" {
+		if buf.path == "" {
 			continue
 		}
 
@@ -153,15 +163,18 @@ func (e editor) dirtyOverlay(root string) map[string][]byte {
 		}
 
 		rel, err := filepath.Rel(root, full)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			// 뿌리 밖의 파일이다. 훑는 목록에 없으므로 얹을 자리도 없다.
+		if err != nil {
 			continue
 		}
 
-		overlay[rel] = buf.contents()
+		open = append(open, rel)
+
+		if buf.dirty {
+			overlay[rel] = buf.contents()
+		}
 	}
 
-	return overlay
+	return open, overlay
 }
 
 // grepFiles 는 파일 목록을 훑어 패턴에 걸리는 줄을 모은다.
@@ -169,13 +182,23 @@ func (e editor) dirtyOverlay(root string) map[string][]byte {
 // 파일 목록은 팔레트와 같은 길로 얻는다(`gitFiles`·`walkFiles`) — `.gitignore` 가 공짜로
 // 따라오고 저장소가 아니면 `.git` 만 건너뛴다. 검색만의 규칙을 새로 만들지 않는다.
 //
+// **검색 범위는 「뿌리 아래 + 열어 둔 파일」이다.** 열려 있으면 그 목록에 없어도 넣는다 —
+// `.gitignore` 가 가린 파일도, 뿌리 밖의 파일도 그렇다. 보고 있는 파일이 검색에서 빠지는
+// 것은 규칙이 아니라 놀라움이다(ADR-0077).
+//
 // 조각은 파일 하나를 훑을 때마다 보낸다. `done`·`total` 이 파일 수라 `:jobs` 의 막대가
 // 「몇 개 중 몇 개」를 그대로 보여준다. `apply` 는 그때까지 모은 적중을 통째로 넣는다 —
 // 새 slice 를 만들지 않고 앞부분을 가리키게 두어서 보내는 쪽도 받는 쪽도 복사하지 않는다.
 //
 // ctx 가 끊기면 그만둔다. 보내다 막히는 자리마다 빠져나와서, 취소한 뒤 아무도 받지 않는
 // 채널에 goroutine 이 남지 않는다(ADR-0027).
-func grepFiles(ctx context.Context, root, input string, pattern *regexp.Regexp, overlay map[string][]byte) <-chan jobProgress {
+func grepFiles(
+	ctx context.Context,
+	root, input string,
+	pattern *regexp.Regexp,
+	open []string,
+	overlay map[string][]byte,
+) <-chan jobProgress {
 	ch := make(chan jobProgress)
 
 	send := func(progress jobProgress) bool {
@@ -197,6 +220,8 @@ func grepFiles(ctx context.Context, root, input string, pattern *regexp.Regexp, 
 		if ctx.Err() != nil {
 			return
 		}
+
+		files = appendOpenFiles(files, open)
 
 		hits := []grepHit{}
 		seen := map[string]bool{}
@@ -276,6 +301,34 @@ func grepSummary(hits, files int, capped bool, skipped int) string {
 	}
 
 	return summary
+}
+
+// appendOpenFiles 는 훑는 목록에 없는 열린 파일을 뒤에 붙인다.
+//
+// **뒤에 붙인다.** 앞은 저장소가 아는 차례라 끼워 넣으면 같은 검색의 차례가 열린 tab 에 따라
+// 달라진다. 붙인 파일도 목록의 다른 파일과 똑같이 지나므로 여기서 하는 일은 이것뿐이다.
+//
+// 같은 파일을 두 번 넣지 않는다. 두 번 훑으면 적중이 겹치고 파일 수도 두 번 센다.
+func appendOpenFiles(files, open []string) []string {
+	if len(open) < 1 {
+		return files
+	}
+
+	known := make(map[string]bool, len(files)+len(open))
+	for _, path := range files {
+		known[path] = true
+	}
+
+	for _, path := range open {
+		if known[path] {
+			continue
+		}
+
+		known[path] = true
+		files = append(files, path)
+	}
+
+	return files
 }
 
 // grepFile 은 파일 하나에서 걸리는 줄을 모은다.
