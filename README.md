@@ -114,4 +114,4 @@ fork해서 코드를 고치고 빌드해 쓰면 된다. 설정 파일도 플러�
 
 ## License
 
-MIT다. [LICENSE](LICENSE)를 보라.
+MIT [LICENSE](LICENSE)
