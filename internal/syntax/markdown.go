@@ -7,7 +7,15 @@ import (
 )
 
 // mdNormal 은 markdown 의 보통 문맥이다. 코드펜스 안이 아니다.
-type mdNormal struct{}
+//
+// afterTableRow 는 앞 줄이 표의 한 행이었는지다. **표에서 앞 줄을 봐야 하는 것은 이것 하나다**
+// — 이어지는 `|` 줄의 첫 줄이 머리 행이라 굵게 그린다. 나머지는 줄 하나로 정해진다.
+//
+// 상태를 새로 만들지 않고 칸을 하나 든 것은, 표 안에서도 markdown 이 하던 일을 다 해야 하기
+// 때문이다. 표 다음 줄에 코드펜스가 열리거나 제목이 올 수 있다.
+type mdNormal struct {
+	afterTableRow bool
+}
 
 // mdFence 는 코드펜스 안이다.
 //
@@ -46,11 +54,18 @@ func (s mdFence) Indent() Indent {
 	return s.inner.Indent()
 }
 
-func (s mdNormal) Lex(line []byte) ([]Token, State) {
+// mdIndentOf 는 줄 앞의 빈 칸 수다. 코드펜스·제목·표가 다 이 자리부터 시작한다.
+func mdIndentOf(line []byte) int {
 	indent := 0
 	for indent < len(line) && line[indent] == ' ' {
 		indent++
 	}
+
+	return indent
+}
+
+func (s mdNormal) Lex(line []byte) ([]Token, State) {
+	indent := mdIndentOf(line)
 
 	// 코드펜스를 연다. 안쪽은 markdown 이 아니므로 문맥이 바뀐다.
 	if marker, size, ok := mdFenceAt(line, indent); ok {
@@ -71,15 +86,25 @@ func (s mdNormal) Lex(line []byte) ([]Token, State) {
 	// 제목은 줄 하나가 통째로 제목이다. 안의 코드 스팬까지 가르지 않는다 — 제목 줄에서
 	// 굵기가 끊기면 어디까지가 제목인지 흐려진다.
 	if end := mdHeadingEnd(line, indent); end > indent {
-		return []Token{{Start: 0, End: len(line), Kind: KindHeading}}, s
+		return []Token{{Start: 0, End: len(line), Kind: KindHeading}}, mdNormal{}
 	}
 
 	// 인용문도 줄 단위다. 인용은 곧 남의 말이라 주석과 같은 자리에 둔다.
 	if indent < len(line) && line[indent] == '>' {
-		return []Token{{Start: 0, End: len(line), Kind: KindComment}}, s
+		return []Token{{Start: 0, End: len(line), Kind: KindComment}}, mdNormal{}
 	}
 
-	return mdLexInline(line), s
+	// 참조 링크의 정의(`[ref]: 주소`) 다. 줄 하나가 통째로 정의라 안을 더 훑지 않는다.
+	if from, to, ok := mdLinkDefinition(line, indent); ok {
+		return []Token{{Start: from, End: to, Kind: KindLink}}, mdNormal{}
+	}
+
+	// 표의 한 행이다. 이어지는 `|` 줄 중 첫 줄이 머리 행이다.
+	if mdTableRowAt(line, indent) {
+		return mdLexTableRow(line, indent, !s.afterTableRow), mdNormal{afterTableRow: true}
+	}
+
+	return mdLexInline(line), mdNormal{}
 }
 
 func (s mdFence) Lex(line []byte) ([]Token, State) {
@@ -88,10 +113,7 @@ func (s mdFence) Lex(line []byte) ([]Token, State) {
 	// 코드로 그려진다(ADR-0040).
 	//
 	// 닫는 표시는 같은 글자로, 여는 것보다 짧지 않게, 그 뒤에 아무것도 없어야 한다.
-	indent := 0
-	for indent < len(line) && line[indent] == ' ' {
-		indent++
-	}
+	indent := mdIndentOf(line)
 
 	run := 0
 	for indent+run < len(line) && line[indent+run] == s.marker {
@@ -169,6 +191,181 @@ func mdHeadingEnd(line []byte, indent int) int {
 	return at
 }
 
+// mdTableRowAt 은 그 줄이 표의 한 행인지다.
+//
+// **`|` 로 시작하는 줄만 본다.** GFM 은 바깥 `|` 를 생략해도 표로 읽지만(`a | b`), 그러면
+// 산문의 `a | b` 와 갈리지 않는다. 시작 표시를 요구하면 줄 하나만 보고 정할 수 있어서
+// 표의 어느 자리인지를 문맥에 들고 다닐 필요가 없다.
+//
+// `|` 가 하나 더 있어야 한다. 칸을 가르는 것이 표라, 하나뿐이면 표가 아니다.
+func mdTableRowAt(line []byte, indent int) bool {
+	if indent > mdMaxFenceIndent || indent >= len(line) || line[indent] != '|' {
+		return false
+	}
+
+	return bytes.IndexByte(line[indent+1:], '|') >= 0
+}
+
+// mdTableDelimiterAt 은 그 줄이 표의 구분줄(`|---|:--:|`) 인지다. 통째로 표시라 안을 훑지 않는다.
+func mdTableDelimiterAt(line []byte, indent int) bool {
+	if !mdTableRowAt(line, indent) {
+		return false
+	}
+
+	dash := false
+	for _, c := range line[indent:] {
+		switch c {
+		case '-':
+			dash = true
+		case '|', ':', ' ', '\t':
+		default:
+			return false
+		}
+	}
+
+	return dash
+}
+
+// mdTablePipes 는 칸을 가르는 `|` 의 자리다. inline 은 그 줄을 훑은 결과다.
+//
+// **인라인 토큰 사이만 본다.** 코드 스팬 안의 `|`(“ `a | b` “) 는 칸을 가르지 않는다.
+// 앞에 `\` 가 붙은 것도 아니다 — GFM 이 칸 안에 `|` 를 적는 길로 둔 것이다.
+//
+// 이 답을 강조와 표 정리(core 의 `표 맞추기`) 가 같이 쓴다. 갈라 두면 화면에서 칸으로
+// 보이던 자리와 실제로 잘리는 자리가 달라진다.
+func mdTablePipes(line []byte, inline []Token) []int {
+	pipes := []int{}
+
+	add := func(from, to int) {
+		for at := from; at < to; at++ {
+			if line[at] == '|' && (at == 0 || line[at-1] != '\\') {
+				pipes = append(pipes, at)
+			}
+		}
+	}
+
+	at := 0
+	for _, token := range inline {
+		add(at, token.Start)
+		at = max(at, token.End)
+	}
+
+	add(at, len(line))
+
+	return pipes
+}
+
+// mdLexTableRow 는 표의 한 행이다. head 면 머리 행이라 칸의 글을 굵게 그린다.
+//
+// head 를 받는 것은 그것만이 이 줄에서 알 수 없는 사실이기 때문이다(mdNormal 의 afterTableRow).
+//
+// 칸 안의 글은 여느 줄과 같이 훑는다. 코드 스팬·굵게·링크가 표 안에서도 그대로 들어야 한다.
+func mdLexTableRow(line []byte, indent int, head bool) []Token {
+	if mdTableDelimiterAt(line, indent) {
+		return []Token{{Start: 0, End: len(line), Kind: KindKeyword}}
+	}
+
+	inline := mdLexInline(line)
+	pipes := mdTablePipes(line, inline)
+
+	tokens := make([]Token, 0, len(inline)+2*len(pipes)+1)
+	at, next := 0, 0
+
+	// `|` 와 인라인 토큰을 자리 차례로 섞는다. 둘 다 앞에서 뒤로 정렬되어 있다.
+	for _, pipe := range pipes {
+		for next < len(inline) && inline[next].Start < pipe {
+			tokens = mdAppendCellText(tokens, at, inline[next].Start, head)
+			tokens = append(tokens, inline[next])
+			at = inline[next].End
+			next++
+		}
+
+		tokens = mdAppendCellText(tokens, at, pipe, head)
+		tokens = append(tokens, Token{Start: pipe, End: pipe + 1, Kind: KindKeyword})
+		at = pipe + 1
+	}
+
+	for ; next < len(inline); next++ {
+		tokens = mdAppendCellText(tokens, at, inline[next].Start, head)
+		tokens = append(tokens, inline[next])
+		at = inline[next].End
+	}
+
+	return mdAppendCellText(tokens, at, len(line), head)
+}
+
+// mdAppendCellText 는 칸 안의 맨 글을 담는다. 머리 행에서만 갈래가 붙는다.
+func mdAppendCellText(tokens []Token, from, to int, head bool) []Token {
+	if !head || from >= to {
+		return tokens
+	}
+
+	return append(tokens, Token{Start: from, End: to, Kind: KindStrong})
+}
+
+// MarkdownTableCells 는 표 한 행의 칸 글이다. 표의 행이 아니면 ok 가 false 다.
+//
+// state 는 그 줄을 **시작한** 문맥이다(core 의 syntaxStateAt). markdown 의 보통 문맥이
+// 아니면 표가 아니다 — 다른 언어의 파일도, 코드펜스 안의 `|` 줄도 여기서 갈린다. 코드
+// 예시 안의 표를 고쳐 쓰면 그것은 남의 글을 바꾸는 일이다.
+//
+// 칸 글은 앞뒤 빈 칸을 뗀 것이다. 바깥 `|` 밖은 담지 않는다.
+func MarkdownTableCells(state State, line []byte) (cells []string, delimiter, ok bool) {
+	if _, markdown := state.(mdNormal); !markdown {
+		return nil, false, false
+	}
+
+	indent := mdIndentOf(line)
+	if !mdTableRowAt(line, indent) {
+		return nil, false, false
+	}
+
+	pipes := mdTablePipes(line, mdLexInline(line))
+
+	cells = []string{}
+	for i := 0; i+1 < len(pipes); i++ {
+		cells = append(cells, string(bytes.TrimSpace(line[pipes[i]+1:pipes[i+1]])))
+	}
+
+	// 바깥 `|` 를 닫지 않은 행(`| a | b`) 의 마지막 칸이다.
+	if tail := bytes.TrimSpace(line[pipes[len(pipes)-1]+1:]); len(tail) > 0 {
+		cells = append(cells, string(tail))
+	}
+
+	return cells, mdTableDelimiterAt(line, indent), true
+}
+
+// mdLinkDefinition 은 참조 링크를 정의하는 줄(`[ref]: 주소 "제목"`) 의 주소 자리다.
+//
+// 주소에만 색을 준다. `[ref]` 는 사람이 본문에서 다시 부를 이름이고 주소는 기계가 읽는
+// 것이라, 인라인 링크에서 가른 자리와 같다(mdLexInline).
+func mdLinkDefinition(line []byte, indent int) (from, to int, ok bool) {
+	if indent > mdMaxFenceIndent || indent >= len(line) || line[indent] != '[' {
+		return 0, 0, false
+	}
+
+	closeAt := bytes.IndexByte(line[indent:], ']')
+	if closeAt < 2 || indent+closeAt+1 >= len(line) || line[indent+closeAt+1] != ':' {
+		return 0, 0, false
+	}
+
+	rest := line[indent+closeAt+2:]
+
+	dest := bytes.TrimLeft(rest, " \t")
+	if len(dest) < 1 {
+		return 0, 0, false
+	}
+
+	from = len(line) - len(dest)
+
+	to = from
+	for to < len(line) && line[to] != ' ' && line[to] != '\t' {
+		to++
+	}
+
+	return from, to, true
+}
+
 // mdLexInline 은 줄 안의 것들을 훑는다.
 //
 // 앞에서 뒤로 한 번만 지나간다. 코드 스팬이 가장 세다 — 그 안의 `*` 는 강조가 아니다.
@@ -191,7 +388,11 @@ func mdLexInline(line []byte) []Token {
 			}
 		case '[':
 			if from, to, end, ok := mdLinkDest(line, at); ok {
-				tokens = append(tokens, Token{Start: from, End: to, Kind: KindLink})
+				// `[글][]` 는 칠할 이름이 없다. 자리만 지나간다.
+				if to > from {
+					tokens = append(tokens, Token{Start: from, End: to, Kind: KindLink})
+				}
+
 				at = end
 
 				continue
@@ -262,25 +463,48 @@ func mdCodeSpanEnd(line []byte, at int) (int, bool) {
 }
 
 // mdLinkDest 는 `[글](주소)` 의 주소 자리다. 글은 그냥 글이라 색을 주지 않는다.
+//
+// 참조 링크(`[글][ref]`) 의 이름도 여기다. 그 이름이 주소가 적힌 자리를 가리키므로 주소와
+// 같은 갈래로 본다. `[글][]` 처럼 이름이 비면 칠할 것이 없어 from 과 to 가 같다.
+//
+// **`[ref]` 하나만 적는 꼴(shortcut) 은 받지 않는다.** 그냥 대괄호로 묶은 글과 생김새가
+// 같아서, 받으면 이 저장소의 할 일 표시(`- [ ]` `- [x]`) 가 전부 링크가 된다.
 func mdLinkDest(line []byte, at int) (from, to, end int, ok bool) {
 	closeAt := bytes.IndexByte(line[at:], ']')
-	if closeAt < 0 || at+closeAt+1 >= len(line) || line[at+closeAt+1] != '(' {
+	if closeAt < 0 || at+closeAt+1 >= len(line) {
 		return 0, 0, 0, false
 	}
 
-	from = at + closeAt + 2
+	switch line[at+closeAt+1] {
+	case '(':
+		from = at + closeAt + 2
 
-	paren := bytes.IndexByte(line[from:], ')')
-	if paren < 0 {
-		return 0, 0, 0, false
+		paren := bytes.IndexByte(line[from:], ')')
+		if paren < 0 {
+			return 0, 0, 0, false
+		}
+
+		to = from + paren
+		if from >= to {
+			return 0, 0, 0, false
+		}
+
+		return from, to, to + 1, true
+
+	case '[':
+		from = at + closeAt + 2
+
+		bracket := bytes.IndexByte(line[from:], ']')
+		if bracket < 0 {
+			return 0, 0, 0, false
+		}
+
+		to = from + bracket
+
+		return from, to, to + 1, true
 	}
 
-	to = from + paren
-	if from >= to {
-		return 0, 0, 0, false
-	}
-
-	return from, to, to + 1, true
+	return 0, 0, 0, false
 }
 
 // mdAutolinkEnd 는 `<http://...>` 가 끝나는 자리다. 꺾쇠 안에 빈 칸이 있으면 링크가 아니다.

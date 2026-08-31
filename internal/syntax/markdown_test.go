@@ -376,6 +376,129 @@ func TestMarkdownFenceClosingBeatsInner(t *testing.T) {
 	}
 }
 
+// 표는 `|` 로 시작하는 줄이 이어지는 것이다. 첫 줄이 머리 행이라 칸의 글이 굵다.
+func TestMarkdownTable(t *testing.T) {
+	got, next := lexedAll(t, mdNormal{},
+		"| 항목 | 값 |",
+		"|---|---|",
+		"| 표 | `spec.md` |",
+		"",
+		"문단이다",
+	)
+
+	assert.Equal(t, [][]string{
+		{"keyword:|", "strong: 항목 ", "keyword:|", "strong: 값 ", "keyword:|"},
+		{"keyword:|---|---|"},
+		{"keyword:|", "keyword:|", "string:`spec.md`", "keyword:|"},
+		{},
+		{},
+	}, got)
+	assert.Equal(t, mdNormal{}, next, "표가 끝나면 보통 문맥이다")
+}
+
+// 표가 둘이면 저마다 첫 줄이 머리 행이다. 앞 줄이 표였는지가 문맥에 실린다.
+func TestMarkdownTableHeadRepeats(t *testing.T) {
+	got, _ := lexedAll(t, mdNormal{},
+		"| 첫 표 |",
+		"| 본문 |",
+		"사이에 문단이 있다",
+		"| 둘째 표 |",
+	)
+
+	assert.Equal(t, [][]string{
+		{"keyword:|", "strong: 첫 표 ", "keyword:|"},
+		{"keyword:|", "keyword:|"},
+		{},
+		{"keyword:|", "strong: 둘째 표 ", "keyword:|"},
+	}, got)
+}
+
+// 표가 아닌 것을 표로 보지 않는다. 산문에 `|` 가 드는 일이 흔하다.
+func TestMarkdownTableNeedsLeadingPipe(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want []string
+	}{
+		{
+			name: "가운데의 `|` 는 표가 아니다 — GFM 은 표로 읽지만 산문과 갈리지 않는다",
+			line: "a | b 는 그냥 글이다",
+			want: []string{},
+		},
+		{
+			name: "`|` 가 하나뿐이면 가를 칸이 없다",
+			line: "| 하나뿐이다",
+			want: []string{},
+		},
+		{
+			name: "코드 스팬 안의 `|` 는 칸을 가르지 않는다",
+			line: "`a | b` 다",
+			want: []string{"string:`a | b`"},
+		},
+		{
+			name: "구분줄은 `-` 가 있어야 한다",
+			line: "| : | : |",
+			want: []string{"keyword:|", "strong: : ", "keyword:|", "strong: : ", "keyword:|"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _ := lexed(t, mdNormal{}, test.line)
+
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+// 참조 링크는 정의의 주소와 본문의 이름에 색을 준다. 둘 다 기계가 읽는 자리다.
+func TestMarkdownReferenceLink(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want []string
+	}{
+		{
+			name: "정의는 주소만 칠한다",
+			line: "[ref]: https://example.com",
+			want: []string{"link:https://example.com"},
+		},
+		{
+			name: "정의 뒤의 제목은 주소가 아니다",
+			line: `[ref]: https://example.com "제목"`,
+			want: []string{"link:https://example.com"},
+		},
+		{
+			name: "본문에서 부르는 이름도 링크다",
+			line: "[글][ref] 을 본다",
+			want: []string{"link:ref"},
+		},
+		{
+			name: "이름이 비면 칠할 것이 없다",
+			line: "[글][] 을 본다",
+			want: []string{},
+		},
+		{
+			name: "할 일 표시는 링크가 아니다 — `[ref]` 하나만 적는 꼴을 받지 않는 까닭이다",
+			line: "- [ ] 할 일이고 [x] 는 끝난 것이다",
+			want: []string{},
+		},
+		{
+			name: "주소를 적는 인라인 링크는 그대로다",
+			line: "[글](주소) 와 [글][ref] 가 한 줄에 있다",
+			want: []string{"link:주소", "link:ref"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _ := lexed(t, mdNormal{}, test.line)
+
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
 // 펜스가 겹쳐도 안쪽 언어가 이어진다. 바깥 펜스는 더 긴 표시로만 닫힌다.
 func TestMarkdownFenceNests(t *testing.T) {
 	got, next := lexedAll(t, mdNormal{},
