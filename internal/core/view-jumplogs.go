@@ -96,7 +96,7 @@ func (m viewJumplogs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// **판 높이는 여기서 지우지 않는다.** 넘어가는 곳이 또 판이면 그쪽이 방금 잡은
 		// 높이를 우리가 지우게 된다(ADR-0069).
 		next, cmd := m.handleJob(msg)

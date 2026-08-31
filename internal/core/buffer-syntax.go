@@ -36,7 +36,10 @@ func (buf *Buffer) lexSyntaxTo(lastLine int) {
 		before := buf.syntax.lines[i].after
 		tokens, after := state.Lex(buf.lines[i])
 
-		buf.syntax.lines[i] = syntaxLine{tokens: tokens, after: after}
+		// 서버가 얹어둔 답(semantic) 은 건드리지 않는다. 그것을 비우는 자리는 그 줄의 글이
+		// 갈리는 한 자리다(syntaxCache.replace).
+		buf.syntax.lines[i].tokens = tokens
+		buf.syntax.lines[i].after = after
 		state = after
 
 		// 고친 줄을 다 지난 뒤에, 이 줄을 끝낸 문맥이 전과 같으면 아래 줄들은 앞과 같은 문맥에서
@@ -101,6 +104,12 @@ func (buf Buffer) syntaxTokens(line int) []syntax.Token {
 	// valid 이후는 아직 훑지 않은 줄이다. 화면 밖이라 그릴 사람이 없다.
 	if line < 0 || line >= len(buf.syntax.lines) || line >= buf.syntax.valid {
 		return nil
+	}
+
+	// 언어 서버가 말한 줄은 서버가 정한다. 생김새로 어림잡은 답보다 type 검사를 마친 답이
+	// 낫고, 서버가 없거나 아직 말하지 않은 줄에는 lexer 의 답이 남아 있다(ADR-0103).
+	if semantic := buf.syntax.lines[line].semantic; semantic != nil {
+		return semantic
 	}
 
 	return buf.syntax.lines[line].tokens

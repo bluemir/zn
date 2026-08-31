@@ -129,7 +129,7 @@
 	- [ ] 언어를 더할 때 색표 표본도 같이 넓힌다. 갈래를 늘리며 색표에 넣기를 잊으면 조용히 색이 없어지는데, `TestEveryKindHasStyle` 은 표본이 그 갈래를 실제로 내야 걸린다
 	- [x] 식별자 바로 뒤에 결합 문자(`e` + U+0301) 가 오면 토큰 경계가 글자 가운데를 가른다. `go/scanner` 가 결합 문자를 이름으로 보지 않아서다. 소스에서 나올 일이 거의 없어 두었다
 	- [x] Go 의 type 자리를 「식별자 둘이 붙으면 뒤쪽이 type」으로 잡는데, 포인터는 gofmt 가 `*` 를 이름에 붙이는 것에 기대고 있다(`*Buffer` 대 `a * b`). gofmt 를 거치지 않은 소스에서는 곱셈이 type 으로 보일 수 있다
-	- [ ] Go 의 generic 인자(`List[T]`) 와 함수 type 필드(`handler func()`) 도 type 자리로 본다
+	- [x] Go 의 generic 인자(`List[T]`) 와 함수 type 필드(`handler func()`) 도 type 자리로 본다 (ADR-0103)
 	- [x] sticky header 와 autoindent 가 같은 토큰을 쓰게 한다 (ADR-0039, ADR-0047)
 - [x] sidebar 에서 `ma` 혹은 `mc` 로 새 파일 생성 (ADR-0054)
 - [x] sidebar 에서 `md` 로 파일 삭제 (ADR-0054)

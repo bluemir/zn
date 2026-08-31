@@ -222,7 +222,9 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		e.editTickScheduled = false
 		e.refreshActiveGitLines()
 
-		return nil, e.syncGopls()
+		// 문법 토큰도 여기서 묻는다. 이동 키도 이 tick 을 예약하므로 화면이 굴러간 것까지
+		// 같은 자리가 받는다(semantic.go, ADR-0103).
+		return nil, tea.Batch(e.syncGopls(), e.startSemanticTokens())
 	case watchMsg:
 		// 감시기가 무언가를 모아 두었다. 꺼내서 gopls 와 buffer 로 보내고 고리를 다시 잇는다
 		// (watch.go, ADR-0093).
@@ -240,6 +242,12 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return nil, waitDiagnostics(e.gopls)
+	case semanticTokensMsg:
+		// 언어 서버가 창 안의 갈래를 말해 주었다. 얹기만 하고 다음을 예약하지 않는다 —
+		// 다음에 묻는 것은 타이핑이나 이동이 멎는 자리다(semantic.go, ADR-0103).
+		e.applySemanticTokens(msg)
+
+		return nil, nil
 	case definitionMsg:
 		// 정의를 물은 답이다. 후보가 하나면 그 자리로 뛰고(mode 그대로) 여럿이면 고르는
 		// 화면을 연다 — mode 를 바꾸는 유일한 작업 결과다(ADR-0051).
