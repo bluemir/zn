@@ -285,17 +285,21 @@ func (buf *Buffer) deleteForward(width int) {
 	buf.updateDesiredCol(width)
 }
 
-// trimTrailingSpace 는 모든 줄 끝의 공백과 tab 을 지운다. 지운 줄 수를 돌려준다.
+// trimTrailingSpace 는 `[from, to)` 줄의 끝에 붙은 공백과 tab 을 지운다. 지운 줄 수를 준다.
 //
 // 지우는 것은 `' '` 와 `'\t'` 뿐이다. 유니코드 공백(NBSP 등) 은 건드리지 않는다 —
 // 눈에 보이지 않는 글자가 조용히 사라지는 것이 더 나쁘고, 일부러 넣는 문서가 있다.
 //
+// 부르는 쪽이 구간을 댄다. 저장 hook 은 파일 전체를 대고(buffer-save.go), 팔레트는 visual
+// 에서 고른 범위가 있으면 그것을 댄다(ADR-0111).
+//
 // 바뀌는 줄 전체를 한 번에 갈아끼운다. 줄마다 beginEdit 를 부르면 두 번째부터 열린 구간을
 // 넓히면서 **이미 잘린 지금 내용** 을 되돌릴 내용으로 담아서, `u` 를 눌러도 원본이 돌아오지 않는다.
-func (buf *Buffer) trimTrailingSpace(width int) int {
+func (buf *Buffer) trimTrailingSpace(from, to, width int) int {
 	// 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가 서고 redo 가 날아간다. 먼저 훑기만 한다.
 	first, last, count := -1, -1, 0
-	for i, line := range buf.lines {
+	for i := from; i < to; i++ {
+		line := buf.lines[i]
 		if len(line) == len(trimLineEnd(line)) {
 			continue
 		}
@@ -359,7 +363,7 @@ func (buf *Buffer) replaceAll(next [][]byte, width int) {
 	buf.endEdit()
 }
 
-// sortLines 는 파일의 줄을 오름차순으로 다시 늘어놓는다. 자리가 바뀐 줄 수를 준다.
+// sortLines 는 `[from, to)` 줄을 오름차순으로 다시 늘어놓는다. 자리가 바뀐 줄 수를 준다.
 //
 // **byte 순이다.** UTF-8 의 byte 순은 코드포인트 순과 같아서 한글 음절은 가나다 순으로
 // 선다(음절이 유니코드에서 이어져 있다). 사전 순(locale) 을 쓰지 않는 것은 그것이 판마다
@@ -370,15 +374,15 @@ func (buf *Buffer) replaceAll(next [][]byte, width int) {
 //
 // 이미 정렬되어 있으면 아무것도 하지 않는다. 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가
 // 서고 redo 가 날아간다(trimTrailingSpace 와 같은 자리다).
-func (buf *Buffer) sortLines(width int) int {
-	next := make([][]byte, len(buf.lines))
-	copy(next, buf.lines)
+func (buf *Buffer) sortLines(from, to, width int) int {
+	next := make([][]byte, to-from)
+	copy(next, buf.lines[from:to])
 
 	slices.SortStableFunc(next, bytes.Compare)
 
 	moved := 0
 	for i := range next {
-		if !bytes.Equal(next[i], buf.lines[i]) {
+		if !bytes.Equal(next[i], buf.lines[from+i]) {
 			moved++
 		}
 	}
@@ -387,25 +391,39 @@ func (buf *Buffer) sortLines(width int) int {
 		return 0
 	}
 
-	// **파일 전체를 갈아끼운다.** 줄이 자리를 바꾸는 일이라 「바뀐 구간」이 파일 전체다.
-	// 포매터가 쓰는 손과 같고, `u` 한 번에 통째로 돌아간다(ADR-0065).
-	buf.replaceAll(next, width)
+	// **고른 구간을 통째로 갈아끼운다.** 줄이 자리를 바꾸는 일이라 「바뀐 구간」이 구간 전체다.
+	// 앞의 타이핑에 섞이면 `u` 한 번에 남의 편집까지 딸려온다(trimTrailingSpace 와 같은 자리다).
+	buf.endEdit()
+	buf.beginEdit(from, to-from)
+
+	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
+	buf.replaceLines(from, to-from, next)
+
+	// 커서 줄의 내용이 바뀌었으므로 줄 밖에 서 있을 수 있다.
+	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.updateDesiredCol(width)
+
+	buf.endEdit()
 
 	return moved
 }
 
-// squeezeSpaces 는 줄 가운데의 이어진 공백을 한 칸으로 줄인다. 고친 줄 수를 준다.
+// squeezeSpaces 는 `[from, to)` 줄 가운데의 이어진 공백을 한 칸으로 줄인다. 고친 줄 수를 준다.
 //
 // **들여쓰기는 건드리지 않는다.** 줄 앞의 공백은 이 편집기가 뜻으로 다루는 것이라
 // (`.editorconfig`·들여쓰기 마커·autoindent) 줄이면 코드가 깨진다.
 //
 // **줄 끝도 건드리지 않는다.** 그것은 「줄 끝 공백 지우기」의 몫이다. 한 명령이 두 가지를
 // 하면 무엇이 내 줄을 고쳤는지 알기 어려워진다(ADR-0011 의 「한 기능에 진입점 하나」).
-func (buf *Buffer) squeezeSpaces(width int) int {
+func (buf *Buffer) squeezeSpaces(from, to, width int) int {
 	first, last, count := -1, -1, 0
 
+	// 파일 전체 길이로 잡아 자리를 줄 번호와 맞춘다. 구간 밖은 nil 인 채로 두고 쓰지 않는다 —
+	// first·last 가 줄 번호라 자리를 옮겨 셈하면 잘라내는 자리에서 어긋나기 쉽다.
 	next := make([][]byte, len(buf.lines))
-	for i, line := range buf.lines {
+	for i := from; i < to; i++ {
+		line := buf.lines[i]
+
 		next[i] = squeezeInnerSpaces(line)
 		if len(next[i]) == len(line) {
 			continue

@@ -388,6 +388,6 @@ func trimTextRight(text string, width int) string {
 }
 
 // runMessages 는 팔레트의 「알림 목록」이다. `:messages` 와 같은 길이다.
-func runMessages(e *editor) (tea.Model, tea.Cmd) {
+func runMessages(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return messagesMode(e)
 }

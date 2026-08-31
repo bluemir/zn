@@ -356,6 +356,6 @@ func linesToStrings(lines [][]byte) []string {
 }
 
 // runRegisters 는 팔레트의 「register 목록」이다. `:registers` 와 같은 길이다.
-func runRegisters(e *editor) (tea.Model, tea.Cmd) {
+func runRegisters(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return registersMode(e)
 }

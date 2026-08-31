@@ -285,16 +285,30 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// **여기서부터는 반드시 팔레트를 떠난다. 고른 범위를 놓는 자리다.**
+	// **고른 범위를 놓기 전에 집는다.** whenSelection 이 그것을 보므로, 놓은 뒤에 다시 부르면
+	// 목록에서 둘이 빠지고 hits 의 자리가 어긋난다 — 「대문자로 맞추기」를 골랐는데 엉뚱한
+	// 명령이 도는 자리다(commands 주석, ADR-0111).
+	commands := m.commands()
+
+	// **여기서부터는 반드시 팔레트를 떠난다. 고른 범위를 사본으로 옮기고 놓는 자리다.**
 	//
 	// visual 에서 `ctrl+p` 로 열었으면 고른 것이 살아 있고 상자 뒤로 칠해져 있다(ADR-0037).
-	// 무엇을 고르든 이 문을 지나므로 놓는 자리도 여기 하나다 — `esc` 는 normalMode 가 놓는다.
+	// 무엇을 고르든 이 문을 지나므로 옮기는 자리도 놓는 자리도 여기 하나다 — `esc` 는
+	// normalMode 가 놓는다.
+	//
+	// **놓기 전에 싣는다.** 범위를 보는 명령은 buffer 가 아니라 이 사본을 읽는다(ADR-0111).
+	// 그래서 놓는 일이 지금까지와 똑같이 무조건이다.
 	//
 	// 놓지 않으면 셋이 어긋난다. 커서를 옮기며 둘러보는 판(되돌아간 자리) 에서 강조가 커서를
 	// 따라 널뛰고, 특수문자 판은 고른 것이 칠해진 채 커서 뒤에 글자를 넣으며, 다른 파일을 열면
 	// normalMode 가 **새 buffer 만** 지워서 원래 tab 에 유령 강조가 남는다.
 	// **tab 이 바뀌기 전이라 지우는 buffer 가 언제나 옳다.**
+	opts := []runOption{}
 	if m.hasTab() {
+		if area, ok := m.activeBuffer().selectionRange(); ok {
+			opts = append(opts, withRange(area))
+		}
+
 		m.activeBuffer().clearSelection()
 	}
 
@@ -305,15 +319,13 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 	index := m.hits[m.selected].index
 
 	if kind == paletteKindCommand {
-		commands := m.commands()
-
 		// 고른 뒤에 성립하지 않게 되었다. 지금은 팔레트가 열린 동안 조건이 바뀌지 않지만,
 		// 자리를 벗어난 채 집으면 그 자리에서 터진다.
 		if index >= len(commands) {
 			return normalMode(m.editor)
 		}
 
-		return commands[index].run(m.editor)
+		return commands[index].run(m.editor, opts...)
 	}
 
 	return m.openFile(m.files[index])

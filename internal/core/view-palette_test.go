@@ -170,9 +170,9 @@ func TestPaletteSwitchesToCommandsWithAngle(t *testing.T) {
 	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
 
 	m = send(m, ">")
-	// tab 이 하나뿐이라 tab 을 닫는 둘(「다른 tab 모두 닫기」·「오른쪽 tab 모두 닫기」) 은
-	// 목록에 없다(paletteCommand.when).
-	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-2)
+	// 넷이 목록에 없다(paletteCommand.when). tab 이 하나뿐이라 tab 을 닫는 둘(「다른 tab 모두
+	// 닫기」·「오른쪽 tab 모두 닫기」) 이 빠지고, 고른 범위가 없어서 대소문자 둘이 빠진다.
+	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-4)
 
 	m = send(m, "t", "r", "e", "e")
 	require.NotEmpty(t, m.(viewPalette).hits)
@@ -287,7 +287,8 @@ func newFilePalette(t *testing.T, path, input string) viewPalette {
 	}
 	m.filter()
 
-	require.Equal(t, "파일 다시 읽기", paletteCommands[m.hits[m.selected].index].name)
+	// hits 의 자리는 commands() 안의 것이다. paletteCommands 로 집으면 when 이 거른 만큼 어긋난다.
+	require.Equal(t, "파일 다시 읽기", m.commands()[m.hits[m.selected].index].name)
 
 	return m
 }
@@ -461,6 +462,72 @@ func TestPaletteReleasesSelectionBeforeOpeningAnotherFile(t *testing.T) {
 	normal := m.(viewEditorNormal)
 	require.NotEqual(t, from, normal.active, "다른 tab 으로 갔다")
 	assert.False(t, normal.buffers[from].selection.active, "떠나온 tab 에 강조가 남지 않는다")
+}
+
+// ── 고른 범위를 받는 명령 (ADR-0111) ──
+
+// visual 에서 열었으면 고른 줄만 정렬한다. 놓기 전에 사본을 실어 보낸 결과다.
+func TestPaletteSortsSelectedLinesOnly(t *testing.T) {
+	// 앞 세 줄만 고른다. 넷째 줄은 정렬하면 맨 앞으로 갈 자리라 자리를 지키는지 드러난다.
+	var m tea.Model = send(newTestEditor("c\nb\nd\na\n", 80, 20), "v", "j", "j", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(typeInto(m, ">sort lines"), "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Equal(t, []string{"b", "c", "d", "a"}, linesOf(bufferOf(t, m)))
+	assert.False(t, bufferOf(t, m).selection.active, "고른 것은 놓는다")
+}
+
+// normal 에서 열면 파일 전체다. 범위가 없어도 뜻이 서는 명령이라 목록에서 빠지지 않는다.
+func TestPaletteSortsWholeFileWithoutSelection(t *testing.T) {
+	var m tea.Model = send(newTestEditor("c\nb\nd\na\n", 80, 20), "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(typeInto(m, ">sort lines"), "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Equal(t, []string{"a", "b", "c", "d"}, linesOf(bufferOf(t, m)))
+}
+
+// 고른 줄 끝의 공백만 지운다. 「중복 공백 지우기」도 같은 손이다.
+func TestPaletteTrimsSelectedLinesOnly(t *testing.T) {
+	var m tea.Model = send(newTestEditor("a  \nb  \nc  \n", 80, 20), "v", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(typeInto(m, ">trim"), "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Equal(t, []string{"a", "b  ", "c  "}, linesOf(bufferOf(t, m)))
+}
+
+// 대소문자 맞추기는 칸까지 본다. 줄로 넓히는 넷과 갈리는 자리다.
+func TestPaletteChangesCaseOfSelection(t *testing.T) {
+	var m tea.Model = send(newTestEditor("foo bar\n", 80, 20), "v", "l", "l", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	m = send(typeInto(m, ">upper"), "enter")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Equal(t, []string{"FOO bar"}, linesOf(bufferOf(t, m)))
+	// 커서는 범위의 시작이다. visual 의 `U` 와 같다(ADR-0100).
+	assert.Equal(t, 0, bufferOf(t, m).cursorCol)
+}
+
+// 고른 범위가 없으면 대소문자 맞추기는 아예 목록에 없다. 파일 전체로 갈음하지 않는다.
+func TestPaletteHidesCaseCommandsWithoutSelection(t *testing.T) {
+	m := newPaletteView(t, 80, 20, "a.go")
+	m.input = ">"
+	m.filter()
+
+	names := make([]string, 0, len(m.commands()))
+	for _, command := range m.commands() {
+		names = append(names, command.name)
+	}
+
+	assert.NotContains(t, names, "대문자로 맞추기")
+	assert.NotContains(t, names, "소문자로 맞추기")
+	assert.Contains(t, names, "줄 정렬", "파일 전체로 갈음되는 것은 그대로 뜬다")
 }
 
 // 성립하지 않는 명령은 목록에 뜨지 않는다. 볼 파일이 없는 화면이 그 자리다.

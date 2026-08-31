@@ -176,6 +176,6 @@ func (m viewGrepInput) inputText() string {
 }
 
 // runGrepInput 은 팔레트의 「프로젝트 검색」이다.
-func runGrepInput(e *editor) (tea.Model, tea.Cmd) {
+func runGrepInput(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return grepInputMode(e)
 }

@@ -143,7 +143,7 @@ func TestRenameOpensPopupFromEveryDoor(t *testing.T) {
 		"\\rn": func(e *editor) (tea.Model, tea.Cmd) {
 			return send(tea.Model(viewEditorNormal{editor: e}), "\\", "r", "n"), nil
 		},
-		"팔레트": runRename,
+		"팔레트": func(e *editor) (tea.Model, tea.Cmd) { return runRename(e) },
 		":rename": func(e *editor) (tea.Model, tea.Cmd) {
 			return send(tea.Model(viewEditorNormal{editor: e}), ":", "r", "e", "n", "a", "m", "e", "enter"), nil
 		},

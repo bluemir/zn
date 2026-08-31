@@ -147,7 +147,8 @@ func (buf *Buffer) applyFileFormat(width int) string {
 	// 적혀 있고 참일 때만 지운다. 거짓이면 「지우지 않는다」이고, 이미 없는 공백을 새로
 	// 넣어 줄 일은 없다.
 	if def.TrimTrailingWhitespace != nil && *def.TrimTrailingWhitespace {
-		if count := buf.trimTrailingSpace(width); count > 0 {
+		// 저장은 언제나 파일 전체다. 고른 범위를 보는 것은 팔레트 쪽이다(ADR-0111).
+		if count := buf.trimTrailingSpace(0, len(buf.lines), width); count > 0 {
 			done = append(done, fmt.Sprintf("줄끝 공백 %d 줄 지움", count))
 		}
 	}

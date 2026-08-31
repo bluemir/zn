@@ -533,6 +533,6 @@ func formatElapsed(d time.Duration) string {
 }
 
 // runJobs 는 팔레트의 「작업 목록」이다. `:jobs` 와 같은 길이다.
-func runJobs(e *editor) (tea.Model, tea.Cmd) {
+func runJobs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return jobsMode(e)
 }

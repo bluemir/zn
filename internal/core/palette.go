@@ -241,6 +241,57 @@ func walkFiles(ctx context.Context, root string, report func(done int) bool) []s
 	return files
 }
 
+// runOption 은 팔레트가 명령에 실어 보내는 것이다. `withRange` 처럼 `with` 로 시작하는
+// 함수 하나가 한 칸씩 채운다.
+//
+// **가변 인자다.** 명령마다 보는 것이 다르다 — 「줄 정렬」은 고른 범위를 보고 「새 파일」은
+// 아무것도 보지 않는다. 인자를 그냥 더하면 아무것도 안 보는 쪽의 서명이 새 옵션마다 흔들리고,
+// 앞으로 들어올 텍스트 명령은 대체로 범위를 받는 쪽이라 그 일이 되풀이된다(ADR-0111).
+type runOption func(*runOptions)
+
+// runOptions 는 옵션을 다 먹인 결과다. 명령이 이것을 보고 갈린다.
+type runOptions struct {
+	// area 는 팔레트를 연 자리에서 고른 범위다. hasArea 가 거짓이면 area 는 뜻이 없다.
+	//
+	// **사본이다.** 팔레트는 명령을 돌리기 직전에 buffer 가 든 것을 놓는다(view-palette.go).
+	// 그래서 명령이 tab 을 옮기거나 커서를 움직여도 이 값은 그대로다.
+	area    motionRange
+	hasArea bool
+}
+
+// withRange 는 고른 범위를 싣는다. visual 에서 연 팔레트만 붙인다.
+func withRange(area motionRange) runOption {
+	return func(o *runOptions) {
+		o.area, o.hasArea = area, true
+	}
+}
+
+// newRunOptions 는 옵션을 차례로 먹인다.
+func newRunOptions(opts []runOption) runOptions {
+	o := runOptions{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	return o
+}
+
+// lines 는 명령이 걸릴 줄 구간이다. `[from, to)` 다.
+//
+// **고른 범위가 없으면 파일 전체다.** 「줄 정렬」·「표 맞추기」와 공백 둘이 이 손을 쓰고,
+// 그래서 normal 에서 열어도 목록에 그대로 뜬다. 범위가 있어야만 뜻이 서는 명령
+// (대소문자 맞추기) 은 이것을 쓰지 않고 hasArea 를 직접 본다(ADR-0111).
+//
+// **줄 단위로 넓힌다.** 이 손을 쓰는 넷이 다 줄을 통째로 고치는 것이라 칸을 볼 자리가 없다.
+// 칸까지 보는 것은 대소문자 맞추기뿐이고 그쪽은 area 를 그대로 받는다.
+func (o runOptions) lines(lineCount int) (from, to int) {
+	if !o.hasArea {
+		return 0, lineCount
+	}
+
+	return o.area.startLine, o.area.endLine + 1
+}
+
 // paletteCommand 는 `>` 목록의 한 줄이다.
 //
 // `:` 명령 표와 별개다. `:` 는 vim 의 ex command 라 짧은 것이 미덕이고, 이쪽은 목록에서
@@ -256,7 +307,10 @@ type paletteCommand struct {
 
 	// run 은 editor 를 포인터로 받는다. normalMode·commandMode·quitAll 과 같은 서명이고,
 	// 여기서 고친 것이 곧 다음 화면의 상태다(ADR-0026).
-	run func(e *editor) (tea.Model, tea.Cmd)
+	//
+	// opts 는 팔레트가 실어 보내는 것이다. 지금 실리는 것은 고른 범위 하나이고, 보지 않는
+	// 명령은 받아만 두고 그냥 둔다(ADR-0111).
+	run func(e *editor, opts ...runOption) (tea.Model, tea.Cmd)
 
 	// when 은 지금 이 명령이 성립하는지다. 거짓이면 **목록에 아예 뜨지 않는다.**
 	//
@@ -275,6 +329,23 @@ func whenBuffer(e *editor) bool { return e.hasTab() }
 // whenWritable 은 고칠 파일이 있어야 성립하는 명령이다. refuseNoBuffer + refuseReadOnly 다.
 func whenWritable(e *editor) bool { return e.hasTab() && !e.activeBuffer().readOnly }
 
+// whenSelection 은 고친 범위를 visual 에서 받아야 성립하는 명령이다.
+//
+// 파일 전체로 갈음할 수 없는 것들이 쓴다. 대소문자를 파일 통째로 맞추는 것은 손이 미끄러졌을
+// 때 잃는 것이 너무 크고, 되돌리기가 있어도 시킬 만한 일이 아니다(ADR-0111).
+//
+// **normal 에서 연 팔레트에는 뜨지 않는다.** 고를 수 없는 편이 골라 놓고 거절당하는 것보다
+// 낫다는 when 의 태도 그대로다.
+func whenSelection(e *editor) bool {
+	if !whenWritable(e) {
+		return false
+	}
+
+	_, ok := e.activeBuffer().selectionRange()
+
+	return ok
+}
+
 // whenOtherTabs 는 닫을 다른 tab 이 있어야 성립한다.
 func whenOtherTabs(e *editor) bool { return len(e.buffers) > 1 }
 
@@ -287,6 +358,8 @@ var paletteCommands = []paletteCommand{
 	{name: "중복 공백 지우기", hint: "squeeze repeated spaces", run: runSqueezeSpaces, when: whenWritable},
 	{name: "줄 정렬", hint: "sort lines ascending", run: runSortLines, when: whenWritable},
 	{name: "표 맞추기", hint: "format markdown tables", run: runFormatTables, when: whenWritable},
+	{name: "대문자로 맞추기", hint: "to upper case", run: runUpperCase, when: whenSelection},
+	{name: "소문자로 맞추기", hint: "to lower case", run: runLowerCase, when: whenSelection},
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile, when: whenBuffer},
 	{name: "새 파일", hint: "new file", alias: ":tabnew", run: runNewTab},
 	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs, when: whenOtherTabs},
@@ -323,7 +396,7 @@ func (c paletteCommand) detail() string {
 //
 // 팔레트를 닫고 normal 로 돌아가며 묻는 Cmd 를 같이 낸다. 알림은 startDefinition 이 적으므로
 // 여기서 덧붙이지 않는다 — 「찾는 중」과 「Go 파일이 아니다」가 그쪽에서 갈린다.
-func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
+func runGotoDefinition(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	back, modeCmd := normalMode(e)
 	model, cmd := gotoDefinition(back, e)
 	if model != nil {
@@ -335,7 +408,7 @@ func runGotoDefinition(e *editor) (tea.Model, tea.Cmd) {
 
 // runGotoReferences 는 커서 자리의 사용처를 찾는다. normal mode 의 `\gr` 과 같은 자리로
 // 간다(ADR-0068). 정의로 가기와 같은 손이다.
-func runGotoReferences(e *editor) (tea.Model, tea.Cmd) {
+func runGotoReferences(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	back, modeCmd := normalMode(e)
 	model, cmd := gotoReferences(back, e)
 	if model != nil {
@@ -348,13 +421,13 @@ func runGotoReferences(e *editor) (tea.Model, tea.Cmd) {
 // runRename 은 커서 자리의 이름을 바꾼다. normal mode 의 `\rn` 과 같은 자리로 간다(ADR-0067).
 //
 // 새 이름은 커서 옆에 뜨는 창에서 받는다(view-rename-input.go).
-func runRename(e *editor) (tea.Model, tea.Cmd) {
+func runRename(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return renameInputMode(e)
 }
 
 // runCatScreen 은 화면에 보이는 줄들을 평문으로 낸다. `\c`·`:cat` 과 같은 자리로 간다
 // (ADR-0085).
-func runCatScreen(e *editor) (tea.Model, tea.Cmd) {
+func runCatScreen(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}
@@ -362,7 +435,11 @@ func runCatScreen(e *editor) (tea.Model, tea.Cmd) {
 	return runCat(e, e.visibleRange())
 }
 
-func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
+// runTrimTrailingSpace 는 줄 끝의 공백과 tab 을 지운다.
+//
+// visual 에서 열었으면 고른 줄만이고 아니면 파일 전체다. 범위가 없어도 뜻이 서는 명령이라
+// normal 에서도 목록에 뜬다(runOptions.lines, ADR-0111).
+func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}
@@ -374,8 +451,9 @@ func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 	width := e.contentWidth()
+	from, to := newRunOptions(opts).lines(len(buf.lines))
 
-	count := buf.trimTrailingSpace(width)
+	count := buf.trimTrailingSpace(from, to, width)
 	if count == 0 {
 		return normalModeMessage(e, "지울 줄 끝 공백이 없습니다")
 	}
@@ -386,25 +464,74 @@ func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 끝 공백을 지웠습니다", count))
 }
 
-// runFormatTables 는 파일 안의 markdown 표를 칸에 맞춰 다시 그린다 (ADR-0106).
+// runFormatTables 는 markdown 표를 칸에 맞춰 다시 그린다 (ADR-0106).
 //
 // **markdown 인지 여기서 묻지 않는다.** 표를 찾는 자리가 문맥으로 이미 가른다 — 다른
 // 언어의 파일에서는 찾은 표가 0 이라 「맞출 표가 없습니다」로 끝난다(table.go).
 //
+// visual 에서 열었으면 고른 줄에 걸친 표만이다. 이때는 `\mt` 와 같은 일이 된다 — 범위에
+// 걸치기만 하면 그 표를 통째로 맞추는 것도 그쪽과 같다(ADR-0111).
+//
 // 볼 파일이 없으면 줄 수를 셀 수 없다. 그 판정은 formatTablesIn 이 먼저 한다.
-func runFormatTables(e *editor) (tea.Model, tea.Cmd) {
+func runFormatTables(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}
 
-	return formatTablesIn(e, 0, len(e.activeBuffer().lines))
+	from, to := newRunOptions(opts).lines(len(e.activeBuffer().lines))
+
+	return formatTablesIn(e, from, to)
+}
+
+// runUpperCase, runLowerCase 는 고른 범위를 한쪽으로 맞춘다. visual 의 `U`·`u` 와 같은
+// 자리로 간다(ADR-0083).
+func runUpperCase(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
+	return paletteChangeCase(e, caseUpper, newRunOptions(opts))
+}
+
+func runLowerCase(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
+	return paletteChangeCase(e, caseLower, newRunOptions(opts))
+}
+
+// paletteChangeCase 는 위 둘의 몸통이다. 갈리는 것이 kind 하나라 두 벌로 두지 않았다 —
+// visual 쪽도 actionVisualChangeCase 하나가 셋을 맡는다(action.go).
+//
+// **고른 범위가 있어야 한다.** 파일 전체로 갈음하지 않는다 — 손이 미끄러졌을 때 잃는 것이
+// 너무 크고, 되돌리기가 있어도 시킬 만한 일이 아니다. 그래서 이 둘만 runOptions.lines 를
+// 쓰지 않고 hasArea 를 직접 본다(ADR-0111).
+//
+// 커서는 범위의 시작으로 간다. visual 의 `U`·`u` 와 같고 복사(`y`) 와도 같은 길이다
+// (moveToRangeStart, ADR-0100).
+func paletteChangeCase(e *editor, kind caseKind, o runOptions) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	if e.refuseReadOnly() {
+		return normalMode(e)
+	}
+
+	// whenSelection 이 이미 막아서 목록에서는 고를 수 없다. 목록을 거치지 않고 부르는 자리가
+	// 생기면 여기서 걸린다 — when 이 지키는 약속을 코드로도 한 번 더 둔다.
+	if !o.hasArea {
+		return normalModeMessage(e, "고른 범위가 없습니다")
+	}
+
+	buf := e.activeBuffer()
+	width := e.contentWidth()
+
+	buf.changeCaseRange(o.area, kind, width)
+	buf.moveToRangeStart(o.area, width)
+	e.scrollToCursor()
+
+	return normalMode(e)
 }
 
 // runReloadFile 은 파일을 다시 읽는다. 밖에서 바뀐 내용을 편집기 안으로 가져오는 길이다.
 //
 // 저장하지 않은 변경이 있으면 그것이 사라지므로 한 번 더 묻는다. 팔레트 항목에는 `:w!` 의 `!`
 // 처럼 강제를 붙일 자리가 없어서 확인창을 쓴다 (ADR-0016).
-func runReloadFile(e *editor) (tea.Model, tea.Cmd) {
+func runReloadFile(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}
@@ -447,7 +574,7 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 // 다른 tab 에 저장하지 않은 변경이 있으면 한 번 더 묻는다. 그 tab 을 보고 있지 않으니 무엇을
 // 잃는지 화면에 드러나지 않아서다. 팔레트 항목에는 `:q!` 의 `!` 처럼 강제를 붙일 자리가 없어서
 // 확인창을 쓴다 — '파일 다시 읽기' 와 같다(ADR-0016).
-func runCloseOtherTabs(e *editor) (tea.Model, tea.Cmd) {
+func runCloseOtherTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	// tab 이 하나뿐이면 닫을 것이 없다. 확인창도 띄우지 않고 여기서 끝낸다.
 	if len(e.buffers) < 2 {
 		return normalModeMessage(e, "닫을 다른 tab 이 없습니다")
@@ -475,13 +602,13 @@ func closeOtherTabs(e *editor) (tea.Model, tea.Cmd) {
 // runDisableHighlight 는 강조만 끈다. 마지막 검색은 남아서 `n` 이 계속 먹는다. `:noh` 와 같다.
 //
 // 켜져 있지 않아도 아무 말 하지 않는다 — 끄라고 해서 껐고, 결과가 같다.
-func runDisableHighlight(e *editor) (tea.Model, tea.Cmd) {
+func runDisableHighlight(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	e.search.highlight = false
 
 	return normalMode(e)
 }
 
-func runToggleTree(e *editor) (tea.Model, tea.Cmd) {
+func runToggleTree(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	// 여는 쪽은 뿌리를 읽는 작업을 시작한다. 그 Cmd 를 흘리면 트리가 영영 `… 읽는 중` 이다.
 	load, err := e.toggleTree()
 	if err != nil {
@@ -497,8 +624,8 @@ func runToggleTree(e *editor) (tea.Model, tea.Cmd) {
 //
 // **들여쓰기와 줄 끝은 건드리지 않는다.** 앞쪽은 뜻이 있는 공백이고(`.editorconfig`·autoindent),
 // 뒤쪽은 「줄 끝 공백 지우기」의 몫이다. 「줄 끝 공백 지우기」와 같은 손이라 알림 문구도
-// 그쪽과 나란하다(ADR-0109).
-func runSqueezeSpaces(e *editor) (tea.Model, tea.Cmd) {
+// 그쪽과 나란하고, 고른 범위를 받는 것도 같다(ADR-0109, ADR-0111).
+func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}
@@ -509,8 +636,9 @@ func runSqueezeSpaces(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 	width := e.contentWidth()
+	from, to := newRunOptions(opts).lines(len(buf.lines))
 
-	count := buf.squeezeSpaces(width)
+	count := buf.squeezeSpaces(from, to, width)
 	if count == 0 {
 		return normalModeMessage(e, "줄일 중복 공백이 없습니다")
 	}
@@ -521,12 +649,14 @@ func runSqueezeSpaces(e *editor) (tea.Model, tea.Cmd) {
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 중복 공백을 줄였습니다", count))
 }
 
-// runSortLines 는 파일의 줄을 오름차순으로 다시 늘어놓는다.
+// runSortLines 는 줄을 오름차순으로 다시 늘어놓는다.
 //
-// **파일 전부가 대상이다.** 고른 범위를 받지 않는다 — 팔레트는 명령을 돌리기 직전에 고른
-// 범위를 놓기 때문이고(view-palette.go), 그 자리를 여는 것은 따로 정할 일이다
-// (`docs/tasks.md`, ADR-0109).
-func runSortLines(e *editor) (tea.Model, tea.Cmd) {
+// visual 에서 열었으면 고른 줄만 자리를 바꾼다. ADR-0109 가 「파일 전부가 대상이다」로 두고
+// 미결로 남겼던 자리이고, 팔레트가 범위를 실어 보내면서 열렸다(ADR-0111).
+//
+// **줄 단위다.** `v` 로 줄 가운데를 골라도 걸친 줄이 통째로 선다 — 줄을 뒤섞는 일이라
+// 칸을 볼 자리가 없다(runOptions.lines).
+func runSortLines(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}
@@ -537,8 +667,9 @@ func runSortLines(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 	width := e.contentWidth()
+	from, to := newRunOptions(opts).lines(len(buf.lines))
 
-	moved := buf.sortLines(width)
+	moved := buf.sortLines(from, to, width)
 	if moved == 0 {
 		return normalModeMessage(e, "이미 정렬되어 있습니다")
 	}
@@ -553,7 +684,7 @@ func runSortLines(e *editor) (tea.Model, tea.Cmd) {
 //
 // **디스크에 파일을 만들지 않는다.** 그것은 트리의 `mc` 가 하는 일이고, 여기서 경로를
 // 받으려면 입력 화면이 새로 필요하다(ADR-0109).
-func runNewTab(e *editor) (tea.Model, tea.Cmd) {
+func runNewTab(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	e.newTab()
 
 	return normalMode(e)
@@ -563,7 +694,7 @@ func runNewTab(e *editor) (tea.Model, tea.Cmd) {
 //
 // 잃을 것이 있으면 확인창을 띄운다. 「다른 tab 모두 닫기」와 같은 자리이고 같은 까닭이다 —
 // 보고 있지 않은 tab 의 변경은 무엇을 잃는지 화면에 드러나지 않는다(ADR-0016).
-func runCloseRightTabs(e *editor) (tea.Model, tea.Cmd) {
+func runCloseRightTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if !whenRightTabs(e) {
 		return normalModeMessage(e, "오른쪽에 닫을 tab 이 없습니다")
 	}
@@ -591,7 +722,7 @@ func closeRightTabs(e *editor) (tea.Model, tea.Cmd) {
 // 거기서 `:q` 를 치면 그때 끝난다(ADR-0064, ADR-0109).
 //
 // 활성 tab 의 변경까지 잃으므로 anyDirty 로 본다. 오른쪽만 닫는 것과 갈리는 자리다.
-func runCloseAllTabs(e *editor) (tea.Model, tea.Cmd) {
+func runCloseAllTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if !e.hasTab() {
 		return normalModeMessage(e, "닫을 tab 이 없습니다")
 	}

@@ -465,6 +465,6 @@ func (m viewSymbol) renderNameRow(inner int) string {
 }
 
 // runInsertSymbol 은 팔레트 `>` 목록의 「특수문자 넣기」다.
-func runInsertSymbol(e *editor) (tea.Model, tea.Cmd) {
+func runInsertSymbol(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return symbolMode(e)
 }

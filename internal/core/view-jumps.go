@@ -375,6 +375,6 @@ func (m viewJumps) renderRow(at, inner int) string {
 }
 
 // runJumps 는 팔레트의 「되돌아간 자리」다. `:jumps` 와 같은 길이다.
-func runJumps(e *editor) (tea.Model, tea.Cmd) {
+func runJumps(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return jumpsMode(e)
 }

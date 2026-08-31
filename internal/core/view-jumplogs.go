@@ -344,6 +344,6 @@ func (m viewJumplogs) renderRow(at, inner int) string {
 }
 
 // runJumplogs 는 팔레트의 「방문한 자리」다. `:jumplogs` 와 같은 길이다.
-func runJumplogs(e *editor) (tea.Model, tea.Cmd) {
+func runJumplogs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	return jumplogsMode(e)
 }
