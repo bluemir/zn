@@ -39,16 +39,15 @@ func (m viewEditorInsert) overlayCompletion(view tea.View) tea.View {
 
 	left, top := popupPos(x+m.contentLeft(), y+tablineHeight, completionBoxWidth, len(rows), m.width, m.height)
 
-	next := tea.NewView(lipgloss.NewCompositor(
+	// **받은 view 를 그대로 쓰고 내용만 갈아끼운다.** 새 view 를 만들면 터미널 설정을 손으로
+	// 베껴야 하고, 베낄 목록이 늘 때 이 자리가 조용히 뒤처진다 — AltScreen·MouseMode 만 베끼던
+	// 때에 ReportFocus 와 키 확장이 실제로 꺼졌다(ADR-0110).
+	view.Content = lipgloss.NewCompositor(
 		lipgloss.NewLayer(view.Content).Z(0),
 		lipgloss.NewLayer(box).X(left).Y(top).Z(1),
-	).Render())
+	).Render()
 
-	next.Cursor = view.Cursor
-	next.AltScreen = view.AltScreen
-	next.MouseMode = view.MouseMode
-
-	return next
+	return view
 }
 
 // completionBoxWidth 는 창의 폭이다. renderCompletionBox 가 이 값으로 짓는다.

@@ -148,16 +148,13 @@ func (m viewServerInstallConfirm) View() tea.View {
 		top = 0
 	}
 
-	parent := m.parent.View()
-	view := tea.NewView(
-		lipgloss.NewCompositor(
-			lipgloss.NewLayer(parent.Content).Z(0),
-			lipgloss.NewLayer(box).X(left).Y(top).Z(1),
-		).Render(),
-	)
+	// 부모의 view 를 그대로 쓰고 내용만 갈아끼운다. 종료 확인창과 같은 자리다(ADR-0110).
+	view := m.parent.View()
 
-	view.AltScreen = parent.AltScreen
-	view.MouseMode = parent.MouseMode
+	view.Content = lipgloss.NewCompositor(
+		lipgloss.NewLayer(view.Content).Z(0),
+		lipgloss.NewLayer(box).X(left).Y(top).Z(1),
+	).Render()
 
 	return view
 }

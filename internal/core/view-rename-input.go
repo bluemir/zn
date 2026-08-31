@@ -148,10 +148,12 @@ func (m viewRenameInput) View() tea.View {
 
 	left, top := popupPos(x+m.contentLeft(), y+tablineHeight, renameBoxInner+2, len(rows), m.width, m.height)
 
-	next := tea.NewView(lipgloss.NewCompositor(
+	// 받은 view 를 그대로 쓰고 내용만 갈아끼운다. 새 view 를 만들면 터미널 설정을 손으로
+	// 베껴야 한다(ADR-0110).
+	view.Content = lipgloss.NewCompositor(
 		lipgloss.NewLayer(view.Content).Z(0),
 		lipgloss.NewLayer(body).X(left).Y(top).Z(1),
-	).Render())
+	).Render()
 
 	// **커서는 치는 자리에 선다.** 창 안의 글자 뒤이지 본문이 아니다 — 치고 있는 것이
 	// 어디로 들어가는지가 커서로 보여야 한다.
@@ -159,12 +161,10 @@ func (m viewRenameInput) View() tea.View {
 	// 그리는 글과 같은 함수에서 칸을 받는다. 둘이 갈리면 커서가 글자 뒤에 서지 않는다.
 	_, cursor := m.renameLine()
 
-	next.Cursor = tea.NewCursor(min(left+1+cursor, m.width-1), top+1)
-	next.Cursor.Shape = tea.CursorBar
-	next.AltScreen = view.AltScreen
-	next.MouseMode = view.MouseMode
+	view.Cursor = tea.NewCursor(min(left+1+cursor, m.width-1), top+1)
+	view.Cursor.Shape = tea.CursorBar
 
-	return next
+	return view
 }
 
 // renderRenameBox 는 창이다. `옛 이름 → 치고 있는 이름` 한 줄이다.

@@ -166,21 +166,19 @@ func (m viewConfirmDiscard) View() tea.View {
 		top = 0
 	}
 
-	parent := m.parent.View()
-	view := tea.NewView(
-		lipgloss.NewCompositor(
-			lipgloss.NewLayer(parent.Content).Z(0),
-			lipgloss.NewLayer(box).X(left).Y(top).Z(1),
-		).Render(),
-	)
-
-	// 부모 화면 위에 뜨는 것이므로 터미널 상태는 부모를 따라간다.
-	// 여기서 AltScreen 이 꺼지면 종료 확인창을 띄울 때마다 셸 화면이 번쩍이고 편집 내용이 사라진다.
+	// **부모의 view 를 그대로 쓰고 내용만 갈아끼운다.** 부모 화면 위에 뜨는 것이므로 터미널
+	// 상태는 부모를 따라가야 한다 — AltScreen 이 꺼지면 확인창을 띄울 때마다 셸 화면이
+	// 번쩍이고, MouseMode 가 꺼지면 mouse 를 끄고 켜는 escape 가 오간다.
 	//
-	// MouseMode 도 같이 따라간다. 이 창은 mouse 를 받지 않지만(선택지 둘이라 키로 충분하다)
-	// 여기서 꺼지면 확인창이 뜰 때마다 터미널에 mouse 를 끄고 켜는 escape 가 오간다.
-	view.AltScreen = parent.AltScreen
-	view.MouseMode = parent.MouseMode
+	// **베끼지 않고 그대로 쓰는 것이 요점이다.** 전에는 새 view 를 만들고 그 둘만 베꼈는데,
+	// `newView` 가 켜 두는 것은 넷이라 ReportFocus 와 키 확장이 이 창에서 꺼졌다. 베끼는
+	// 자리를 두면 목록이 늘 때 반드시 뒤처진다(ADR-0110).
+	view := m.parent.View()
+
+	view.Content = lipgloss.NewCompositor(
+		lipgloss.NewLayer(view.Content).Z(0),
+		lipgloss.NewLayer(box).X(left).Y(top).Z(1),
+	).Render()
 
 	return view
 }

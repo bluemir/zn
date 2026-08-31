@@ -63,16 +63,14 @@ func (m viewEditorCommand) overlayCandidates(view tea.View) tea.View {
 	// 새기 때문이다. 편집 영역 왼쪽 끝에 붙인다.
 	left, top := popupPos(m.sidebarLeft(), m.height-statusBarHeight, commandCompleteWidth, len(rows), m.width, m.height)
 
-	next := tea.NewView(lipgloss.NewCompositor(
+	// 받은 view 를 그대로 쓰고 내용만 갈아끼운다. 새 view 를 만들면 터미널 설정을 손으로
+	// 베껴야 한다(ADR-0110).
+	view.Content = lipgloss.NewCompositor(
 		lipgloss.NewLayer(view.Content).Z(0),
 		lipgloss.NewLayer(box).X(left).Y(top).Z(1),
-	).Render())
+	).Render()
 
-	next.Cursor = view.Cursor
-	next.AltScreen = view.AltScreen
-	next.MouseMode = view.MouseMode
-
-	return next
+	return view
 }
 
 // renderCandidateBox 는 후보 창이다.
