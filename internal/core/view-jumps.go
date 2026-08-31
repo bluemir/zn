@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -109,7 +108,7 @@ func (m viewJumps) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// **판 높이는 여기서 지우지 않는다.** 넘어가는 곳이 또 판이면 그쪽이 방금 잡은
 		// 높이를 우리가 지우게 된다. 판이 아닌 곳으로 가는 길은 normalMode 가 지운다(ADR-0069).
 		next, cmd := m.handleJob(msg)
@@ -321,51 +320,20 @@ func (m viewJumps) hint() string {
 
 // renderDrawer 는 판 전체를 화면 행 문자열로 만든다. 각 행이 정확히 textWidth() 칸이다.
 func (m viewJumps) renderDrawer() string {
-	width := m.textWidth()
-	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
-
-	chars := m.boxChars
-	line := strings.Repeat(chars.horizontal, width-2)
-
-	rows := []string{chars.topLeft + line + chars.topRight}
-	rows = append(rows, m.renderListRows(inner)...)
-
-	// 아랫 테두리가 몇 번째를 보고 있는지 든다. 여기는 아래 줄이 개수만 적고 있어서
-	// 「지금 어느 것을 보는가」가 아예 없었다(render-drawer-count.go, ADR-0079).
-	rows = append(rows, renderCountBorder(chars, width, m.selected+1, len(m.jumps.places)))
-
-	return strings.Join(rows, "\n")
+	return drawer{
+		chars:  m.boxChars,
+		width:  m.textWidth(),
+		height: m.jumpsRows(),
+		top:    m.top,
+		count:  len(m.jumps.places),
+		empty:  "되돌아간 자리가 없습니다",
+		row:    m.renderRow,
+		at:     m.selected + 1,
+	}.render()
 }
 
 // jumpsMarkWidth 는 표시 둘(고른 자리·지금 자리) 과 그 뒤 한 칸이다.
 const jumpsMarkWidth = 3
-
-// renderListRows 는 목록 행들이다. 이력이 없으면 그 사실을 한 줄로 알린다.
-func (m viewJumps) renderListRows(inner int) []string {
-	side := m.boxChars.vertical
-	height := m.jumpsRows()
-
-	body := make([]string, 0, height)
-	for at := m.top; at < len(m.jumps.places) && len(body) < height; at++ {
-		body = append(body, m.renderRow(at, inner))
-	}
-
-	if len(m.jumps.places) == 0 && height > 0 {
-		empty := padTo(truncateToWidth("되돌아간 자리가 없습니다", inner), inner)
-		body = append(body, styleDetail.Render(empty))
-	}
-
-	for len(body) < height {
-		body = append(body, strings.Repeat(" ", inner))
-	}
-
-	rows := make([]string, 0, len(body))
-	for _, text := range body {
-		rows = append(rows, side+" "+text+" "+side)
-	}
-
-	return rows
-}
 
 // renderRow 는 이력 한 줄이다. 위가 오래된 것이고 아래로 갈수록 새것이다. vim 의 `:jumps` 와 같다.
 //

@@ -201,6 +201,28 @@ func TestReindentDoesNothingForMarkdown(t *testing.T) {
 		linesOf(bufferOf(t, m)), "목록 깊이와 코드 블록은 앞 줄에서 되짚을 수 없다")
 }
 
+// markdown 문서에서 `=` 는 산문을 그대로 두고 코드펜스 안만 정리한다.
+//
+// 판정이 파일 하나가 아니라 줄마다다(ADR-0102). 산문 줄은 markdown 규칙이 「되짚을 수 없다」고
+// 답하고, 펜스 안 줄은 go 규칙이 답한다.
+func TestReindentFencedCodeOnly(t *testing.T) {
+	m := newIndentEditor(t, "a.md", "indent_style = space\nindent_size = 2",
+		"- 첫째\n\t- 깊은 것\n\n```go\nfunc f() {\nfoo()\n}\n```\n")
+
+	m = send(m, "=", "G")
+
+	assert.Equal(t, []string{
+		"- 첫째",
+		"\t- 깊은 것",
+		"",
+		"```go",
+		"func f() {",
+		"  foo()",
+		"}",
+		"```",
+	}, linesOf(bufferOf(t, m)), "목록은 그대로, 펜스 안만 정리된다")
+}
+
 func TestReindentDoesNothingForUnknownLanguage(t *testing.T) {
 	m := newIndentEditor(t, "a.txt", "indent_style = tab", "a\n\t\tb\nc\n")
 

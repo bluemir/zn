@@ -40,6 +40,19 @@ func TestIndentForEveryLanguage(t *testing.T) {
 //
 // 둘 다 **들여쓰기가 곧 뜻**이라 앞 줄에서 되짚을 수 없다. markdown 은 목록의 깊이와 네 칸
 // 코드 블록이 글쓴이가 정한 것이고, yaml 은 들여쓰기가 map 의 층이라 되짚으면 중첩이 평평해진다.
+// 표의 들여쓰기 칸과 그 언어의 시작 문맥이 답하는 규칙이 같아야 한다.
+//
+// **한 값이 두 자리에 있는 것을 지킨다**(ADR-0079 §2). 표는 「이 언어는 이 규칙」이고 문맥은
+// 「지금 이 자리는 이 규칙」인데, 파일 첫 줄에서는 둘이 같은 것을 가리킨다. 어긋나면 파일을
+// 연 순간과 한 줄 내려간 뒤가 서로 다른 규칙을 쓴다.
+func TestStateIndentMatchesTheTable(t *testing.T) {
+	for _, rule := range languageRules {
+		require.NotEmpty(t, rule.aliases, "언어에 이름이 없다")
+
+		assert.Equal(t, rule.indent, rule.state.Indent(), "%s 의 표와 시작 문맥", rule.aliases[0])
+	}
+}
+
 func TestReindentsIsFalseForIndentIsMeaning(t *testing.T) {
 	cannot := []Indent{mdIndent{}, yamlIndent{}}
 
@@ -184,6 +197,12 @@ func TestShellIndent(t *testing.T) {
 		{name: "주석 안의 then", line: "echo x # then", want: 0},
 		{name: "문자열 안의 then", line: `echo "then"`, want: 0},
 		{name: "fi 는 열지 않는다", line: "fi", want: 0},
+		{name: "case 갈래", line: "a)", want: 1},
+		{name: "패턴이 여럿인 갈래", line: "b|c)", want: 1},
+		{name: "기본 갈래", line: "*)", want: 1},
+		{name: "함수 이름 뒤의 짝맞는 괄호", line: "f()", want: 0},
+		{name: "명령 치환", line: "x=$(date)", want: 0},
+		{name: "문자열로 끝나는 명령 치환", line: `echo "$(basename "$0")"`, want: 0},
 	}
 
 	for _, test := range tests {
@@ -195,11 +214,44 @@ func TestShellIndent(t *testing.T) {
 	}
 
 	rule := shIndent{}
+	assert.Equal(t, 0, rule.Close([]byte("a)\n")), "갈래는 나오지 않는다")
 	assert.Equal(t, 1, rule.Close([]byte("fi\n")), "Enter 가 낱말을 끝낸다")
 	assert.Equal(t, 1, rule.Close([]byte("done ")), "공백도 낱말을 끝낸다")
 	assert.Equal(t, 1, rule.Close([]byte(";;")), "case 갈래의 끝")
 	assert.Equal(t, 0, rule.Close([]byte("fi")), "아직 file 이 될 수 있다")
 	assert.Equal(t, 0, rule.Close([]byte("file")), "이어 치면 걸리지 않는다")
+}
+
+// case 문은 갈래마다 한 단계 들어가고 `;;` 가 그것을 닫는다.
+//
+// **줄 하나로는 재지 못하는 짝이다.** `pattern)` 이 열지 않던 때는 `;;` 만 닫아서 갈래마다
+// 한 단계씩 빠졌고, 갈래가 셋인 문에서 `esac` 이 시작한 자리보다 세 단계 밖으로 나갔다.
+func TestShellCaseKeepsItsLevel(t *testing.T) {
+	lines := []string{
+		`case "$x" in`,
+		`a)`,
+		`echo a`,
+		`;;`,
+		`b|c)`,
+		`echo b`,
+		`;;`,
+		`*)`,
+		`echo other`,
+		`;;`,
+		`esac`,
+	}
+	want := []int{0, 1, 2, 1, 1, 2, 1, 1, 2, 1, 0}
+
+	rule := shIndent{}
+	level := 0
+
+	for at, line := range lines {
+		level -= rule.Close([]byte(line + "\n"))
+		assert.Equal(t, want[at], level, "%d 번째 줄 %q", at, line)
+
+		next, _ := rule.Next([]byte(line), nil)
+		level += next
+	}
 }
 
 func TestMarkdownListContinues(t *testing.T) {

@@ -174,7 +174,7 @@ func emittedKinds(t *testing.T) map[syntax.Kind]bool {
 
 	samples := []struct{ path, data string }{
 		{"sample.go", "package main\n\n// 주석\nfunc main() {\n\tvar n int = 0x1f\n\ts := `raw`\n\t_ = nil\n}\n"},
-		{"sample.md", "# 제목\n\n`코드` 와 *강조* 와 [글](https://x.com)\n> 인용\n```go\nx\n```\n"},
+		{"sample.md", "# 제목\n\n`코드` 와 *강조* 와 **굵게** 와 ~~지운 것~~ 과 [글](https://x.com)\n> 인용\n```go\nx\n```\n"},
 		{"Makefile", "# 주석\nVERSION?=$(shell git describe)\nbuild: dep ## 도움\n\t@go build -o $@ .\n"},
 		{"Dockerfile", "# 주석\nFROM golang:1.26 AS build\nENV PATH=${GOPATH}/bin\nCMD [\"go\"]\n"},
 		{"sample.py", "# 주석\nclass Buffer:\n    @property\n    def 이름(self):\n        return f\"{self.n}\"\n        n = 0x1f\n"},

@@ -671,6 +671,41 @@ func (c actionVisualCat) run(e *editor) (tea.Model, tea.Cmd) {
 	return runCat(e, area)
 }
 
+// actionFormatTables 는 파일 안의 markdown 표를 칸에 맞춰 다시 그린다. `\mt` 다(ADR-0106).
+//
+// 팔레트의 「표 맞추기」와 같은 손이다. 자주 쓰는 사람에게 키를 하나 열어 둔 것이고,
+// 범위를 고르지 않았으니 파일 전체다.
+type actionFormatTables struct{}
+
+func (c actionFormatTables) run(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	return formatTablesIn(e, 0, len(e.activeBuffer().lines))
+}
+
+// actionVisualFormatTables 는 고른 범위에 걸친 표를 맞춘다. visual 의 `\mt` 다(ADR-0106).
+//
+// **범위에 걸치기만 하면 그 표를 통째로 맞춘다.** 고른 범위가 표의 가운데를 자를 때 안쪽만
+// 맞추면 한 표의 위아래가 서로 다른 폭이 된다(table.go).
+//
+// 커서는 나가면서 normalMode 가 정한다 — 고른 범위를 놓는 자리와 같다(ADR-0037).
+type actionVisualFormatTables struct{}
+
+func (c actionVisualFormatTables) run(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	area, ok := e.activeBuffer().selectionRange()
+	if !ok {
+		return normalMode(e)
+	}
+
+	return formatTablesIn(e, area.startLine, area.endLine+1)
+}
+
 // actionGotoDefinition 은 커서 자리의 정의로 간다. `\gd` 다(ADR-0051).
 //
 // 답을 기다리지 않는다 — 물어보는 Cmd 를 내고 돌아온다. 첫 요청은 서버가 모듈을 훑는 동안

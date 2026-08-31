@@ -24,6 +24,10 @@ type cssComment struct {
 	back State
 }
 
+func (cssNormal) Indent() Indent  { return spaceBraceIndent }
+func (cssBlock) Indent() Indent   { return spaceBraceIndent }
+func (cssComment) Indent() Indent { return spaceBraceIndent }
+
 func (s cssNormal) Lex(line []byte) ([]Token, State) {
 	return cssLex(line, false, false)
 }

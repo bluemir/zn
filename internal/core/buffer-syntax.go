@@ -36,7 +36,10 @@ func (buf *Buffer) lexSyntaxTo(lastLine int) {
 		before := buf.syntax.lines[i].after
 		tokens, after := state.Lex(buf.lines[i])
 
-		buf.syntax.lines[i] = syntaxLine{tokens: tokens, after: after}
+		// 서버가 얹어둔 답(semantic) 은 건드리지 않는다. 그것을 비우는 자리는 그 줄의 글이
+		// 갈리는 한 자리다(syntaxCache.replace).
+		buf.syntax.lines[i].tokens = tokens
+		buf.syntax.lines[i].after = after
 		state = after
 
 		// 고친 줄을 다 지난 뒤에, 이 줄을 끝낸 문맥이 전과 같으면 아래 줄들은 앞과 같은 문맥에서
@@ -64,12 +67,49 @@ func (buf *Buffer) lexSyntaxTo(lastLine int) {
 	buf.syntax.valid, buf.syntax.filled, buf.syntax.changedEnd = len(buf.lines), len(buf.lines), 0
 }
 
+// syntaxStateAt 은 그 줄을 **시작한** 문맥이다. 아직 훑지 않은 줄이면 nil 이다.
+//
+// 담아 두는 것은 줄을 끝낸 문맥이라(syntaxLine.after) 앞 줄의 것을 꺼낸다. 첫 줄은 파일이
+// 시작하는 문맥이다.
+func (buf Buffer) syntaxStateAt(line int) syntax.State {
+	if line <= 0 {
+		return buf.syntax.start
+	}
+
+	if line-1 >= len(buf.syntax.lines) || line-1 >= buf.syntax.valid {
+		return nil
+	}
+
+	return buf.syntax.lines[line-1].after
+}
+
+// indentRuleAt 은 그 줄이 따르는 들여쓰기 규칙이다.
+//
+// **파일 이름이 아니라 문맥이 고른다.** markdown 코드펜스 안과 html 의 `<script>`·`<style>`
+// 안은 안쪽 언어의 규칙을 받는다(syntax.State 의 Indent).
+//
+// 아직 훑지 않은 줄이면 파일 언어의 규칙이다. 부르는 자리가 전부 커서 줄이나 그 앞이고
+// 먼저 lexSyntaxTo 를 지나므로 실제로 담아둔 것이 없는 때는 파일을 막 연 순간뿐이다.
+func (buf Buffer) indentRuleAt(line int) syntax.Indent {
+	if state := buf.syntaxStateAt(line); state != nil {
+		return state.Indent()
+	}
+
+	return buf.language.Indent()
+}
+
 // syntaxTokens 는 그 줄에 담아둔 토큰이다.
 // 강조하지 않는 파일이거나 아직 훑지 않은 줄이면 nil 이다.
 func (buf Buffer) syntaxTokens(line int) []syntax.Token {
 	// valid 이후는 아직 훑지 않은 줄이다. 화면 밖이라 그릴 사람이 없다.
 	if line < 0 || line >= len(buf.syntax.lines) || line >= buf.syntax.valid {
 		return nil
+	}
+
+	// 언어 서버가 말한 줄은 서버가 정한다. 생김새로 어림잡은 답보다 type 검사를 마친 답이
+	// 낫고, 서버가 없거나 아직 말하지 않은 줄에는 lexer 의 답이 남아 있다(ADR-0103).
+	if semantic := buf.syntax.lines[line].semantic; semantic != nil {
+		return semantic
 	}
 
 	return buf.syntax.lines[line].tokens

@@ -13,6 +13,9 @@ type makeNormal struct{}
 // makeContinued 는 앞 줄이 `\` 로 이어진 자리다. 줄 앞이 대상 이름도 변수 이름도 아니다.
 type makeContinued struct{}
 
+func (makeNormal) Indent() Indent    { return makeIndent{} }
+func (makeContinued) Indent() Indent { return makeIndent{} }
+
 func (s makeNormal) Lex(line []byte) ([]Token, State) {
 	limit, comment := makeCommentAt(line)
 	if limit == 0 {

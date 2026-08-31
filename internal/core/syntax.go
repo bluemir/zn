@@ -41,6 +41,15 @@ type syntaxCache struct {
 	// 지우기와 넣기가 각각 replaceLines 를 부르고, 앞으로 들어올 `:%s` 는 파일 전체에
 	// 흩뿌린다. 앞자리만 들면 첫 줄에서 수렴한 순간 멈춰서 아래쪽 고친 줄을 영영 안 본다.
 	changedEnd int
+
+	// revision 은 내용이 갈린 횟수다. 언어 서버의 답이 지금 내용의 것인지 가르는 데 쓴다.
+	//
+	// 답은 물은 뒤에 온다. 그 사이에 사람이 한 글자만 쳐도 줄 자리가 밀려서, 그 답을 그대로
+	// 얹으면 엉뚱한 줄에 색이 붙는다. 물을 때의 값을 들고 있다가 돌아왔을 때 견준다
+	// (semantic.go, ADR-0103).
+	//
+	// **캐시를 버리는 갈래에서도 이어진다.** 0 으로 돌아가면 지나간 답이 다시 맞아 보인다.
+	revision int
 }
 
 // syntaxLine 은 줄 하나의 토큰과 그 줄을 끝낸 문맥이다.
@@ -48,6 +57,13 @@ type syntaxCache struct {
 type syntaxLine struct {
 	tokens []syntax.Token
 	after  syntax.State
+
+	// semantic 은 언어 서버가 그 줄에 준 토큰이다. 있으면 tokens 대신 이것을 그린다.
+	//
+	// **줄 통째로 갈아끼운다.** 서버가 그 줄에 무엇이든 말했으면 그 줄은 서버가 정한다 —
+	// 둘을 섞으면 같은 글자에 두 갈래가 겹치고, 어느 쪽이 이기는지가 글자마다 달라진다.
+	// 서버가 말하지 않은 줄은 nil 이라 lexer 의 답이 그대로 남는다(ADR-0103).
+	semantic []syntax.Token
 }
 
 // replace 는 lines 의 [at, at+count) 가 with 개로 갈린 것을 캐시에 반영한다.
@@ -55,6 +71,10 @@ type syntaxLine struct {
 // 부르는 자리는 replaceLines 하나다(edit.go). 그것이 buf.lines 를 갈아끼우는 유일한 함수라,
 // 앞으로 편집 경로가 늘어도 이 자리를 건너뛸 수 없다.
 func (cache *syntaxCache) replace(at, count, with int) {
+	// 내용이 갈렸다는 것부터 센다. 아래 어느 갈래로 가든 그 사실은 같고, 늦게 오는 서버의
+	// 답을 가리는 값이라 캐시를 버리는 갈래에서도 이어져야 한다.
+	cache.revision++
+
 	// 아직 훑은 것이 없으면 맞출 것도 없다. 첫 그리기가 위에서부터 채운다.
 	if len(cache.lines) < 1 {
 		return
@@ -62,7 +82,7 @@ func (cache *syntaxCache) replace(at, count, with int) {
 
 	// 줄 수와 어긋났으면 믿을 수 없다. 비워 두면 다음 그리기가 통째로 다시 훑는다.
 	if at < 0 || at+count > len(cache.lines) {
-		*cache = syntaxCache{start: cache.start}
+		*cache = syntaxCache{start: cache.start, revision: cache.revision}
 		return
 	}
 
@@ -87,6 +107,12 @@ func (cache *syntaxCache) replace(at, count, with int) {
 		if cache.filled > at {
 			cache.filled += with - count
 		}
+	}
+
+	// 갈아끼운 줄에 얹혀 있던 서버의 답은 남의 글의 것이다. 비워서 lexer 의 답으로 돌린다 —
+	// 다음 답이 올 때까지 그 줄만 색이 옅어지고, 손대지 않은 줄은 그대로 있는다(ADR-0103).
+	for i := at; i < at+with; i++ {
+		cache.lines[i].semantic = nil
 	}
 
 	cache.valid = min(cache.valid, at)

@@ -58,6 +58,11 @@ func (buf Buffer) adopt(next Buffer) Buffer {
 	next.top = min(buf.top, len(next.lines)-1)
 	next.topRow = buf.topRow
 
+	// 문법 캐시는 새 내용의 것으로 비워지지만 **갈린 횟수는 이어 간다.** 새 Buffer 라 0 에서
+	// 다시 세는데, 그러면 다시 읽기 전에 물어 둔 언어 서버의 답이 새 내용에 맞아 보인다
+	// (syntaxCache.revision, ADR-0103).
+	next.syntax.revision = buf.syntax.revision + 1
+
 	return next
 }
 

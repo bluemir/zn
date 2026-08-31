@@ -11,6 +11,9 @@ type dockerNormal struct{}
 // dockerContinued 는 앞 줄이 `\` 로 이어진 자리다. 줄 앞에 명령 이름이 없다.
 type dockerContinued struct{}
 
+func (dockerNormal) Indent() Indent    { return dockerIndent{} }
+func (dockerContinued) Indent() Indent { return dockerIndent{} }
+
 func (s dockerNormal) Lex(line []byte) ([]Token, State) {
 	limit, comment := dockerCommentAt(line)
 	if limit == 0 {

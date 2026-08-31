@@ -75,9 +75,9 @@ func codeBytes(line []byte, tokens []Token) []byte {
 	return code
 }
 
-// bracketOpens 는 이 줄에서 닫히지 않은 여는 괄호가 남았는지다.
-// 몇 겹이 남았는지는 세지 않는다 — 한 줄에 두 겹을 열어도 한 단계다.
-func bracketOpens(code []byte, open, close string) bool {
+// bracketDepth 는 이 줄에서 연 괄호와 닫은 괄호의 차다.
+// 양수면 열어 둔 채 줄이 끝났고, 음수면 이 줄에서 열지 않은 것을 닫았다.
+func bracketDepth(code []byte, open, close string) int {
 	depth := 0
 	for _, b := range code {
 		switch {
@@ -88,7 +88,16 @@ func bracketOpens(code []byte, open, close string) bool {
 		}
 	}
 
-	return depth > 0
+	return depth
+}
+
+// bracketOpens 는 이 줄에서 닫히지 않은 여는 괄호가 남았는지다.
+//
+// 몇 겹이 남았는지는 세지 않는다 — 한 줄에 두 겹을 열어도 한 단계다. gofmt 를 돌려 재 보니
+// `foo(T{`·`[]T{{`·`if err := g(T{`·`"k": {{` 가 전부 한 단계이고 닫는 `}}`·`})` 도 한 단계다.
+// 세면 그쪽과 어긋난다.
+func bracketOpens(code []byte, open, close string) bool {
+	return bracketDepth(code, open, close) > 0
 }
 
 // closesBracket 은 head 가 닫는 괄호로 시작하는지다.
@@ -156,6 +165,12 @@ func (rule braceIndent) Next(line []byte, tokens []Token) (int, []byte) {
 		return 1, nil
 	}
 
+	// **이어지는 줄은 못 본다.** `if a &&` 나 `x := a +` 로 끝난 줄의 다음 줄은 gofmt 라면 한
+	// 단계 들어가는데 여기서는 0 이다. 여는 괄호도 `case` 도 없어서다.
+	//
+	// 잡으려면 그 줄이 문법으로 끝났는지를 알아야 하고, 그것은 참 파서의 일이다. 편집 중의
+	// 소스는 거의 언제나 문법이 깨져 있어서 파서를 두어도 답이 흔들린다. 끝의 낱말이나
+	// 연산자를 보고 어림잡는 길도 있는데, 그러면 `a && b` 로 끝나는 멀쩡한 줄까지 걸린다.
 	return 0, nil
 }
 

@@ -281,6 +281,7 @@ func whenOtherTabs(e *editor) bool { return len(e.buffers) > 1 }
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace, when: whenWritable},
+	{name: "표 맞추기", hint: "format markdown tables", run: runFormatTables, when: whenWritable},
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile, when: whenBuffer},
 	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs, when: whenOtherTabs},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
@@ -375,6 +376,20 @@ func runTrimTrailingSpace(e *editor) (tea.Model, tea.Cmd) {
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 끝 공백을 지웠습니다", count))
+}
+
+// runFormatTables 는 파일 안의 markdown 표를 칸에 맞춰 다시 그린다 (ADR-0106).
+//
+// **markdown 인지 여기서 묻지 않는다.** 표를 찾는 자리가 문맥으로 이미 가른다 — 다른
+// 언어의 파일에서는 찾은 표가 0 이라 「맞출 표가 없습니다」로 끝난다(table.go).
+//
+// 볼 파일이 없으면 줄 수를 셀 수 없다. 그 판정은 formatTablesIn 이 먼저 한다.
+func runFormatTables(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	return formatTablesIn(e, 0, len(e.activeBuffer().lines))
 }
 
 // runReloadFile 은 파일을 다시 읽는다. 밖에서 바뀐 내용을 편집기 안으로 가져오는 길이다.

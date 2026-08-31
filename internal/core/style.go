@@ -202,8 +202,17 @@ var styleSyntax = map[syntax.Kind]lipgloss.Style{
 	// 본문보다 앞으로 나와야 하고, 나눠 쓸 자리가 없었다.
 	syntax.KindHeading: lipgloss.NewStyle().Foreground(lipgloss.Color("45")).Bold(true), // 밝은 하늘 #00d7ff
 
-	// 강조와 굵게는 keyword 와 같은 색이고, 속성으로 갈린다 — 쓴 사람이 고른 표시(`*` 하나냐
-	// 둘이냐) 를 화면이 그대로 따라간다.
-	syntax.KindEmphasis: lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Italic(true),
-	syntax.KindStrong:   lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Bold(true),
+	// 강조와 굵게와 취소선은 keyword 와 같은 색이고, 속성으로 갈린다 — 쓴 사람이 고른 표시
+	// (`*` 하나냐 둘이냐, `~~` 냐) 를 화면이 그대로 따라간다.
+	//
+	// 취소선은 색을 흐리게 내린다. `~~` 로 그은 것은 「이제 아닌 것」이라 눈에서 물러나야
+	// 하는데, 그은 줄만으로는 셋 중 어느 것인지 훑어보아 알기 어렵다.
+	//
+	// **이 갈래만 escape 가 네 배다.** lipgloss 가 취소선과 밑줄을 글자마다 감싼다
+	// (`StrikethroughSpaces` 를 위해서다). 재보니 같은 줄이 굵기는 escape 6 개 98 byte,
+	// 취소선은 46 개 418 byte 다. 손으로 `\x1b[9m` 을 붙이면 한 번이면 되는데 renderParts 에
+	// 갈래가 하나 늘어서, 거슬리면 그때 본다(docs/tasks.md).
+	syntax.KindEmphasis:      lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Italic(true),
+	syntax.KindStrong:        lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Bold(true),
+	syntax.KindStrikethrough: lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Strikethrough(true),
 }

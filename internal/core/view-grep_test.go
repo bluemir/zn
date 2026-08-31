@@ -575,6 +575,9 @@ func TestGrepExpandTabs(t *testing.T) {
 //
 // 펴지 않으면 bubbletea 가 tab 을 버리는데 칸을 채우는 자는 폭 있는 것으로 세어서, 그 행만
 // 짧아지고 오른쪽 테두리가 들쭉날쭉해진다(ADR-0098).
+//
+// 판 전체를 잰다. 목록 행을 따로 낼 자리가 없어졌고(ADR-0101), 테두리도 같은 폭이라
+// 자를 이유가 없다.
 func TestGrepRowKeepsWidthWithTabs(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
@@ -586,9 +589,7 @@ func TestGrepRowKeepsWidthWithTabs(t *testing.T) {
 		grepHit{path: paths[0], line: 4, col: 0, end: 3, text: "func a() {}"},
 	)
 
-	inner := m.textWidth() - 4
-
-	for i, row := range m.renderListRows(inner) {
+	for i, row := range strings.Split(m.renderDrawer(), "\n") {
 		plain := ansi.Strip(row)
 		assert.Equal(t, m.textWidth(), screenColAt([]byte(plain), len(plain), defaultTabWidth),
 			"행 %d 이 판 폭과 같다: %q", i, plain)

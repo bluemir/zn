@@ -410,3 +410,82 @@ func waitForDiagnostics(t *testing.T, client *Client, path string) []Diagnostic 
 
 	return nil
 }
+
+// 문법 토큰을 진짜로 준다. **능력(capabilities) 을 비운 채로** 오는지가 여기서 걸린다 —
+// 켜는 것은 악수의 `semanticTokens` 설정 하나다(ADR-0103).
+//
+// 창 단위로 묻는다. 파일 전체를 묻는 길은 10 만 byte 가 넘으면 빈 답이 온다(ADR-0103).
+func TestGoplsSemanticTokens(t *testing.T) {
+	client, root := startForTest(t)
+
+	path := filepath.Join(root, "internal/syntax/go.go")
+	lines := readLines(t, path)
+
+	require.NoError(t, client.Open(path, lines))
+
+	at := findLine(t, lines, "type goToken struct {")
+
+	tokens, err := client.SemanticTokens(path, at, at+6)
+	require.NoError(t, err)
+	require.NotEmpty(t, tokens, "이름표가 오지 않으면 여기가 빈다")
+
+	// 그 자리의 이름이 무엇으로 왔는지 본다.
+	got := map[string]string{}
+	for _, token := range tokens {
+		require.Less(t, token.Line, len(lines))
+
+		start := ByteColumn(lines[token.Line], token.Start)
+		end := ByteColumn(lines[token.Line], token.Start+token.Length)
+		got[string(lines[token.Line][start:end])] = token.Type
+	}
+
+	assert.Equal(t, "type", got["goToken"], "새 type 의 이름이다")
+	assert.Equal(t, "property", got["offset"], "struct 의 필드다")
+	assert.Equal(t, "type", got["Token"], "`token.Token` 의 뒤쪽이다")
+	assert.Equal(t, "namespace", got["token"], "package 이름이다")
+	assert.Equal(t, "keyword", got["struct"])
+}
+
+// 창 밖은 오지 않는다. 그래야 큰 파일에서도 값이 창 크기에 매인다.
+func TestGoplsSemanticTokensStayInRange(t *testing.T) {
+	client, root := startForTest(t)
+
+	path := filepath.Join(root, "internal/syntax/go.go")
+	lines := readLines(t, path)
+
+	require.NoError(t, client.Open(path, lines))
+
+	from, to := 40, 60
+
+	tokens, err := client.SemanticTokens(path, from, to)
+	require.NoError(t, err)
+	require.NotEmpty(t, tokens)
+
+	for _, token := range tokens {
+		assert.GreaterOrEqual(t, token.Line, from)
+		assert.Less(t, token.Line, to)
+	}
+}
+
+// 여러 줄에 걸친 것도 줄마다 잘려서 온다. 우리 캐시가 줄 단위라 이것이 맞아야 얹을 수 있다.
+//
+// 저 파일에는 여러 줄 raw string 과 여러 줄 block comment 가 둘 다 있다.
+func TestGoplsSemanticTokensDoNotSpanLines(t *testing.T) {
+	client, root := startForTest(t)
+
+	path := filepath.Join(root, "internal/syntax/go_test.go")
+	lines := readLines(t, path)
+
+	require.NoError(t, client.Open(path, lines))
+
+	tokens, err := client.SemanticTokens(path, 0, len(lines))
+	require.NoError(t, err)
+	require.NotEmpty(t, tokens)
+
+	for _, token := range tokens {
+		require.Less(t, token.Line, len(lines))
+
+		assert.LessOrEqual(t, token.Start+token.Length, utf16Len(lines[token.Line]),
+			"줄 %d 의 토큰이 줄 끝을 넘었다", token.Line)
+	}
+}

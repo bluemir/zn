@@ -132,7 +132,11 @@ func (e *editor) finishGopls(msg goplsReadyMsg) tea.Cmd {
 	// 진단을 기다리는 고리도 여기서 시작한다. 서버가 떠 있는 동안만 도는 고리이고, 시작하는
 	// 자리가 여기 하나다 — 알리는 자리(syncGopls) 와 같이 두면 tick 마다 고리가 하나씩
 	// 늘어난다(ADR-0086).
-	return tea.Batch(e.syncGopls(), waitDiagnostics(e.gopls))
+	//
+	// 문법 토큰은 여기서 곧바로 묻지 않고 tick 을 하나 건다. 지금은 파일을 이제 막 알리는
+	// 참이라 서버가 아직 그 파일을 모르고, 250ms 뒤 그 tick 이 묻는다. 이것이 없으면 파일을
+	// 열어 두고 손을 대지 않는 동안에는 서버의 색이 오지 않는다(semantic.go, ADR-0103).
+	return tea.Batch(e.syncGopls(), waitDiagnostics(e.gopls), e.scheduleEditTick())
 }
 
 // syncGopls 는 열려 있는 Go 파일들을 서버와 맞춘다.

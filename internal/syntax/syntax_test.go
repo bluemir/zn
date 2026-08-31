@@ -19,19 +19,20 @@ import (
 // 갈래를 늘리면서 여기 빠뜨리면 lexed 가 그 갈래를 만나는 순간 떨어진다. 갈래 목록을
 // 손으로 또 적어 두고 견주지는 않는다 — 그 목록도 같이 빠뜨릴 수 있어서 지키는 것이 없다.
 var kindNames = map[Kind]string{
-	KindComment:  "comment",
-	KindString:   "string",
-	KindNumber:   "number",
-	KindKeyword:  "keyword",
-	KindType:     "type",
-	KindFunction: "func",
-	KindConstant: "const",
-	KindVariable: "var",
-	KindKey:      "key",
-	KindHeading:  "heading",
-	KindEmphasis: "em",
-	KindStrong:   "strong",
-	KindLink:     "link",
+	KindComment:       "comment",
+	KindString:        "string",
+	KindNumber:        "number",
+	KindKeyword:       "keyword",
+	KindType:          "type",
+	KindFunction:      "func",
+	KindConstant:      "const",
+	KindVariable:      "var",
+	KindKey:           "key",
+	KindHeading:       "heading",
+	KindEmphasis:      "em",
+	KindStrong:        "strong",
+	KindStrikethrough: "strike",
+	KindLink:          "link",
 }
 
 // lexed 는 문맥에 줄을 먹여 토큰을 `갈래:글자` 로 늘어놓는다.
@@ -98,7 +99,7 @@ var languageSamples = []struct {
 		lines: []string{
 			"# 언어별 syntax highlighting",
 			"",
-			"한글 본문에 `replaceLines` 와 *강조* 가 있고 [문서](https://example.com) 도 있다.",
+			"한글 본문에 `replaceLines` 와 *강조* 와 **굵게** 와 ~~지운 것~~ 이 있고 [문서](https://example.com) 도 있다.",
 			"> 인용문이다",
 			"```go",
 			"func main() {}",
@@ -400,6 +401,8 @@ type uncomparableState struct {
 func (s uncomparableState) Lex([]byte) ([]Token, State) {
 	return nil, s
 }
+
+func (uncomparableState) Indent() Indent { return nil }
 
 // 문지기가 실제로 잡는지 본다. 이것이 없으면 지키는 것이 없는 시험을 들고 있게 된다.
 //

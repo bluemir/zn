@@ -121,6 +121,20 @@ func TestTabIndentsMarkdownListItem(t *testing.T) {
 	}
 }
 
+// 코드펜스 안에서 `tab` 은 줄 전체가 아니라 커서 자리에 든다.
+//
+// 「목록 줄에서는 줄 전체」는 markdown 규칙인데(syntax.Indent 의 TabIndentsLine) 펜스 안은
+// go 규칙이라 거짓이다. 규칙이 문맥을 따라오는지가 이 키에서도 갈린다(ADR-0102).
+func TestTabInsideAFenceGoesAtTheCursor(t *testing.T) {
+	m := newIndentEditor(t, "a.md", "indent_style = space\nindent_size = 2",
+		"```go\n- 목록처럼 보이는 줄\n```\n")
+
+	m = send(m, "j", "$", "a", "tab", "x")
+
+	assert.Equal(t, []string{"```go", "- 목록처럼 보이는 줄  x", "```"},
+		linesOf(bufferOf(t, m)), "줄이 들어가지 않고 커서 자리에 칸이 든다")
+}
+
 func TestShiftKeepsTheCharacterKindOfTheLine(t *testing.T) {
 	// tab 파일에 space 로 들여쓴 줄이 섞여 있어도 칸만 맞추고 글자는 둔다.
 	m := newIndentEditor(t, "a.go", "indent_style = tab", "    foo\n\tbar\n")

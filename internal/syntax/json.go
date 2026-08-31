@@ -16,6 +16,10 @@ type jsonComment struct{}
 // jsonQuoted 는 hjson 의 `”'` 로 열린 여러 줄 문자열 안이다.
 type jsonQuoted struct{}
 
+func (jsonNormal) Indent() Indent  { return jsonIndent{} }
+func (jsonComment) Indent() Indent { return jsonIndent{} }
+func (jsonQuoted) Indent() Indent  { return jsonIndent{} }
+
 func (s jsonNormal) Lex(line []byte) ([]Token, State) {
 	return jsonLex(line)
 }

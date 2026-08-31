@@ -331,6 +331,11 @@ func prefixAction(prefix, key string, count int) action {
 		case "n":
 			return actionRename{}
 		}
+	case leaderKey + "m":
+		switch key {
+		case "t":
+			return actionFormatTables{}
+		}
 	case leaderKey:
 		// leader 조합 중 두 키짜리는 이것 하나다. 나머지 셋은 `\g`·`\r` 을 지나 세 키다 —
 		// 어디서 끝나는지는 expectsMoreKeys 가 정한다(ADR-0085).
@@ -362,8 +367,11 @@ const leaderWon = "₩"
 // 접두 키가 두 키를 넘는 것은 leader 뿐이다 — `\gd` 는 세 키다. `\g` 까지 온 것만 여기서
 // 참이고, 짝이 없는 `\x` 는 거짓이라 그 자리에서 아무 일도 없이 끝난다. 접두 키를 잘못
 // 짚었을 때 다음 키까지 삼키지 않는다.
+//
+// **normal 과 visual 이 같이 쓴다.** 세 키짜리 조합을 한쪽에만 적으면 그 mode 에서만
+// 가운데 키가 삼켜져, 같은 손가락이 mode 에 따라 다른 일을 한다(ADR-0037, ADR-0106).
 func expectsMoreKeys(prefix string) bool {
-	return prefix == leaderKey+"g" || prefix == leaderKey+"r"
+	return prefix == leaderKey+"g" || prefix == leaderKey+"r" || prefix == leaderKey+"m"
 }
 
 // normalState 는 normal mode 가 키를 받아가며 옮겨 다니는 상태다.

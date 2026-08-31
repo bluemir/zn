@@ -147,7 +147,7 @@ func (m viewGrep) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pending = nil
 
 		return m, cmd
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// **판 높이를 여기서 다시 잰다.** 적중이 도착하는 대로 목록이 자라므로 판도 같이
 		// 자라야 하고, 열여섯에서 멈추니 곧 가라앉는다. 지우지는 않는다 — 넘어가는 곳이 또
 		// 판이면 그쪽이 방금 잡은 높이를 우리가 지우게 된다(ADR-0069).
@@ -523,53 +523,28 @@ func (m viewGrep) emptyReason() string {
 }
 
 // renderDrawer 는 판 전체를 화면 행 문자열로 만든다. 각 행이 정확히 textWidth() 칸이다.
+//
+// 목록을 담는 것은 rows 를 한 번만 부르려고다. 거르는 글자가 있으면 그때마다 적중 전부를
+// 훑는데, 판 하나에 열여섯 줄이라 줄마다 부르면 그만큼 되풀이된다.
 func (m viewGrep) renderDrawer() string {
-	width := m.textWidth()
-	inner := width - 4 // 테두리 둘과 좌우 한 칸씩
+	rows := m.rows()
 
-	chars := m.boxChars
-	line := strings.Repeat(chars.horizontal, width-2)
-
-	rows := []string{chars.topLeft + line + chars.topRight}
-	rows = append(rows, m.renderListRows(inner)...)
-
-	// 아랫 테두리가 몇 번째를 보고 있는지 든다. 담는 것이 보이는 것보다 훨씬 많아서
-	// 목록만으로는 어디쯤인지 모른다(render-drawer-count.go, ADR-0079).
-	rows = append(rows, renderCountBorder(chars, width, m.selected+1, len(m.rows())))
-
-	return strings.Join(rows, "\n")
+	return drawer{
+		chars:  m.boxChars,
+		width:  m.textWidth(),
+		height: m.grepRows(),
+		top:    m.top,
+		count:  len(rows),
+		empty:  m.emptyReason(),
+		row: func(at, inner int) string {
+			return m.renderRow(rows[at], at == m.selected, inner)
+		},
+		at: m.selected + 1,
+	}.render()
 }
 
 // grepMarkWidth 는 고른 자리 표시가 쓰는 폭이다.
 const grepMarkWidth = 2
-
-// renderListRows 는 목록 행들이다. 적중이 없으면 그 사실을 한 줄로 알린다.
-func (m viewGrep) renderListRows(inner int) []string {
-	side := m.boxChars.vertical
-	height := m.grepRows()
-	rows := m.rows()
-
-	body := make([]string, 0, height)
-	for at := m.top; at < len(rows) && len(body) < height; at++ {
-		body = append(body, m.renderRow(rows[at], at == m.selected, inner))
-	}
-
-	if len(rows) == 0 && height > 0 {
-		empty := padTo(truncateToWidth(m.emptyReason(), inner), inner)
-		body = append(body, styleDetail.Render(empty))
-	}
-
-	for len(body) < height {
-		body = append(body, strings.Repeat(" ", inner))
-	}
-
-	out := make([]string, 0, len(body))
-	for _, text := range body {
-		out = append(out, side+" "+text+" "+side)
-	}
-
-	return out
-}
 
 // grepPlaceWidth 는 `경로:줄` 칸의 폭이다. 판 안쪽 폭에 맞춰 잡는다.
 //

@@ -19,6 +19,9 @@ type yamlBlock struct {
 	indent int
 }
 
+func (yamlNormal) Indent() Indent { return yamlIndent{} }
+func (yamlBlock) Indent() Indent  { return yamlIndent{} }
+
 func (s yamlNormal) Lex(line []byte) ([]Token, State) {
 	tokens := []Token{}
 	at := yamlIndentEnd(line)

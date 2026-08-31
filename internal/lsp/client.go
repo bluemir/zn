@@ -26,6 +26,12 @@ type Client struct {
 	// diagnostics 는 서버가 밀어준 진단이다. 우리가 물어서 받는 것이 아니라 서버가 자기 때에
 	// 보내는 것이라, 답을 기다리는 자리가 아니라 담아 두는 자리가 필요하다(diagnostics.go).
 	diagnostics *diagnosticStore
+
+	// semantic 은 서버가 악수에서 알린 문법 토큰 이름표다(semantic.go).
+	//
+	// **악수에서 한 번 적고 그 뒤로는 읽기만 한다.** Start 가 돌려주기 전에 채워지므로
+	// 여럿이 동시에 읽어도 mu 가 필요 없다 — docs 와 달리 바뀌지 않는 값이다.
+	semantic semanticLegend
 }
 
 // Start 는 서버를 띄우고 첫 악수(initialize) 까지 끝낸다.
@@ -95,18 +101,28 @@ func Start(ctx context.Context, root string) (*Client, error) {
 // **진단도 이 빈 능력 그대로 온다.** 규격에는 `publishDiagnostics` 능력 칸이 있지만 gopls
 // v0.23.0 은 알리지 않아도 보낸다(잰 값이다). 그래서 진단을 받으려고 이 자리를 채우지
 // 않는다 — 받는 것이 하나 늘었을 뿐이고, 되묻기를 부르는 문은 그대로 닫혀 있다(ADR-0086).
+//
+// **문법 토큰은 설정으로 켠다.** gopls 의 `semanticTokens` 는 기본값이 꺼짐이라(v0.23.0 의
+// `gopls api-json` 에서 확인) 켜지 않으면 악수 응답에 이름표가 아예 없다. 능력 칸이 아니라
+// 서버 설정이라 이 한 줄로 끝나고, 빈 능력은 그대로다 — 재 보니 능력을 비운 채로도 토큰이
+// 온다(ADR-0103).
 func (c *Client) initialize(root string) error {
-	_, err := c.conn.call("initialize", map[string]any{
+	result, err := c.conn.call("initialize", map[string]any{
 		"processId": os.Getpid(),
 		"rootUri":   fileURI(root),
 		"clientInfo": map[string]any{
 			"name": "zn",
 		},
 		"capabilities": map[string]any{},
+		"initializationOptions": map[string]any{
+			"semanticTokens": true,
+		},
 	})
 	if err != nil {
 		return errors.Wrap(err, "gopls 와 악수하지 못했다")
 	}
+
+	c.semantic = readSemanticLegend(result)
 
 	return c.conn.notify("initialized", map[string]any{})
 }

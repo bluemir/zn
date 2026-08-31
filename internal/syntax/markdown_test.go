@@ -79,6 +79,26 @@ func TestMarkdownLexLine(t *testing.T) {
 			line: "- [ ] 할 일이다",
 			want: []string{},
 		},
+		{
+			name: "취소선",
+			line: "이것은 ~~아니다~~ 로 남긴다",
+			want: []string{"strike:~~아니다~~"},
+		},
+		{
+			name: "표시 하나는 취소선이 아니다. 홈 경로가 그 글자를 쓴다",
+			line: "`~/.config/git/ignore` 와 `~/.gitconfig` 를 본다",
+			want: []string{"string:`~/.config/git/ignore`", "string:`~/.gitconfig`"},
+		},
+		{
+			name: "범위를 적는 물결도 열지 않는다",
+			line: "실제 문서에서는 1~2 다. 본문 색이 1.5~2.5:1 로 약해진다",
+			want: []string{},
+		},
+		{
+			name: "코드 스팬이 취소선보다 세다",
+			line: "`a ~~b~~ c` 다",
+			want: []string{"string:`a ~~b~~ c`"},
+		},
 	}
 
 	for _, test := range tests {
@@ -352,6 +372,162 @@ func TestMarkdownFenceClosingBeatsInner(t *testing.T) {
 
 			assert.Equal(t, test.want, got)
 			assert.Equal(t, mdNormal{}, next, "펜스가 닫혀 markdown 으로 돌아온다")
+		})
+	}
+}
+
+// 표는 `|` 로 시작하는 줄이 이어지는 것이다. 첫 줄이 머리 행이라 칸의 글이 굵다.
+func TestMarkdownTable(t *testing.T) {
+	got, next := lexedAll(t, mdNormal{},
+		"| 항목 | 값 |",
+		"|---|---|",
+		"| 표 | `spec.md` |",
+		"",
+		"문단이다",
+	)
+
+	assert.Equal(t, [][]string{
+		{"keyword:|", "strong: 항목 ", "keyword:|", "strong: 값 ", "keyword:|"},
+		{"keyword:|---|---|"},
+		{"keyword:|", "keyword:|", "string:`spec.md`", "keyword:|"},
+		{},
+		{},
+	}, got)
+	assert.Equal(t, mdNormal{}, next, "표가 끝나면 보통 문맥이다")
+}
+
+// 표가 둘이면 저마다 첫 줄이 머리 행이다. 앞 줄이 표였는지가 문맥에 실린다.
+func TestMarkdownTableHeadRepeats(t *testing.T) {
+	got, _ := lexedAll(t, mdNormal{},
+		"| 첫 표 |",
+		"| 본문 |",
+		"사이에 문단이 있다",
+		"| 둘째 표 |",
+	)
+
+	assert.Equal(t, [][]string{
+		{"keyword:|", "strong: 첫 표 ", "keyword:|"},
+		{"keyword:|", "keyword:|"},
+		{},
+		{"keyword:|", "strong: 둘째 표 ", "keyword:|"},
+	}, got)
+}
+
+// 표가 아닌 것을 표로 보지 않는다. 산문에 `|` 가 드는 일이 흔하다.
+func TestMarkdownTableNeedsLeadingPipe(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want []string
+	}{
+		{
+			name: "가운데의 `|` 는 표가 아니다 — GFM 은 표로 읽지만 산문과 갈리지 않는다",
+			line: "a | b 는 그냥 글이다",
+			want: []string{},
+		},
+		{
+			name: "`|` 가 하나뿐이면 가를 칸이 없다",
+			line: "| 하나뿐이다",
+			want: []string{},
+		},
+		{
+			name: "코드 스팬 안의 `|` 는 칸을 가르지 않는다",
+			line: "`a | b` 다",
+			want: []string{"string:`a | b`"},
+		},
+		{
+			name: "구분줄은 `-` 가 있어야 한다",
+			line: "| : | : |",
+			want: []string{"keyword:|", "strong: : ", "keyword:|", "strong: : ", "keyword:|"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _ := lexed(t, mdNormal{}, test.line)
+
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+// 들여쓴 표도 표다. 목록 안의 표가 그렇고, 그 들여쓰기는 넉 칸을 넘기도 tab 이기도 하다.
+//
+// **들여쓰기는 표시도 칸 글도 아니다.** 구분줄의 표시는 `|` 부터이고, 머리 행에서 앞의 빈
+// 칸은 굵어지지 않는다. 기대에 그 자리가 없는 것이 그것을 지킨다.
+func TestMarkdownIndentedTable(t *testing.T) {
+	tests := []struct {
+		name   string
+		indent string
+	}{
+		{name: "두 칸", indent: "  "},
+		{name: "넉 칸 — 코드펜스라면 못 쓸 깊이다", indent: "    "},
+		{name: "tab", indent: "\t"},
+		{name: "목록 두 겹만큼", indent: "\t\t"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, next := lexedAll(t, mdNormal{},
+				test.indent+"| 항목 | 값 |",
+				test.indent+"|---|---|",
+				test.indent+"| 표 | 쓴다 |",
+			)
+
+			assert.Equal(t, [][]string{
+				{"keyword:|", "strong: 항목 ", "keyword:|", "strong: 값 ", "keyword:|"},
+				{"keyword:|---|---|"},
+				{"keyword:|", "keyword:|", "keyword:|"},
+			}, got)
+			assert.Equal(t, mdNormal{afterTableRow: true}, next)
+		})
+	}
+}
+
+// 참조 링크는 정의의 주소와 본문의 이름에 색을 준다. 둘 다 기계가 읽는 자리다.
+func TestMarkdownReferenceLink(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want []string
+	}{
+		{
+			name: "정의는 주소만 칠한다",
+			line: "[ref]: https://example.com",
+			want: []string{"link:https://example.com"},
+		},
+		{
+			name: "정의 뒤의 제목은 주소가 아니다",
+			line: `[ref]: https://example.com "제목"`,
+			want: []string{"link:https://example.com"},
+		},
+		{
+			name: "본문에서 부르는 이름도 링크다",
+			line: "[글][ref] 을 본다",
+			want: []string{"link:ref"},
+		},
+		{
+			name: "이름이 비면 칠할 것이 없다",
+			line: "[글][] 을 본다",
+			want: []string{},
+		},
+		{
+			name: "할 일 표시는 링크가 아니다 — `[ref]` 하나만 적는 꼴을 받지 않는 까닭이다",
+			line: "- [ ] 할 일이고 [x] 는 끝난 것이다",
+			want: []string{},
+		},
+		{
+			name: "주소를 적는 인라인 링크는 그대로다",
+			line: "[글](주소) 와 [글][ref] 가 한 줄에 있다",
+			want: []string{"link:주소", "link:ref"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _ := lexed(t, mdNormal{}, test.line)
+
+			assert.Equal(t, test.want, got)
 		})
 	}
 }

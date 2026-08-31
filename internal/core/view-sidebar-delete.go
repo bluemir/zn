@@ -84,7 +84,7 @@ func (m viewSidebarDelete) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 음절 하나가 키 여럿으로 풀릴 수 있지만 여기서 뜻이 있는 것은 첫 키뿐이다 —
 		// 나머지는 무엇이든 취소이고, 취소는 되풀이해도 취소다.
 		return m.press(expandHangul(msg.String())[0])
-	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg:
+	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, goplsReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go).
 		// model 이 오면 mode 가 바뀐 것이다. 오지 않으면 지금 mode 를 그대로 쓴다(job.go).

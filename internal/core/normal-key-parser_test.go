@@ -374,6 +374,20 @@ func TestNormalKeyParserLeader(t *testing.T) {
 		assert.Equal(t, normalStart{}, state)
 	})
 
+	t.Run("\\mt 는 표를 맞춘다", func(t *testing.T) {
+		built, state := pressAll("\\", "m", "t")
+
+		assert.Equal(t, actionFormatTables{}, built)
+		assert.Equal(t, normalStart{}, state)
+	})
+
+	t.Run("\\m 도 기다린다", func(t *testing.T) {
+		built, state := pressAll("\\", "m")
+
+		assert.Nil(t, built)
+		assert.Equal(t, "\\m", state.showcmd())
+	})
+
 	// `gg` 는 그대로다. leader 를 더한 것이 한 글자 접두 키를 건드리지 않는다.
 	t.Run("gg 는 그대로다", func(t *testing.T) {
 		built, _ := pressAll("g", "g")
