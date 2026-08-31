@@ -109,10 +109,17 @@ func visualAction(key string, count int) action {
 // 받지 않는 것이 대부분이라, 나눠 쓰면 「visual 이 안 받는다」를 거르는 자리가 그 표에 하나
 // 생긴다. visualAction 이 normal 의 standaloneAction 과 갈려 있는 것과 같은 자리다(ADR-0037).
 //
-// 지금 한 줄뿐이다. `gg` 는 motion 이라 prefixMotion 쪽으로 가고 여기 오지 않는다(ADR-0085).
+// `gg` 는 motion 이라 prefixMotion 쪽으로 가고 여기 오지 않는다(ADR-0085).
 func visualPrefixAction(prefix, key string) action {
-	if prefix == leaderKey && key == "c" {
-		return actionVisualCat{}
+	switch prefix {
+	case leaderKey:
+		if key == "c" {
+			return actionVisualCat{}
+		}
+	case leaderKey + "m":
+		if key == "t" {
+			return actionVisualFormatTables{}
+		}
 	}
 
 	return nil
@@ -293,6 +300,12 @@ func (s visualPending) press(key string) ([]action, visualState) {
 		return pressExpandedVisual(s, keys)
 	}
 	key = keys[0]
+
+	// 접두 키가 자라는 중이다. `\` 뒤의 `m` 이 여기로 와서 `\m` 이 되고, 뜻은 그다음 키가
+	// 정한다. 세 키짜리 조합을 normal 과 같은 자에 대고 본다(expectsMoreKeys).
+	if next := s.prefix + key; expectsMoreKeys(next) {
+		return nil, visualPending{reg: s.reg, prefix: next, count: s.count}
+	}
 
 	if mo, ok := prefixMotion(s.prefix, key); ok {
 		// 이름을 실은 이동은 없다. visualStart 와 같은 자리다.
