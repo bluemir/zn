@@ -170,9 +170,10 @@ func TestPaletteSwitchesToCommandsWithAngle(t *testing.T) {
 	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
 
 	m = send(m, ">")
-	// 넷이 목록에 없다(paletteCommand.when). tab 이 하나뿐이라 tab 을 닫는 둘(「다른 tab 모두
-	// 닫기」·「오른쪽 tab 모두 닫기」) 이 빠지고, 고른 범위가 없어서 대소문자 둘이 빠진다.
-	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-4)
+	// 여덟이 목록에 없다(paletteCommand.when). tab 이 하나뿐이라 tab 을 닫는 둘(「다른 tab 모두
+	// 닫기」·「오른쪽 tab 모두 닫기」) 이 빠지고, 고른 범위가 없어서 「선택 영역 …」 넷과
+	// 대소문자 둘이 빠진다.
+	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-8)
 
 	m = send(m, "t", "r", "e", "e")
 	require.NotEmpty(t, m.(viewPalette).hits)
@@ -464,22 +465,22 @@ func TestPaletteReleasesSelectionBeforeOpeningAnotherFile(t *testing.T) {
 	assert.False(t, normal.buffers[from].selection.active, "떠나온 tab 에 강조가 남지 않는다")
 }
 
-// ── 고른 범위를 받는 명령 (ADR-0111) ──
+// ── 고른 범위를 받는 명령 (ADR-0111, ADR-0112) ──
 
-// visual 에서 열었으면 고른 줄만 정렬한다. 놓기 전에 사본을 실어 보낸 결과다.
+// 「선택 영역 줄 정렬」은 고른 줄만 정렬한다. 놓기 전에 사본을 실어 보낸 결과다.
 func TestPaletteSortsSelectedLinesOnly(t *testing.T) {
 	// 앞 세 줄만 고른다. 넷째 줄은 정렬하면 맨 앞으로 갈 자리라 자리를 지키는지 드러난다.
 	var m tea.Model = send(newTestEditor("c\nb\nd\na\n", 80, 20), "v", "j", "j", "ctrl+p")
 	require.IsType(t, viewPalette{}, m)
 
-	m = send(typeInto(m, ">sort lines"), "enter")
+	m = send(typeInto(m, ">sort selection"), "enter")
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Equal(t, []string{"b", "c", "d", "a"}, linesOf(bufferOf(t, m)))
 	assert.False(t, bufferOf(t, m).selection.active, "고른 것은 놓는다")
 }
 
-// normal 에서 열면 파일 전체다. 범위가 없어도 뜻이 서는 명령이라 목록에서 빠지지 않는다.
+// 짝이 되는 「줄 정렬」은 파일 전체다. 범위가 없을 때만 목록에 선다.
 func TestPaletteSortsWholeFileWithoutSelection(t *testing.T) {
 	var m tea.Model = send(newTestEditor("c\nb\nd\na\n", 80, 20), "ctrl+p")
 	require.IsType(t, viewPalette{}, m)
@@ -512,6 +513,35 @@ func TestPaletteChangesCaseOfSelection(t *testing.T) {
 	assert.Equal(t, []string{"FOO bar"}, linesOf(bufferOf(t, m)))
 	// 커서는 범위의 시작이다. visual 의 `U` 와 같다(ADR-0100).
 	assert.Equal(t, 0, bufferOf(t, m).cursorCol)
+}
+
+// 짝이 되는 둘 중 하나만 목록에 선다. 무엇에 걸리는지가 고르기 전에 이름에 있다(ADR-0112).
+func TestPaletteSplitsRangeCommandsBySelection(t *testing.T) {
+	without := newPaletteView(t, 80, 20, "a.go")
+	without.input = ">"
+	without.filter()
+
+	names := make([]string, 0, len(without.commands()))
+	for _, command := range without.commands() {
+		names = append(names, command.name)
+	}
+
+	assert.Contains(t, names, "줄 정렬")
+	assert.NotContains(t, names, "선택 영역 줄 정렬")
+
+	m := send(newTestEditor("a\nb\n", 80, 20), "v", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	with := m.(viewPalette)
+	picked := make([]string, 0, len(with.commands()))
+	for _, command := range with.commands() {
+		picked = append(picked, command.name)
+	}
+
+	assert.Contains(t, picked, "선택 영역 줄 정렬")
+	assert.NotContains(t, picked, "줄 정렬", "고른 범위가 있으면 전체에 거는 쪽은 사라진다")
+	assert.Contains(t, picked, "선택 영역 표 맞추기")
+	assert.NotContains(t, picked, "표 맞추기")
 }
 
 // 고른 범위가 없으면 대소문자 맞추기는 아예 목록에 없다. 파일 전체로 갈음하지 않는다.

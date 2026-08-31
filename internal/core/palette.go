@@ -279,8 +279,10 @@ func newRunOptions(opts []runOption) runOptions {
 // lines 는 명령이 걸릴 줄 구간이다. `[from, to)` 다.
 //
 // **고른 범위가 없으면 파일 전체다.** 「줄 정렬」·「표 맞추기」와 공백 둘이 이 손을 쓰고,
-// 그래서 normal 에서 열어도 목록에 그대로 뜬다. 범위가 있어야만 뜻이 서는 명령
-// (대소문자 맞추기) 은 이것을 쓰지 않고 hasArea 를 직접 본다(ADR-0111).
+// 넷 다 표에 두 줄로 서 있다 — 「선택 영역 …」쪽은 옵션이 실려 오고 그냥 이름 쪽은 실려
+// 오지 않으므로, **같은 함수가 옵션만 보고 저절로 맞는다**(ADR-0112).
+//
+// 범위가 있어야만 뜻이 서는 명령(대소문자 맞추기) 은 이것을 쓰지 않고 hasArea 를 직접 본다.
 //
 // **줄 단위로 넓힌다.** 이 손을 쓰는 넷이 다 줄을 통째로 고치는 것이라 칸을 볼 자리가 없다.
 // 칸까지 보는 것은 대소문자 맞추기뿐이고 그쪽은 area 를 그대로 받는다.
@@ -329,13 +331,13 @@ func whenBuffer(e *editor) bool { return e.hasTab() }
 // whenWritable 은 고칠 파일이 있어야 성립하는 명령이다. refuseNoBuffer + refuseReadOnly 다.
 func whenWritable(e *editor) bool { return e.hasTab() && !e.activeBuffer().readOnly }
 
-// whenSelection 은 고친 범위를 visual 에서 받아야 성립하는 명령이다.
-//
-// 파일 전체로 갈음할 수 없는 것들이 쓴다. 대소문자를 파일 통째로 맞추는 것은 손이 미끄러졌을
-// 때 잃는 것이 너무 크고, 되돌리기가 있어도 시킬 만한 일이 아니다(ADR-0111).
+// whenSelection 은 고칠 범위를 visual 에서 받아야 성립하는 명령이다.
 //
 // **normal 에서 연 팔레트에는 뜨지 않는다.** 고를 수 없는 편이 골라 놓고 거절당하는 것보다
 // 낫다는 when 의 태도 그대로다.
+//
+// 대소문자 맞추기 둘은 파일 전체로 갈음할 수 없어서 이것만 있다. 나머지 넷은 whenNoSelection
+// 쪽과 짝을 이룬다(ADR-0112).
 func whenSelection(e *editor) bool {
 	if !whenWritable(e) {
 		return false
@@ -346,6 +348,23 @@ func whenSelection(e *editor) bool {
 	return ok
 }
 
+// whenNoSelection 은 고칠 파일이 있고 **고른 범위는 없어야** 성립한다.
+//
+// whenSelection 과 짝이라 둘 중 하나만 목록에 선다. 이름이 「선택 영역」으로 갈려 있어서,
+// 무엇에 걸리는지가 고르기 전에 이름에 있다(ADR-0112).
+//
+// 범위를 골라 둔 채 파일 전체에 거는 길은 없다. 그럴 일이면 `esc` 로 물러난 뒤 열면 된다 —
+// 골라 놓고 전체에 걸겠다는 것은 시킬 만한 일이 아니라고 보았다.
+func whenNoSelection(e *editor) bool {
+	if !whenWritable(e) {
+		return false
+	}
+
+	_, ok := e.activeBuffer().selectionRange()
+
+	return !ok
+}
+
 // whenOtherTabs 는 닫을 다른 tab 이 있어야 성립한다.
 func whenOtherTabs(e *editor) bool { return len(e.buffers) > 1 }
 
@@ -354,10 +373,14 @@ func whenRightTabs(e *editor) bool { return e.hasTab() && e.active < len(e.buffe
 
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
-	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace, when: whenWritable},
-	{name: "중복 공백 지우기", hint: "squeeze repeated spaces", run: runSqueezeSpaces, when: whenWritable},
-	{name: "줄 정렬", hint: "sort lines ascending", run: runSortLines, when: whenWritable},
-	{name: "표 맞추기", hint: "format markdown tables", run: runFormatTables, when: whenWritable},
+	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace, when: whenNoSelection},
+	{name: "선택 영역 줄 끝 공백 지우기", hint: "trim in selection", run: runTrimTrailingSpace, when: whenSelection},
+	{name: "중복 공백 지우기", hint: "squeeze repeated spaces", run: runSqueezeSpaces, when: whenNoSelection},
+	{name: "선택 영역 중복 공백 지우기", hint: "squeeze in selection", run: runSqueezeSpaces, when: whenSelection},
+	{name: "줄 정렬", hint: "sort lines ascending", run: runSortLines, when: whenNoSelection},
+	{name: "선택 영역 줄 정렬", hint: "sort selection", run: runSortLines, when: whenSelection},
+	{name: "표 맞추기", hint: "format markdown tables", run: runFormatTables, when: whenNoSelection},
+	{name: "선택 영역 표 맞추기", hint: "format tables in selection", run: runFormatTables, when: whenSelection},
 	{name: "대문자로 맞추기", hint: "to upper case", run: runUpperCase, when: whenSelection},
 	{name: "소문자로 맞추기", hint: "to lower case", run: runLowerCase, when: whenSelection},
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile, when: whenBuffer},
@@ -437,8 +460,8 @@ func runCatScreen(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 
 // runTrimTrailingSpace 는 줄 끝의 공백과 tab 을 지운다.
 //
-// visual 에서 열었으면 고른 줄만이고 아니면 파일 전체다. 범위가 없어도 뜻이 서는 명령이라
-// normal 에서도 목록에 뜬다(runOptions.lines, ADR-0111).
+// **표에 두 줄이 이것을 가리킨다.** 「선택 영역 …」쪽은 고른 줄만이고 그냥 이름 쪽은 파일
+// 전체다. 둘을 가르는 것은 이 함수가 아니라 실려 오는 옵션이다(runOptions.lines, ADR-0112).
 func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
@@ -469,8 +492,8 @@ func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 // **markdown 인지 여기서 묻지 않는다.** 표를 찾는 자리가 문맥으로 이미 가른다 — 다른
 // 언어의 파일에서는 찾은 표가 0 이라 「맞출 표가 없습니다」로 끝난다(table.go).
 //
-// visual 에서 열었으면 고른 줄에 걸친 표만이다. 이때는 `\mt` 와 같은 일이 된다 — 범위에
-// 걸치기만 하면 그 표를 통째로 맞추는 것도 그쪽과 같다(ADR-0111).
+// 「선택 영역 표 맞추기」로 고르면 그 줄에 걸친 표만이다. 이때는 `\mt` 와 같은 일이 된다 —
+// 범위에 걸치기만 하면 그 표를 통째로 맞추는 것도 그쪽과 같다(ADR-0111, ADR-0112).
 //
 // 볼 파일이 없으면 줄 수를 셀 수 없다. 그 판정은 formatTablesIn 이 먼저 한다.
 func runFormatTables(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
@@ -624,7 +647,7 @@ func runToggleTree(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 //
 // **들여쓰기와 줄 끝은 건드리지 않는다.** 앞쪽은 뜻이 있는 공백이고(`.editorconfig`·autoindent),
 // 뒤쪽은 「줄 끝 공백 지우기」의 몫이다. 「줄 끝 공백 지우기」와 같은 손이라 알림 문구도
-// 그쪽과 나란하고, 고른 범위를 받는 것도 같다(ADR-0109, ADR-0111).
+// 그쪽과 나란하고, 표에 두 줄로 서는 것도 같다(ADR-0109, ADR-0112).
 func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
@@ -651,8 +674,8 @@ func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 
 // runSortLines 는 줄을 오름차순으로 다시 늘어놓는다.
 //
-// visual 에서 열었으면 고른 줄만 자리를 바꾼다. ADR-0109 가 「파일 전부가 대상이다」로 두고
-// 미결로 남겼던 자리이고, 팔레트가 범위를 실어 보내면서 열렸다(ADR-0111).
+// 「선택 영역 줄 정렬」로 고르면 그 줄만 자리를 바꾼다. ADR-0109 가 「파일 전부가 대상이다」로
+// 두고 미결로 남겼던 자리이고, 팔레트가 범위를 실어 보내면서 열렸다(ADR-0111, ADR-0112).
 //
 // **줄 단위다.** `v` 로 줄 가운데를 골라도 걸친 줄이 통째로 선다 — 줄을 뒤섞는 일이라
 // 칸을 볼 자리가 없다(runOptions.lines).
