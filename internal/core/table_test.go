@@ -163,6 +163,31 @@ func TestFormatTablesOnlyMarkdown(t *testing.T) {
 	assert.Equal(t, 0, changed)
 }
 
+// 들여쓴 표는 그 들여쓰기를 지킨다. 목록 안의 표가 그렇고 이 저장소의 목록은 tab 이다.
+//
+// **빈 칸만 떼면 tab 이 칸 글에 딸려 들어가** 첫 칸의 폭이 그만큼 넓어진다.
+func TestFormatTablesKeepsIndent(t *testing.T) {
+	buf := tableBuffer(t, "doc.md",
+		"- 목록 안의 표",
+		"",
+		"\t| 항목 | 값 |",
+		"\t|---|---|",
+		"\t| 표 | 쓴다 |",
+	)
+
+	found, changed := buf.formatTables(0, len(buf.lines), 80)
+
+	assert.Equal(t, 1, found)
+	assert.Equal(t, 1, changed)
+	assert.Equal(t, []string{
+		"- 목록 안의 표",
+		"",
+		"\t| 항목 | 값   |",
+		"\t|------|------|",
+		"\t| 표   | 쓴다 |",
+	}, bufferLines(buf))
+}
+
 // 고른 범위에 걸친 표만 맞춘다. 범위 밖의 표는 그대로다 (ADR-0106).
 func TestFormatTablesInRange(t *testing.T) {
 	buf := tableBuffer(t, "doc.md",

@@ -451,6 +451,39 @@ func TestMarkdownTableNeedsLeadingPipe(t *testing.T) {
 	}
 }
 
+// 들여쓴 표도 표다. 목록 안의 표가 그렇고, 그 들여쓰기는 넉 칸을 넘기도 tab 이기도 하다.
+//
+// **들여쓰기는 표시도 칸 글도 아니다.** 구분줄의 표시는 `|` 부터이고, 머리 행에서 앞의 빈
+// 칸은 굵어지지 않는다. 기대에 그 자리가 없는 것이 그것을 지킨다.
+func TestMarkdownIndentedTable(t *testing.T) {
+	tests := []struct {
+		name   string
+		indent string
+	}{
+		{name: "두 칸", indent: "  "},
+		{name: "넉 칸 — 코드펜스라면 못 쓸 깊이다", indent: "    "},
+		{name: "tab", indent: "\t"},
+		{name: "목록 두 겹만큼", indent: "\t\t"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, next := lexedAll(t, mdNormal{},
+				test.indent+"| 항목 | 값 |",
+				test.indent+"|---|---|",
+				test.indent+"| 표 | 쓴다 |",
+			)
+
+			assert.Equal(t, [][]string{
+				{"keyword:|", "strong: 항목 ", "keyword:|", "strong: 값 ", "keyword:|"},
+				{"keyword:|---|---|"},
+				{"keyword:|", "keyword:|", "keyword:|"},
+			}, got)
+			assert.Equal(t, mdNormal{afterTableRow: true}, next)
+		})
+	}
+}
+
 // 참조 링크는 정의의 주소와 본문의 이름에 색을 준다. 둘 다 기계가 읽는 자리다.
 func TestMarkdownReferenceLink(t *testing.T) {
 	tests := []struct {

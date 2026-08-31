@@ -106,7 +106,12 @@ func (buf *Buffer) formatTables(from, to, width int) (found, changed int) {
 
 		found++
 
-		indent := buf.lines[at][:len(buf.lines[at])-len(bytes.TrimLeft(buf.lines[at], " "))]
+		// 들여쓴 표는 그 들여쓰기를 지킨다. 목록 안의 표가 그렇고, 이 저장소의 목록은
+		// tab 으로 들여쓴다 — 빈 칸만 떼면 tab 이 칸 글에 딸려 들어가 폭이 어긋난다.
+		//
+		// 덩이의 첫 줄 것을 모든 행에 쓴다. 행마다 다르면 칸이 세로로 서지 않는다.
+		head := buf.lines[at]
+		indent := head[:len(head)-len(bytes.TrimLeft(head, " \t"))]
 
 		moved := false
 		for i, line := range renderTable(rows, delimiter, string(indent)) {

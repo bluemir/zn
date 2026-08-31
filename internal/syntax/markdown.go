@@ -100,8 +100,11 @@ func (s mdNormal) Lex(line []byte) ([]Token, State) {
 	}
 
 	// 표의 한 행이다. 이어지는 `|` 줄 중 첫 줄이 머리 행이다.
-	if mdTableRowAt(line, indent) {
-		return mdLexTableRow(line, indent, !s.afterTableRow), mdNormal{afterTableRow: true}
+	//
+	// **여기서 잰 indent 를 쓰지 않는다.** 표는 목록 안에서 깊이 들여쓰이고 tab 으로도
+	// 들여쓰이는데, 위의 indent 는 코드펜스의 자라 셋에서 끊기고 tab 을 세지 않는다.
+	if at, ok := mdTableRowAt(line); ok {
+		return mdLexTableRow(line, at, !s.afterTableRow), mdNormal{afterTableRow: true}
 	}
 
 	return mdLexInline(line), mdNormal{}
@@ -191,24 +194,42 @@ func mdHeadingEnd(line []byte, indent int) int {
 	return at
 }
 
-// mdTableRowAt 은 그 줄이 표의 한 행인지다.
+// mdTableIndent 는 표를 찾을 때 건너뛰는 앞 빈 칸이다.
+//
+// **깊이에 상한이 없고 tab 도 센다.** 코드펜스·제목과 다른 자다 — 그쪽은 넉 칸부터 들여쓴
+// 코드블록이라 CommonMark 가 셋으로 막는데(mdMaxFenceIndent), 우리는 들여쓴 코드블록을
+// 아예 보지 않기로 했으므로(ADR-0105) 표와 다툴 읽기가 없다.
+//
+// 목록 안의 표는 목록만큼 들어가 있고, 그 들여쓰기는 넉 칸을 쉽게 넘는다. tab 을 세는 것도
+// 같은 까닭이다 — 이 저장소의 목록이 tab 으로 들여쓰여 있다.
+func mdTableIndent(line []byte) int {
+	at := 0
+	for at < len(line) && (line[at] == ' ' || line[at] == '\t') {
+		at++
+	}
+
+	return at
+}
+
+// mdTableRowAt 은 그 줄이 표의 한 행인지와, 그렇다면 `|` 가 시작하는 자리다.
 //
 // **`|` 로 시작하는 줄만 본다.** GFM 은 바깥 `|` 를 생략해도 표로 읽지만(`a | b`), 그러면
 // 산문의 `a | b` 와 갈리지 않는다. 시작 표시를 요구하면 줄 하나만 보고 정할 수 있어서
 // 표의 어느 자리인지를 문맥에 들고 다닐 필요가 없다.
 //
 // `|` 가 하나 더 있어야 한다. 칸을 가르는 것이 표라, 하나뿐이면 표가 아니다.
-func mdTableRowAt(line []byte, indent int) bool {
-	if indent > mdMaxFenceIndent || indent >= len(line) || line[indent] != '|' {
-		return false
+func mdTableRowAt(line []byte) (int, bool) {
+	indent := mdTableIndent(line)
+	if indent >= len(line) || line[indent] != '|' {
+		return 0, false
 	}
 
-	return bytes.IndexByte(line[indent+1:], '|') >= 0
+	return indent, bytes.IndexByte(line[indent+1:], '|') >= 0
 }
 
 // mdTableDelimiterAt 은 그 줄이 표의 구분줄(`|---|:--:|`) 인지다. 통째로 표시라 안을 훑지 않는다.
 func mdTableDelimiterAt(line []byte, indent int) bool {
-	if !mdTableRowAt(line, indent) {
+	if indent >= len(line) {
 		return false
 	}
 
@@ -261,15 +282,18 @@ func mdTablePipes(line []byte, inline []Token) []int {
 //
 // 칸 안의 글은 여느 줄과 같이 훑는다. 코드 스팬·굵게·링크가 표 안에서도 그대로 들어야 한다.
 func mdLexTableRow(line []byte, indent int, head bool) []Token {
+	// 들여쓰기는 표시가 아니다. `|` 부터가 표다.
 	if mdTableDelimiterAt(line, indent) {
-		return []Token{{Start: 0, End: len(line), Kind: KindKeyword}}
+		return []Token{{Start: indent, End: len(line), Kind: KindKeyword}}
 	}
 
 	inline := mdLexInline(line)
 	pipes := mdTablePipes(line, inline)
 
 	tokens := make([]Token, 0, len(inline)+2*len(pipes)+1)
-	at, next := 0, 0
+
+	// 앞의 빈 칸은 칸 글이 아니라 들여쓰기다. 머리 행에서 그것까지 굵게 하지 않는다.
+	at, next := indent, 0
 
 	// `|` 와 인라인 토큰을 자리 차례로 섞는다. 둘 다 앞에서 뒤로 정렬되어 있다.
 	for _, pipe := range pipes {
@@ -315,8 +339,8 @@ func MarkdownTableCells(state State, line []byte) (cells []string, delimiter, ok
 		return nil, false, false
 	}
 
-	indent := mdIndentOf(line)
-	if !mdTableRowAt(line, indent) {
+	indent, ok := mdTableRowAt(line)
+	if !ok {
 		return nil, false, false
 	}
 
