@@ -320,16 +320,20 @@ sidebar 는 화면 맨 윗줄부터 statusBar 앞줄까지다. tabline 은 그 �
 statusBar 는 sidebar 아래를 지나 화면을 가로지르고, 그 아래 칸에는 mode 가 온다.
 
 ```
-▾ zn/                         │ 1 main.go
-  ▸ docs/                     │   1  0 package main
-  ▾ internal/                 │   2  1
-      main.go                 │   3  2 func main() {
-    README.md                 │   4  3 }
-                                NORMAL  main.go
-                                1:1  (5 줄)
+▾ zn/                         │  1 main.go
+  ▸ docs/                     │     1  0 package main
+  ▾ internal/                M│     2  1
+      main.go                M│  ~  3  2 func main() {
+    README.md                 │     4  3 }
+NORMAL                          internal/main.go
+                                1:1  (4 줄)
 └──────────── 32칸 ────────────┘└─ 나머지가 편집 영역 ─┘
-                               └ 줄번호 ┘└ 본문 ┘
+                                └ 마커·줄번호 ┘└ 본문 ┘
 ```
+
+sidebar 의 32 칸은 **이름 29 칸 + git 마커 한 칸 + 구분선 + 그 뒤 빈 칸**이다. 이름이 길면
+29 칸에서 잘리고 마커는 잘려도 늘 같은 자리에 선다(아래 「파일 트리의 git 마커」).
+편집 영역의 맨 앞은 마커 두 칸과 줄번호이고(위 「줄번호」) 그 뒤가 본문이다.
 
 디렉터리는 먼저 오고 그 안은 이름순이다. 펼침 표시는 `▾`(펼침) `▸`(접힘) 이고 파일은 그 자리가
 빈 칸이라 같은 깊이의 이름이 나란히 선다. symlink 는 따라가지 않고 `@` 를 붙인다.
@@ -520,8 +524,8 @@ mode 는 sidebar 아래 칸에, 파일 경로는 편집 영역 아래에 놓는�
 편집 중인 파일에 딸린 것이기 때문이다.
 
 ```
-▾ zn/                         │ 1 editor.go
-  ▸ docs/                     │   1  0 package core
+▾ zn/                         │  1 editor.go
+  ▸ docs/                     │     1  0 package core
 NORMAL                          internal/core/editor.go    master(f6cacbd*)
                                 1:1  (550 줄)                            3g
 └─ mode ────┘└─ 위 줄만 반전 ──────────────────────────────────────────────┘
@@ -711,11 +715,11 @@ pgdown pgup | 한 화면 아래 / 위 | `ctrl+f` `ctrl+b` 와 같은 자리다(A
 n N | 다음 / 이전 매칭 | 파일 끝에서 감싸고 그것을 알린다
 \* # | 커서 아래 단어를 아래 / 위로 찾는다 |
 \c | 화면에 보이는 줄들을 평문으로 낸다 | 아래 「평문으로 내보내기」 참고
+\mt | 파일 안의 markdown 표를 칸에 맞춰 다시 그린다 | 팔레트의 「표 맞추기」와 같다(ADR-0106)
 ctrl+p | command palette 열기 | 「Command Palette」 참고
 ctrl+w | sidebar 왕래 접두 키 | 안 보이면 아래 줄에 알린다. 「포커스와 key mapping」 참고
 ctrl+z | 셸로 내려간다(suspend) | `fg` 로 돌아온다. 종료가 아니라 묻지 않는다(ADR-0023)
 ctrl+c | 전체 종료 | `:qa` 와 같다. 접두 키를 기다리는 동안과 트리의 지우기 확인만 예외다
-\mt | 파일 안의 markdown 표를 칸에 맞춰 다시 그린다 | 팔레트의 「표 맞추기」와 같다(ADR-0106)
 
 `g` 는 뒤에 키가 하나 더 붙는 접두 키다. 짝이 없는 조합은 아무 일도 하지 않는다.
 `esc` 와 `ctrl+c` 도 접두 키를 기다리는 동안은 그것을 무르는 데만 쓰인다.
@@ -1183,11 +1187,11 @@ y | 고른 범위를 register 에 담는다 | 파일을 건드리지 않는다. 
 c | 지우고 insert mode 로 | 줄 단위면 줄을 없애지 않고 첫 줄의 들여쓰기를 남긴다. `cc` 와 같다
 ~ u U | 고른 범위를 뒤집기 / 소문자 / 대문자 | normal 로 돌아간다. 커서는 범위의 시작으로 간다(ADR-0083)
 \c | 고른 범위를 평문으로 낸다 | 위와 같다. 파일은 건드리지 않는다. 아래 「평문으로 내보내기」 참고
+\mt | 고른 범위에 걸친 markdown 표를 맞춘다 | normal 로 돌아간다. 범위가 표의 가운데를 잘라도 그 표를 통째로 맞춘다(ADR-0106)
 > < | 고른 줄들을 한 단계 밀거나 당긴다 | normal 로 돌아간다. 글자 단위로 골랐어도 걸친 줄 전체다
 = | 고른 줄들을 규칙이 정한 자리로 다시 들여쓴다 | 위와 같다. markdown 에서는 아무 일도 하지 않는다
 v V | 같은 키면 나가고 다른 키면 갈래를 바꾼다 | `v` 뒤의 `V` 는 고른 것을 그대로 두고 줄 단위가 된다
 "{문자} | `d`·`y`·`c` 가 담을 register 를 고른다 | `V j "ay` 다. 범위를 고른 뒤에 댄다. 숫자 이름에는 담지 못한다
-\mt | 고른 범위에 걸친 markdown 표를 맞춘다 | normal 로 돌아간다. 범위가 표의 가운데를 잘라도 그 표를 통째로 맞춘다(ADR-0106)
 esc | 고른 것을 놓고 normal 로 |
 : | 고른 범위를 명령줄에 실어 보낸다 | `'<,'>` 가 미리 적힌다. **고른 것을 두고 연다.** 위 「고른 범위」 참고
 ctrl+p | command palette 열기 | **고른 것을 두고 연다.** 아래 참고
@@ -1983,11 +1987,11 @@ cwd 가 뿌리다. sidebar 트리와 같은 기준이라 무엇을 찾는지 화
 이름 | 오른쪽 | 하는 일
 -----|--------|--------
 줄 끝 공백 지우기 | `trim trailing space` | 모든 줄 끝의 공백과 tab 을 지운다. 한 번의 `u` 로 전부 돌아온다. 짝이 되는 `:` 명령은 없다
+표 맞추기 | `format markdown tables` | normal 의 `\mt` 와 같다. 파일 안의 markdown 표를 칸에 맞춰 다시 그린다. 짝이 되는 `:` 명령은 없다(ADR-0106)
 파일 다시 읽기 | `reload file :e` | `:e` 와 같다. 파일을 디스크에서 다시 읽는다. 저장하지 않은 변경이 있으면 확인창을 띄운다
 다른 tab 모두 닫기 | `close other tabs` | 보고 있는 tab 만 남기고 나머지를 닫는다. 짝이 되는 `:` 명령은 없다
 파일 트리 열기/닫기 | `toggle file tree :tree` | `:tree` 와 같다
 검색 강조 끄기 | `disable search highlight :noh` | `:noh` 와 같다. 강조만 끄고 마지막 검색은 남는다
-표 맞추기 | `format markdown tables` | normal 의 `\mt` 와 같다. 파일 안의 markdown 표를 칸에 맞춰 다시 그린다. 짝이 되는 `:` 명령은 없다(ADR-0106)
 작업 목록 | `jobs :jobs` | `:jobs` 와 같다. 백그라운드 작업 목록 화면을 연다
 알림 목록 | `messages :messages` | `:messages` 와 같다. 지나간 알림 목록 화면을 연다
 register 목록 | `registers :registers` | `:registers` 와 같다. 담긴 register 를 하단 drawer 에 보인다
