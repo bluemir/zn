@@ -527,6 +527,122 @@ func pickCloseOtherTabs(t *testing.T, m tea.Model) tea.Model {
 	return send(palette, "enter")
 }
 
+// pickPaletteCommand 는 팔레트에서 그 이름의 명령을 골라 실행한다.
+// pickCloseOtherTabs 와 같은 손이고 이름만 인자로 받는다.
+func pickPaletteCommand(t *testing.T, m tea.Model, input, name string) tea.Model {
+	t.Helper()
+
+	v, ok := m.(viewEditorNormal)
+	require.True(t, ok, "normal mode 가 아니다: %T", m)
+
+	palette := viewPalette{editor: v.editor, input: input}
+	palette.filter()
+
+	require.NotEmpty(t, palette.hits, "목록에 떠 있어야 고른다")
+	require.Equal(t, name, palette.commands()[palette.hits[palette.selected].index].name)
+
+	return send(palette, "enter")
+}
+
+// 「오른쪽 tab 모두 닫기」는 왼쪽과 보고 있던 tab 을 남긴다.
+func TestCloseRightTabsKeepsLeftAndActive(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt")
+
+	m = send(m, "g", "t") // b.txt 로
+	m = pickPaletteCommand(t, m, "> close tabs to the right", "오른쪽 tab 모두 닫기")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	v := m.(viewEditorNormal)
+	assert.Len(t, v.buffers, 2)
+	assert.Equal(t, 1, v.active, "활성 자리는 그대로다")
+	assert.Equal(t, "b.txt", bufferOf(t, m).path)
+	assert.Equal(t, "오른쪽 tab 2 개를 닫았습니다", v.notice)
+}
+
+// 오른쪽 끝 tab 에서는 닫을 것이 없다. **목록에 아예 뜨지 않는다**(whenRightTabs).
+func TestCloseRightTabsHiddenOnLastTab(t *testing.T) {
+	v := newTabsEditor("a.txt", "b.txt")
+	v.editor.active = 1
+
+	palette := viewPalette{editor: v.editor, input: "> close tabs to the right"}
+	palette.filter()
+
+	assert.Empty(t, palette.hits)
+}
+
+// 오른쪽 tab 의 변경을 잃게 되므로 묻는다. 활성 tab 의 변경은 보지 않는다.
+func TestCloseRightTabsConfirmsWhenRightIsDirty(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt")
+
+	m = send(m, "g", "t")        // b.txt
+	m = send(m, "i", "X", "esc") // 오른쪽 것을 더럽힌다
+	m = send(m, "g", "T")        // a.txt 로 돌아온다
+	require.False(t, bufferOf(t, m).dirty, "보고 있는 tab 은 깨끗하다")
+
+	m = pickPaletteCommand(t, m, "> close tabs to the right", "오른쪽 tab 모두 닫기")
+
+	require.IsType(t, viewConfirmDiscard{}, m)
+	assert.Contains(t, m.View().Content, "오른쪽 tab 을 모두 닫으시겠습니까?")
+
+	m, _ = m.Update(key("enter"))
+
+	require.IsType(t, viewEditorNormal{}, m)
+	assert.Len(t, m.(viewEditorNormal).buffers, 1)
+	assert.Equal(t, "a.txt", bufferOf(t, m).path)
+}
+
+// 「모든 tab 닫기」는 빈 화면을 남긴다. **편집기를 끝내지 않는다**(ADR-0064).
+func TestCloseAllTabsLeavesEmptyScreen(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt")
+
+	m = pickPaletteCommand(t, m, "> close all tabs", "모든 tab 닫기")
+
+	// tab 이 없으면 빈 화면 mode 다. 편집기는 끝나지 않는다(ADR-0064).
+	require.IsType(t, viewEditorEmpty{}, m)
+	v := m.(viewEditorEmpty)
+	assert.Empty(t, v.buffers, "볼 tab 이 없다")
+	assert.False(t, v.hasTab())
+	assert.Equal(t, "tab 3 개를 모두 닫았습니다", v.notice)
+}
+
+// 활성 tab 의 변경도 잃으므로 그것까지 보고 묻는다. 오른쪽만 닫는 것과 갈리는 자리다.
+func TestCloseAllTabsConfirmsWhenActiveIsDirty(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt")
+
+	m = send(m, "i", "X", "esc")
+	m = pickPaletteCommand(t, m, "> close all tabs", "모든 tab 닫기")
+
+	require.IsType(t, viewConfirmDiscard{}, m)
+	assert.Contains(t, m.View().Content, "모든 tab 을 닫으시겠습니까?")
+
+	m, _ = m.Update(key("enter"))
+	require.IsType(t, viewEditorEmpty{}, m)
+	assert.Empty(t, m.(viewEditorEmpty).buffers)
+}
+
+// 「새 파일」은 보고 있던 tab 옆에 이름 없는 빈 tab 을 끼운다. `:tabnew` 와 같다.
+func TestNewFileOpensEmptyTab(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt")
+
+	m = pickPaletteCommand(t, m, "> new file", "새 파일")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	v := m.(viewEditorNormal)
+	assert.Len(t, v.buffers, 3)
+	assert.Equal(t, 1, v.active, "보던 것 바로 뒤로 간다")
+	assert.Empty(t, bufferOf(t, m).path, "이름 없는 buffer 다")
+}
+
+// tab 이 없는 빈 화면에서도 「새 파일」이 뜬다. 거기서 편집을 시작하는 길이다.
+func TestNewFileAvailableWithoutTabs(t *testing.T) {
+	e := &editor{boxChars: boxUnicode, width: 40, height: 10, active: -1}
+
+	palette := viewPalette{editor: e, input: "> new file"}
+	palette.filter()
+
+	require.NotEmpty(t, palette.hits, "볼 파일이 없어도 고를 수 있어야 한다")
+}
+
 // 「다른 tab 모두 닫기」는 보고 있는 tab 만 남긴다.
 func TestCloseOtherTabsKeepsActiveTab(t *testing.T) {
 	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt")

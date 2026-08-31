@@ -278,12 +278,20 @@ func whenWritable(e *editor) bool { return e.hasTab() && !e.activeBuffer().readO
 // whenOtherTabs 는 닫을 다른 tab 이 있어야 성립한다.
 func whenOtherTabs(e *editor) bool { return len(e.buffers) > 1 }
 
+// whenRightTabs 는 활성 tab 오른쪽에 tab 이 있는지다. 오른쪽만 닫는 명령의 조건이다.
+func whenRightTabs(e *editor) bool { return e.hasTab() && e.active < len(e.buffers)-1 }
+
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace, when: whenWritable},
+	{name: "중복 공백 지우기", hint: "squeeze repeated spaces", run: runSqueezeSpaces, when: whenWritable},
+	{name: "줄 정렬", hint: "sort lines ascending", run: runSortLines, when: whenWritable},
 	{name: "표 맞추기", hint: "format markdown tables", run: runFormatTables, when: whenWritable},
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile, when: whenBuffer},
+	{name: "새 파일", hint: "new file", alias: ":tabnew", run: runNewTab},
 	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs, when: whenOtherTabs},
+	{name: "오른쪽 tab 모두 닫기", hint: "close tabs to the right", run: runCloseRightTabs, when: whenRightTabs},
+	{name: "모든 tab 닫기", hint: "close all tabs", run: runCloseAllTabs, when: whenBuffer},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
@@ -483,4 +491,125 @@ func runToggleTree(e *editor) (tea.Model, tea.Cmd) {
 	model, next := normalMode(e)
 
 	return model, tea.Batch(next, load)
+}
+
+// runSqueezeSpaces 는 줄 가운데의 이어진 공백을 한 칸으로 줄인다.
+//
+// **들여쓰기와 줄 끝은 건드리지 않는다.** 앞쪽은 뜻이 있는 공백이고(`.editorconfig`·autoindent),
+// 뒤쪽은 「줄 끝 공백 지우기」의 몫이다. 「줄 끝 공백 지우기」와 같은 손이라 알림 문구도
+// 그쪽과 나란하다(ADR-0109).
+func runSqueezeSpaces(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	if e.refuseReadOnly() {
+		return normalMode(e)
+	}
+
+	buf := e.activeBuffer()
+	width := e.contentWidth()
+
+	count := buf.squeezeSpaces(width)
+	if count == 0 {
+		return normalModeMessage(e, "줄일 중복 공백이 없습니다")
+	}
+
+	buf.clampToNormal(width)
+	e.scrollToCursor()
+
+	return normalModeMessage(e, fmt.Sprintf("%d 줄의 중복 공백을 줄였습니다", count))
+}
+
+// runSortLines 는 파일의 줄을 오름차순으로 다시 늘어놓는다.
+//
+// **파일 전부가 대상이다.** 고른 범위를 받지 않는다 — 팔레트는 명령을 돌리기 직전에 고른
+// 범위를 놓기 때문이고(view-palette.go), 그 자리를 여는 것은 따로 정할 일이다
+// (`docs/tasks.md`, ADR-0109).
+func runSortLines(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	if e.refuseReadOnly() {
+		return normalMode(e)
+	}
+
+	buf := e.activeBuffer()
+	width := e.contentWidth()
+
+	moved := buf.sortLines(width)
+	if moved == 0 {
+		return normalModeMessage(e, "이미 정렬되어 있습니다")
+	}
+
+	buf.clampToNormal(width)
+	e.scrollToCursor()
+
+	return normalModeMessage(e, fmt.Sprintf("%d 줄의 자리가 바뀌었습니다", moved))
+}
+
+// runNewTab 은 이름 없는 빈 tab 을 만든다. `:tabnew` 를 인자 없이 친 것과 같다.
+//
+// **디스크에 파일을 만들지 않는다.** 그것은 트리의 `mc` 가 하는 일이고, 여기서 경로를
+// 받으려면 입력 화면이 새로 필요하다(ADR-0109).
+func runNewTab(e *editor) (tea.Model, tea.Cmd) {
+	e.newTab()
+
+	return normalMode(e)
+}
+
+// runCloseRightTabs 는 활성 tab 오른쪽의 tab 들을 닫는다.
+//
+// 잃을 것이 있으면 확인창을 띄운다. 「다른 tab 모두 닫기」와 같은 자리이고 같은 까닭이다 —
+// 보고 있지 않은 tab 의 변경은 무엇을 잃는지 화면에 드러나지 않는다(ADR-0016).
+func runCloseRightTabs(e *editor) (tea.Model, tea.Cmd) {
+	if !whenRightTabs(e) {
+		return normalModeMessage(e, "오른쪽에 닫을 tab 이 없습니다")
+	}
+
+	if !e.rightDirty() {
+		return closeRightTabs(e)
+	}
+
+	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
+	back, _ := normalMode(e)
+
+	return ConfirmDiscard(back, e, "오른쪽 tab 을 모두 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return closeRightTabs(e)
+	}), nil
+}
+
+// closeRightTabs 는 묻지 않고 닫는다. 확인창의 Yes 와 잃을 것이 없을 때가 쓴다.
+func closeRightTabs(e *editor) (tea.Model, tea.Cmd) {
+	closed := e.closeRightTabs()
+
+	return normalModeMessage(e, fmt.Sprintf("오른쪽 tab %d 개를 닫았습니다", closed))
+}
+
+// runCloseAllTabs 는 tab 을 모두 닫는다. **편집기를 끝내지 않는다** — 빈 화면이 남고,
+// 거기서 `:q` 를 치면 그때 끝난다(ADR-0064, ADR-0109).
+//
+// 활성 tab 의 변경까지 잃으므로 anyDirty 로 본다. 오른쪽만 닫는 것과 갈리는 자리다.
+func runCloseAllTabs(e *editor) (tea.Model, tea.Cmd) {
+	if !e.hasTab() {
+		return normalModeMessage(e, "닫을 tab 이 없습니다")
+	}
+
+	if !e.anyDirty() {
+		return closeAllTabs(e)
+	}
+
+	back, _ := normalMode(e)
+
+	return ConfirmDiscard(back, e, "모든 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return closeAllTabs(e)
+	}), nil
+}
+
+// closeAllTabs 는 묻지 않고 닫는다. 확인창의 Yes 와 잃을 것이 없을 때가 쓴다.
+func closeAllTabs(e *editor) (tea.Model, tea.Cmd) {
+	closed := e.closeAllTabs()
+
+	return normalModeMessage(e, fmt.Sprintf("tab %d 개를 모두 닫았습니다", closed))
 }

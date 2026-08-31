@@ -153,8 +153,8 @@
 - command palette 에 추가할 명령
 	- [x] go definition (ADR-0051)
 	- [x] close other tabs (ADR-0016)
-	- [ ] close right tabs
-	- [ ] close all tabs
+	- [x] close right tabs
+	- [x] close all tabs
 	- [x] search in project (ADR-0077)
 - 언어 특화 기능
 	- markdown
@@ -243,7 +243,8 @@
 	- eg) `a,c 새 파일 d 삭제 m 이동/이름변경`
 - [x] tip 은 회색 글씨로 조금 눈에 덜띄게 하기 (ADR-0061)
 - [ ] git branch 전환 기능
-- [ ] command palette 에 "새파일 만들기" 명령 추가
+- [x] command palette 에 "새파일 만들기" 명령 추가
+	- [ ] 팔레트에서 경로를 받아 디스크에 파일을 만들지 정한다. 지금 넣은 것은 이름 없는 빈 tab 이고, 디스크에 만드는 것은 트리의 `mc` 다. 받으려면 입력 화면이 하나 더 생긴다 (ADR-0109)
 - [x] job 을 이름과 args 로 나누고 name 기준으로 중첩한다 (ADR-0053, ADR-0075)
 	- [ ] 접힌 이름 줄에 자식의 실패를 드러낼지 정한다. 드러내려면 이름 줄이 상태 하나가 아니라 갈래별 개수를 들어야 한다 (ADR-0053, ADR-0075)
 	- [ ] 열 때마다 접힘이 초기화되는 것을 그대로 둘지 정한다. 남기면 그 사이에 끝나고 사라진 작업 때문에 펼쳐 둔 자리가 빈 채로 선다 (ADR-0002, ADR-0075)
@@ -302,11 +303,11 @@
 - [ ] terminal 제목줄에 현재 파일 표시
 	- 이건 terminal spec 에 따라 못할수도 있다.
 - command palette 명령 추가
-	- [ ] transefer to upper
-	- [ ] transefer to lower
-	- [ ] format selection
-	- [ ] sort line assendting
-	- [ ] remove duplicated white space
+	- [ ] 고른 범위를 넘겨받는 명령들. 대소문자 바꾸기(`transfer to upper`·`lower`) 와 `format selection` 이 그것이다. 팔레트가 명령을 돌리기 직전에 고른 범위를 놓아서(view-palette.go) 그 자리를 먼저 정해야 한다. 지금은 visual 의 `u`·`U`·`~`·`\mt` 가 그 몫을 맡는다 (ADR-0011, ADR-0037, ADR-0109)
+	- [x] sort line assendting
+		- [ ] 내림차순과 중복 줄 지우기를 둘지 정한다. 지금은 오름차순 하나뿐이다 (ADR-0109)
+		- [ ] 사전 순(locale) 정렬을 둘지 정한다. byte 순으로 두었고, 판마다 답이 달라지는 것이 기각 근거다 (ADR-0109)
+	- [x] remove duplicated white space
 - [ ] tip 들을 모아 볼수 있는 화면
 - [ ] 사용자 가이드 문서 (`:help`)
 - [ ] 가상의 softwarp 제공

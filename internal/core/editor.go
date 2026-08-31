@@ -590,6 +590,42 @@ func (e *editor) closeOtherTabs() int {
 	return closed
 }
 
+// closeRightTabs 는 활성 tab 오른쪽의 tab 들을 닫는다. 닫은 수를 준다.
+//
+// 남는 것이 보고 있던 tab 이라 closeOtherTabs 와 같이 reveal 을 다시 하지 않는다.
+// 활성 자리도 그대로다 — 왼쪽은 하나도 빠지지 않는다.
+func (e *editor) closeRightTabs() int {
+	closed := len(e.buffers) - e.active - 1
+	if closed < 1 {
+		return 0
+	}
+
+	e.buffers = e.buffers[:e.active+1]
+	e.scrollTabsTo()
+
+	return closed
+}
+
+// closeAllTabs 는 tab 을 모두 닫는다. 닫은 수를 준다.
+//
+// **편집기를 끝내지 않는다.** 빈 화면이 남고, 거기서 `:q` 를 치면 그때 끝난다 — 마지막
+// tab 을 닫는 것이 이미 그렇게 동작한다(ADR-0064).
+//
+// 활성 자리를 -1 로 둔다. 「볼 tab 이 없다」의 값이고 closeTabAt 이 마지막 하나를 닫을 때
+// 남기는 것과 같다.
+func (e *editor) closeAllTabs() int {
+	closed := len(e.buffers)
+	if closed < 1 {
+		return 0
+	}
+
+	e.buffers = nil
+	e.active = -1
+	e.scrollTabsTo()
+
+	return closed
+}
+
 // anyDirty 는 저장하지 않은 변경이 있는 buffer 가 하나라도 있는지다.
 // 전체 종료는 보고 있지 않은 tab 의 변경도 잃게 하므로 활성 buffer 만 봐서는 안 된다.
 func (e editor) anyDirty() bool {
@@ -610,6 +646,18 @@ func (e editor) otherDirty() bool {
 			continue
 		}
 		if buf.dirty {
+			return true
+		}
+	}
+
+	return false
+}
+
+// rightDirty 는 활성 tab 오른쪽에 저장하지 않은 변경이 있는지다.
+// 오른쪽만 닫는 것은 활성 buffer 와 그 왼쪽을 건드리지 않으므로 그쪽만 본다.
+func (e editor) rightDirty() bool {
+	for i := e.active + 1; i < len(e.buffers); i++ {
+		if e.buffers[i].dirty {
 			return true
 		}
 	}

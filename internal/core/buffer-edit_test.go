@@ -489,6 +489,116 @@ func TestTrimTrailingSpaceMovesCursor(t *testing.T) {
 	assert.Equal(t, 5, buf.cursorCol)
 }
 
+// 줄 가운데의 이어진 공백만 한 칸으로 줄인다.
+func TestSqueezeSpaces(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a   b\tc\nd e\n\tf    g\n"))
+
+	count := buf.squeezeSpaces(40)
+
+	assert.Equal(t, 2, count)
+	assert.Equal(t, "a b c", string(buf.lines[0]), "space 든 tab 이든 빈 칸 하나")
+	assert.Equal(t, "d e", string(buf.lines[1]), "한 칸짜리는 그대로라 안 세어진다")
+	assert.Equal(t, "\tf g", string(buf.lines[2]), "들여쓰기 tab 은 살아 있다")
+}
+
+// **들여쓰기는 건드리지 않는다.** 줄이면 코드가 깨진다.
+func TestSqueezeSpacesKeepsIndent(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("    if a   b:\n\t\treturn   1\n"))
+
+	buf.squeezeSpaces(40)
+
+	assert.Equal(t, "    if a b:", string(buf.lines[0]), "space 네 칸 들여쓰기가 남는다")
+	assert.Equal(t, "\t\treturn 1", string(buf.lines[1]), "tab 두 개도 남는다")
+}
+
+// **줄 끝은 건드리지 않는다.** 그것은 「줄 끝 공백 지우기」의 몫이다.
+func TestSqueezeSpacesKeepsTrailing(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a   b   \n"))
+
+	buf.squeezeSpaces(40)
+
+	assert.Equal(t, "a b   ", string(buf.lines[0]))
+
+	// 둘을 이어 쓰면 둘 다 사라진다. 한 명령이 두 가지를 하지 않는 대신이다.
+	buf.trimTrailingSpace(40)
+	assert.Equal(t, "a b", string(buf.lines[0]))
+}
+
+// 공백뿐인 줄과 빈 줄은 줄일 가운데가 없다.
+func TestSqueezeSpacesLeavesBlankLines(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("    \n\n"))
+
+	count := buf.squeezeSpaces(40)
+
+	assert.Equal(t, 0, count)
+	assert.False(t, buf.dirty, "흔적을 남기지 않는다")
+	assert.Empty(t, buf.undo)
+}
+
+// 여러 줄을 줄여도 `u` 한 번에 전부 돌아온다.
+func TestSqueezeSpacesUndoesAsOne(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a   b\nc\nd   e\n"))
+	buf.squeezeSpaces(40)
+	require.Equal(t, []string{"a b", "c", "d e"}, linesOf(buf))
+
+	require.True(t, buf.applyUndo(40))
+
+	assert.Equal(t, []string{"a   b", "c", "d   e"}, linesOf(buf))
+	assert.False(t, buf.applyUndo(40), "되돌릴 것이 하나뿐이었다")
+}
+
+// 줄을 오름차순으로 다시 늘어놓는다. byte 순이라 한글은 가나다 순이다.
+func TestSortLines(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("다\n나\n가\n"))
+
+	moved := buf.sortLines(40)
+
+	assert.Equal(t, 2, moved, "가운데 줄은 제자리라 안 세어진다")
+	assert.Equal(t, []string{"가", "나", "다"}, linesOf(buf))
+}
+
+// 대문자가 소문자보다 앞이다. byte 순이라는 것이 그대로 드러나는 자리다.
+func TestSortLinesIsByteOrder(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("b\nA\na\nB\n"))
+
+	buf.sortLines(40)
+
+	assert.Equal(t, []string{"A", "B", "a", "b"}, linesOf(buf))
+}
+
+// 이미 정렬되어 있으면 아무 흔적도 남기지 않는다.
+func TestSortLinesNoop(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("a\nb\nc\n"))
+
+	moved := buf.sortLines(40)
+
+	assert.Equal(t, 0, moved)
+	assert.False(t, buf.dirty)
+	assert.Empty(t, buf.undo)
+}
+
+// 정렬은 `u` 한 번에 통째로 돌아간다. 줄이 자리를 바꾸는 일이라 구간이 파일 전체다.
+func TestSortLinesUndoesAsOne(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("c\na\nb\n"))
+	buf.sortLines(40)
+	require.Equal(t, []string{"a", "b", "c"}, linesOf(buf))
+
+	require.True(t, buf.applyUndo(40))
+
+	assert.Equal(t, []string{"c", "a", "b"}, linesOf(buf))
+	assert.False(t, buf.applyUndo(40))
+}
+
+// 두 번 돌려도 결과가 같다. 안정 정렬이라 같은 줄끼리 자리를 바꾸지 않는다.
+func TestSortLinesIsStable(t *testing.T) {
+	buf := newBuffer("test.txt", []byte("b\na\nb\na\n"))
+
+	require.NotZero(t, buf.sortLines(40))
+	require.Equal(t, []string{"a", "a", "b", "b"}, linesOf(buf))
+
+	assert.Equal(t, 0, buf.sortLines(40), "두 번째는 바꿀 것이 없다")
+}
+
 // 앞의 타이핑 구간과 섞이지 않는다. 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
 func TestTrimTrailingSpaceDoesNotJoinOpenEdit(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a  \n"))

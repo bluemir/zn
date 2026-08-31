@@ -1,6 +1,9 @@
 package core
 
-import "bytes"
+import (
+	"bytes"
+	"slices"
+)
 
 // 줄을 갈아끼우는 자리다. **replaceLines 가 `buf.lines` 를 바꾸는 유일한 함수**이고,
 // 되돌리기 구간(beginEdit…endEdit) 과 문법 캐시가 거기 하나에 걸린다 (ADR-0001, ADR-0033).
@@ -354,6 +357,123 @@ func (buf *Buffer) replaceAll(next [][]byte, width int) {
 	buf.updateDesiredCol(width)
 
 	buf.endEdit()
+}
+
+// sortLines 는 파일의 줄을 오름차순으로 다시 늘어놓는다. 자리가 바뀐 줄 수를 준다.
+//
+// **byte 순이다.** UTF-8 의 byte 순은 코드포인트 순과 같아서 한글 음절은 가나다 순으로
+// 선다(음절이 유니코드에서 이어져 있다). 사전 순(locale) 을 쓰지 않는 것은 그것이 판마다
+// 다른 답을 내기 때문이고, 「설정 없이 컴파일된다」는 이 편집기의 태도와도 맞지 않는다.
+//
+// **안정 정렬이다.** 같은 줄끼리는 원래 차례를 지킨다. 눈에 보이지 않는 자리이지만, 정렬을
+// 두 번 돌렸을 때 결과가 달라지지 않게 한다.
+//
+// 이미 정렬되어 있으면 아무것도 하지 않는다. 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가
+// 서고 redo 가 날아간다(trimTrailingSpace 와 같은 자리다).
+func (buf *Buffer) sortLines(width int) int {
+	next := make([][]byte, len(buf.lines))
+	copy(next, buf.lines)
+
+	slices.SortStableFunc(next, bytes.Compare)
+
+	moved := 0
+	for i := range next {
+		if !bytes.Equal(next[i], buf.lines[i]) {
+			moved++
+		}
+	}
+
+	if moved == 0 {
+		return 0
+	}
+
+	// **파일 전체를 갈아끼운다.** 줄이 자리를 바꾸는 일이라 「바뀐 구간」이 파일 전체다.
+	// 포매터가 쓰는 손과 같고, `u` 한 번에 통째로 돌아간다(ADR-0065).
+	buf.replaceAll(next, width)
+
+	return moved
+}
+
+// squeezeSpaces 는 줄 가운데의 이어진 공백을 한 칸으로 줄인다. 고친 줄 수를 준다.
+//
+// **들여쓰기는 건드리지 않는다.** 줄 앞의 공백은 이 편집기가 뜻으로 다루는 것이라
+// (`.editorconfig`·들여쓰기 마커·autoindent) 줄이면 코드가 깨진다.
+//
+// **줄 끝도 건드리지 않는다.** 그것은 「줄 끝 공백 지우기」의 몫이다. 한 명령이 두 가지를
+// 하면 무엇이 내 줄을 고쳤는지 알기 어려워진다(ADR-0011 의 「한 기능에 진입점 하나」).
+func (buf *Buffer) squeezeSpaces(width int) int {
+	first, last, count := -1, -1, 0
+
+	next := make([][]byte, len(buf.lines))
+	for i, line := range buf.lines {
+		next[i] = squeezeInnerSpaces(line)
+		if len(next[i]) == len(line) {
+			continue
+		}
+
+		if first < 0 {
+			first = i
+		}
+		last = i
+		count++
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	buf.endEdit()
+	buf.beginEdit(first, last-first+1)
+
+	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
+	buf.replaceLines(first, last-first+1, next[first:last+1])
+
+	// 커서가 줄어든 자리 뒤에 서 있었으면 줄 끝으로 당긴다.
+	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.updateDesiredCol(width)
+
+	buf.endEdit()
+
+	return count
+}
+
+// squeezeInnerSpaces 는 들여쓰기와 줄 끝을 그대로 두고 가운데의 이어진 공백·tab 을
+// 빈 칸 하나로 줄인 줄이다. 줄일 것이 없으면 받은 줄을 그대로 준다(ADR-0001).
+func squeezeInnerSpaces(line []byte) []byte {
+	indent := len(line) - len(bytes.TrimLeft(line, " \t"))
+	body := len(trimLineEnd(line))
+
+	if indent >= body {
+		// 빈 줄이거나 공백뿐인 줄이다. 줄일 가운데가 없다.
+		return line
+	}
+
+	squeezed := make([]byte, 0, len(line))
+	squeezed = append(squeezed, line[:indent]...)
+
+	space := false
+	for _, c := range line[indent:body] {
+		if c == ' ' || c == '\t' {
+			space = true
+
+			continue
+		}
+
+		if space {
+			squeezed = append(squeezed, ' ')
+			space = false
+		}
+
+		squeezed = append(squeezed, c)
+	}
+
+	squeezed = append(squeezed, line[body:]...)
+
+	if len(squeezed) == len(line) {
+		return line
+	}
+
+	return squeezed
 }
 
 // trimLineEnd 는 줄 끝의 공백과 tab 을 뗀 부분이다.
