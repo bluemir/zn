@@ -21,13 +21,13 @@ func commandMode(e *editor) (tea.Model, tea.Cmd) {
 // 끼우면 같은 `:s` 가 어디서 들어왔는지에 따라 뜻이 갈리고, 지우고 싶을 때 지울 것이 없다
 // (ADR-0089).
 func commandModeWith(e *editor, prefill string) (tea.Model, tea.Cmd) {
-	return viewEditorCommand{editor: e, input: prefill}, nil
+	return viewEditorCommand{editor: e, input: newInputLine(prefill)}, nil
 }
 
 type viewEditorCommand struct {
 	*editor
 
-	input string // `:` 뒤에 친 것
+	input inputLine // `:` 뒤에 친 것
 
 	// candidates 는 `tab` 이 채우다 만 뒤에 보여줄 후보다(ADR-0099).
 	//
@@ -63,15 +63,29 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return next, tea.Batch(cmd, m.scheduleEditTick())
 		case "tab":
 			// 경로를 받는 명령의 마지막 조각을 채운다. 채울 것이 없으면 아무 일도 없다.
-			m.input, m.candidates = completeCommandLine(m.input)
+			// **커서 앞만 넘긴다** — 뒤에 친 것은 완성할 조각이 아니다(input-line.go).
+			filled, candidates := completeCommandLine(m.input.head())
+			m.input.replaceHead(filled)
+			m.candidates = candidates
+
+			return m, nil
+		case "left", "right", "home", "end":
+			// 글이 바뀌지 않으므로 후보는 그대로 둔다. 후보가 사라지는 것은 「글자를 하나 더
+			// 쳐서 채우다 만 조각이 달라졌을 때」이지 커서를 옮겼을 때가 아니다(ADR-0099).
+			m.input.move(msg.String())
+
+			return m, nil
+		case "delete":
+			m.input.deleteForward()
+			m.candidates = nil
 
 			return m, nil
 		case "backspace":
 			// vim 처럼 `:` 까지 지우면 명령줄에서 나간다.
-			if m.input == "" {
+			if m.input.empty() {
 				return normalMode(m.editor)
 			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 			m.candidates = nil
 
 			return m, nil
@@ -79,7 +93,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 			m.candidates = nil
 
 			return m, nil
@@ -108,7 +122,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 명령을 실행한다.
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
-	cmd, err := parseCommand(m.input)
+	cmd, err := parseCommand(m.input.text)
 	if err != nil {
 		return normalModeError(m.editor, err)
 	}
@@ -124,7 +138,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "w", "e", "tabnew", "!", "rename", "grep", "s", "substitute", "replace":
 	default:
 		if len(cmd.args) > 0 {
-			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
+			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input.text)
 		}
 	}
 	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
@@ -157,7 +171,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "d", "y", "s", "substitute", "cat", "":
 	default:
 		if cmd.lines != (lineRange{}) {
-			return normalModeMessage(m.editor, "이 명령은 줄 범위를 받지 않습니다: "+m.input)
+			return normalModeMessage(m.editor, "이 명령은 줄 범위를 받지 않습니다: "+m.input.text)
 		}
 	}
 
@@ -356,7 +370,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 
 		return quitAll(back, m.editor)
 	default:
-		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input)
+		return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input.text)
 	}
 }
 
@@ -688,12 +702,13 @@ func editFile(e *editor, path string) (tea.Model, tea.Cmd) {
 }
 
 func (m viewEditorCommand) View() tea.View {
-	line := ":" + m.input
-	view := m.editorView(tea.CursorBlock, "COMMAND", line)
+	const prompt = ":"
 
-	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다.
+	view := m.editorView(tea.CursorBlock, "COMMAND", prompt+m.input.text)
+
+	// 커서는 본문이 아니라 명령줄의 치는 자리에 있어야 한다.
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
-	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(screenWidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	// `tab` 이 채우다 만 뒤의 후보를 명령줄 위에 얹는다(ADR-0099).
 	return m.overlayCandidates(view)

@@ -174,7 +174,7 @@ func TestJobsOpensFromCommandAndPalette(t *testing.T) {
 	assert.IsType(t, viewEditorNormal{}, m)
 
 	palette := newPaletteView(t, 80, 20, "a.txt")
-	palette.input = ">jobs"
+	palette.input = newInputLine(">jobs")
 	palette.filter()
 
 	opened := send(palette, "enter")

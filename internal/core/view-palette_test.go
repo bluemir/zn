@@ -222,7 +222,7 @@ func TestPaletteTakesHangulAsText(t *testing.T) {
 
 	m = send(m, "ㅁ")
 
-	assert.Equal(t, "ㅁ", m.(viewPalette).input)
+	assert.Equal(t, "ㅁ", m.(viewPalette).input.text)
 }
 
 // 두 칸 글자가 경계에 걸려도 행은 정확히 박스 폭이다.
@@ -284,7 +284,7 @@ func newFilePalette(t *testing.T, path, input string) viewPalette {
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
 		},
-		input: input,
+		input: newInputLine(input),
 	}
 	m.filter()
 
@@ -340,7 +340,7 @@ func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
 		},
-		input: "> reload",
+		input: newInputLine("> reload"),
 	}
 	m.filter()
 	m.activeBuffer().insert([]byte("X"), m.contentWidth())
@@ -363,7 +363,7 @@ func TestPaletteStartsIndexingOnOpen(t *testing.T) {
 // 인덱싱이 부은 파일도 치고 있는 패턴에 걸린다.
 func TestPaletteGrowsWhileIndexing(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "main.go")
-	m.input = "go"
+	m.input = newInputLine("go")
 	m.filter()
 	require.Len(t, m.hits, 1)
 
@@ -518,7 +518,7 @@ func TestPaletteChangesCaseOfSelection(t *testing.T) {
 // 짝이 되는 둘 중 하나만 목록에 선다. 무엇에 걸리는지가 고르기 전에 이름에 있다(ADR-0112).
 func TestPaletteSplitsRangeCommandsBySelection(t *testing.T) {
 	without := newPaletteView(t, 80, 20, "a.go")
-	without.input = ">"
+	without.input = newInputLine(">")
 	without.filter()
 
 	names := make([]string, 0, len(without.commands()))
@@ -547,7 +547,7 @@ func TestPaletteSplitsRangeCommandsBySelection(t *testing.T) {
 // 고른 범위가 없으면 대소문자 맞추기는 아예 목록에 없다. 파일 전체로 갈음하지 않는다.
 func TestPaletteHidesCaseCommandsWithoutSelection(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "a.go")
-	m.input = ">"
+	m.input = newInputLine(">")
 	m.filter()
 
 	names := make([]string, 0, len(m.commands()))
@@ -563,7 +563,7 @@ func TestPaletteHidesCaseCommandsWithoutSelection(t *testing.T) {
 // 성립하지 않는 명령은 목록에 뜨지 않는다. 볼 파일이 없는 화면이 그 자리다.
 func TestPaletteHidesCommandsThatDoNotHold(t *testing.T) {
 	e := &editor{width: 80, height: 24, boxChars: boxUnicode, active: -1}
-	m := viewPalette{editor: e, input: ">"}
+	m := viewPalette{editor: e, input: newInputLine(">")}
 	m.filter()
 
 	names := make([]string, 0, len(m.commands()))
@@ -582,7 +582,7 @@ func TestPaletteHidesCommandsThatDoNotHold(t *testing.T) {
 func TestPaletteHidesEditingCommandsOnReadOnly(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "a.go")
 	m.activeBuffer().readOnly = true
-	m.input = ">"
+	m.input = newInputLine(">")
 	m.filter()
 
 	names := make([]string, 0, len(m.commands()))

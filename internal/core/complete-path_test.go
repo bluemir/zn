@@ -144,7 +144,7 @@ func TestCommandTabCompletes(t *testing.T) {
 	completeDir(t, "buffer.go", "docs/", "docx.md")
 
 	assert.Equal(t, "tabnew buffer.go",
-		commandAfter(t, ":", "t", "a", "b", "n", "e", "w", " ", "b", "u", "tab").input)
+		commandAfter(t, ":", "t", "a", "b", "n", "e", "w", " ", "b", "u", "tab").input.text)
 }
 
 // 여럿이면 공통 앞부분까지만 채우고 후보를 든다.
@@ -153,7 +153,7 @@ func TestCommandTabShowsCandidates(t *testing.T) {
 
 	m := commandAfter(t, ":", "e", " ", "d", "tab")
 
-	assert.Equal(t, "e doc", m.input)
+	assert.Equal(t, "e doc", m.input.text)
 	assert.Equal(t, []string{"docs/", "docx.md"}, m.candidates)
 	assert.Contains(t, m.renderCandidateBox(), "docx.md", "창에 후보가 선다")
 }
@@ -175,7 +175,7 @@ func TestCommandTabIgnoredElsewhere(t *testing.T) {
 
 	m := commandAfter(t, ":", "g", "r", "e", "p", " ", "d", "tab")
 
-	assert.Equal(t, "grep d", m.input, "정규식을 경로로 맞추지 않는다")
+	assert.Equal(t, "grep d", m.input.text, "정규식을 경로로 맞추지 않는다")
 	assert.Empty(t, m.candidates)
 }
 

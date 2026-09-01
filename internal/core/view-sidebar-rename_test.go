@@ -44,7 +44,7 @@ func TestSidebarRenamePrefillsCurrentPath(t *testing.T) {
 
 	rename, ok := model.(viewSidebarRename)
 	require.True(t, ok, "이름을 고치는 화면으로 간다")
-	assert.Equal(t, "docs/spec.md", rename.input, "지금 경로가 채워져 있다")
+	assert.Equal(t, "docs/spec.md", rename.input.text, "지금 경로가 채워져 있다")
 	assert.Contains(t, barOf(t, model)[1], "새 이름: docs/spec.md")
 }
 
@@ -202,7 +202,7 @@ func TestSidebarRenameRefusesImpossibleTargets(t *testing.T) {
 			model = send(model, "m", "m")
 
 			rename := model.(viewSidebarRename)
-			model = eraseAll(t, model, len(rename.input))
+			model = eraseAll(t, model, len(rename.input.text))
 			model = typePath(t, model, test.typed)
 			model = sendSync(t, model, "enter")
 
@@ -226,7 +226,7 @@ func TestSidebarRenameCancels(t *testing.T) {
 	model = eraseAll(t, model, len("README.md"))
 
 	require.IsType(t, viewSidebarRename{}, model, "다 지워도 이 화면이다")
-	assert.Equal(t, "", model.(viewSidebarRename).input)
+	assert.Equal(t, "", model.(viewSidebarRename).input.text)
 
 	model = send(model, "esc")
 

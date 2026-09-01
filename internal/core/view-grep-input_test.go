@@ -43,7 +43,7 @@ func TestGrepInputShowsInputAndCursor(t *testing.T) {
 
 	typed := send(m, "f", "u", "n", "c").(viewGrepInput)
 
-	assert.Equal(t, "func", typed.input)
+	assert.Equal(t, "func", typed.input.text)
 	assert.Contains(t, ansi.Strip(typed.renderBox()), "func")
 
 	view := typed.View()
@@ -55,9 +55,9 @@ func TestGrepInputShowsInputAndCursor(t *testing.T) {
 // 넘치면 왼쪽부터 접는다. 치고 있는 것은 뒤쪽이라 오른쪽부터 자르면 방금 친 글자가 사라진다.
 func TestGrepInputTrimsInputFromLeft(t *testing.T) {
 	m := newGrepInput(t, 80, 12)
-	m.input = strings.Repeat("a", 200) + "END"
+	m.input = newInputLine(strings.Repeat("a", 200) + "END")
 
-	text := m.inputText()
+	text, _ := m.inputText()
 
 	assert.True(t, strings.HasPrefix(text, "…"), "글: %q", text)
 	assert.True(t, strings.HasSuffix(text, "END"), "방금 친 글자가 남는다: %q", text)
@@ -74,7 +74,7 @@ func TestGrepInputLeavesOnEscAndEmptyBackspace(t *testing.T) {
 	// 글자가 있으면 한 글자만 지운다.
 	typed := send(send(m, "a", "b"), "backspace")
 	require.IsType(t, viewGrepInput{}, typed)
-	assert.Equal(t, "a", typed.(viewGrepInput).input)
+	assert.Equal(t, "a", typed.(viewGrepInput).input.text)
 }
 
 // 빈 채로 enter 는 알리고 만다. 저장소 전체를 찾는 빈 패턴은 뜻이 없다.

@@ -58,7 +58,7 @@ type viewPalette struct {
 	*editor
 
 	// input 은 친 그대로다. 맨 앞의 `>` 도 지우지 않고 들고 있다 — 그것이 곧 어느 표를 보는지다.
-	input string
+	input inputLine
 
 	hits     []paletteHit
 	selected int // hits 안의 자리
@@ -104,24 +104,28 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.move(-pageRows(pageFull, m.paletteListRows()))
 
 			return m, nil
-		case "home":
-			// 치는 중이라 `g`·`G` 를 둘 수 없다 — 그 글자가 걸러낼 말의 일부다.
-			m.move(-len(m.hits))
+		case "left", "right", "home", "end":
+			// **다섯 키가 목록이 아니라 입력줄 것이다**(ADR-0113 §2). 목록은 세로로 서
+			// 있으므로 `↑`·`↓`·`pgup`·`pgdown`·휠로 다 갈 수 있고, 치고 있는 글 안을
+			// 오갈 길은 이것뿐이다. `g`·`G` 는 여기 둘 수 없다 — 그 글자가 걸러낼 말의
+			// 일부다.
+			m.input.move(msg.String())
 
 			return m, nil
-		case "end":
-			m.move(len(m.hits))
+		case "delete":
+			m.input.deleteForward()
+			m.filter()
 
 			return m, nil
 		case "ctrl+p":
-			// 여는 키를 다시 눌러도 아무 일도 하지 않는다. 이동은 화살표뿐이다.
+			// 여는 키를 다시 눌러도 아무 일도 하지 않는다. 목록 이동은 위아래뿐이다.
 			return m, nil
 		case "backspace":
 			// command·search mode 와 같이 다 지우면 나간다.
-			if m.input == "" {
+			if m.input.empty() {
 				return normalMode(m.editor)
 			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 			m.filter()
 
 			return m, nil
@@ -130,7 +134,7 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 			m.filter()
 
 			return m, nil
@@ -174,16 +178,16 @@ const (
 
 // kind 는 갈래와 접두를 뗀 나머지를 준다.
 func (m viewPalette) kind() (paletteKind, string) {
-	if rest, ok := strings.CutPrefix(m.input, ">"); ok {
+	if rest, ok := strings.CutPrefix(m.input.text, ">"); ok {
 		return paletteKindCommand, strings.TrimLeft(rest, " ")
 	}
-	if rest, ok := strings.CutPrefix(m.input, "!"); ok {
+	if rest, ok := strings.CutPrefix(m.input.text, "!"); ok {
 		// `>` 와 달리 앞 공백을 떼지 않는다. 셸이 읽을 글자를 여기서 고치지 않는다 —
 		// `:!` 도 뗀 적이 없다(ADR-0045).
 		return paletteKindShell, rest
 	}
 
-	return paletteKindFile, m.input
+	return paletteKindFile, m.input.text
 }
 
 // labels 는 지금 표에서 매칭 대상이 되는 글자들이다.
@@ -391,8 +395,9 @@ func (m viewPalette) View() tea.View {
 		lipgloss.NewLayer(m.renderBox()).X(left).Y(paletteTop).Z(1),
 	).Render()
 
-	// 커서는 편집 내용이 아니라 박스 안 입력줄에 있어야 한다.
-	view.Cursor = tea.NewCursor(left+2+screenWidthOf(m.input), paletteTop+1)
+	// 커서는 편집 내용이 아니라 박스 안 치는 자리에 있어야 한다.
+	_, cursor := m.inputText()
+	view.Cursor = tea.NewCursor(left+2+cursor, paletteTop+1)
 	view.Cursor.Shape = tea.CursorBar
 
 	return view
@@ -432,15 +437,33 @@ func (m viewPalette) renderBox() string {
 	return strings.Join(rows, "\n")
 }
 
+// inputText 는 입력줄에 그릴 글과 그 안에서 커서가 설 칸이다.
+//
+// **넘치면 커서가 보이도록 왼쪽부터 접는다.** 커서가 줄 안으로 들어오기 전에는 오른쪽부터
+// 잘랐는데, 그때는 커서도 늘 오른쪽 끝이라 담을 것이 없었다. 이제 커서가 앞으로 갈 수
+// 있으므로 접는 자리가 따라와야 한다 — grep 검색창이 같은 박스에서 같은 답을 쓴다
+// (input-line.go, view-grep-input.go).
+//
+// **커서 자리를 재는 데도 쓰므로 한 자리에서 만든다** — 그리는 글과 재는 글이 갈리면 커서가
+// 글자 뒤에 서지 않는다.
+func (m viewPalette) inputText() (text string, cursorCol int) {
+	// 커서 한 칸을 남긴다. 안 남기면 마지막 글자를 친 순간 커서가 테두리 위에 선다.
+	room := m.paletteWidth() - 4 - 1
+
+	return m.input.visible("", max(room, 1))
+}
+
 // renderInputRow 는 치고 있는 것을 보여주는 줄이다. 비어 있으면 무엇을 치면 되는지 흐리게 알려준다.
 func (m viewPalette) renderInputRow(inner int) string {
 	side := m.boxChars.vertical
 
-	if m.input == "" {
+	if m.input.empty() {
 		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 명령, ! 셸", inner), inner)) + " " + side
 	}
 
-	return side + " " + padTo(truncateToWidth(m.input, inner), inner) + " " + side
+	text, _ := m.inputText()
+
+	return side + " " + padTo(text, inner) + " " + side
 }
 
 // renderListRows 는 목록 행들이다. 걸린 것이 없으면 그 사실을 한 줄로 알린다.

@@ -42,7 +42,7 @@ const grepInputRows = 3
 type viewGrepInput struct {
 	*editor
 
-	input string
+	input inputLine
 }
 
 func (m viewGrepInput) Init() tea.Cmd { return nil }
@@ -61,20 +61,29 @@ func (m viewGrepInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return normalMode(m.editor)
 		case "enter":
 			return m.run()
+		case "left", "right", "home", "end":
+			m.input.move(msg.String())
+
+			return m, nil
+		case "delete":
+			m.input.deleteForward()
+
+			return m, nil
 		case "backspace":
 			// 팔레트·명령줄과 같이 다 지우면 나간다.
-			if m.input == "" {
+			if m.input.empty() {
 				return normalMode(m.editor)
 			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 
 			return m, nil
 		default:
-			// Text 는 출력 가능한 글자에만 찬다. 특수 키와 modifier 조합은 비어 있다.
+			// Text 는 출력 가능한 글자에만 찬다. modifier 조합은 비어 있고 특수 키는
+			// 위에서 잡힌다.
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 
 			return m, nil
 		}
@@ -97,11 +106,11 @@ func (m viewGrepInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 패턴으로 검색을 시작하고 결과 판으로 넘어간다.
 func (m viewGrepInput) run() (tea.Model, tea.Cmd) {
-	if m.input == "" {
+	if m.input.empty() {
 		return normalModeMessage(m.editor, "검색할 패턴이 없습니다")
 	}
 
-	return runGrep(m.editor, m.input)
+	return runGrep(m.editor, m.input.text)
 }
 
 // grepInputTitle 은 박스 위 테두리에 얹는 말이다. 무엇을 치는 자리인지가 이것으로 보인다 —
@@ -119,8 +128,9 @@ func (m viewGrepInput) View() tea.View {
 		lipgloss.NewLayer(m.renderBox()).X(left).Y(paletteTop).Z(1),
 	).Render()
 
-	// 커서는 편집 내용이 아니라 박스 안 입력줄에 있어야 한다. 팔레트와 같은 셈이다.
-	view.Cursor = tea.NewCursor(left+2+screenWidthOf(m.inputText()), paletteTop+1)
+	// 커서는 편집 내용이 아니라 박스 안 치는 자리에 있어야 한다. 팔레트와 같은 셈이다.
+	_, cursor := m.inputText()
+	view.Cursor = tea.NewCursor(left+2+cursor, paletteTop+1)
 	view.Cursor.Shape = tea.CursorBar
 
 	return view
@@ -134,9 +144,11 @@ func (m viewGrepInput) renderBox() string {
 	chars := m.boxChars
 	side := chars.vertical
 
+	text, _ := m.inputText()
+
 	return strings.Join([]string{
 		m.renderTitleLine(width),
-		side + " " + padTo(m.inputText(), inner) + " " + side,
+		side + " " + padTo(text, inner) + " " + side,
 		chars.bottomLeft + strings.Repeat(chars.horizontal, width-2) + chars.bottomRight,
 	}, "\n")
 }
@@ -158,21 +170,21 @@ func (m viewGrepInput) renderTitleLine(width int) string {
 	return chars.topLeft + grepInputTitle + strings.Repeat(chars.horizontal, rest) + chars.topRight
 }
 
-// inputText 는 입력줄에 그릴 글이다.
+// inputText 는 입력줄에 그릴 글과 그 안에서 커서가 설 칸이다.
 //
-// **넘치면 왼쪽부터 접는다.** 치고 있는 것은 뒤쪽이라 오른쪽부터 자르면 방금 친 글자가 보이지
-// 않는다 — 이름 바꾸기 창이 같은 자리에서 같은 답을 쓴다(view-rename-input.go).
+// **넘치면 커서가 보이도록 왼쪽부터 접는다.** 접는 셈은 visible 이 든다 — 이름 바꾸기 창이
+// 같은 자리에서 같은 답을 쓴다(input-line.go, view-rename-input.go).
 //
 // 비어 있으면 빈 줄이다. 무엇을 치면 되는지는 위 테두리의 제목과 아래 줄의 안내가 이미
 // 말한다 — 박스가 한 줄뿐이라 안내를 그 안에 넣으면 치는 자리와 겹친다.
 //
 // **커서 자리를 재는 데도 쓰므로 한 자리에서 만든다** — 그리는 글과 재는 글이 갈리면 커서가
 // 글자 뒤에 서지 않는다.
-func (m viewGrepInput) inputText() string {
+func (m viewGrepInput) inputText() (text string, cursorCol int) {
 	// 커서 한 칸을 남긴다. 안 남기면 마지막 글자를 친 순간 커서가 테두리 위에 선다.
 	room := m.paletteWidth() - 4 - 1
 
-	return trimLeftToWidth(m.input, max(room, 1))
+	return m.input.visible("", max(room, 1))
 }
 
 // runGrepInput 은 팔레트의 「프로젝트 검색」이다.

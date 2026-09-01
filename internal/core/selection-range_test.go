@@ -17,7 +17,7 @@ func TestVisualColonPrefillsRange(t *testing.T) {
 	m := send(newTestEditor("a\nb\nc\nd\n", 40, 10), "v", "j", ":")
 
 	require.IsType(t, viewEditorCommand{}, m)
-	assert.Equal(t, "'<,'>", m.(viewEditorCommand).input)
+	assert.Equal(t, "'<,'>", m.(viewEditorCommand).input.text)
 
 	// 아래 줄에 그대로 보인다. 보이는 글자라 지울 수도 있다.
 	assert.Contains(t, barOf(t, m)[1], ":'<,'>")
@@ -44,7 +44,7 @@ func TestVisualColonRangeCanBeErased(t *testing.T) {
 	m = send(m, "backspace", "backspace", "backspace", "backspace", "backspace")
 
 	require.IsType(t, viewEditorCommand{}, m)
-	assert.Equal(t, "", m.(viewEditorCommand).input)
+	assert.Equal(t, "", m.(viewEditorCommand).input.text)
 }
 
 // `esc` 로 나가면 고른 것이 지워진다. normal 로 가는 문이 그것을 한다(ADR-0037).

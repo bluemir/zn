@@ -28,16 +28,16 @@ func renameFileMode(e *editor, node *treeNode) (tea.Model, tea.Cmd) {
 		editor: e,
 		from:   node.path,
 		isDir:  node.isDir && !node.isSymlink,
-		input:  e.sidebar.relLabel(node.path),
+		input:  newInputLine(e.sidebar.relLabel(node.path)),
 	}, nil
 }
 
 type viewSidebarRename struct {
 	*editor
 
-	from  string // 지금 경로. 절대 경로다
-	isDir bool   // 디렉터리인가. symlink 는 링크만 옮기므로 파일 쪽이다
-	input string // 치고 있는 경로. 뿌리 기준 상대 경로다
+	from  string    // 지금 경로. 절대 경로다
+	isDir bool      // 디렉터리인가. symlink 는 링크만 옮기므로 파일 쪽이다
+	input inputLine // 치고 있는 경로. 뿌리 기준 상대 경로다
 }
 
 func (m viewSidebarRename) Init() tea.Cmd { return nil }
@@ -62,22 +62,27 @@ func (m viewSidebarRename) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return sidebarMode(m.editor)
 		case "enter":
 			return m.rename()
+		case "left", "right", "home", "end":
+			m.input.move(msg.String())
+
+			return m, nil
+		case "delete":
+			m.input.deleteForward()
+
+			return m, nil
 		case "backspace":
 			// 다 지워도 이 화면에 남는다. 만들기와 다른 자리다 — 거기서는 빈 칸이 시작점이라
 			// 다 지운 것이 「아무것도 치지 않았다」 지만, 여기서는 채워져 있던 것을 지운 것이라
 			// 그만두려는 뜻으로 읽을 수 없다. 그만두는 것은 `esc` 다.
-			if m.input == "" {
-				return m, nil
-			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 
 			return m, nil
 		default:
-			// 이름이 될 수 없는 키(방향키, ctrl 조합) 는 Text 가 비어 있다.
+			// 이름이 될 수 없는 키(ctrl 조합) 는 Text 가 비어 있다. 방향키는 위에서 잡힌다.
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 
 			return m, nil
 		}
@@ -108,7 +113,7 @@ func (m viewSidebarRename) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // `docs/` 가 없어도 된다.
 func (m viewSidebarRename) rename() (tea.Model, tea.Cmd) {
 	// 앞뒤 빈 칸은 눌러 둔 자국이다. 가운데 빈 칸은 파일 이름에 쓸 수 있으므로 건드리지 않는다.
-	name := strings.TrimSpace(m.input)
+	name := strings.TrimSpace(m.input.text)
 	if name == "" {
 		return sidebarModeMessage(m.editor, "이름이 없습니다")
 	}
@@ -180,12 +185,11 @@ func (m viewSidebarRename) label(path string) string {
 }
 
 func (m viewSidebarRename) View() tea.View {
-	line := renamePrompt + m.input
-	view := m.editorView(tea.CursorBlock, "TREE", line)
+	view := m.editorView(tea.CursorBlock, "TREE", renamePrompt+m.input.text)
 
-	// 커서는 치고 있는 경로 끝이다. 아래 줄은 편집 영역 아래에서 시작하므로 sidebar 만큼
+	// 커서는 치고 있는 자리다. 아래 줄은 편집 영역 아래에서 시작하므로 sidebar 만큼
 	// 오른쪽으로 옮긴다. 명령줄과 같다.
-	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(screenWidthOf(renamePrompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	return view
 }

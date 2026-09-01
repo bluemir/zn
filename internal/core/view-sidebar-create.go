@@ -28,8 +28,8 @@ func createFileMode(e *editor, dir string) (tea.Model, tea.Cmd) {
 type viewSidebarCreate struct {
 	*editor
 
-	dir   string // 만들 자리의 절대 경로
-	input string // 치고 있는 이름
+	dir   string    // 만들 자리의 절대 경로
+	input inputLine // 치고 있는 이름
 }
 
 func (m viewSidebarCreate) Init() tea.Cmd { return nil }
@@ -54,12 +54,20 @@ func (m viewSidebarCreate) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return sidebarMode(m.editor)
 		case "enter":
 			return m.create()
+		case "left", "right", "home", "end":
+			m.input.move(msg.String())
+
+			return m, nil
+		case "delete":
+			m.input.deleteForward()
+
+			return m, nil
 		case "backspace":
 			// 명령줄과 같다. 다 지우면 만들던 것을 그만두고 트리로 돌아간다.
-			if m.input == "" {
+			if m.input.empty() {
 				return sidebarMode(m.editor)
 			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 
 			return m, nil
 		default:
@@ -67,7 +75,7 @@ func (m viewSidebarCreate) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 
 			return m, nil
 		}
@@ -102,7 +110,7 @@ func (m viewSidebarCreate) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 그 이름을 보여주고 있어서 무엇이 없어졌는지도 화면에 남지 않는다.
 func (m viewSidebarCreate) create() (tea.Model, tea.Cmd) {
 	// 앞뒤 빈 칸은 눌러 둔 자국이다. 가운데 빈 칸은 파일 이름에 쓸 수 있으므로 건드리지 않는다.
-	name := strings.TrimSpace(m.input)
+	name := strings.TrimSpace(m.input.text)
 	if name == "" {
 		return sidebarModeMessage(m.editor, "이름이 없습니다")
 	}
@@ -169,12 +177,12 @@ func (m viewSidebarCreate) create() (tea.Model, tea.Cmd) {
 func (m viewSidebarCreate) View() tea.View {
 	// 아래 줄은 치고 있는 이름이다. 만들 자리를 앞에 붙여야 어디에 생기는지가 보인다 —
 	// 트리 커서는 이 mode 에서 이름 끝으로 옮겨가 있어서 고른 자리를 가리키지 못한다.
-	line := createPrompt + m.createDirLabel() + m.input
-	view := m.editorView(tea.CursorBlock, "TREE", line)
+	prompt := createPrompt + m.createDirLabel()
+	view := m.editorView(tea.CursorBlock, "TREE", prompt+m.input.text)
 
-	// 커서는 치고 있는 이름 끝이다. 아래 줄은 편집 영역 아래에서 시작하므로 sidebar 만큼
+	// 커서는 치고 있는 자리다. 아래 줄은 편집 영역 아래에서 시작하므로 sidebar 만큼
 	// 오른쪽으로 옮긴다. 명령줄과 같다.
-	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(screenWidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	return view
 }

@@ -75,7 +75,7 @@ type viewGrep struct {
 	//
 	// 검색을 다시 돌리는 것이 아니라 **이미 담은 적중을 거른다.** 저장소를 다시 훑지 않으므로
 	// 글자마다 곧바로 좁아진다. 「목록을 띄운 뒤에도 검색을 이어 가는 길」이 이것이다.
-	filter string
+	filter inputLine
 
 	// filtering 은 `/` 를 눌러 거를 글자를 치는 중인지다.
 	//
@@ -89,7 +89,7 @@ type viewGrep struct {
 	// 정하는 자리라, 박스를 따로 띄우면 정작 바꿀 목록이 가려진다. 거르기가 이미 판 안에서
 	// 글자를 받고 있어서 같은 손이다(ADR-0078 §7).
 	asking bool
-	answer string
+	answer inputLine
 }
 
 // grepRows 는 목록에 쓸 수 있는 행 수다.
@@ -179,7 +179,7 @@ func (m viewGrep) pressFilter(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return quitAll(m, m.editor)
 	case "esc":
-		m.filter, m.filtering = "", false
+		m.filter, m.filtering = inputLine{}, false
 		m.reframe()
 
 		return m, nil
@@ -187,14 +187,24 @@ func (m viewGrep) pressFilter(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.filtering = false
 
 		return m, nil
+	case "left", "right", "home", "end":
+		// 거르는 글이 바뀌지 않으므로 목록을 다시 좁히지 않는다.
+		m.filter.move(msg.String())
+
+		return m, nil
+	case "delete":
+		m.filter.deleteForward()
+		m.reframe()
+
+		return m, nil
 	case "backspace":
 		// 다 지우면 거르기에서 나간다. 명령줄·검색창과 같은 손이다.
-		if m.filter == "" {
+		if m.filter.empty() {
 			m.filtering = false
 
 			return m, nil
 		}
-		m.filter = m.filter[:prevClusterStart([]byte(m.filter), 0, len(m.filter))]
+		m.filter.deleteBackward()
 		m.reframe()
 
 		return m, nil
@@ -202,7 +212,7 @@ func (m viewGrep) pressFilter(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if msg.Text == "" {
 			return m, nil
 		}
-		m.filter += msg.Text
+		m.filter.insert(msg.Text)
 
 		// 좁아지면 고른 자리가 목록 밖으로 나갈 수 있다. 맨 위로 되돌린다 —
 		// 남은 것 중 어디에 있었는지는 뜻이 없다.
@@ -399,11 +409,11 @@ func (m *viewGrep) selectTo(index int) {
 // 치는 글자에 대소문자를 맞추라고 하는 것은 값이 없다. 정규식이 아닌 것은 이미 정규식으로
 // 찾은 결과를 다시 정규식으로 좁힐 일이 드물어서다.
 func (m viewGrep) rows() []grepHit {
-	if m.filter == "" {
+	if m.filter.empty() {
 		return m.grep.hits
 	}
 
-	needle := strings.ToLower(m.filter)
+	needle := strings.ToLower(m.filter.text)
 
 	rows := make([]grepHit, 0, len(m.grep.hits))
 	for _, hit := range m.grep.hits {
@@ -446,13 +456,43 @@ func (m viewGrep) View() tea.View {
 		lipgloss.NewLayer(m.renderDrawer()).X(left).Y(top).Z(1),
 	).Render()
 
-	// 거르는 중이면 커서는 아래 줄 끝, 치는 자리에 있어야 한다. 검색창과 같다.
-	if m.filtering {
-		view.Cursor = tea.NewCursor(screenWidthOf(m.hint())+m.sidebarLeft(), m.height-1)
+	// 치는 중이면 커서는 아래 줄의 치는 자리에 있어야 한다. 검색창과 같다.
+	//
+	// **바꿀 글을 칠 때도 선다.** 거르기만 세우고 있었는데 둘 다 아래 줄에서 글자를 받는
+	// 자리라 갈라 둘 값이 없다.
+	if line, ok := m.hintInput(); ok {
+		view.Cursor = tea.NewCursor(screenWidthOf(m.hintPrefix())+line.screenCursor()+m.sidebarLeft(), m.height-1)
 		view.Cursor.Shape = tea.CursorBlock
 	}
 
 	return view
+}
+
+// hintInput 은 이 판이 지금 아래 줄에서 받고 있는 입력줄이다. 받는 중이 아니면 ok 가 false 다.
+//
+// 이 판만 입력줄을 둘 든다 — 거를 글자(`/`) 와 바꿀 글(`r`) 이다. 둘은 같은 자리에 그리고
+// 같은 자리에 커서를 세우므로, 어느 쪽인지를 세는 곳을 여기 하나로 둔다.
+func (m viewGrep) hintInput() (inputLine, bool) {
+	switch {
+	case m.filtering:
+		return m.filter, true
+	case m.asking:
+		return m.answer, true
+	default:
+		return inputLine{}, false
+	}
+}
+
+// hintPrefix 는 그 입력줄 앞에 서는 말이다.
+//
+// **커서 자리를 재는 데도 쓰므로 hint 와 한 자리에서 만든다** — 둘이 갈리면 커서가 글자 뒤에
+// 서지 않는다. 이름 바꾸기 창이 renameLine 하나로 답하는 것과 같은 까닭이다.
+func (m viewGrep) hintPrefix() string {
+	if m.filtering {
+		return "거르기: "
+	}
+
+	return "\"" + m.grep.input + "\" 을(를) 무엇으로: "
 }
 
 // hint 는 statusBar 아래 줄에 적는 말이다.
@@ -460,12 +500,8 @@ func (m viewGrep) View() tea.View {
 // **몇 번째인지는 적지 않는다.** 그것은 아랫 테두리가 든다 — 숫자가 설명하는 대상 옆에 있는
 // 것이 낫고, 여기는 그만큼 키 안내에 자리를 넘긴다(ADR-0079).
 func (m viewGrep) hint() string {
-	if m.filtering {
-		return "거르기: " + m.filter
-	}
-
-	if m.asking {
-		return "\"" + m.grep.input + "\" 을(를) 무엇으로: " + m.answer
+	if line, ok := m.hintInput(); ok {
+		return m.hintPrefix() + line.text
 	}
 
 	if len(m.rows()) == 0 {
@@ -503,8 +539,8 @@ func (m viewGrep) label() string {
 	if m.grep.capped {
 		label += "(상한)"
 	}
-	if m.filter != "" {
-		label += " 거른 것 " + m.filter
+	if !m.filter.empty() {
+		label += " 거른 것 " + m.filter.text
 	}
 
 	return label
@@ -513,7 +549,7 @@ func (m viewGrep) label() string {
 // emptyReason 은 목록이 빈 까닭이다. 도는 중과 없는 것은 다른 말이어야 한다.
 func (m viewGrep) emptyReason() string {
 	switch {
-	case m.filter != "" && len(m.grep.hits) > 0:
+	case !m.filter.empty() && len(m.grep.hits) > 0:
 		return "거른 결과가 없습니다"
 	case m.jobRunning(grepJobName, []string{m.grep.input}):
 		return "찾는 중입니다"

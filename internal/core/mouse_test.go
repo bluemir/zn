@@ -418,7 +418,7 @@ func TestClickIgnoredWhileTypingCommand(t *testing.T) {
 
 	command, ok := m.(viewEditorCommand)
 	require.True(t, ok, "명령줄에 남는다")
-	assert.Equal(t, "w", command.input, "치던 명령이 그대로다")
+	assert.Equal(t, "w", command.input.text, "치던 명령이 그대로다")
 	assert.Equal(t, 0, command.buffers[command.active].cursorLine, "커서도 그대로다")
 }
 
@@ -431,7 +431,7 @@ func TestClickIgnoredWhileTypingSearch(t *testing.T) {
 
 	search, ok := m.(viewEditorSearch)
 	require.True(t, ok, "검색에 남는다")
-	assert.Equal(t, "d", search.input)
+	assert.Equal(t, "d", search.input.text)
 }
 
 // 긴 파일을 만들어 스크롤할 자리를 둔다.

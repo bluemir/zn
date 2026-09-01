@@ -518,7 +518,7 @@ func pickCloseOtherTabs(t *testing.T, m tea.Model) tea.Model {
 	v, ok := m.(viewEditorNormal)
 	require.True(t, ok, "normal mode 가 아니다: %T", m)
 
-	palette := viewPalette{editor: v.editor, input: "> close other"}
+	palette := viewPalette{editor: v.editor, input: newInputLine("> close other")}
 	palette.filter()
 
 	require.NotEmpty(t, palette.hits, "목록에 떠 있어야 고른다")
@@ -535,7 +535,7 @@ func pickPaletteCommand(t *testing.T, m tea.Model, input, name string) tea.Model
 	v, ok := m.(viewEditorNormal)
 	require.True(t, ok, "normal mode 가 아니다: %T", m)
 
-	palette := viewPalette{editor: v.editor, input: input}
+	palette := viewPalette{editor: v.editor, input: newInputLine(input)}
 	palette.filter()
 
 	require.NotEmpty(t, palette.hits, "목록에 떠 있어야 고른다")
@@ -564,7 +564,7 @@ func TestCloseRightTabsHiddenOnLastTab(t *testing.T) {
 	v := newTabsEditor("a.txt", "b.txt")
 	v.editor.active = 1
 
-	palette := viewPalette{editor: v.editor, input: "> close tabs to the right"}
+	palette := viewPalette{editor: v.editor, input: newInputLine("> close tabs to the right")}
 	palette.filter()
 
 	assert.Empty(t, palette.hits)
@@ -637,7 +637,7 @@ func TestNewFileOpensEmptyTab(t *testing.T) {
 func TestNewFileAvailableWithoutTabs(t *testing.T) {
 	e := &editor{boxChars: boxUnicode, width: 40, height: 10, active: -1}
 
-	palette := viewPalette{editor: e, input: "> new file"}
+	palette := viewPalette{editor: e, input: newInputLine("> new file")}
 	palette.filter()
 
 	require.NotEmpty(t, palette.hits, "볼 파일이 없어도 고를 수 있어야 한다")
@@ -662,7 +662,7 @@ func TestCloseOtherTabsKeepsActiveTab(t *testing.T) {
 func TestCloseOtherTabsWithSingleTab(t *testing.T) {
 	v := newTabsEditor("a.txt")
 
-	palette := viewPalette{editor: v.editor, input: "> close other"}
+	palette := viewPalette{editor: v.editor, input: newInputLine("> close other")}
 	palette.filter()
 
 	assert.Empty(t, palette.hits)

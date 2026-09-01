@@ -25,26 +25,34 @@ func (m viewGrep) pressReplaceInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return quitAll(m, m.editor)
 	case "esc":
-		m.asking, m.answer = false, ""
+		m.asking, m.answer = false, inputLine{}
 
 		return m, nil
 	case "enter":
 		return m.startReplaceFromGrep()
+	case "left", "right", "home", "end":
+		m.answer.move(msg.String())
+
+		return m, nil
+	case "delete":
+		m.answer.deleteForward()
+
+		return m, nil
 	case "backspace":
 		// 다 지우면 치기에서 나간다. 명령줄·거르기와 같은 손이다.
-		if m.answer == "" {
+		if m.answer.empty() {
 			m.asking = false
 
 			return m, nil
 		}
-		m.answer = m.answer[:prevClusterStart([]byte(m.answer), 0, len(m.answer))]
+		m.answer.deleteBackward()
 
 		return m, nil
 	default:
 		if msg.Text == "" {
 			return m, nil
 		}
-		m.answer += msg.Text
+		m.answer.insert(msg.Text)
 
 		return m, nil
 	}
@@ -57,16 +65,16 @@ func (m viewGrep) pressReplaceInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // `g` 를 켠 채로 간다. 이 판의 단위가 줄이라(ADR-0097 §2) 「이 줄을 바꾼다」가 그 줄의 찾은
 // 자리를 다 바꾸는 것이어야 손과 맞는다. 첫 하나만 바꾸고 싶으면 `:replace` 로 flag 를 댄다.
 func (m viewGrep) startReplaceFromGrep() (tea.Model, tea.Cmd) {
-	replacement, err := parseReplacement(m.answer)
+	replacement, err := parseReplacement(m.answer.text)
 	if err != nil {
-		m.asking, m.answer = false, ""
+		m.asking, m.answer = false, inputLine{}
 
 		return normalModeError(m.editor, err)
 	}
 
 	root, err := os.Getwd()
 	if err != nil {
-		m.asking, m.answer = false, ""
+		m.asking, m.answer = false, inputLine{}
 
 		return normalModeError(m.editor, err)
 	}
@@ -82,7 +90,7 @@ func (m viewGrep) startReplaceFromGrep() (tea.Model, tea.Cmd) {
 		},
 	}
 
-	m.asking, m.answer = false, ""
+	m.asking, m.answer = false, inputLine{}
 
 	return m, nil
 }

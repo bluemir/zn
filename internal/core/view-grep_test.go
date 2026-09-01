@@ -352,7 +352,7 @@ func TestGrepFilterEatsMovementKeys(t *testing.T) {
 
 	filtered := send(m, "/", "j").(viewGrep)
 
-	assert.Equal(t, "j", filtered.filter)
+	assert.Equal(t, "j", filtered.filter.text)
 	assert.Zero(t, filtered.selected, "목록은 움직이지 않았다")
 	assert.Equal(t, before, filtered.activeBuffer().path, "미리보기를 태우지 않았다")
 	assert.Len(t, grepDrawerRowsOf(t, filtered), 1)
@@ -368,7 +368,7 @@ func TestGrepFilterKeepsNarrowedOnEnter(t *testing.T) {
 
 	require.IsType(t, viewGrep{}, back)
 	assert.False(t, back.(viewGrep).filtering)
-	assert.Equal(t, "j", back.(viewGrep).filter)
+	assert.Equal(t, "j", back.(viewGrep).filter.text)
 	assert.Len(t, grepDrawerRowsOf(t, back.(viewGrep)), 1)
 }
 

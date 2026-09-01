@@ -39,7 +39,7 @@ func renameInputMode(e *editor) (tea.Model, tea.Cmd) {
 	buf.moveTo(buf.cursorLine, col, e.contentWidth())
 	e.scrollToCursor()
 
-	return viewRenameInput{editor: e, old: word, input: word}, nil
+	return viewRenameInput{editor: e, old: word, input: newInputLine(word)}, nil
 }
 
 // viewRenameInput 은 이름 바꾸기 창의 상태를 든다.
@@ -51,7 +51,7 @@ type viewRenameInput struct {
 	*editor
 
 	old   string // 바꿀 이름. 창에 같이 적어 무엇을 바꾸는지 보인다
-	input string
+	input inputLine
 }
 
 func (m viewRenameInput) Init() tea.Cmd { return nil }
@@ -70,14 +70,18 @@ func (m viewRenameInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return normalMode(m.editor)
 		case "enter":
 			return m.rename()
+		case "left", "right", "home", "end":
+			m.input.move(msg.String())
+
+			return m, nil
+		case "delete":
+			m.input.deleteForward()
+
+			return m, nil
 		case "backspace":
 			// 다 지워도 이 창에 남는다. 채워져 있던 것을 지운 것이라 그만두려는 뜻으로 읽을
 			// 수 없다 — 그만두는 것은 `esc` 다(view-sidebar-rename.go 와 같은 규칙이다).
-			if m.input == "" {
-				return m, nil
-			}
-
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 
 			return m, nil
 		default:
@@ -89,7 +93,7 @@ func (m viewRenameInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 
 			return m, nil
 		}
@@ -116,7 +120,7 @@ func (m viewRenameInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 옛 이름 그대로면 아무 일도 하지 않는다. 서버는 그것도 「모든 자리를 같은 글자로 바꾸는」
 // 편집으로 답하는데, 파일을 열어 다시 쓰기만 하고 달라지는 것이 없다.
 func (m viewRenameInput) rename() (tea.Model, tea.Cmd) {
-	name := strings.TrimSpace(m.input)
+	name := strings.TrimSpace(m.input.text)
 
 	switch {
 	case name == "":
@@ -190,12 +194,14 @@ func (m viewRenameInput) renderRenameBox() string {
 // 다음 줄로 감겨 엉뚱한 자리에 섰다. `GOTO` 목록이 경로를 접는 것과 같은 규칙이다
 // (render-status-bar.go 의 trimLeftToWidth).
 //
+// 커서가 줄 안으로 들어오면서 접는 자를 visible 에 넘겼다 — 커서 앞을 먼저 접어야 커서가
+// 사라진 쪽으로 넘어가지 않는다(input-line.go). 옛 이름과 `→` 는 늘 앞에 붙는 글이라
+// 같이 접힌다.
+//
 // **커서 한 칸을 남긴다.** 안 남기면 마지막 글자를 친 순간 커서가 테두리 위에 선다.
 //
 // 색을 넣지 않는다. 옛 이름과 새 이름은 `→` 로 이미 갈리고, 색을 넣으면 이 줄이 폭을 재는
 // 자리(padTo) 를 지날 때 escape 가 칸으로 세어진다.
 func (m viewRenameInput) renameLine() (text string, cursorCol int) {
-	text = trimLeftToWidth(" "+m.old+" → "+m.input, renameBoxInner-1)
-
-	return text, screenWidthOf(text)
+	return m.input.visible(" "+m.old+" → ", renameBoxInner-1)
 }

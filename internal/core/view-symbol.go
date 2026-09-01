@@ -89,7 +89,7 @@ type viewSymbol struct {
 	*editor
 
 	// input 은 이름을 거르는 패턴이다. 친 그대로다.
-	input string
+	input inputLine
 
 	hits     []paletteHit
 	selected int // hits 안의 자리
@@ -146,12 +146,16 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.move(-pageRows(pageFull, m.symbolDrawerHeight()) * m.symbolColumns())
 
 			return m, nil
-		case "home":
-			m.move(-len(m.hits))
+		case "home", "end":
+			// **`←`·`→` 와 갈린다**(ADR-0113 §2). 격자에서 옆 칸은 세로 이동으로 대신할 수
+			// 없으므로 그 둘만 격자에 남기고, 나머지는 입력줄 것이다. 목록 처음·끝은
+			// `pgup`·`pgdown` 으로 간다.
+			m.input.move(msg.String())
 
 			return m, nil
-		case "end":
-			m.move(len(m.hits))
+		case "delete":
+			m.input.deleteForward()
+			m.filter()
 
 			return m, nil
 		case "ctrl+p":
@@ -160,10 +164,10 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "backspace":
 			// 팔레트·명령줄과 같이 다 지우면 나간다.
-			if m.input == "" {
+			if m.input.empty() {
 				return m.leave()
 			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 			m.filter()
 
 			return m, nil
@@ -172,7 +176,7 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 			m.filter()
 
 			return m, nil
@@ -237,14 +241,14 @@ func (m viewSymbol) leave() (tea.Model, tea.Cmd) {
 
 // filter 는 입력으로 목록을 다시 거른다. 입력이 바뀌었으므로 고른 자리는 처음으로 돌아간다.
 func (m *viewSymbol) filter() {
-	m.hits = filterPalette(m.input, m.labels())
+	m.hits = filterPalette(m.input.text, m.labels())
 	m.selected, m.top = 0, 0
 }
 
 // refilter 는 후보가 늘었을 때 다시 거른다. filter 와 달리 고른 자리를 그대로 둔다.
 // 훑기가 끝나며 목록이 한꺼번에 길어질 때 커서가 맨 앞으로 튀지 않게 한다(palette.go).
 func (m *viewSymbol) refilter() {
-	m.hits = filterPalette(m.input, m.labels())
+	m.hits = filterPalette(m.input.text, m.labels())
 	m.scrollTo()
 }
 
@@ -327,8 +331,9 @@ func (m viewSymbol) View() tea.View {
 		lipgloss.NewLayer(m.renderDrawer()).X(left).Y(top).Z(1),
 	).Render()
 
-	// 커서는 편집 내용이 아니라 판 안 입력줄에 있어야 한다.
-	view.Cursor = tea.NewCursor(left+2+screenWidthOf(m.input), top+1)
+	// 커서는 편집 내용이 아니라 판 안 치는 자리에 있어야 한다.
+	_, cursor := m.inputText(m.textWidth() - 4)
+	view.Cursor = tea.NewCursor(left+2+cursor, top+1)
 	view.Cursor.Shape = tea.CursorBar
 
 	return view
@@ -364,11 +369,11 @@ func (m viewSymbol) renderDrawer() string {
 func (m viewSymbol) renderInputRow(inner int) string {
 	side := m.boxChars.vertical
 
-	counter := fmt.Sprintf("%d/%d", len(m.hits), len(m.symbols))
+	counter := m.symbolCounter()
 
-	body := m.input
+	body, _ := m.inputText(inner)
 	style := lipgloss.NewStyle()
-	if body == "" {
+	if m.input.empty() {
 		body = "이름으로 찾습니다. 삼각형·하트·화살표"
 		style = styleDetail
 	}
@@ -382,6 +387,22 @@ func (m viewSymbol) renderInputRow(inner int) string {
 	pad := strings.Repeat(" ", max(inner-screenWidthOf(body)-screenWidthOf(counter), 0))
 
 	return side + " " + style.Render(body) + pad + styleDetail.Render(counter) + " " + side
+}
+
+// symbolCounter 는 몇 개 중 몇 개가 걸렸는지다. 입력줄 오른쪽 끝에 붙는다.
+func (m viewSymbol) symbolCounter() string {
+	return fmt.Sprintf("%d/%d", len(m.hits), len(m.symbols))
+}
+
+// inputText 는 입력줄에 그릴 글과 그 안에서 커서가 설 칸이다.
+//
+// **넘치면 커서가 보이도록 왼쪽부터 접는다.** 팔레트·grep 검색창과 같은 답이다
+// (input-line.go). 오른쪽 끝의 개수와 그 앞 빈 칸 둘, 그리고 커서 한 칸을 비켜 둔다 —
+// 개수를 뗄지는 접고 나서 정한다(renderInputRow).
+func (m viewSymbol) inputText(inner int) (text string, cursorCol int) {
+	room := inner - 2 - screenWidthOf(m.symbolCounter()) - 1
+
+	return m.input.visible("", max(room, 1))
 }
 
 // renderGridRows 는 격자 행들이다. 걸린 것이 없으면 그 사실을 한 줄로 알린다.

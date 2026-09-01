@@ -156,7 +156,7 @@ func TestOpenPathsEmitGitRefresh(t *testing.T) {
 
 	paths := map[string]func(*editor) (tea.Model, tea.Cmd){
 		":tabnew <파일>": func(e *editor) (tea.Model, tea.Cmd) {
-			return viewEditorCommand{editor: e, input: "tabnew " + other}.run()
+			return viewEditorCommand{editor: e, input: newInputLine("tabnew " + other)}.run()
 		},
 		":e <파일>": func(e *editor) (tea.Model, tea.Cmd) {
 			return editFile(e, other)

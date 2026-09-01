@@ -154,7 +154,7 @@ func TestRenameOpensPopupFromEveryDoor(t *testing.T) {
 		m, _ := open(e)
 
 		require.IsType(t, viewRenameInput{}, m, name)
-		assert.Equal(t, "Greet", m.(viewRenameInput).input, "%s: 옛 이름으로 채워진다", name)
+		assert.Equal(t, "Greet", m.(viewRenameInput).input.text, "%s: 옛 이름으로 채워진다", name)
 		assert.Equal(t, "Greet", m.(viewRenameInput).old, name)
 	}
 }
@@ -202,7 +202,7 @@ func TestRenamePopupTyping(t *testing.T) {
 	m, _ := renameInputMode(e)
 
 	m = send(m, "backspace", "backspace", "e", "d")
-	assert.Equal(t, "Greed", m.(viewRenameInput).input)
+	assert.Equal(t, "Greed", m.(viewRenameInput).input.text)
 
 	assert.IsType(t, viewEditorNormal{}, send(m, "esc"), "esc 는 그만두기다")
 }
@@ -217,7 +217,7 @@ func TestRenamePopupKeepsTailVisible(t *testing.T) {
 	require.IsType(t, viewRenameInput{}, m)
 
 	long := m.(viewRenameInput)
-	long.input = strings.Repeat("Long", 20)
+	long.input = newInputLine(strings.Repeat("Long", 20))
 
 	text, cursor := long.renameLine()
 

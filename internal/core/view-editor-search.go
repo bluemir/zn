@@ -25,7 +25,7 @@ type viewEditorSearch struct {
 	*editor
 
 	direction searchDirection
-	input     string // `/` 나 `?` 뒤에 친 것
+	input     inputLine // `/` 나 `?` 뒤에 친 것
 
 	origin searchOrigin
 }
@@ -58,14 +58,25 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return normalMode(m.editor)
 		case "enter":
 			return m.run()
+		case "left", "right", "home", "end":
+			// 패턴이 바뀌지 않으므로 미리보기를 다시 돌리지 않는다. 커서만 옮긴 것으로
+			// 화면이 뛰면 어디를 보고 있었는지를 잃는다.
+			m.input.move(msg.String())
+
+			return m, nil
+		case "delete":
+			m.input.deleteForward()
+			m.preview()
+
+			return m, nil
 		case "backspace":
 			// command mode 와 같이 `/` 까지 지우면 검색에서 나간다.
-			if m.input == "" {
+			if m.input.empty() {
 				m.restore()
 
 				return normalMode(m.editor)
 			}
-			m.input = m.input[:prevClusterStart([]byte(m.input), 0, len(m.input))]
+			m.input.deleteBackward()
 			m.preview()
 
 			return m, nil
@@ -73,7 +84,7 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Text == "" {
 				return m, nil
 			}
-			m.input += msg.Text
+			m.input.insert(msg.Text)
 			m.preview()
 
 			return m, nil
@@ -110,11 +121,11 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *viewEditorSearch) preview() {
 	m.restore()
 
-	if m.input == "" {
+	if m.input.empty() {
 		return
 	}
 
-	pattern, err := parseSearchPattern(m.input)
+	pattern, err := parseSearchPattern(m.input.text)
 	if err != nil {
 		return
 	}
@@ -127,7 +138,7 @@ func (m *viewEditorSearch) preview() {
 	}
 
 	// 찾은 자리를 미리 강조한다. 아직 마지막 검색으로 굳히는 것은 아니라 Esc 로 되돌아간다.
-	m.search = searchState{input: m.input, pattern: pattern, direction: m.direction, highlight: true}
+	m.search = searchState{input: m.input.text, pattern: pattern, direction: m.direction, highlight: true}
 
 	buf.moveTo(result.line, result.col, m.contentWidth())
 	buf.clampToNormal(m.contentWidth())
@@ -150,13 +161,13 @@ func (m viewEditorSearch) run() (tea.Model, tea.Cmd) {
 
 	// 빈 채로 Enter 는 마지막 검색을 이 방향으로 되풀이한다. vim 과 같다.
 	pattern, input := m.origin.search.pattern, m.origin.search.input
-	if m.input != "" {
-		compiled, err := parseSearchPattern(m.input)
+	if !m.input.empty() {
+		compiled, err := parseSearchPattern(m.input.text)
 		if err != nil {
 			return normalModeError(m.editor, err)
 		}
 
-		pattern, input = compiled, m.input
+		pattern, input = compiled, m.input.text
 	}
 	if pattern == nil {
 		return normalModeMessage(m.editor, "이전 검색이 없습니다")
@@ -172,11 +183,11 @@ func (m viewEditorSearch) run() (tea.Model, tea.Cmd) {
 }
 
 func (m viewEditorSearch) View() tea.View {
-	line := m.prompt() + m.input
-	view := m.editorView(tea.CursorBlock, "SEARCH", line)
+	prompt := m.prompt()
+	view := m.editorView(tea.CursorBlock, "SEARCH", prompt+m.input.text)
 
-	// 커서는 본문이 아니라 명령줄 끝에 있어야 한다. command mode 와 같은 자리다.
-	view.Cursor = tea.NewCursor(screenWidthOf(line)+m.sidebarLeft(), m.height-1)
+	// 커서는 본문이 아니라 명령줄의 치는 자리에 있어야 한다. command mode 와 같은 자리다.
+	view.Cursor = tea.NewCursor(screenWidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	return view
 }
