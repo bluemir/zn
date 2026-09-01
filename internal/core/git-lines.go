@@ -158,7 +158,7 @@ func joinLines(lines [][]byte) string {
 // 마커도 없다. 새 파일의 모든 줄에 `+` 를 세우는 길도 있지만, 그것은 파일이 새것이라는
 // 말을 줄 수만큼 되풀이하는 것이다 — 그 사실은 트리의 `?` 가 한 번 말한다(ADR-0094 §4).
 func (buf *Buffer) refreshGitLines() {
-	buf.gitLines = gitLineMarks(buf.gitBase, buf.lines)
+	buf.git.marks = gitLineMarks(buf.git.base, buf.lines)
 }
 
 // renderGitMarker 는 마커 칸 한 칸이다. 변경이 없으면 빈 칸이다.

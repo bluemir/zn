@@ -192,7 +192,7 @@ func (e editor) renderGutter(buf *Buffer, row screenRow) string {
 	// 진단이 왼쪽 끝이고 git 이 번호 옆이다. 진단은 있다가 없어지는 것이고 git 표시는 commit
 	// 할 때까지 그 줄에 남아 있어서, 본문에 가까운 쪽을 오래 서 있는 것에 준다(ADR-0094 §3).
 	return renderDiagnosticMarker(buf.diagnosticAt(row.line)) +
-		renderGitMarker(buf.gitLines[row.line]) +
+		renderGitMarker(buf.git.marks[row.line]) +
 		styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
 		styleLineNumberRelative.Render(relativeNumber) + " "
 }

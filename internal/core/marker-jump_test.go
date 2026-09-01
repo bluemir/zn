@@ -19,7 +19,7 @@ func markerFixture(t *testing.T) tea.Model {
 	buf := m.(viewEditorNormal).activeBuffer()
 
 	// 1~3 줄이 한 덩이, 7 줄이 또 한 덩이다. 뛰는 자리는 둘이어야 한다.
-	buf.gitLines = map[int]gitLineMark{
+	buf.git.marks = map[int]gitLineMark{
 		1: gitLineModified,
 		2: gitLineModified,
 		3: gitLineAdded,

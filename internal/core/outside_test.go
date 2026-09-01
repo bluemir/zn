@@ -383,11 +383,11 @@ func TestOutsideCheckDoesNotTrustStatWithoutBaseline(t *testing.T) {
 // 검사가 본 stat 은 buffer 에 남는다. 남지 않으면 다음 검사가 또 파일 전체를 읽는다.
 func TestOutsideCheckRecordsStat(t *testing.T) {
 	m, _ := newWideFileEditor(t, "abc\n")
-	require.True(t, m.activeBuffer().diskTime.IsZero(), "아직 앞잡이가 없다")
+	require.True(t, m.activeBuffer().disk.mtime.IsZero(), "아직 앞잡이가 없다")
 
 	model := afterFileTick(t, m)
 
-	assert.False(t, bufferOf(t, model).diskTime.IsZero(), "앞잡이가 남지 않으면 매번 읽는다")
+	assert.False(t, bufferOf(t, model).disk.mtime.IsZero(), "앞잡이가 남지 않으면 매번 읽는다")
 }
 
 // 검사하는 동안 기준이 달라졌으면 그 결과는 낡은 것이다. 넣지 않고 물러난다.
@@ -404,7 +404,7 @@ func TestOutsideResultDroppedWhenBaselineMoved(t *testing.T) {
 	})
 
 	assert.Equal(t, "abc", string(m.activeBuffer().lines[0]), "낡은 결과를 넣었다")
-	assert.Equal(t, outsideSame, m.activeBuffer().outside, "마커도 붙이지 않는다")
+	assert.Equal(t, outsideSame, m.activeBuffer().disk.outside, "마커도 붙이지 않는다")
 }
 
 // tab 이 없어도 검사 작업은 시작한다. 시작하지 않으면 끝나지도 않아서 cooldown 고리가

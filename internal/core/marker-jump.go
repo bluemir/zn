@@ -103,13 +103,13 @@ func markerWrapMessage(direction markerDirection) string {
 // **잇달아 붙은 줄은 한 자리로 본다.** 열 줄을 고쳤으면 `~` 가 열 개 서는데, 뛰는 쪽에서는
 // 그것이 열 곳이 아니라 한 곳이다. vim 이 `]c` 를 「변경의 시작으로」라고 적어 둔 것과 같다.
 func (buf *Buffer) gitChangeLines() []int {
-	if len(buf.gitLines) == 0 {
+	if len(buf.git.marks) == 0 {
 		return nil
 	}
 
-	lines := make([]int, 0, len(buf.gitLines))
-	for line := range buf.gitLines {
-		if buf.gitLines[line-1] == gitLineNone {
+	lines := make([]int, 0, len(buf.git.marks))
+	for line := range buf.git.marks {
+		if buf.git.marks[line-1] == gitLineNone {
 			lines = append(lines, line)
 		}
 	}

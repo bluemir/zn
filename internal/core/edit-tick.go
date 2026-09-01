@@ -49,7 +49,7 @@ func (e *editor) scheduleEditTick() tea.Cmd {
 
 // hasGitBase 는 지금 보고 있는 파일에 견줄 HEAD 원본이 있는지다.
 func (e editor) hasGitBase() bool {
-	return e.hasTab() && len(e.buffers[e.active].gitBase) > 0
+	return e.hasTab() && len(e.buffers[e.active].git.base) > 0
 }
 
 // refreshActiveGitLines 는 보고 있는 파일의 줄 마커를 다시 낸다.

@@ -345,11 +345,11 @@ func (buf *Buffer) stickyAt(line, height int) []int {
 }
 
 // place 는 지금 보고 있는 자리다. 무르는 자리가 이것을 담아 두었다가 moveToPlace 로 되돌린다.
+//
+// `Buffer` 가 viewPlace 를 embed 하므로 그 덩어리를 그대로 돌려주면 된다. 값 receiver 라
+// 사본이 나가서 담아 둔 뒤에 커서가 움직여도 그것이 따라 바뀌지 않는다.
 func (buf Buffer) place() viewPlace {
-	return viewPlace{
-		cursorLine: buf.cursorLine, cursorCol: buf.cursorCol,
-		top: buf.top, topRow: buf.topRow,
-	}
+	return buf.viewPlace
 }
 
 // moveToPlace 는 담아 둔 자리로 커서와 화면을 되돌린다.
@@ -358,7 +358,6 @@ func (buf Buffer) place() viewPlace {
 // 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
 // 칸으로 간다(ADR-0100).
 func (buf *Buffer) moveToPlace(at viewPlace, width int) {
-	buf.cursorLine, buf.cursorCol = at.cursorLine, at.cursorCol
-	buf.top, buf.topRow = at.top, at.topRow
+	buf.viewPlace = at
 	buf.updateDesiredCol(width)
 }

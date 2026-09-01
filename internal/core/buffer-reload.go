@@ -81,19 +81,19 @@ func (buf Buffer) checkOutside() (outsideChange, error) {
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		// 열 때도 없던 파일이면 달라진 것이 없다. 저장하는 쪽에서는 지금 새로 만드는 것이 맞다.
-		if buf.diskHash == nil {
+		if buf.disk.hash == nil {
 			return outsideSame, nil
 		}
 
 		return outsideRemoved, nil
 	case err != nil:
 		return outsideSame, errors.Wrapf(err, "cannot read %s", buf.path)
-	case buf.diskHash == nil:
+	case buf.disk.hash == nil:
 		return outsideCreated, nil
 	}
 
 	sum := sha256.Sum256(data)
-	if !bytes.Equal(sum[:], buf.diskHash) {
+	if !bytes.Equal(sum[:], buf.disk.hash) {
 		return outsideModified, nil
 	}
 

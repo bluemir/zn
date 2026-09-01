@@ -49,16 +49,76 @@ import (
 // 화면 분할이 오면 밖으로 빼야 하고(아래 주석), 화면 폭(`width`) 을 메서드 예순 남짓이 받는다 —
 // 화면 행 이동과 `desiredCol` 이 줄바꿈에 걸려 있어서다.
 
-// viewPlace 는 「이 파일의 어디를 보고 있었나」다. 커서와 화면 자리를 함께 담는다.
+// viewPlace 는 「이 파일의 어디를 보고 있나」다. 커서와 화면 자리를 함께 담는다.
 //
-// **둘을 함께 담는 것이 요점이다.** 커서만 되돌리면 보이는 곳이 달라진 채로 남는다 —
-// 검색을 무르고 치환을 그만두는 자리가 그것을 겪어서 넷을 따로 들고 있었다.
+// **`Buffer` 가 이것을 embed 한다.** 그래서 이 넷은 지금 보고 있는 자리이면서, 담아 두었다가
+// 되돌릴 수 있는 한 덩어리다. 담는 자리(검색 무르기·치환 그만두기) 가 넷을 따로 들던 것을
+// 이 type 이 걷었고, `Buffer` 쪽도 같은 덩어리로 묶었다.
+//
+// **넷이 함께여야 한다.** 커서만 되돌리면 보이는 곳이 달라진 채로 남는다.
 //
 // 되돌리는 것은 `Buffer` 가 한다(buffer-screen.go 의 moveToPlace). 커서를 쓰는 일이라
 // `desiredCol` 을 다시 맞추는 것까지 안에서 끝나야 한다(ADR-0100).
+//
+// **`desiredCol` 과 `selection` 은 여기 없다.** 앞엣것은 담는 것이 아니라 되돌린 뒤 다시
+// 재는 파생값이고, 뒤엣것은 고른 범위라 「어디를 보고 있나」와 갈래가 다르다.
 type viewPlace struct {
+	// cursorLine 은 lines 의 index, cursorCol 은 그 줄 안의 byte offset 이다.
 	cursorLine, cursorCol int
-	top, topRow           int
+
+	// top, topRow 는 화면 최상단에 그릴 자리다. **커서에서 파생할 수 없다** — 커서를 두고
+	// 화면만 움직이는 동작이 있고, 커서가 화면 안에 있는 동안은 화면이 움직이지 않아야 한다.
+	// 줄 하나가 화면 행 여러 개가 될 수 있어서 줄 번호만으로는 부족하다.
+	top    int // lines 의 index
+	topRow int // 그 줄의 몇 번째 wrap 행부터 그리는지
+}
+
+// gitCache 는 HEAD 에 든 이 파일과 견줘 낸 것이다(git-lines.go, ADR-0094).
+//
+// 셋이 **같이 채워지고 같이 낡는다.** head 가 지금 HEAD 와 다르면 base 도 marks 도 낡은
+// 것이라 셋을 함께 다시 짓는다 — `git commit`·`checkout` 으로 기준이 통째로 움직이는 자리다.
+//
+// 값 필드라 Reload 가 buffer 를 통째로 갈아끼울 때(`*buf = next`) 저절로 비워진다. 다음 git
+// 갱신이 다시 채운다(진단·문법 캐시와 같은 자리다).
+type gitCache struct {
+	// base 는 HEAD 에 든 이 파일의 내용이다. 추적하지 않는 파일은 nil 이다.
+	base [][]byte
+
+	// head 는 base 를 읽어온 HEAD 해시다. 추적하지 않는 파일은 base 가 nil 인 채 이것만
+	// 적힌다 — 「없다」와 「아직 안 읽었다」를 이것이 가른다.
+	head string
+
+	// marks 는 base 와 지금 내용을 견줘 낸 줄별 마커다. 줄번호 칸과 트리가 이것을 그린다.
+	marks map[int]gitLineMark
+}
+
+// diskSeen 은 디스크와 마지막으로 맞춰 봤을 때 그 파일이 어떠했는지다.
+//
+// **지금 이 순간의 사실이 아니다.** 맞춰 보는 것은 포커스가 돌아올 때·셸에서 올라올 때뿐이라
+// 여기 든 것은 그때 본 것이다. 저장은 이것을 믿지 않고 그 자리에서 다시 읽는다 (ADR-0015).
+//
+// 넷을 묶은 것은 **같이 갱신되고 같이 낡기** 때문이다. 하나만 새것이면 판정이 어긋난다.
+type diskSeen struct {
+	// size, mtime 은 그때 파일의 크기와 mtime 이다.
+	//
+	// 다음 검사에서 이 둘이 그대로면 내용을 읽지 않는다 — 읽고 해시를 내는 것이 검사 값의
+	// 거의 전부여서, 유휴 상태의 값이 파일 크기와 무관해진다(ADR-0044).
+	//
+	// mtime 을 *판정* 으로 쓰지는 않는다. 내용이 같아도 mtime 이 바뀌는 일이 흔해서 그것으로
+	// 판정하면 헛경고가 잦다(ADR-0015). 여기서는 「그대로면 안 읽는다」 는 한쪽으로만 쓴다 —
+	// 틀리는 방향이 「괜히 한 번 더 읽는다」 라서 판정이 달라지지 않는다.
+	//
+	// mtime 이 zero 면 앞잡이가 없다는 뜻이고 그때는 읽어서 해시를 낸다.
+	size  int64
+	mtime time.Time
+
+	// hash 는 마지막으로 읽거나 쓴 시점의 파일 내용 해시다. nil 이면 그때 파일이 없었다는 뜻이다.
+	// 저장하기 직전에 파일을 다시 읽어 이것과 맞춰 보고, 다르면 쓰지 않는다 (ADR-0015).
+	hash []byte
+
+	// outside 는 그때 바깥이 어떻게 달라져 있었는지다. statusBar 의 `[!]` 가 이것이고,
+	// 알림과 달리 다음 키에 사라지지 않는다 (ADR-0031).
+	outside outsideChange
 }
 
 // lineEnding 은 파일의 줄끝 형식이다. 읽을 때 판정해서 저장할 때 그대로 되돌린다.
@@ -115,24 +175,23 @@ type Buffer struct {
 	// 아래는 파일 내용이 아니라 이 파일을 어떻게 보고 있는지다.
 	// tab 을 오갈 때 파일별로 유지되어야 하므로 Buffer 가 들고 있다.
 	// 화면 분할을 도입하면 같은 파일에 커서가 둘이 되므로 그때는 밖으로 빼야 한다.
+	//
+	// **한 덩어리로 묶어 두었다.** 나갈 때 통째로 나가야 하는 것들이고, 담아 두었다가
+	// 되돌리는 자리도 그 단위로 다룬다(place·moveToPlace).
 
-	cursorLine int // lines 의 index
-	cursorCol  int // lines[cursorLine] 안의 byte offset
+	viewPlace
+
 	// desiredCol 은 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
 	//
 	// 그렇게 둔 것은 `↑`/`↓` 가 화면 행 단위라서다(ADR-0006, ADR-0076). 대가로 wrap 된 줄의
 	// 둘째 행 이후에서 `j`/`k` 를 누르면 다음 줄의 첫 화면 행에 선다. vim 은 이 칸을 줄
 	// 시작에서 세므로 그 자리에서 다르고, 그대로 두기로 정했다(placeCursorInLine).
+	//
+	// viewPlace 에 안 든 것은 **담는 값이 아니기 때문**이다. 되돌린 뒤 다시 잰다.
 	desiredCol int
 
 	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
 	selection selection
-
-	// top, topRow 는 화면 최상단에 그릴 위치다. 커서에서 파생할 수 없다.
-	// 커서를 두고 화면만 움직이는 동작이 있고, 커서가 화면 안에 있는 동안은 화면이 움직이지 않아야 한다.
-	// 줄 하나가 화면 행 여러 개가 될 수 있어서 줄 번호만으로는 부족하다.
-	top    int // lines 의 index
-	topRow int // 그 줄의 몇 번째 wrap 행부터 그리는지
 
 	// indent 는 이 파일이 한 단계에 쓰는 공백이다(indent.go). 게을러서 처음 쓸 때 정한다.
 	indent indentUnit
@@ -160,29 +219,8 @@ type Buffer struct {
 	// `r--r--r--` 이다(ADR-0051). 고치는 동작이 첫 줄에서 이것을 본다(readonly.go).
 	readOnly bool
 
-	// diskSize·diskTime 은 마지막으로 맞춰 봤을 때 파일의 크기와 mtime 이다.
-	//
-	// 다음 검사에서 이 둘이 그대로면 내용을 읽지 않는다 — 읽고 해시를 내는 것이 검사 값의
-	// 거의 전부여서, 유휴 상태의 값이 파일 크기와 무관해진다(ADR-0044).
-	//
-	// mtime 을 *판정* 으로 쓰지는 않는다. 내용이 같아도 mtime 이 바뀌는 일이 흔해서 그것으로
-	// 판정하면 헛경고가 잦다(ADR-0015). 여기서는 「그대로면 안 읽는다」 는 한쪽으로만 쓴다 —
-	// 틀리는 방향이 「괜히 한 번 더 읽는다」 라서 판정이 달라지지 않는다.
-	//
-	// diskTime 이 zero 면 앞잡이가 없다는 뜻이고 그때는 읽어서 해시를 낸다.
-	diskSize int64
-	diskTime time.Time
-
-	// diskHash 는 마지막으로 읽거나 쓴 시점의 파일 내용 해시다. nil 이면 그때 파일이 없었다는 뜻이다.
-	// 저장하기 직전에 파일을 다시 읽어 이것과 맞춰 보고, 다르면 쓰지 않는다 (ADR-0015).
-	diskHash []byte
-
-	// outside 는 마지막으로 맞춰 봤을 때 바깥이 어떻게 달라져 있었는지다. statusBar 의 `[!]` 가
-	// 이것이고, 알림과 달리 다음 키에 사라지지 않는다 (ADR-0031).
-	//
-	// 맞춰 보는 것은 포커스가 돌아올 때·셸에서 올라올 때뿐이라, 이 값은 그때 본 것이지
-	// 지금 이 순간의 사실이 아니다. 저장은 여기를 믿지 않고 그 자리에서 다시 읽는다 (ADR-0015).
-	outside outsideChange
+	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 diskSeen 에 무엇이 왜 드는지 있다.
+	disk diskSeen
 
 	// diagnostics 는 gopls 가 이 파일에 대해 보낸 진단이다. 줄번호로 모아 둔다(diagnostics.go).
 	//
@@ -191,19 +229,8 @@ type Buffer struct {
 	// 다시 읽은 내용의 진단은 서버가 새로 보내온다(ADR-0086).
 	diagnostics map[int][]lsp.Diagnostic
 
-	// gitBase 는 HEAD 에 든 이 파일의 내용이고, gitLines 는 그것과 지금 내용을 견줘 낸
-	// 줄별 마커다(git-lines.go, ADR-0094).
-	//
-	// gitBaseHead 는 그 원본을 읽어온 HEAD 해시다. 이것이 지금 HEAD 와 다르면 원본이 낡은
-	// 것이라 다시 읽는다 — `git commit`·`checkout` 으로 기준이 통째로 움직이는 자리다.
-	// 추적하지 않는 파일은 원본이 nil 인 채 해시만 적힌다. 「없다」와 「아직 안 읽었다」를
-	// 그 해시가 가른다.
-	//
-	// 셋 다 값 필드라 Reload 가 buffer 를 통째로 갈아끼울 때(`*buf = next`) 저절로 비워진다.
-	// 다음 git 갱신이 다시 채운다(진단·문법 캐시와 같은 자리다).
-	gitBase     [][]byte
-	gitBaseHead string
-	gitLines    map[int]gitLineMark
+	// git 은 HEAD 와 견줘 낸 것이다. 아래 gitCache 에 무엇이 왜 드는지 있다.
+	git gitCache
 
 	// syntax 는 문법 강조 토큰을 담아 둔 것이다. 파일 내용에서 나온 것이라 커서·스크롤과 같이
 	// 이 파일에 딸려 있다(위 주석).
@@ -266,7 +293,7 @@ func newBuffer(path string, data []byte) Buffer {
 		tab:        resolveTabWidth(path),
 		data:       data,
 		lineEnding: detectLineEnding(data),
-		diskHash:   sum[:],
+		disk:       diskSeen{hash: sum[:]},
 		readOnly:   detectReadOnly(path),
 	}
 
