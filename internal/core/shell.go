@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
@@ -76,7 +77,14 @@ type shellDoneMsg struct {
 //
 // 빈 줄은 여기서 보지 않는다. 아무것도 치지 않았을 때 할 일이 부르는 쪽마다 다르다 —
 // `:!` 는 알리고, 팔레트는 아직 치는 중이라 가만히 있는다.
+// `%` 를 펴는 것도 여기다. `:!` 는 뒤를 뜯지 않고 통째로 넘기므로 뜯는 기계가 펴 줄 자리가
+// 없고, 팔레트의 `!` 는 그 기계를 아예 지나지 않는다. 둘이 만나는 곳이 여기뿐이다(ADR-0114).
 func runShell(e *editor, line string) (tea.Model, tea.Cmd) {
+	line, err := expandShellLine(line, e.currentFile())
+	if err != nil {
+		return normalModeError(e, err)
+	}
+
 	model, next := normalMode(e)
 
 	run := tea.Exec(&shellRun{line: line}, func(err error) tea.Msg {
@@ -84,6 +92,44 @@ func runShell(e *editor, line string) (tea.Model, tea.Cmd) {
 	})
 
 	return model, tea.Batch(next, run)
+}
+
+// expandShellLine 은 셸에 넘길 줄의 `%` 를 지금 보고 있는 파일 경로로 바꾼다.
+//
+// 자리를 가리지 않고 모든 `%` 를 편다. vim 과 같다 — `:!cp % %.bak` 이 되는 값으로
+// `:!df | grep 100%` 가 깨지는 것을 받는다(ADR-0114).
+//
+// **감싸지 않는다.** 공백이 든 이름은 셸에서 두 토큰이 되므로 `:!cat "%"` 처럼 친 사람이
+// 감싼다. 우리가 감싸면 감싼 것을 또 감싸는 자리가 생기고, 같은 명령이 파일 이름에 따라
+// 다르게 도는 자리도 생긴다.
+//
+// `\%` 는 글자 `%` 다. 나머지 `\` 는 건드리지 않는다 — 그것을 읽는 것은 셸이다.
+func expandShellLine(line string, currentPath string) (string, error) {
+	var out strings.Builder
+
+	chars := []rune(line)
+	for at := 0; at < len(chars); at++ {
+		if chars[at] == '\\' && at+1 < len(chars) && chars[at+1] == '%' {
+			out.WriteRune('%')
+			at++
+
+			continue
+		}
+
+		if chars[at] == '%' {
+			if currentPath == "" {
+				return "", errNoCurrentFile
+			}
+
+			out.WriteString(currentPath)
+
+			continue
+		}
+
+		out.WriteRune(chars[at])
+	}
+
+	return out.String(), nil
 }
 
 // finishShell 은 셸에서 돌아온 뒤를 정리한다.

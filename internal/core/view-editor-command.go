@@ -122,7 +122,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 명령을 실행한다.
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
-	cmd, err := parseCommand(m.input.text)
+	cmd, err := parseCommand(m.input.text, m.currentFile())
 	if err != nil {
 		return normalModeError(m.editor, err)
 	}

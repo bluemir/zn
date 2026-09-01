@@ -142,6 +142,59 @@ func TestCommandShellDoesNotTokenizeTail(t *testing.T) {
 	assert.NotContains(t, barOf(t, m)[1], "따옴표")
 }
 
+// 셸 줄의 `%` 는 자리를 가리지 않고 다 펴진다. vim 과 같다(ADR-0114).
+func TestExpandShellLine(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want string
+	}{
+		{name: "홀로 선 `%`", line: "cat %", want: "cat docs/tasks.md"},
+		{name: "붙어 있어도 펴진다", line: "cp % %.bak", want: "cp docs/tasks.md docs/tasks.md.bak"},
+		{name: "가운데의 `%` 도 펴진다", line: "df | grep 100%", want: "df | grep 100docs/tasks.md"},
+		{name: "`\\%` 는 글자다", line: `grep 100\% out`, want: "grep 100% out"},
+		{name: "다른 `\\` 는 그대로 셸에 간다", line: `echo a\ b`, want: `echo a\ b`},
+		{name: "줄 끝의 `\\` 도 그대로다", line: `echo a\`, want: `echo a\`},
+		{name: "감싸지 않는다", line: `cat "%"`, want: `cat "docs/tasks.md"`},
+		{name: "`%` 가 없으면 그대로", line: "ls -la", want: "ls -la"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := expandShellLine(test.line, "docs/tasks.md")
+
+			require.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+// 펼 파일이 없으면 셸에 넘기지 않는다. 빈 문자열로 펴면 `:!rm %` 가 뒤엣것을 지운다.
+func TestExpandShellLineWithoutCurrentFile(t *testing.T) {
+	_, err := expandShellLine("cat %", "")
+
+	require.Error(t, err)
+	assert.Equal(t, "이름 없는 파일이라 `%` 를 펼 수 없습니다", err.Error())
+
+	got, err := expandShellLine(`cat \%`, "")
+
+	require.NoError(t, err, "펼 것이 없어도 글자 `%` 는 지나간다")
+	assert.Equal(t, "cat %", got)
+}
+
+// 이름 없는 tab 에서 `%` 를 치면 터미널을 넘기지 않고 아래 줄에 남긴다.
+func TestCommandShellExpandFailureStaysInEditor(t *testing.T) {
+	var m tea.Model = newTestEditorFile("", "abc\n", 40, 5)
+
+	m = send(m, ":", "!", "c", "a", "t", " ", "%")
+
+	m, cmd := m.Update(key("enter"))
+
+	assert.IsType(t, viewEditorNormal{}, m)
+	assert.Nil(t, cmd, "셸에 넘기지 않는다")
+	assert.Contains(t, barOf(t, m)[1], "`%` 를 펼 수 없습니다")
+}
+
 func TestPaletteShellPrefix(t *testing.T) {
 	t.Run("안내를 놓고 counter 를 비운다", func(t *testing.T) {
 		var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")

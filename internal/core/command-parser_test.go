@@ -7,6 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testCurrentFile 은 인자 자리의 `%` 가 펴질 경로다. 여느 시험은 `%` 를 치지 않으므로
+// 무엇이든 되지만, 펴진 자리를 눈으로 알아볼 수 있게 흔한 이름을 쓴다(ADR-0114).
+const testCurrentFile = "docs/tasks.md"
+
 // words 는 여느 토큰(이름·인자) 을 짧게 적는 손이다. 갈래를 보는 줄만 kind 를 적는다.
 func words(texts ...string) []token {
 	tokens := []token{}
@@ -65,11 +69,25 @@ func TestTokenize(t *testing.T) {
 		{name: "맨 앞이 아닌 숫자는 인자다", input: "e 1,5", want: words("e", "1,5")},
 		{name: "범위 뒤의 `!` 는 이름 자리다", input: "1,5!sort", want: []token{{text: "1,5", kind: tokenKindRange}, {text: "sort", kind: tokenKindShell}}},
 		{name: "숫자로 시작하는 파일 이름", input: "e 1.txt", want: words("e", "1.txt")},
+
+		// 인자 자리의 `%` 는 지금 보고 있는 파일이다. 맨 앞의 `%`(범위) 와 자리로 갈린다(ADR-0114).
+		{name: "인자 자리의 `%` 는 지금 파일", input: "e %", want: words("e", testCurrentFile)},
+		{name: "`%` 는 토큰 안에서도 펴진다", input: "e %.bak", want: words("e", testCurrentFile+".bak")},
+		{name: "`%` 가 여럿이면 다 펴진다", input: "e %.a %.b", want: words("e", testCurrentFile+".a", testCurrentFile+".b")},
+		{name: "따옴표 안에서도 펴진다", input: `e "%"`, want: words("e", testCurrentFile)},
+		{name: "`\\%` 는 글자 `%` 다", input: `e \%`, want: words("e", "%")},
+		{name: "이름 자리의 `%` 는 펴지 않는다", input: "e% foo", want: words("e%", "foo")},
+		{name: "범위 자리의 `%` 는 펴지 않는다", input: "%s/a/%/", want: []token{
+			{text: "%", kind: tokenKindRange}, {text: "s"}, {text: "/a/%/", kind: tokenKindShell}}},
+		{name: "통째로 받는 인자에서는 펴지 않는다", input: "grep 50%", want: []token{
+			{text: "grep"}, {text: "50%", kind: tokenKindShell}}},
+		{name: "셸 줄은 여기서 펴지 않는다", input: "!cat %", want: []token{
+			{text: "cat %", kind: tokenKindShell}}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := tokenize(test.input)
+			got, err := tokenize(test.input, testCurrentFile)
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
@@ -93,7 +111,7 @@ func TestTokenizeUnfinished(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := tokenize(test.input)
+			_, err := tokenize(test.input, testCurrentFile)
 
 			require.Error(t, err)
 			assert.Equal(t, test.want, err.Error())
@@ -103,7 +121,7 @@ func TestTokenizeUnfinished(t *testing.T) {
 
 // 마지막 토큰은 입력이 끝날 때 흘려야 한다. 공백으로 끝나지 않으면 버퍼에 남는다.
 func TestTokenizeFlushesLastToken(t *testing.T) {
-	got, err := tokenize("w foo")
+	got, err := tokenize("w foo", testCurrentFile)
 
 	require.NoError(t, err)
 	assert.Equal(t, words("w", "foo"), got, "마지막 인자가 사라지면 안 된다")
@@ -138,7 +156,7 @@ func TestParseCommand(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := parseCommand(test.input)
+			got, err := parseCommand(test.input, testCurrentFile)
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
@@ -148,17 +166,35 @@ func TestParseCommand(t *testing.T) {
 
 // 범위를 뜯다 막히면 그 오류가 명령줄까지 온다. 뒤에 남은 토큰이 그것을 덮지 않는다.
 func TestParseCommandFailsOnBadRange(t *testing.T) {
-	_, err := parseCommand("1,2,3d foo")
+	_, err := parseCommand("1,2,3d foo", testCurrentFile)
 
 	require.Error(t, err)
 	assert.Equal(t, "범위를 알 수 없습니다: 2,3", err.Error())
 }
 
 func TestParseCommandPassesTokenizeError(t *testing.T) {
-	_, err := parseCommand(`w "unfinished`)
+	_, err := parseCommand(`w "unfinished`, testCurrentFile)
 
 	require.Error(t, err)
 	assert.Equal(t, "따옴표가 닫히지 않았습니다", err.Error())
+}
+
+// 펼 파일이 없으면 명령을 세운다. 빈 문자열로 펴면 `:w %` 가 이름 없는 자리에 조용히 쓴다.
+func TestTokenizeFailsOnCurrentFileWithoutName(t *testing.T) {
+	for _, input := range []string{"w %", `w "%"`, "e %.bak"} {
+		_, err := tokenize(input, "")
+
+		require.Error(t, err, input)
+		assert.Equal(t, "이름 없는 파일이라 `%` 를 펼 수 없습니다", err.Error(), input)
+	}
+}
+
+// 이름이 없어도 `%` 를 치지 않았으면 그대로 돈다. 막는 것은 펼 것이 있을 때뿐이다.
+func TestTokenizeWithoutNameStillParses(t *testing.T) {
+	got, err := tokenize(`w \% foo`, "")
+
+	require.NoError(t, err)
+	assert.Equal(t, words("w", "%", "foo"), got)
 }
 
 // `:grep` 뒤는 뜯지 않고 통째로 한 토큰이다. 정규식이 오는 자리다(ADR-0077).
@@ -183,7 +219,7 @@ func TestTokenizeGrepTakesRawArgument(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := tokenize(test.input)
+			got, err := tokenize(test.input, testCurrentFile)
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
@@ -193,7 +229,7 @@ func TestTokenizeGrepTakesRawArgument(t *testing.T) {
 
 // 다른 이름은 그대로 뜯는다. 통째로 받는 것은 정규식이 오는 둘뿐이다.
 func TestTokenizeOtherNamesStillSplit(t *testing.T) {
-	got, err := tokenize(`e a\b c`)
+	got, err := tokenize(`e a\b c`, testCurrentFile)
 
 	require.NoError(t, err)
 	assert.Equal(t, words("e", "ab", "c"), got, "`\\` 가 먹히고 공백으로 끊긴다")
@@ -228,7 +264,7 @@ func TestTokenizeSubstituteTakesDelimitedArgument(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := tokenize(test.input)
+			got, err := tokenize(test.input, testCurrentFile)
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
@@ -239,7 +275,7 @@ func TestTokenizeSubstituteTakesDelimitedArgument(t *testing.T) {
 // 뒤가 비어 있으면 인자가 아니다. `:grep ` 는 `:grep` 과 같아야 한다.
 func TestParseGrepEmptyRawArgumentIsNotAnArgument(t *testing.T) {
 	for _, input := range []string{"grep", "grep ", "grep   "} {
-		cmd, err := parseCommand(input)
+		cmd, err := parseCommand(input, testCurrentFile)
 
 		require.NoError(t, err, input)
 		assert.Equal(t, "grep", cmd.name, input)
@@ -249,7 +285,7 @@ func TestParseGrepEmptyRawArgumentIsNotAnArgument(t *testing.T) {
 
 // 패턴을 대면 인자 하나로 온다.
 func TestParseGrepKeepsPatternWhole(t *testing.T) {
-	cmd, err := parseCommand(`grep func\s+New(`)
+	cmd, err := parseCommand(`grep func\s+New(`, testCurrentFile)
 
 	require.NoError(t, err)
 	assert.Equal(t, "grep", cmd.name)

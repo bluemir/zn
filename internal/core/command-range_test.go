@@ -144,15 +144,15 @@ func TestLineRangeResolveOutOfFile(t *testing.T) {
 
 // zero 가 "치지 않았다" 여야 명령이 기본값을 스스로 정할 수 있다.
 func TestLineRangeZeroMeansNotGiven(t *testing.T) {
-	cmd, err := parseCommand("d")
+	cmd, err := parseCommand("d", testCurrentFile)
 	require.NoError(t, err)
 	assert.Equal(t, lineRange{}, cmd.lines, "범위를 치지 않았다")
 
-	cmd, err = parseCommand(".d")
+	cmd, err = parseCommand(".d", testCurrentFile)
 	require.NoError(t, err)
 	assert.NotEqual(t, lineRange{}, cmd.lines, "`.` 는 친 것이다")
 
-	cmd, err = parseCommand("+3d")
+	cmd, err = parseCommand("+3d", testCurrentFile)
 	require.NoError(t, err)
 	assert.NotEqual(t, lineRange{}, cmd.lines, "base 없는 옮김도 친 것이다")
 }

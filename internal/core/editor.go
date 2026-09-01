@@ -318,6 +318,22 @@ func (e editor) activePath() string {
 	return abs
 }
 
+// currentFile 은 명령줄의 `%` 가 가리키는 경로다. 펼 파일이 없으면 빈 문자열이다.
+//
+// 연 그대로(`buffers[active].path`) 가 아니라 늘 상대다. 같은 파일이 CLI 로 열었는지 트리로
+// 열었는지에 따라 다르게 펴지면 `:!git add %` 가 어느 날은 짧고 어느 날은 길다. 화면이 경로를
+// 줄여 보이는 규칙과도 같아서 보이는 것과 펴지는 것이 어긋나지 않는다(ADR-0114).
+//
+// cwd 밖이면 `~` 나 절대 경로다. `~` 는 셸이 펴고, 파일 인자는 expandHome 이 편다(ADR-0088).
+func (e editor) currentFile() string {
+	abs := e.activePath()
+	if abs == "" {
+		return ""
+	}
+
+	return shortenPath(abs)
+}
+
 // revealInSidebar 는 트리를 그 파일 자리까지 펼치고 고른 뒤 화면 안으로 끌어온다.
 // 보고 있는 파일이 바뀌는 모든 길이 이것을 부른다(ADR-0019).
 //
