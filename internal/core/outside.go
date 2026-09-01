@@ -52,7 +52,7 @@ type outsideResult struct {
 
 	// next 는 갈아끼울 내용이다. 내용이 달라졌을 때만 채운다 — 만드는 것이 파일 크기만큼
 	// 드는 일이라 이 자리(백그라운드) 에서 해 둔다.
-	next *Buffer
+	next *viewport
 
 	err error
 }
@@ -87,7 +87,7 @@ func (e *editor) outsideTargets() []outsideTarget {
 }
 
 // outsideTargetOf 는 buffer 하나에서 기준을 뜬다.
-func outsideTargetOf(buf *Buffer) outsideTarget {
+func outsideTargetOf(buf *viewport) outsideTarget {
 	return outsideTarget{
 		path:  buf.path,
 		seen:  buf.disk.hash,
@@ -318,7 +318,7 @@ func outsideSummary(result outsideResult) string {
 //
 // 활성 buffer 가 아니라 buffer 를 받는다. 검사가 백그라운드로 내려가서, 결과가 돌아올 때는
 // 보고 있는 tab 이 검사한 tab 이 아닐 수 있다(ADR-0044).
-func markOutsideChange(buf *Buffer, change outsideChange) string {
+func markOutsideChange(buf *viewport, change outsideChange) string {
 	was := buf.disk.outside
 	buf.disk.outside = change
 

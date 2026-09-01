@@ -12,42 +12,40 @@ import (
 	"github.com/bluemir/zn/internal/syntax"
 )
 
-// Buffer 는 파일 하나다. 이 파일은 type 과 태어나는 자리만 들고, 메서드 116 개는 갈래별로
-// `buffer-*.go` 에 나뉘어 있다.
+// Buffer 는 파일 하나의 **글**이다. 이 파일은 type 과 태어나는 자리만 들고, 메서드 40 개는
+// 갈래별로 `buffer-*.go` 에 나뉘어 있다.
 //
-// **`buffer-*.go` 에는 Buffer 의 메서드만 둔다.** 여러 갈래가 나눠 쓰는 type·도우미와 다른
-// receiver 의 메서드는 접두 없는 파일에 남는다 — `register` 는 register.go, `motionRange` 는
-// range.go, `screenRow` 는 row.go 에 있다.
+// **커서와 화면 자리는 여기 없다.** 「그 글의 어디를 보고 있나」는 viewport 가 들고, 커서를
+// 만지는 메서드 88 개도 그쪽에 있다. 그 가름을 컴파일러가 지킨다 — 여기 커서 필드가 없으니
+// 이 40 개는 커서를 만질 수 없다 (viewport.go, ADR-0121).
+//
+// **`buffer-*.go` 에는 Buffer 와 viewport 의 메서드만 둔다.** 여러 갈래가 나눠 쓰는 type·
+// 도우미와 다른 receiver 의 메서드는 접두 없는 파일에 남는다 — `register` 는 register.go,
+// `motionRange` 는 range.go, `screenRow` 는 row.go 에 있다.
 //
 // **줄 하나를 재고 가르는 것도 접두 없는 파일이다.** 화면에서 재고 그릴 글자로 바꾸는 것은
 // cluster.go, 무엇이 한 단어인지는 glyph-class.go 다 (ADR-0119).
 //
-// # Buffer 가 하는 일과 안 하는 일 (ADR-0100)
+// # Buffer 가 하는 일과 안 하는 일 (ADR-0100, ADR-0121)
 //
-// **드는 것은 글과, 그 글을 보고 있는 상태다.** 줄과 커서만이 아니다 — 화면 스크롤 자리
-// (`top`·`topRow`), 고른 범위, 되돌리기 이력, 디스크와 맞춰 본 것, 그리고 밖에서 채워 넣는
-// 캐시 셋(언어 서버 진단·git 마커·문법 토큰) 이 같이 있다.
+// **드는 것은 글과 그 글에 딸린 것이다.** 줄, 되돌리기 이력, 디스크와 맞춰 본 것, 이 파일의
+// tab 폭과 들여쓰기, 그리고 밖에서 채워 넣는 캐시 셋(언어 서버 진단·git 마커·문법 토큰) 이다.
 //
-// **내놓는 것은 한 걸음짜리 조작이다.** 커서를 옮기고, 줄을 넣고 지우고, 파일에 쓴다.
-// 그 한 걸음마다 지켜야 할 불변(`desiredCol`, 되돌리기 구간) 을 안에서 지킨다.
+// **내놓는 것은 글을 고치는 한 걸음이다.** 줄을 넣고 지우고 갈아끼우고, 파일에 쓴다. 그
+// 한 걸음마다 지켜야 할 불변(되돌리기 구간, 문법 캐시의 어긋남) 을 안에서 지킨다.
 //
 // **안 하는 것이 셋이다.**
 //
-//   - **키가 무엇을 뜻하는지 모른다.** `motion` 을 받지 않고 `motionRange` 만 받는다.
-//     「`dw` 가 어디까지인가」를 정하는 것은 motion.go 이고, 여기는 그 범위를 받아 일한다
-//   - **범위만으로 정해지는 커서 자리는 여기서 두지 않는다.** 복사는 `y` 의 커서 규칙을
-//     모르고 register 만 만든다. 부르는 쪽이 「복사하고, 커서를 옮긴다」를 그 차례로 시켜서
-//     `y` 와 `~` 의 미묘한 차이가 그 자리에 드러난다(action.go)
-//
-//     **편집이 만들어 낸 자리는 반대다.** 붙인 글이 끝난 자리, 지운 자리, 이은 자리, 지운
-//     줄을 메운 줄 — 그것을 아는 것은 편집뿐이라 `pasteText`·`deleteText`·`joinLines`·
-//     `deleteLines` 가 제 커서를 둔다. 밖으로 내면 그 자리를 돌려주는 값이 하나 늘 뿐이다
+//   - **커서를 모른다.** 어디를 고칠지는 범위(`motionRange`) 로 받는다. 그 범위를 만드는 것도
+//     고치고 나서 커서를 어디 둘지도 viewport 가 한다
+//   - **키가 무엇을 뜻하는지 모른다.** `motion` 을 받지 않는다. 「`dw` 가 어디까지인가」를
+//     정하는 것은 motion.go 다
 //   - **register 를 어디에 담을지 모른다.** `register` 라는 짐은 주고받지만 `"a`·숫자 링
 //     같은 이름은 `e.registers` 가 다룬다
 //
-// **경계가 흐린 자리 둘은 알고 둔다.** 커서와 스크롤은 tab 마다 유지하려고 여기 든 것이라
-// 화면 분할이 오면 밖으로 빼야 하고(아래 주석), 화면 폭(`width`) 을 메서드 예순 남짓이 받는다 —
-// 화면 행 이동과 `desiredCol` 이 줄바꿈에 걸려 있어서다.
+// **흐린 자리가 하나 남았다.** 화면 폭(`width`) 을 아직 메서드 예순 남짓이 받는다. 화면 행
+// 이동과 `desiredCol` 이 줄바꿈에 걸려 있어서인데, 그 둘이 viewport 로 갔으므로 이 인자도
+// 그쪽으로 모을 수 있다 (docs/tasks.md).
 
 // viewPlace 는 「이 파일의 어디를 보고 있나」다. 커서와 화면 자리를 함께 담는다.
 //
@@ -172,26 +170,8 @@ type Buffer struct {
 	lineEnding      lineEnding
 	finalLineEnding bool //파일 마지막 줄이 줄끝 문자로 끝났는지
 
-	// 아래는 파일 내용이 아니라 이 파일을 어떻게 보고 있는지다.
-	// tab 을 오갈 때 파일별로 유지되어야 하므로 Buffer 가 들고 있다.
-	// 화면 분할을 도입하면 같은 파일에 커서가 둘이 되므로 그때는 밖으로 빼야 한다.
-	//
-	// **한 덩어리로 묶어 두었다.** 나갈 때 통째로 나가야 하는 것들이고, 담아 두었다가
-	// 되돌리는 자리도 그 단위로 다룬다(place·moveToPlace).
-
-	viewPlace
-
-	// desiredCol 은 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
-	//
-	// 그렇게 둔 것은 `↑`/`↓` 가 화면 행 단위라서다(ADR-0006, ADR-0076). 대가로 wrap 된 줄의
-	// 둘째 행 이후에서 `j`/`k` 를 누르면 다음 줄의 첫 화면 행에 선다. vim 은 이 칸을 줄
-	// 시작에서 세므로 그 자리에서 다르고, 그대로 두기로 정했다(placeCursorInLine).
-	//
-	// viewPlace 에 안 든 것은 **담는 값이 아니기 때문**이다. 되돌린 뒤 다시 잰다.
-	desiredCol int
-
-	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
-	selection selection
+	// **커서와 화면 자리는 여기 없다.** 「이 파일의 어디를 보고 있나」는 viewport 가 든다
+	// (viewport.go). 이 type 은 글과 그 글에 딸린 것만 든다.
 
 	// indent 는 이 파일이 한 단계에 쓰는 공백이다(indent.go). 게을러서 처음 쓸 때 정한다.
 	indent indentUnit
@@ -254,23 +234,26 @@ type edit struct {
 	cursorLine, cursorCol int // 되돌린 뒤 커서를 놓을 자리
 }
 
-// newEmptyBuffer 는 파일 없이 시작하는 빈 Buffer 를 만든다.
-func newEmptyBuffer(path string) Buffer {
-	return Buffer{
+// newEmptyBuffer 는 파일 없이 시작하는 빈 창을 만든다.
+//
+// **창(viewport) 까지 만들어 준다.** 지금은 tab 과 파일이 1:1 이라 「파일을 열면 그것을 볼
+// 창이 하나 생긴다」가 사실이다. 화면 분할이 오면 그때 갈린다(viewport.go).
+func newEmptyBuffer(path string) viewport {
+	return viewport{Buffer: Buffer{
 		path:            path,
 		language:        syntax.LanguageFor(path),
 		tab:             resolveTabWidth(path),
 		lines:           [][]byte{{}},
 		finalLineEnding: true, // 새 파일은 줄끝으로 끝낸다
-	}
+	}}
 }
 
 // newBufferReadOnly 는 읽기 전용 표시를 붙인다. 파일을 여는 길이 여럿이라 표시를 붙이는
 // 자리도 여럿이 되지 않게, 읽는 자리에서 한 번 본다.
 
-// OpenBuffer 는 파일을 읽어서 Buffer 로 만든다.
-// 파일이 없으면 빈 줄 하나짜리 새 Buffer 를 만든다.
-func OpenBuffer(path string) (Buffer, error) {
+// OpenBuffer 는 파일을 읽어서 창으로 만든다(newEmptyBuffer 의 주석을 같이 본다).
+// 파일이 없으면 빈 줄 하나짜리 새 창을 만든다.
+func OpenBuffer(path string) (viewport, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return newEmptyBuffer(path), nil
@@ -279,13 +262,13 @@ func OpenBuffer(path string) (Buffer, error) {
 		// **무엇을 하려 했는지만 표시하고 문구는 짓지 않는다.** 경로와 까닭은 os 가 준
 		// `*os.PathError` 가 이미 들고 있어서, 글자로 부수면 그 구조를 버리는 것이 된다.
 		// 한 줄로 만드는 자리는 보여 주는 곳 하나다(notice.go 의 noticeText, ADR-0053).
-		return Buffer{}, errors.Mark(err, errOpenFile)
+		return viewport{}, errors.Mark(err, errOpenFile)
 	}
 
 	return newBuffer(path, data), nil
 }
 
-func newBuffer(path string, data []byte) Buffer {
+func newBuffer(path string, data []byte) viewport {
 	sum := sha256.Sum256(data)
 	buf := Buffer{
 		path:       path,
@@ -299,7 +282,7 @@ func newBuffer(path string, data []byte) Buffer {
 
 	buf.lines, buf.finalLineEnding = splitLines(data)
 
-	return buf
+	return viewport{Buffer: buf}
 }
 
 // splitLines 는 파일 내용을 줄로 가른다. 줄끝은 줄에 남기지 않는다.

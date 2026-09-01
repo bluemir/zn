@@ -17,7 +17,7 @@ func newUnnamedEditor(t *testing.T) (viewEditorNormal, string) {
 
 	return viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newEmptyBuffer("")},
+			buffers: []viewport{newEmptyBuffer("")},
 			width:   60,
 			height:  5 + tablineHeight + statusBarHeight,
 		},

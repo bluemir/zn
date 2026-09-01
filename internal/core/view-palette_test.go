@@ -280,7 +280,7 @@ func newFilePalette(t *testing.T, path, input string) viewPalette {
 
 	m := viewPalette{
 		editor: &editor{
-			buffers: []Buffer{buf},
+			buffers: []viewport{buf},
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
 		},
@@ -336,7 +336,7 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 	m := viewPalette{
 		editor: &editor{
-			buffers: []Buffer{newEmptyBuffer("")},
+			buffers: []viewport{newEmptyBuffer("")},
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
 		},

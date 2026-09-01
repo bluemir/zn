@@ -4,7 +4,7 @@ import "github.com/bluemir/zn/internal/lsp"
 
 // 자동완성이 고른 것을 buffer 에 넣는다.
 //
-// **Buffer 표면에서 `internal/lsp` 를 아는 유일한 자리**라 파일을 따로 두어 그 import 를 여기
+// **viewport 표면에서 `internal/lsp` 를 아는 유일한 자리**라 파일을 따로 두어 그 import 를 여기
 // 가둔다. 밖으로 뺄지는 아직 정하지 않았다 (ADR-0066, docs/tasks.md).
 
 // insertCompletion 은 후보 하나를 커서 자리에 넣는다.
@@ -16,7 +16,7 @@ import "github.com/bluemir/zn/internal/lsp"
 //
 // **되돌리기 구간을 닫지 않는다.** insert 에서 친 글자와 한 구간에 있어야 `u` 한 번으로
 // 그 insert 가 통째로 돌아간다. vim 과 같다.
-func (buf *Buffer) insertCompletion(item lsp.CompletionItem, width int) {
+func (buf *viewport) insertCompletion(item lsp.CompletionItem, width int) {
 	line := buf.cursorLine
 	start, end := buf.cursorCol, buf.cursorCol
 

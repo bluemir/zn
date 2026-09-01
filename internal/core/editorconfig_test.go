@@ -256,7 +256,7 @@ func TestWriteCommandShowsNote(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 300, height: 20}
+	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
 	m := viewEditorNormal{editor: e}
 
 	runCommand(m, "w")
@@ -285,7 +285,7 @@ func TestWriteCommandShortensPath(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 300, height: 20}
+	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
 
 	runCommand(viewEditorNormal{editor: e}, "w")
 
@@ -302,7 +302,7 @@ func TestWriteCopyDoesNotFormat(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 300, height: 20}
+	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
 	m := viewEditorNormal{editor: e}
 
 	copyPath := filepath.Join(filepath.Dir(path), "copy.txt")

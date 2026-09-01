@@ -239,7 +239,7 @@ func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	absolute := newBuffer(filepath.Join(root, "abs.go"), []byte("절대\n"))
 	absolute.dirty = true
 
-	e := editor{buffers: []Buffer{clean, absolute}}
+	e := editor{buffers: []viewport{clean, absolute}}
 	open, overlay := e.dirtyOverlay(root)
 
 	assert.Len(t, overlay, 1, "깨끗한 buffer 의 글은 담지 않는다 — 디스크와 같다")
@@ -266,7 +266,7 @@ func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	relative := newBuffer(filepath.Join("sub", "rel.go"), []byte("상대\n"))
 	relative.dirty = true
 
-	e = editor{buffers: []Buffer{relative}}
+	e = editor{buffers: []viewport{relative}}
 
 	open, overlay = e.dirtyOverlay(cwd)
 	assert.Contains(t, overlay, filepath.Join("sub", "rel.go"))
@@ -286,7 +286,7 @@ func TestDirtyOverlayKeepsOutsideRoot(t *testing.T) {
 	buf := newBuffer(full, []byte("멀다\n"))
 	buf.dirty = true
 
-	e := editor{buffers: []Buffer{buf}}
+	e := editor{buffers: []viewport{buf}}
 
 	open, overlay := e.dirtyOverlay(root)
 

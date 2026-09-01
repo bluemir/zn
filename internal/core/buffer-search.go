@@ -65,7 +65,7 @@ func (buf Buffer) findBackward(pattern *regexp.Regexp, fromLine, fromCol int) (s
 }
 
 // moveTo 는 커서를 그 자리로 옮긴다. 검색이 찾은 자리로 뛸 때 쓴다.
-func (buf *Buffer) moveTo(line, col, width int) {
+func (buf *viewport) moveTo(line, col, width int) {
 	buf.cursorLine = min(max(line, 0), len(buf.lines)-1)
 	buf.cursorCol = min(max(col, 0), len(buf.lines[buf.cursorLine]))
 	buf.updateDesiredCol(width)
@@ -75,7 +75,7 @@ func (buf *Buffer) moveTo(line, col, width int) {
 //
 // 커서가 단어 위가 아니면 그 줄에서 오른쪽으로 첫 단어를 찾는다. 줄에 단어가 없으면 false 다.
 // vim 과 같다 — 들여쓰기 위에서 눌러도 그 줄의 첫 낱말을 찾아준다.
-func (buf Buffer) wordUnderCursor() (string, int, bool) {
+func (buf viewport) wordUnderCursor() (string, int, bool) {
 	line := buf.lines[buf.cursorLine]
 
 	col := buf.cursorCol

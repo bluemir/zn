@@ -17,7 +17,7 @@ package core
 //
 // 커서는 **마지막으로 이은 자리**에 선다. `3J` 는 셋째 줄이 붙은 자리이고, 그것이 다음에
 // 칠 것(`x` 로 공백 지우기, `i` 로 손보기) 이 놓인 자리다. 이것도 vim 과 같다.
-func (buf *Buffer) joinLines(count, width int) {
+func (buf *viewport) joinLines(count, width int) {
 	// 남은 줄로 이을 수 있는 만큼으로 줄인다. 마지막 줄에서는 이을 것이 없어 아무 일도 없다.
 	lines := min(max(count, 2), len(buf.lines)-buf.cursorLine)
 	if lines < 2 {

@@ -9,7 +9,7 @@ import (
 
 // wordStops 는 이동 키를 계속 눌렀을 때 커서가 서는 자리를 차례로 모은다.
 // 자리는 `줄:byte offset` 이고 둘 다 0 부터다. 더 움직이지 않으면 멈춘다.
-func wordStops(buf Buffer, move func(*Buffer)) []string {
+func wordStops(buf viewport, move func(*viewport)) []string {
 	stops := []string{}
 
 	for range 20 {
@@ -90,7 +90,7 @@ func TestWordForward(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 
-			got := wordStops(buf, func(b *Buffer) { b.moveWordForward(1, test.kind, wide) })
+			got := wordStops(buf, func(b *viewport) { b.moveWordForward(1, test.kind, wide) })
 
 			assert.Equal(t, test.want, got)
 		})
@@ -141,7 +141,7 @@ func TestWordEnd(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 
-			got := wordStops(buf, func(b *Buffer) { b.moveWordEnd(1, test.kind, wide) })
+			got := wordStops(buf, func(b *viewport) { b.moveWordEnd(1, test.kind, wide) })
 
 			assert.Equal(t, test.want, got)
 		})
@@ -191,7 +191,7 @@ func TestWordBackward(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 			buf.cursorCol = test.start
 
-			got := wordStops(buf, func(b *Buffer) { b.moveWordBackward(1, test.kind, wide) })
+			got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, test.kind, wide) })
 
 			assert.Equal(t, test.want, got)
 		})
@@ -203,7 +203,7 @@ func TestWordBackwardCrossesLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n\ncd\n"))
 	buf.cursorLine, buf.cursorCol = 2, 1
 
-	got := wordStops(buf, func(b *Buffer) { b.moveWordBackward(1, wordSmall, wide) })
+	got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, wordSmall, wide) })
 
 	assert.Equal(t, []string{"2:0", "1:0", "0:0"}, got)
 }

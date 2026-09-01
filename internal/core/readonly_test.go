@@ -84,7 +84,7 @@ func TestReadOnlyRefusesEditingKeys(t *testing.T) {
 
 			before := string(buf.contents())
 
-			e := &editor{buffers: []Buffer{buf}, width: 80, height: 20}
+			e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
 			m := viewEditorNormal{editor: e}
 
 			model := send(m, pressed...)
@@ -108,7 +108,7 @@ func TestReadOnlyAllowsMovingAndYanking(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
 	m := viewEditorNormal{editor: e}
 
 	send(m, "j", "j")
@@ -131,7 +131,7 @@ func TestReadOnlyShowsInStatusBar(t *testing.T) {
 
 	// 임시 디렉터리 경로가 길어서 좁은 화면에서는 표시가 잘린다. 여기서 보는 것은 표시가
 	// 붙는지라 화면을 넉넉히 준다.
-	e := editor{buffers: []Buffer{buf}, width: 300, height: 20}
+	e := editor{buffers: []viewport{buf}, width: 300, height: 20}
 
 	assert.Contains(t, e.renderStatusBar("NORMAL", "")[0], "[읽기 전용]")
 }

@@ -40,7 +40,7 @@ func locationsFixture(t *testing.T) (viewLocations, []string) {
 	// 테두리를 unicode 로 두는 것은 다른 두 판의 시험과 같은 약속이다(ADR-0028, ADR-0056).
 	e := &editor{
 		boxChars: boxUnicode,
-		buffers:  []Buffer{buf},
+		buffers:  []viewport{buf},
 		width:    80,
 		height:   20,
 	}
@@ -216,7 +216,7 @@ func manyLocationsFixture(t *testing.T, count, width, height int) viewLocations 
 
 	e := &editor{
 		boxChars: boxUnicode,
-		buffers:  []Buffer{buf},
+		buffers:  []viewport{buf},
 		width:    width,
 		height:   height,
 	}

@@ -13,7 +13,7 @@ import (
 
 // 죽을 때마다 알리고 되살린다. 너무 자주 죽으면 실패한 것으로 두고 그만둔다.
 func TestRecordServerDeath(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("a.go")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("a.go")}, width: 80, height: 20}
 	server := lsp.ServerFor("a.go")
 	state := e.serverState(server)
 
@@ -35,7 +35,7 @@ func TestRecordServerDeath(t *testing.T) {
 
 // 알림에 그 서버의 이름이 든다. 서버가 여럿이라 「무엇이 멎었나」가 문구에 있어야 한다.
 func TestRecordServerDeathNamesTheServer(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("app.py")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("app.py")}, width: 80, height: 20}
 	server := lsp.ServerFor("app.py")
 
 	e.recordServerDeath(server.Name, e.serverState(server))
@@ -45,7 +45,7 @@ func TestRecordServerDeathNamesTheServer(t *testing.T) {
 
 // 그만둔 뒤에는 startServer 가 물러난다. 되살리는 고리가 여기서 끊긴다.
 func TestServerStopsAfterTooManyDeaths(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("a.go")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("a.go")}, width: 80, height: 20}
 	server := lsp.ServerFor("a.go")
 	state := e.serverState(server)
 
@@ -59,7 +59,7 @@ func TestServerStopsAfterTooManyDeaths(t *testing.T) {
 
 // 한 서버가 그만둔 것이 다른 서버를 막지 않는다. 상태를 서버마다 따로 드는 값이 이것이다.
 func TestServerFailureIsPerServer(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("a.go")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("a.go")}, width: 80, height: 20}
 
 	goServer := lsp.ServerFor("a.go")
 	pyServer := lsp.ServerFor("a.py")
@@ -75,7 +75,7 @@ func TestServerFailureIsPerServer(t *testing.T) {
 
 // 설치가 끝나면 그 자리가 풀린다. 실패로 세운 것을 되돌리는 문이 그것이다(installServer).
 func TestServerFailedClearedByInstall(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("a.go")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("a.go")}, width: 80, height: 20}
 	server := lsp.ServerFor("a.go")
 	state := e.serverState(server)
 
@@ -91,7 +91,7 @@ func TestServerFailedClearedByInstall(t *testing.T) {
 
 // 서버가 없으면 clientOf 는 조용히 nil 이다. 죽은 것과 뜬 적 없는 것을 셈에서 가른다.
 func TestClientOfWithoutServer(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("a.go")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("a.go")}, width: 80, height: 20}
 	server := lsp.ServerFor("a.go")
 
 	assert.Nil(t, e.clientOf(server))

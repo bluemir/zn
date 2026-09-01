@@ -31,7 +31,7 @@ func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
 			// 테두리는 unicode 로 둔다. 폭 눈금은 시험에서 정하지 못한다 — 시작할 때
 			// 터미널에 맞추는 것이고(ADR-0072) 시험은 tty 가 아니라서 늘 한 칸 쪽이다.
 			boxChars: boxUnicode,
-			buffers:  []Buffer{newBuffer(path, []byte(data))},
+			buffers:  []viewport{newBuffer(path, []byte(data))},
 			width:    width,
 			height:   height + tablineHeight + statusBarHeight,
 		},
@@ -153,7 +153,7 @@ func TestWindowTitle(t *testing.T) {
 		buf, err := OpenBuffer(deep)
 		require.NoError(t, err)
 
-		e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
 		assert.Equal(t, "zn editor.go (internal/core)", e.renderWindowTitle())
 	})
 
@@ -161,7 +161,7 @@ func TestWindowTitle(t *testing.T) {
 		buf, err := OpenBuffer(deep)
 		require.NoError(t, err)
 
-		e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
 		e.activeBuffer().insert([]byte("X"), 80)
 
 		assert.Equal(t, "zn editor.go + (internal/core)", e.renderWindowTitle())
@@ -171,12 +171,12 @@ func TestWindowTitle(t *testing.T) {
 		buf, err := OpenBuffer(root)
 		require.NoError(t, err)
 
-		e := &editor{buffers: []Buffer{buf}, width: 80, height: 12}
+		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
 		assert.Equal(t, "zn go.mod", e.renderWindowTitle())
 	})
 
 	t.Run("이름 없는 buffer", func(t *testing.T) {
-		e := &editor{buffers: []Buffer{newEmptyBuffer("")}, width: 80, height: 12}
+		e := &editor{buffers: []viewport{newEmptyBuffer("")}, width: 80, height: 12}
 		assert.Equal(t, "zn [No Name]", e.renderWindowTitle())
 	})
 

@@ -6,7 +6,7 @@ package core
 //
 // **범위를 잡는 것은 부르는 쪽이다.** motion 이 잡은 것(`dw`) 도 visual 이 고른 것(`d`) 도
 // 여기로 온다 — 둘이 범위를 얻는 길만 다르고 그다음은 같다(action.go, ADR-0037).
-func (buf *Buffer) deleteRange(area motionRange, width int) (register, bool) {
+func (buf *viewport) deleteRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		return buf.deleteLines(area.startLine, area.endLine, width), true
 	}
@@ -15,7 +15,7 @@ func (buf *Buffer) deleteRange(area motionRange, width int) (register, bool) {
 }
 
 // includeCursorCluster 는 커서가 선 글자까지 범위에 넣는다. inclusive motion 이 쓴다.
-func (buf *Buffer) includeCursorCluster() {
+func (buf *viewport) includeCursorCluster() {
 	line := buf.lines[buf.cursorLine]
 	if buf.cursorCol >= len(line) {
 		return
@@ -32,7 +32,7 @@ func (buf *Buffer) includeCursorCluster() {
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 // deleteText 는 (startLine, startCol) 부터 (endLine, endCol) 앞까지 지운다.
 // 지울 것이 없으면 아무것도 하지 않고 false 다.
-func (buf *Buffer) deleteText(startLine, startCol, endLine, endCol, width int) (register, bool) {
+func (buf *viewport) deleteText(startLine, startCol, endLine, endCol, width int) (register, bool) {
 	if startLine == endLine && startCol == endCol {
 		return register{}, false
 	}
@@ -82,7 +82,7 @@ func (buf Buffer) textBetween(startLine, startCol, endLine, endCol int) [][]byte
 //
 // 파일의 모든 줄을 지우면 빈 줄 하나를 남긴다. lines 는 비어 있을 수 없다 —
 // 커서가 설 줄이 없으면 그리는 쪽과 이동하는 쪽이 모두 무너진다.
-func (buf *Buffer) deleteLines(from, to, width int) register {
+func (buf *viewport) deleteLines(from, to, width int) register {
 	count := to - from + 1
 
 	with := [][]byte(nil)

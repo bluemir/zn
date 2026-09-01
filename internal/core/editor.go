@@ -19,7 +19,7 @@ import (
 // mode 별 model 이 이것을 포인터로 embed 하고, 전환할 때 그 포인터를 그대로 넘긴다.
 // 편집기가 도는 동안 이것은 하나뿐이라 어느 mode 에서 고쳐도 다음 화면이 같은 것을 본다(ADR-0026).
 type editor struct {
-	buffers []Buffer
+	buffers []viewport
 	active  int
 
 	// tabScroll 은 tabline 에 처음으로 그리는 tab 의 index 다. tab 이 편집 영역 너비보다
@@ -232,7 +232,7 @@ func (e *editor) refuseNoBuffer() bool {
 // 달아야 하고, 빠뜨린 한 자리는 터지는 대신 조용히 틀린다. tab 이 없는 동안 편집 동작이
 // 이 자리에 오지 않는 것으로 지킨다 — 판을 갈아끼우는 것이 mode 라는 자리가 그것을
 // 보증한다(ADR-0002, ADR-0064).
-func (e *editor) activeBuffer() *Buffer {
+func (e *editor) activeBuffer() *viewport {
 	return &e.buffers[e.active]
 }
 
@@ -240,7 +240,7 @@ func (e *editor) activeBuffer() *Buffer {
 //
 // 백그라운드 검사가 결과를 넣을 자리를 찾는 데 쓴다(ADR-0044). index 로 기억해 두면 그 사이
 // tab 이 닫혀서 다른 파일을 가리킬 수 있다.
-func (e *editor) bufferByPath(path string) *Buffer {
+func (e *editor) bufferByPath(path string) *viewport {
 	if path == "" {
 		return nil
 	}
@@ -605,7 +605,7 @@ func (e *editor) moveTab(to int) {
 func (e *editor) closeOtherTabs() int {
 	closed := len(e.buffers) - 1
 
-	e.buffers = []Buffer{e.buffers[e.active]}
+	e.buffers = []viewport{e.buffers[e.active]}
 	e.active = 0
 	e.scrollTabsTo()
 

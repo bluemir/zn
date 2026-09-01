@@ -146,7 +146,7 @@ func revealSync(t *testing.T, s sidebar, path string) sidebar {
 	t.Helper()
 
 	e := &editor{
-		buffers: []Buffer{newEmptyBuffer("")},
+		buffers: []viewport{newEmptyBuffer("")},
 		sidebar: s,
 		width:   80,
 		height:  10 + tablineHeight + statusBarHeight,
@@ -361,7 +361,7 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 	m := viewEditorNormal{
 		editor: &editor{
 			boxChars: boxUnicode,
-			buffers:  []Buffer{newBuffer("main.go", []byte("a\nb\n"))},
+			buffers:  []viewport{newBuffer("main.go", []byte("a\nb\n"))},
 			width:    width,
 			height:   height + tablineHeight + statusBarHeight,
 		},
@@ -906,7 +906,7 @@ func TestSidebarEnterMatchesRelativePath(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
 			// CLI 로 상대 경로로 연 것과 같은 모양이다.
-			buffers: []Buffer{newBuffer("README.md", []byte("x\n"))},
+			buffers: []viewport{newBuffer("README.md", []byte("x\n"))},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,
 		},
@@ -927,7 +927,7 @@ func TestSidebarEnterRefusesNonRegularFile(t *testing.T) {
 
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newBuffer("main.go", []byte("a\n"))},
+			buffers: []viewport{newBuffer("main.go", []byte("a\n"))},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,
 		},
@@ -1076,7 +1076,7 @@ func TestOpenTabRevealsInSidebar(t *testing.T) {
 func TestTabSwitchRevealsInSidebar(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []Buffer{
+	m.buffers = []viewport{
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
@@ -1097,7 +1097,7 @@ func TestTabSwitchRevealsInSidebar(t *testing.T) {
 func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []Buffer{
+	m.buffers = []viewport{
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newEmptyBuffer(""),
 	}
@@ -1115,7 +1115,7 @@ func TestToggleTreeRevealsCurrentFile(t *testing.T) {
 	t.Chdir(root)
 
 	e := editor{
-		buffers: []Buffer{newBuffer(filepath.Join("docs", "spec.md"), []byte("a\n"))},
+		buffers: []viewport{newBuffer(filepath.Join("docs", "spec.md"), []byte("a\n"))},
 		width:   80,
 		height:  10 + tablineHeight + statusBarHeight,
 	}
@@ -1138,7 +1138,7 @@ func TestToggleTreeRevealsCurrentFile(t *testing.T) {
 func TestCloseTabRevealsRemainingFile(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []Buffer{
+	m.buffers = []viewport{
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
@@ -1232,7 +1232,7 @@ func TestSidebarDirIsNotMarked(t *testing.T) {
 // 이름 없는 buffer 는 어느 행과도 맞지 않는다. `:tabnew` 로 만든 tab 이 그렇다.
 func TestSidebarMarksNothingWithoutName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
-	m.buffers = []Buffer{newEmptyBuffer("")}
+	m.buffers = []viewport{newEmptyBuffer("")}
 
 	assert.Empty(t, activeNames(m.sidebar.renderCells(m.sidebarHeight(), m.activePath(), nil, m.boxChars)))
 }
@@ -1241,7 +1241,7 @@ func TestSidebarMarksNothingWithoutName(t *testing.T) {
 func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []Buffer{
+	m.buffers = []viewport{
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}

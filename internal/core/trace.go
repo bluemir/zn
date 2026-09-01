@@ -116,7 +116,7 @@ func traceBuffer(model tea.Model) string {
 	// model 도 editor 를 embed 해서 activeBuffer 를 만족해 버린다(ADR-0064).
 	holder, ok := model.(interface {
 		hasTab() bool
-		activeBuffer() *Buffer
+		activeBuffer() *viewport
 	})
 	if !ok || !holder.hasTab() {
 		return ""

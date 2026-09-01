@@ -76,7 +76,7 @@ func TestParseLineRangeInvalid(t *testing.T) {
 // resolve 는 buffer 를 봐야 아는 것(`.` `$`) 을 줄 자리로 바꾼다. 0 부터 세고 양끝을 포함한다.
 func TestLineRangeResolve(t *testing.T) {
 	// 다섯 줄이고 커서는 셋째 줄(자리 2)이다.
-	newBuffer := func() Buffer {
+	newBuffer := func() viewport {
 		buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
 		buf.cursorLine = 2
 

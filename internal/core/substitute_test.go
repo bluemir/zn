@@ -187,7 +187,7 @@ func TestSubstituteRefusesReadOnly(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []Buffer{buf}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
 
 	m := runCommand(viewEditorNormal{editor: e}, "%s/main/x/")
 

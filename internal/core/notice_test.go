@@ -147,7 +147,7 @@ func TestNoticesDoNotFold(t *testing.T) {
 // 그 알림은 조용히 기록에서 빠진다.
 func TestEveryNoticePathRecords(t *testing.T) {
 	t.Run("normalModeMessage", func(t *testing.T) {
-		e := &editor{buffers: []Buffer{newEmptyBuffer("")}}
+		e := &editor{buffers: []viewport{newEmptyBuffer("")}}
 
 		normalModeMessage(e, "알 수 없는 명령: :xyz")
 
@@ -156,7 +156,7 @@ func TestEveryNoticePathRecords(t *testing.T) {
 	})
 
 	t.Run("normalModeError", func(t *testing.T) {
-		e := &editor{buffers: []Buffer{newEmptyBuffer("")}}
+		e := &editor{buffers: []viewport{newEmptyBuffer("")}}
 
 		normalModeError(e, errors.New("no such file"))
 
@@ -169,7 +169,7 @@ func TestEveryNoticePathRecords(t *testing.T) {
 		buf := newEmptyBuffer("a.txt")
 		buf.readOnly = true
 
-		e := &editor{buffers: []Buffer{buf}}
+		e := &editor{buffers: []viewport{buf}}
 
 		require.True(t, e.refuseReadOnly())
 		assert.Len(t, e.notices, 1)

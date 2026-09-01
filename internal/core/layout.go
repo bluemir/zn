@@ -159,7 +159,7 @@ func digits(n int) int {
 // wrap 되어 이어지는 행은 전부 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
 // 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다. 마커도 같은 규칙이다 — 한 줄이 세 행이
 // 되었을 때 마커가 세 번 서면 오류가 셋인 것처럼 보인다(ADR-0086).
-func (e editor) renderGutter(buf *Buffer, row screenRow) string {
+func (e editor) renderGutter(buf *viewport, row screenRow) string {
 	width := e.gutterWidth()
 	if width == 0 {
 		return ""

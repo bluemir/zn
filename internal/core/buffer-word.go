@@ -50,7 +50,7 @@ func (buf Buffer) prevPos(line, col int) (int, int, bool) {
 }
 
 // moveWordForward 는 다음 단어의 첫 글자로 간다. vim 의 w/W 다.
-func (buf *Buffer) moveWordForward(n int, kind wordKind, width int) {
+func (buf *viewport) moveWordForward(n int, kind wordKind, width int) {
 	for range n {
 		buf.wordForward(kind)
 	}
@@ -58,7 +58,7 @@ func (buf *Buffer) moveWordForward(n int, kind wordKind, width int) {
 	buf.updateDesiredCol(width)
 }
 
-func (buf *Buffer) wordForward(kind wordKind) {
+func (buf *viewport) wordForward(kind wordKind) {
 	line, col := buf.cursorLine, buf.cursorCol
 
 	// 지금 글자와 같은 부류가 이어지는 동안 앞으로 간다.
@@ -93,7 +93,7 @@ func (buf *Buffer) wordForward(kind wordKind) {
 }
 
 // moveWordBackward 는 단어의 첫 글자로 되돌아간다. vim 의 b/B 다.
-func (buf *Buffer) moveWordBackward(n int, kind wordKind, width int) {
+func (buf *viewport) moveWordBackward(n int, kind wordKind, width int) {
 	for range n {
 		buf.wordBackward(kind)
 	}
@@ -101,7 +101,7 @@ func (buf *Buffer) moveWordBackward(n int, kind wordKind, width int) {
 	buf.updateDesiredCol(width)
 }
 
-func (buf *Buffer) wordBackward(kind wordKind) {
+func (buf *viewport) wordBackward(kind wordKind) {
 	line, col, ok := buf.prevPos(buf.cursorLine, buf.cursorCol)
 	if !ok {
 		buf.cursorCol = 0
@@ -141,7 +141,7 @@ func (buf *Buffer) wordBackward(kind wordKind) {
 // moveWordEnd 는 단어의 마지막 글자로 간다. vim 의 e/E 다.
 //
 // w/b 와 달리 빈 줄에서 멈추지 않는다. 빈 줄에는 끝낼 단어가 없기 때문이다. vim 과 같다.
-func (buf *Buffer) moveWordEnd(n int, kind wordKind, width int) {
+func (buf *viewport) moveWordEnd(n int, kind wordKind, width int) {
 	for range n {
 		buf.wordEnd(kind)
 	}
@@ -149,7 +149,7 @@ func (buf *Buffer) moveWordEnd(n int, kind wordKind, width int) {
 	buf.updateDesiredCol(width)
 }
 
-func (buf *Buffer) wordEnd(kind wordKind) {
+func (buf *viewport) wordEnd(kind wordKind) {
 	line, col, ok := buf.nextPos(buf.cursorLine, buf.cursorCol)
 	if !ok {
 		return

@@ -11,7 +11,7 @@ import (
 )
 
 // tableBuffer 는 그 글을 담은 markdown buffer 다.
-func tableBuffer(t *testing.T, name string, lines ...string) *Buffer {
+func tableBuffer(t *testing.T, name string, lines ...string) *viewport {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), name)
@@ -24,7 +24,7 @@ func tableBuffer(t *testing.T, name string, lines ...string) *Buffer {
 }
 
 // bufferLines 는 지금 buffer 의 줄들이다.
-func bufferLines(buf *Buffer) []string {
+func bufferLines(buf *viewport) []string {
 	out := make([]string, 0, len(buf.lines))
 	for _, line := range buf.lines {
 		out = append(out, string(line))

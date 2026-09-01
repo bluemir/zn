@@ -207,7 +207,7 @@ func TestOutsideCreatedIsNotReadAutomatically(t *testing.T) {
 	require.NoError(t, err)
 
 	m := viewEditorNormal{editor: &editor{
-		buffers: []Buffer{buf},
+		buffers: []viewport{buf},
 		width:   200,
 		height:  5 + tablineHeight + statusBarHeight,
 	}}

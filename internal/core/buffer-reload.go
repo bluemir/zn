@@ -18,7 +18,7 @@ import (
 //
 // 커서는 줄 번호와 화면 칸을 이어받는다. 밖에서 포매터를 돌린 뒤 같은 자리에서 이어 보게 된다.
 // 파일이 짧아졌으면 범위 안으로 끌어온다.
-func (buf *Buffer) Reload() error {
+func (buf *viewport) Reload() error {
 	if buf.path == "" {
 		return errors.New("파일 이름이 없습니다")
 	}
@@ -44,7 +44,7 @@ func (buf *Buffer) Reload() error {
 // 읽기와 나누기에서 떼어 둔 것은 값이 갈리기 때문이다. 새 Buffer 를 만드는 것은 파일 크기만큼
 // 드는 일이라 백그라운드에서 하고(ADR-0044), 자리를 옮겨 담는 것은 값이 없어서 `Update` 안에서
 // 해도 된다 — 옮겨 담을 「지금 자리」는 그 순간에만 알 수 있는 것이라 미리 할 수도 없다.
-func (buf Buffer) adopt(next Buffer) Buffer {
+func (buf viewport) adopt(next viewport) viewport {
 	// 커서 자리를 화면 칸으로 옮겨 둔다. byte offset 은 새 내용에서 다른 글자의 중간일 수 있다.
 	// statusBar 가 보여주는 `줄:칸` 이 이 칸이라, 유지되는 것이 눈에 보이는 값과 같다.
 	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, buf.tabWidth())

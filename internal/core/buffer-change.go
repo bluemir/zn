@@ -16,7 +16,7 @@ package core
 //   - `cw` 는 단어 뒤 공백을 남긴다. vim 의 예외다
 //
 // 바꿀 것이 없어도(빈 줄에서 친 `cw`) true 다 — vim 처럼 그 자리에서 넣기 시작한다.
-func (buf *Buffer) changeRange(area motionRange, width int) (register, bool) {
+func (buf *viewport) changeRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
 		removed := buf.changeLines(area.startLine, area.endLine, width)
 		buf.resumeEdit()
@@ -43,7 +43,7 @@ func (buf *Buffer) changeRange(area motionRange, width int) (register, bool) {
 //
 // `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
-func (buf Buffer) atWordEnd(kind wordKind) bool {
+func (buf viewport) atWordEnd(kind wordKind) bool {
 	class := buf.classAt(buf.cursorLine, buf.cursorCol, kind)
 	if class == classBlank {
 		return false
@@ -62,7 +62,7 @@ func (buf Buffer) atWordEnd(kind wordKind) bool {
 // 남기는 들여쓰기는 첫 줄의 것이다. 들여쓴 코드에서 `cc` 를 칠 때마다 tab 을 다시 치지 않는다.
 // autoindent 가 아직 없어서 `o` `O` 는 들여쓰기를 이어받지 않는데, 이쪽은 새 줄을 만드는 것이
 // 아니라 있던 줄을 비우는 것이라 원래 들여쓰기가 그 줄의 것이다.
-func (buf *Buffer) changeLines(from, to, width int) register {
+func (buf *viewport) changeLines(from, to, width int) register {
 	count := to - from + 1
 	indent := leadingBlank(buf.lines[from])
 

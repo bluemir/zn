@@ -13,7 +13,7 @@ import (
 
 // newTabsEditor 는 파일 여러 개를 연 편집기다. CLI 인자로 여러 파일을 준 것과 같다.
 func newTabsEditor(paths ...string) viewEditorNormal {
-	buffers := make([]Buffer, 0, len(paths))
+	buffers := make([]viewport, 0, len(paths))
 	for _, path := range paths {
 		buffers = append(buffers, newBuffer(path, []byte("a\nb\nc\n")))
 	}
@@ -193,7 +193,7 @@ func TestTablineShowsDirtyMarkOfInactiveTab(t *testing.T) {
 func TestTablineShowsNoNameForEmptyPath(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newEmptyBuffer("")},
+			buffers: []viewport{newEmptyBuffer("")},
 			width:   40,
 			height:  3 + tablineHeight + statusBarHeight,
 		},

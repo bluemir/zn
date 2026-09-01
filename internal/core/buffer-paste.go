@@ -10,7 +10,7 @@ import (
 //
 // 줄 단위면 커서 줄 아래에 줄로 끼우고, 글자 단위면 커서가 선 글자 뒤에 끼운다.
 // count 는 되풀이다 — `3p` 는 세 번 붙인다(ADR-0017).
-func (buf *Buffer) pasteAfter(reg register, count, width int) {
+func (buf *viewport) pasteAfter(reg register, count, width int) {
 	if len(reg.lines) == 0 {
 		return
 	}
@@ -32,7 +32,7 @@ func (buf *Buffer) pasteAfter(reg register, count, width int) {
 }
 
 // pasteBefore 는 register 를 커서 앞에 붙인다. vim 의 `P` 다.
-func (buf *Buffer) pasteBefore(reg register, count, width int) {
+func (buf *viewport) pasteBefore(reg register, count, width int) {
 	if len(reg.lines) == 0 {
 		return
 	}
@@ -48,7 +48,7 @@ func (buf *Buffer) pasteBefore(reg register, count, width int) {
 
 // pasteLines 는 at 자리에 register 의 줄을 count 번 끼운다.
 // 커서는 붙인 첫 줄의 첫 비공백이다. vim 과 같다.
-func (buf *Buffer) pasteLines(at int, reg register, count, width int) {
+func (buf *viewport) pasteLines(at int, reg register, count, width int) {
 	lines := make([][]byte, 0, len(reg.lines)*count)
 	for range count {
 		lines = append(lines, reg.lines...)
@@ -68,7 +68,7 @@ func (buf *Buffer) pasteLines(at int, reg register, count, width int) {
 // pasteText 는 지금 줄의 col 칸에 register 를 글자로 끼운다.
 //
 // 줄바꿈을 가르는 곳은 insert 하나뿐이라(ADR-0001) 여러 줄 register 도 그대로 먹는다.
-func (buf *Buffer) pasteText(col int, reg register, count, width int) {
+func (buf *viewport) pasteText(col int, reg register, count, width int) {
 	text := bytes.Repeat(bytes.Join(reg.lines, []byte{'\n'}), count)
 	if len(text) == 0 {
 		return

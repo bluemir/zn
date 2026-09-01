@@ -428,7 +428,7 @@ func TestRenderPartsColorsControl(t *testing.T) {
 func TestSearchSurvivesTabSwitch(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{
+			buffers: []viewport{
 				newBuffer("a.txt", []byte("foo\nbar\n")),
 				newBuffer("b.txt", []byte("baz\nfoo\n")),
 			},

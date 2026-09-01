@@ -78,7 +78,7 @@ func (buf *Buffer) indentForNewLine(at int, head []byte) []byte {
 //
 // insert 를 **한 번**만 부른다. 그것이 여러 줄을 이미 한 되돌리기 구간으로 다루므로(edit.go)
 // Enter 와 들여쓰기가 `u` 한 번에 같이 사라지고, 커서도 들여쓰기 다음 칸에 알아서 선다.
-func (buf *Buffer) insertNewLine(width int) {
+func (buf *viewport) insertNewLine(width int) {
 	line := buf.lines[buf.cursorLine]
 	indent := buf.indentForNewLine(buf.cursorLine, line[:buf.cursorCol])
 
@@ -98,7 +98,7 @@ func (buf *Buffer) insertNewLine(width int) {
 // **여기서 문맥을 채우지 않는다.** 글자마다 부르는 자리라 lexSyntaxTo 를 끼우면 아직 다
 // 치지 않은 줄에서 수렴 판정이 돌아 캐시가 흔들린다. 커서 줄은 화면 안이라 그리는 쪽이
 // 이미 채워 두었고, 없으면 파일 언어의 규칙으로 물러난다(buffer-syntax.go).
-func (buf *Buffer) reindentClosing(typed []byte, width int) {
+func (buf *viewport) reindentClosing(typed []byte, width int) {
 	rule := buf.indentRuleAt(buf.cursorLine)
 	if rule == nil {
 		return
@@ -141,7 +141,7 @@ func (buf *Buffer) reindentClosing(typed []byte, width int) {
 // 정확히 다음 경계까지 민다. space 면 모자란 칸만큼 넣는다.
 //
 // markdown 의 목록 줄에서는 커서 자리가 아니라 줄 전체가 한 단계 들어간다(syntax.Indent).
-func (buf *Buffer) insertIndent(width int) {
+func (buf *viewport) insertIndent(width int) {
 	line := buf.lines[buf.cursorLine]
 
 	// 규칙이 문맥을 따라오므로 담아둔 것이 있어야 한다. 글자마다가 아니라 `tab` 을 칠 때만
@@ -169,7 +169,7 @@ func (buf *Buffer) insertIndent(width int) {
 //
 // insert mode 에서 내어쓰는 유일한 길이다. 이것이 없으면 `esc` 로 나가 `<<` 를 치고 다시
 // 들어와야 한다.
-func (buf *Buffer) outdentLine(width int) {
+func (buf *viewport) outdentLine(width int) {
 	before := len(leadingBlank(buf.lines[buf.cursorLine]))
 	col := buf.cursorCol
 
@@ -188,7 +188,7 @@ func (buf *Buffer) outdentLine(width int) {
 //
 // space 로 들여쓴 파일에서 tab 한 번이 넣은 것을 backspace 네 번으로 지우는 어긋남을 없앤다.
 // 커서 앞에 글자가 하나라도 있으면 걸리지 않는다 — 글 가운데 공백은 들여쓰기가 아니다.
-func (buf *Buffer) deleteIndentBackward(width int) bool {
+func (buf *viewport) deleteIndentBackward(width int) bool {
 	line := buf.lines[buf.cursorLine]
 	if buf.cursorCol < 1 || buf.cursorCol > len(leadingBlank(line)) {
 		return false
@@ -225,7 +225,7 @@ func (buf *Buffer) deleteIndentBackward(width int) bool {
 // 한 단계다 — 칸 수만 맞추고 그 줄이 쓰던 글자는 그대로 둔다(shiftBlank).
 //
 // **빈 줄은 건드리지 않는다.** 밀면 줄 끝 공백만 남고, 당길 것은 애초에 없다. vim 과 같다.
-func (buf *Buffer) shiftLines(from, to int, direction indentDirection, width int) {
+func (buf *viewport) shiftLines(from, to int, direction indentDirection, width int) {
 	unit, tab := buf.indentText(), buf.tabWidth()
 
 	by := blankColumns(unit, tab)
@@ -256,7 +256,7 @@ func (buf *Buffer) shiftLines(from, to int, direction indentDirection, width int
 //
 // **판정이 줄마다다.** markdown 문서 안의 코드펜스는 안쪽 언어의 규칙을 받으므로(ADR-0102)
 // 산문은 그대로 두고 그 안만 정리한다. 건드리지 않는 줄도 기준선은 이어 간다.
-func (buf *Buffer) reindentLines(from, to, width int) {
+func (buf *viewport) reindentLines(from, to, width int) {
 	if buf.language.Indent() == nil {
 		return
 	}
@@ -327,7 +327,7 @@ func (buf *Buffer) reindentLines(from, to, width int) {
 // trimTrailingSpace 와 같은 자리다(edit.go).
 //
 // 커서는 첫 줄의 들여쓰기 다음이다. vim 과 같다.
-func (buf *Buffer) replaceIndented(from, to int, next [][]byte, width int) {
+func (buf *viewport) replaceIndented(from, to int, next [][]byte, width int) {
 	same := true
 	for i, line := range next {
 		if !bytes.Equal(line, buf.lines[from+i]) {

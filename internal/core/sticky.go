@@ -30,7 +30,7 @@ func stickyMaxRows(height int) int {
 //
 // 검색 매칭과 고른 범위는 칠하지 않는다. 이 줄은 화면 밖에 있는 줄이고, 본문에 같이 보이지도
 // 않는 자리에서만 강조하면 어느 쪽이 지금 자리인지 흐려진다.
-func (e editor) renderStickyRow(buf *Buffer, line int) string {
+func (e editor) renderStickyRow(buf *viewport, line int) string {
 	text := buf.lines[line]
 	width, tab := e.contentWidth(), buf.tabWidth()
 
@@ -52,7 +52,7 @@ func (e editor) renderStickyRow(buf *Buffer, line int) string {
 //
 // 파일 끝에서 화면이 다 안 차는 자리를 위한 것이다. 보통은 scrollTo 가 머리줄 수만큼 top 을
 // 올려 두어 rows 가 화면을 채우므로 자를 것이 없다.
-func (e editor) stickyRows(buf *Buffer, height, rows int) []int {
+func (e editor) stickyRows(buf *viewport, height, rows int) []int {
 	sticky := buf.stickyAt(buf.top, height)
 	if over := len(sticky) - rows; over > 0 {
 		sticky = sticky[over:]

@@ -9,7 +9,7 @@ package core
 //
 // **커서가 선 글자를 범위에 넣는다.** vim 의 visual 은 inclusive 라 `vd` 가 `x` 와 같다.
 // `e` 가 span 에서 includeCursorCluster 를 부르는 것과 같은 자리다(ADR-0013).
-func (buf Buffer) selectionRange() (motionRange, bool) {
+func (buf viewport) selectionRange() (motionRange, bool) {
 	if !buf.selection.active {
 		return motionRange{}, false
 	}
@@ -71,7 +71,7 @@ func (buf Buffer) selectionOn(area motionRange, line int) (span []int, toEnd, ok
 }
 
 // startSelection 은 커서 자리를 anchor 로 삼아 범위를 연다. `v`·`V` 와 드래그가 여기로 온다.
-func (buf *Buffer) startSelection(linewise bool) {
+func (buf *viewport) startSelection(linewise bool) {
 	buf.selection = selection{
 		active:   true,
 		linewise: linewise,
@@ -84,6 +84,6 @@ func (buf *Buffer) startSelection(linewise bool) {
 //
 // **닫는 자리가 넷이다** — normal 로 나갈 때, insert 로 들어갈 때, 팔레트를 열 때, 클릭할 때.
 // 밖에서 필드를 비우면 「비운다」가 무엇인지가 그 넷에 흩어진다(ADR-0100).
-func (buf *Buffer) clearSelection() {
+func (buf *viewport) clearSelection() {
 	buf.selection = selection{}
 }

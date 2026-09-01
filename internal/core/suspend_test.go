@@ -108,7 +108,7 @@ func TestResumeQuietWhenFileUnchanged(t *testing.T) {
 func TestResumeQuietWithoutFileName(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newEmptyBuffer("")},
+			buffers: []viewport{newEmptyBuffer("")},
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,
 		},

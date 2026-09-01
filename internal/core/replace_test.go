@@ -116,7 +116,7 @@ func TestReplaceFileGoesThroughTheOpenBuffer(t *testing.T) {
 	e := replaceEditor()
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
-	e.buffers = []Buffer{buf}
+	e.buffers = []viewport{buf}
 	e.active = 0
 
 	changed, _, err := e.replaceFile(path, []int{0}, mustSubstitute(t, "/foo/bar/"))

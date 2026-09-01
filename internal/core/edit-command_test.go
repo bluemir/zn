@@ -17,7 +17,7 @@ func newFilesEditor(t *testing.T, names ...string) (viewEditorNormal, string) {
 
 	dir := t.TempDir()
 
-	buffers := make([]Buffer, 0, len(names))
+	buffers := make([]viewport, 0, len(names))
 	for _, name := range names {
 		path := filepath.Join(dir, name)
 		require.NoError(t, os.WriteFile(path, []byte(name+"\n"), 0644))

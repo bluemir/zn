@@ -16,7 +16,7 @@ import (
 
 // scrollTo 는 커서가 화면 안에 들어오도록 top 을 최소한으로 움직인다.
 // 커서가 이미 화면 안이면 아무것도 하지 않는다.
-func (buf *Buffer) scrollTo(width, height int) {
+func (buf *viewport) scrollTo(width, height int) {
 	if height < 1 {
 		return
 	}
@@ -64,7 +64,7 @@ func (buf *Buffer) scrollTo(width, height int) {
 //
 // 폭이 바뀌는 경로가 여럿(터미널 리사이즈, tab 전환, sidebar 여닫기)이라
 // 부르는 쪽마다 챙기지 않고 scrollTo 안에서 한 번에 맞춘다.
-func (buf *Buffer) clampTop(width int) {
+func (buf *viewport) clampTop(width int) {
 	buf.top = min(buf.top, len(buf.lines)-1)
 	buf.topRow = min(buf.topRow, len(wrapOffsets(buf.lines[buf.top], width, buf.tabWidth()))-1)
 }
@@ -108,7 +108,7 @@ func (buf Buffer) advanceRows(line, row, n, width int) (int, int) {
 //
 // 커서는 그대로 두고 화면만 움직인다. 화면 밖으로 밀려나면 그때만 화면 안 끝 행으로
 // 끌어온다 — vim 의 휠과 같다. scrollTo 가 커서를 따라 화면을 옮기는 것의 반대다.
-func (buf *Buffer) scrollBy(n, width, height int) {
+func (buf *viewport) scrollBy(n, width, height int) {
 	if height < 1 || n == 0 {
 		return
 	}
@@ -156,7 +156,7 @@ func (buf *Buffer) scrollBy(n, width, height int) {
 // 화면을 다 차지하면 그 줄 안에서 움직이는 것이 맞다 — `↓` 와 같은 단위다(ADR-0006).
 //
 // count 는 되풀이다. `3ctrl+f` 는 한 화면 세 번이다.
-func (buf *Buffer) movePage(direction pageDirection, span pageSpan, count, width, height int) {
+func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, width, height int) {
 	if height < 1 {
 		return
 	}
@@ -203,7 +203,7 @@ func (buf *Buffer) movePage(direction pageDirection, span pageSpan, count, width
 }
 
 // visibleRows 는 화면에 그릴 행들을 위에서부터 돌려준다.
-func (buf Buffer) visibleRows(width, height int) []screenRow {
+func (buf viewport) visibleRows(width, height int) []screenRow {
 	if height < 1 {
 		return nil
 	}
@@ -227,7 +227,7 @@ func (buf Buffer) visibleRows(width, height int) []screenRow {
 }
 
 // cursorScreenPos 는 커서의 화면 좌표를 돌려준다. 커서가 화면 밖이면 ok 가 false 다.
-func (buf Buffer) cursorScreenPos(width, height int) (x, y int, ok bool) {
+func (buf viewport) cursorScreenPos(width, height int) (x, y int, ok bool) {
 	line := buf.lines[buf.cursorLine]
 
 	for y, row := range buf.visibleRows(width, height) {
@@ -253,7 +253,7 @@ func (buf Buffer) cursorScreenPos(width, height int) (x, y int, ok bool) {
 // 아무것도 없는 곳을 눌렀는데 커서가 움직이면 어디를 눌렀는지와 어긋난다.
 //
 // x 가 음수면 줄 시작이다. 줄번호 칸을 누른 경우가 그렇게 들어온다.
-func (buf Buffer) positionAt(x, y, width, height int) (line, col int, ok bool) {
+func (buf viewport) positionAt(x, y, width, height int) (line, col int, ok bool) {
 	rows := buf.visibleRows(width, height)
 	if y < 0 || y >= len(rows) {
 		return 0, 0, false
@@ -348,7 +348,7 @@ func (buf *Buffer) stickyAt(line, height int) []int {
 //
 // `Buffer` 가 viewPlace 를 embed 하므로 그 덩어리를 그대로 돌려주면 된다. 값 receiver 라
 // 사본이 나가서 담아 둔 뒤에 커서가 움직여도 그것이 따라 바뀌지 않는다.
-func (buf Buffer) place() viewPlace {
+func (buf viewport) place() viewPlace {
 	return buf.viewPlace
 }
 
@@ -357,7 +357,7 @@ func (buf Buffer) place() viewPlace {
 // **`desiredCol` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
 // 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
 // 칸으로 간다(ADR-0100).
-func (buf *Buffer) moveToPlace(at viewPlace, width int) {
+func (buf *viewport) moveToPlace(at viewPlace, width int) {
 	buf.viewPlace = at
 	buf.updateDesiredCol(width)
 }

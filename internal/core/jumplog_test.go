@@ -141,7 +141,7 @@ func TestJumpLogDropsOldest(t *testing.T) {
 
 // 이름 없는 buffer 는 담지 않는다. 되돌아갈 때 열 파일이 없다.
 func TestJumpLogSkipsUnnamedBuffer(t *testing.T) {
-	e := &editor{buffers: []Buffer{newEmptyBuffer("")}, width: 80, height: 20}
+	e := &editor{buffers: []viewport{newEmptyBuffer("")}, width: 80, height: 20}
 
 	e.arrive()
 

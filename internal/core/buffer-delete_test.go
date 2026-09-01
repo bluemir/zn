@@ -9,7 +9,7 @@ import (
 
 // pressFrom 은 커서를 놓고 키를 친 뒤의 buffer 다.
 // 이동과 지우기가 한 경로에서 만나는지 봐야 해서 Buffer 가 아니라 mode 를 거쳐 친다.
-func pressFrom(t *testing.T, data string, line, col int, keys ...string) Buffer {
+func pressFrom(t *testing.T, data string, line, col int, keys ...string) viewport {
 	t.Helper()
 
 	m := newTestEditor(data, 80, 20)

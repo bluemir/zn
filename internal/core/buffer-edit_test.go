@@ -12,7 +12,7 @@ import (
 )
 
 // linesOf 는 buffer 의 줄들을 비교하기 쉽게 문자열로 바꾼다.
-func linesOf(buf Buffer) []string {
+func linesOf(buf viewport) []string {
 	out := make([]string, len(buf.lines))
 	for i, line := range buf.lines {
 		out[i] = string(line)

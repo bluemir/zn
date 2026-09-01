@@ -36,7 +36,7 @@ func (buf *Buffer) replaceLines(at, count int, with [][]byte) [][]byte {
 // 열린 구간이 있으면 거기에 합치고, 없으면 새로 연다.
 // 열린 구간의 범위를 벗어나면 범위를 넓힌다. 밖의 줄은 이 구간에서 아직 안 건드린 줄이라
 // 지금 내용이 곧 구간 시작 시점의 내용이다. 줄 시작에서 Backspace 로 앞 줄과 합칠 때 이 경로를 탄다.
-func (buf *Buffer) beginEdit(at, count int) {
+func (buf *viewport) beginEdit(at, count int) {
 	// 새 편집이 생기면 되돌아갈 앞날은 사라진다.
 	buf.redo = nil
 	buf.dirty = true
@@ -98,7 +98,7 @@ func (buf *Buffer) resumeEdit() {
 // 여러 줄 붙여넣기는 insert(붙여넣은 것) 이다. 줄바꿈이 들어오면 줄이 갈린다.
 //
 // backing buffer 는 건드리지 않는다. 바뀐 줄만 새로 만들어 갈아끼운다(ADR-0001).
-func (buf *Buffer) insert(text []byte, width int) {
+func (buf *viewport) insert(text []byte, width int) {
 	if len(text) == 0 {
 		return
 	}
@@ -152,7 +152,7 @@ func (buf *Buffer) insert(text []byte, width int) {
 //
 // 끼우는 자리 옆의 줄 하나를 붙잡고 replaceLines 로 갈아끼운다. 되돌리기 구간은 건드린 줄을
 // 담아야 열리는데(beginEdit), 새로 끼우는 줄은 아직 없는 줄이라 붙잡을 것이 없다.
-func (buf *Buffer) insertLines(at int, lines [][]byte) {
+func (buf *viewport) insertLines(at int, lines [][]byte) {
 	anchor := min(at, len(buf.lines)-1)
 
 	next := make([][]byte, 0, len(lines)+1)
@@ -177,7 +177,7 @@ func (buf *Buffer) insertLines(at int, lines [][]byte) {
 //
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다(indent.go). `cc` 가 들여쓰기를 남기는 것과
 // 손이 같아졌다 — 둘 다 「새로 칠 줄」이다.
-func (buf *Buffer) openLineBelow(width int) {
+func (buf *viewport) openLineBelow(width int) {
 	buf.cursorCol = len(buf.lines[buf.cursorLine])
 	buf.insertNewLine(width)
 }
@@ -186,7 +186,7 @@ func (buf *Buffer) openLineBelow(width int) {
 //
 // 들여쓰기는 **윗 줄** 에서 가져온다. 지금 줄이 아니다 — 새 줄이 들어가는 자리가 윗 줄 다음이라
 // `o` 를 윗 줄에서 친 것과 같은 자리다. 첫 줄 위에는 가져올 곳이 없어서 빈 줄이다.
-func (buf *Buffer) openLineAbove(width int) {
+func (buf *viewport) openLineAbove(width int) {
 	indent := []byte(nil)
 	if buf.cursorLine > 0 {
 		above := buf.lines[buf.cursorLine-1]
@@ -204,7 +204,7 @@ func (buf *Buffer) openLineAbove(width int) {
 }
 
 // deleteBackward 는 커서 앞 글자를 지운다. 줄 시작이면 앞 줄과 합친다.
-func (buf *Buffer) deleteBackward(width int) {
+func (buf *viewport) deleteBackward(width int) {
 	if buf.cursorCol > 0 {
 		line := buf.lines[buf.cursorLine]
 		from := buf.prevOffset(buf.cursorCol, width)
@@ -247,7 +247,7 @@ func (buf *Buffer) deleteBackward(width int) {
 // insert mode 의 `delete` 다 — deleteBackward 의 거울이다.
 //
 // normal 에는 걸지 않았다. 그 자리에는 `x` 가 이미 있고 register 에 담는 것까지 정해져 있다.
-func (buf *Buffer) deleteForward(width int) {
+func (buf *viewport) deleteForward(width int) {
 	line := buf.lines[buf.cursorLine]
 
 	if buf.cursorCol < len(line) {
@@ -295,7 +295,7 @@ func (buf *Buffer) deleteForward(width int) {
 //
 // 바뀌는 줄 전체를 한 번에 갈아끼운다. 줄마다 beginEdit 를 부르면 두 번째부터 열린 구간을
 // 넓히면서 **이미 잘린 지금 내용** 을 되돌릴 내용으로 담아서, `u` 를 눌러도 원본이 돌아오지 않는다.
-func (buf *Buffer) trimTrailingSpace(from, to, width int) int {
+func (buf *viewport) trimTrailingSpace(from, to, width int) int {
 	// 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가 서고 redo 가 날아간다. 먼저 훑기만 한다.
 	first, last, count := -1, -1, 0
 	for i := from; i < to; i++ {
@@ -347,7 +347,7 @@ func (buf *Buffer) trimTrailingSpace(from, to, width int) int {
 // 커서는 줄 번호를 지킨다. 포매터는 들여쓰기를 고치고 import 를 옮기지 줄을 뒤섞지 않아서,
 // 보던 자리가 대개 그 자리에 있다. 파일이 짧아졌으면 범위 안으로 끌어온다 — 다시 읽기가
 // 커서를 이어받는 것과 같은 태도다(Reload).
-func (buf *Buffer) replaceAll(next [][]byte, width int) {
+func (buf *viewport) replaceAll(next [][]byte, width int) {
 	before := len(buf.lines)
 
 	buf.endEdit()
@@ -374,7 +374,7 @@ func (buf *Buffer) replaceAll(next [][]byte, width int) {
 //
 // 이미 정렬되어 있으면 아무것도 하지 않는다. 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가
 // 서고 redo 가 날아간다(trimTrailingSpace 와 같은 자리다).
-func (buf *Buffer) sortLines(from, to, width int) int {
+func (buf *viewport) sortLines(from, to, width int) int {
 	next := make([][]byte, to-from)
 	copy(next, buf.lines[from:to])
 
@@ -415,7 +415,7 @@ func (buf *Buffer) sortLines(from, to, width int) int {
 //
 // **줄 끝도 건드리지 않는다.** 그것은 「줄 끝 공백 지우기」의 몫이다. 한 명령이 두 가지를
 // 하면 무엇이 내 줄을 고쳤는지 알기 어려워진다(ADR-0011 의 「한 기능에 진입점 하나」).
-func (buf *Buffer) squeezeSpaces(from, to, width int) int {
+func (buf *viewport) squeezeSpaces(from, to, width int) int {
 	first, last, count := -1, -1, 0
 
 	// 파일 전체 길이로 잡아 자리를 줄 번호와 맞춘다. 구간 밖은 nil 인 채로 두고 쓰지 않는다 —
@@ -506,7 +506,7 @@ func trimLineEnd(line []byte) []byte {
 }
 
 // applyUndo 는 마지막 변경을 되돌린다. 되돌릴 것이 없으면 false 다.
-func (buf *Buffer) applyUndo(width int) bool {
+func (buf *viewport) applyUndo(width int) bool {
 	buf.endEdit()
 
 	if len(buf.undo) == 0 {
@@ -521,7 +521,7 @@ func (buf *Buffer) applyUndo(width int) bool {
 }
 
 // applyRedo 는 되돌린 것을 다시 적용한다.
-func (buf *Buffer) applyRedo(width int) bool {
+func (buf *viewport) applyRedo(width int) bool {
 	buf.endEdit()
 
 	if len(buf.redo) == 0 {
@@ -536,7 +536,7 @@ func (buf *Buffer) applyRedo(width int) bool {
 }
 
 // revert 는 e 를 적용하고 반대 방향으로 되돌릴 edit 을 돌려준다.
-func (buf *Buffer) revert(e edit, width int) edit {
+func (buf *viewport) revert(e edit, width int) edit {
 	inverse := edit{
 		at:         e.at,
 		before:     append([][]byte(nil), buf.lines[e.at:e.at+e.count]...),

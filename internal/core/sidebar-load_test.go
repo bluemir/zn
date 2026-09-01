@@ -31,7 +31,7 @@ func newUnreadTreeEditor(t *testing.T, root string) viewEditorNormal {
 
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newEmptyBuffer("")},
+			buffers: []viewport{newEmptyBuffer("")},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,
 		},

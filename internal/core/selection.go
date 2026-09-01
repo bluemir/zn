@@ -3,7 +3,7 @@ package core
 // selection 은 visual mode 가 고른 범위의 반대쪽 끝(anchor) 이다. 이쪽 끝은 커서라,
 // 이동 키가 커서를 옮기면 범위가 그만큼 따라 자란다.
 //
-// **Buffer 가 든다.** 이 좌표는 그 Buffer 의 lines 안에서만 뜻이 있고, 커서·스크롤과 같이
+// **viewport 가 든다.** 이 좌표는 그 Buffer 의 lines 안에서만 뜻이 있고, 커서·스크롤과 같이
 // tab 을 오가도 파일에 붙어 있어야 한다. register 와 마지막 검색이 editor 에 있는 것은
 // 그 둘이 tab 을 넘기 때문이고(spec.md) 이것은 넘지 않는다.
 //

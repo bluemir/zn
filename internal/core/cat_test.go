@@ -10,7 +10,7 @@ import (
 )
 
 // catOf 는 범위를 내보내고 터미널에 찍힌 것을 준다. shellRun 을 보는 손과 같다.
-func catOf(t *testing.T, buf Buffer, area motionRange) string {
+func catOf(t *testing.T, buf viewport, area motionRange) string {
 	t.Helper()
 
 	out := &bytes.Buffer{}

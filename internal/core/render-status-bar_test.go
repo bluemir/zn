@@ -106,7 +106,7 @@ func TestStatusBarShowsPath(t *testing.T) {
 func TestStatusBarShowsNoNameForEmptyPath(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newEmptyBuffer("")},
+			buffers: []viewport{newEmptyBuffer("")},
 			width:   40,
 			height:  3 + tablineHeight + statusBarHeight,
 		},
@@ -213,7 +213,7 @@ func TestStatusBarSkipsShowcmdWhenNarrow(t *testing.T) {
 func TestStatusBarTruncatesToWidth(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []Buffer{newBuffer(strings.Repeat("long-path/", 20)+"file.txt", []byte("abc\n"))},
+			buffers: []viewport{newBuffer(strings.Repeat("long-path/", 20)+"file.txt", []byte("abc\n"))},
 			width:   20,
 			height:  3 + tablineHeight + statusBarHeight,
 		},
@@ -297,7 +297,7 @@ func TestTinyScreenDoesNotPanic(t *testing.T) {
 	for _, height := range []int{0, 1, 2, 3} {
 		m := viewEditorNormal{
 			editor: &editor{
-				buffers: []Buffer{newBuffer("t", []byte("a\nb\n"))},
+				buffers: []viewport{newBuffer("t", []byte("a\nb\n"))},
 				width:   10,
 				height:  height,
 			},

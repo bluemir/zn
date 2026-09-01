@@ -19,7 +19,7 @@ const wide = 1000
 // 저장이 `.editorconfig` 를 따라 파일을 맞추게 되면서 문구가 하나 더 나오는데(ADR-0052),
 // 여기 시험들이 보는 것은 그것이 아니라 「쓰였는가」다. 맞추기만 보는 시험은 따로 있다
 // (editorconfig_test.go).
-func saveBuffer(t *testing.T, buf *Buffer) error {
+func saveBuffer(t *testing.T, buf *viewport) error {
 	t.Helper()
 
 	_, err := buf.Save(wide, nil)
@@ -27,7 +27,7 @@ func saveBuffer(t *testing.T, buf *Buffer) error {
 	return err
 }
 
-func saveBufferForce(t *testing.T, buf *Buffer) error {
+func saveBufferForce(t *testing.T, buf *viewport) error {
 	t.Helper()
 
 	_, err := buf.SaveForce(wide, nil)
