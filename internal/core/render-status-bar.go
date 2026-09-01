@@ -231,3 +231,18 @@ func truncateToWidth(s string, width int) string {
 
 	return s
 }
+
+// bareStatusBar 는 트리가 없는 것으로 치고 그린 statusBar 다.
+//
+// statusBar 는 sidebar 가 열려 있으면 mode 를 그 아래 칸에 넣고 나머지를 32 칸 들여쓴다
+// (ADR-0005). 화면을 통째로 쓰는 판은 트리를 덮으므로 그대로 두면 목록은 왼쪽 끝에서
+// 시작하는데 statusBar 만 밀려서 화면이 반쪽만 바뀐 것처럼 보인다.
+//
+// `:jobs`·`:messages` 도 같은 것을 자기 안에 하나씩 들고 있다. 그 둘을 이리로 데려오는 것은
+// 이 기능이 할 일이 아니라 두었다(docs/tasks.md).
+func (e editor) bareStatusBar(mode, bottom string) []string {
+	bare := e
+	bare.sidebar = sidebar{}
+
+	return bare.renderStatusBar(mode, bottom)
+}

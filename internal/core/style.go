@@ -216,3 +216,24 @@ var styleSyntax = map[syntax.Kind]lipgloss.Style{
 	syntax.KindStrong:        lipgloss.NewStyle().Foreground(lipgloss.Color("177")).Bold(true),
 	syntax.KindStrikethrough: lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Strikethrough(true),
 }
+
+// styleCommitHash, styleCommitDate, styleCommitAge, styleCommitRefs 는 커밋 기록의 색이다(ADR-0115).
+//
+// **사용자의 `git graph` alias 가 쓰던 색을 그대로 옮겼다.** 해시가 파랑, 날짜가 청록,
+// 얼마나 전인지가 초록, ref 이름이 노랑이다. 옆 터미널의 `git log` 와 같은 그림이라야
+// 눈이 어느 칸을 볼지 다시 익히지 않는다.
+//
+// 256 색 고정값이 아니라 ANSI 밝은 색이다. git 마커·진단과 같은 자리다 — 여기서 필요한 것은
+// 특정 파랑이 아니라 **그 테마가 부르는 파랑**이다(styleGitAdded, ADR-0007, ADR-0041).
+//
+// **그래프 선과 점에는 색을 두지 않는다.** 갈래를 가르는 것은 자리이지 색이 아니고,
+// 색을 넣으면 그 색이 뜻하는 바를 또 익혀야 한다.
+//
+// 제목과 글쓴이도 여기 없다. 제목은 기본색 그대로이고 글쓴이는 흐린 회색(styleDetail) 이다 —
+// 한 줄에서 가장 오래 읽는 것이 제목이라 그것만 색이 없는 편이 오히려 앞에 선다.
+var (
+	styleCommitHash = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
+	styleCommitDate = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
+	styleCommitAge  = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	styleCommitRefs = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+)

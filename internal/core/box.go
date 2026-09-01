@@ -14,6 +14,13 @@ type boxSet struct {
 	bottomRight string
 	leftTee     string
 	rightTee    string
+
+	// dot 은 커밋 기록의 커밋 하나를 가리키는 점이다(render-graph.go).
+	//
+	// 박스 그리기 문자는 아니지만 같은 자리에 둔다. `●` 도 East Asian Width 가 Ambiguous 라
+	// 두 칸으로 그리는 터미널에서는 그래프의 열이 통째로 밀리는데, 그 열 맞춤이 이 화면의
+	// 전부다. 선과 점이 같은 판단을 타야 한다.
+	dot string
 }
 
 // boxUnicode 는 폭이 1 칸으로 확인된 터미널에서 쓴다.
@@ -26,6 +33,7 @@ var boxUnicode = boxSet{
 	bottomRight: "┘",
 	leftTee:     "├",
 	rightTee:    "┤",
+	dot:         "●",
 }
 
 // boxASCII 는 물러설 자리다. `| - +` 는 전부 East Asian Width 가 Narrow 라
@@ -41,4 +49,5 @@ var boxASCII = boxSet{
 	bottomRight: "+",
 	leftTee:     "+",
 	rightTee:    "+",
+	dot:         "*",
 }

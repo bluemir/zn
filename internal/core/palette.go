@@ -390,6 +390,7 @@ var paletteCommands = []paletteCommand{
 	{name: "모든 tab 닫기", hint: "close all tabs", run: runCloseAllTabs, when: whenBuffer},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
+	{name: "커밋 기록", hint: "git graph", alias: ":graph", run: runGraph},
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
 	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters, when: whenBuffer},

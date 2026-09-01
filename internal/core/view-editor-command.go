@@ -327,6 +327,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "jumps":
 		// vim 과 같은 이름이다. `!` 는 이 명령에서 뜻이 없다(ADR-0070).
 		return jumpsMode(m.editor)
+	case "graph":
+		// 사용자의 `git graph` alias 에서 온 이름이다. vim 에 없는 명령이라 따를 줄임말도
+		// 없다. `!` 는 뜻이 없다(ADR-0115).
+		//
+		// **볼 파일이 없어도 연다.** 담는 것이 저장소에서 오지 지금 buffer 에서 오지 않아서
+		// 위의 refuseNoBuffer 목록에 넣지 않았다 — `:grep` 과 같은 까닭이다(ADR-0078 §6).
+		return graphMode(m.editor)
 	case "registers", "reg":
 		// vim 이 `:reg` 를 줄임말로 받는다. `!` 는 이 명령에서 뜻이 없다(ADR-0058).
 		return registersMode(m.editor)
