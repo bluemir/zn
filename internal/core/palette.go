@@ -402,6 +402,8 @@ var paletteCommands = []paletteCommand{
 	{name: "프로젝트 검색", hint: "search in project", alias: ":grep", run: runGrepInput},
 	{name: "화면을 평문으로 내보내기", hint: "cat screen", alias: ":cat", run: runCatScreen, when: whenBuffer},
 	{name: "특수문자 넣기", hint: "insert symbol", alias: ":symbols", run: runInsertSymbol, when: whenWritable},
+	{name: "오늘 날짜 넣기", hint: "insert date", run: runInsertDate, when: whenWritable},
+	{name: "오늘 날짜와 시각 넣기", hint: "insert date and time", run: runInsertDateTime, when: whenWritable},
 }
 
 // label 은 화면에 보이는 것 전부를 이어 붙인 것이다. 매칭이 이것을 본다.
