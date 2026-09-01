@@ -26,6 +26,8 @@ package core
 // 화면 분할이 오면 같은 글을 보는 viewport 가 여럿이 된다. 그때 이 embed 를 포인터로 바꾸면
 // `Buffer` 하나를 여럿이 가리킨다. ADR-0100 이 「화면 분할이 오면 밖으로 빼야 한다」고 적어
 // 둔 자리가 여기다.
+// 이 파일은 type 과 viewport 그 자체를 다루는 것만 든다. 커서를 옮기고 화면을 굴리는
+// 메서드 88 개는 갈래별로 `viewport-*.go` 에 나뉘어 있다(buffer.go 의 머리글과 같은 손이다).
 type viewport struct {
 	Buffer
 
@@ -43,4 +45,22 @@ type viewport struct {
 
 	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
 	selection selection
+}
+
+// place 는 지금 보고 있는 자리다. 무르는 자리가 이것을 담아 두었다가 moveToPlace 로 되돌린다.
+//
+// `Buffer` 가 viewPlace 를 embed 하므로 그 덩어리를 그대로 돌려주면 된다. 값 receiver 라
+// 사본이 나가서 담아 둔 뒤에 커서가 움직여도 그것이 따라 바뀌지 않는다.
+func (buf viewport) place() viewPlace {
+	return buf.viewPlace
+}
+
+// moveToPlace 는 담아 둔 자리로 커서와 화면을 되돌린다.
+//
+// **`desiredCol` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
+// 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
+// 칸으로 간다(ADR-0100).
+func (buf *viewport) moveToPlace(at viewPlace, width int) {
+	buf.viewPlace = at
+	buf.updateDesiredCol(width)
 }

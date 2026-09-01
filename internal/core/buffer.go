@@ -19,9 +19,12 @@ import (
 // 만지는 메서드 88 개도 그쪽에 있다. 그 가름을 컴파일러가 지킨다 — 여기 커서 필드가 없으니
 // 이 40 개는 커서를 만질 수 없다 (viewport.go, ADR-0121).
 //
-// **`buffer-*.go` 에는 Buffer 와 viewport 의 메서드만 둔다.** 여러 갈래가 나눠 쓰는 type·
-// 도우미와 다른 receiver 의 메서드는 접두 없는 파일에 남는다 — `register` 는 register.go,
-// `motionRange` 는 range.go, `screenRow` 는 row.go 에 있다.
+// **파일 접두가 곧 receiver 다.** `buffer-*.go` 에는 Buffer 의 메서드가, `viewport-*.go` 에는
+// viewport 의 메서드가 있다. 같은 갈래가 양쪽에 있는 것(`buffer-delete.go` 와
+// `viewport-delete.go`) 은 「글을 고치는 쪽」과 「커서를 옮기며 그것을 부르는 쪽」이다.
+//
+// 여러 갈래가 나눠 쓰는 type·도우미와 다른 receiver 의 메서드는 접두 없는 파일에 남는다 —
+// `register` 는 register.go, `motionRange` 는 range.go, `screenRow` 는 row.go 에 있다.
 //
 // **줄 하나를 재고 가르는 것도 접두 없는 파일이다.** 화면에서 재고 그릴 글자로 바꾸는 것은
 // cluster.go, 무엇이 한 단어인지는 glyph-class.go 다 (ADR-0119).
