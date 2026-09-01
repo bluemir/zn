@@ -596,3 +596,38 @@ func TestGrepRowKeepsWidthWithTabs(t *testing.T) {
 		assert.NotContains(t, plain, "\t", "행 %d 에 tab 이 남지 않는다", i)
 	}
 }
+
+// 편집 영역과 grep 목록이 같은 글자를 낸다.
+//
+// **화면 글자로 바꾸는 길이 둘이다**(expandRow·grepExpandScreen). 한쪽에만 규칙이 붙으면
+// 같은 파일이 두 화면에서 다르게 보인다. 실제로 제어문자가 grep 쪽에서 빠져 있었고, 그때
+// 파일에 든 escape 가 목록으로 새어 매칭 강조 색까지 껐다 (ADR-0118, ADR-0120).
+//
+// 마커(`»`·`⋅`) 는 들여쓰기와 줄 끝에만 붙으므로(ADR-0020) 그것이 없는 줄로 견준다.
+// 마커는 편집 영역만의 것이라 이 시험이 볼 것이 아니다.
+func TestGrepAndEditorExpandAlike(t *testing.T) {
+	tests := []string{
+		"a\tb",
+		"a\x1bb",
+		"a\x1b[31mRED\x1b[0mb",
+		"한글\tx",
+		"a\x00b\x7fc",
+		"plain",
+	}
+
+	for _, text := range tests {
+		t.Run(text, func(t *testing.T) {
+			line := []byte(text)
+
+			parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
+			editor := strings.Builder{}
+			for _, part := range parts {
+				editor.WriteString(part.text)
+			}
+
+			grep, _, _ := grepExpandScreen(text, 0, 0)
+
+			assert.Equal(t, editor.String(), grep, "두 길이 같은 글자를 내야 한다")
+		})
+	}
+}
