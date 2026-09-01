@@ -15,7 +15,7 @@ package core
 //
 //   - **논리 줄**은 `buf.lines` 의 한 칸이다. `cursorLine` 이 그 index 이고, 파일에 든 줄과 같다.
 //   - **화면 행**은 그 줄이 폭에서 끊긴 한 토막이다. `wrapOffsets` 가 끊는 자리를 내고
-//     (cluster.go) 폭이 바뀌면 개수가 달라진다 — 파일에는 없는 것이라 담아 두지 않는다.
+//     폭이 바뀌면 개수가 달라진다 — 파일에는 없는 것이라 담아 두지 않는다.
 //
 // **이름의 Line·Row 가 이 둘이다.** 저장소 전체가 이 두 낱말만 쓴다 — 「물리 줄」·「스크린 행」
 // 같은 다른 말은 두지 않는다.
@@ -50,7 +50,7 @@ func (buf Buffer) prevOffset(offset, width int) int {
 		from = offsets[row-1]
 	}
 
-	return prevClusterStart(line, from, offset)
+	return prevGlyphStart(line, from, offset)
 }
 
 // clampToNormal 은 커서를 마지막 글자 위로 끌어온다.
@@ -99,7 +99,7 @@ func (buf *Buffer) moveRight(n, width int) {
 			break
 		}
 
-		buf.cursorCol += clusterSize(line, buf.cursorCol)
+		buf.cursorCol += glyphSize(line, buf.cursorCol)
 	}
 
 	buf.updateDesiredCol(width)

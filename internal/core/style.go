@@ -29,6 +29,16 @@ var reverse = lipgloss.NewStyle().Reverse(true)
 // 검색 강조·sidebar·상대 줄번호와 같이 256색 고정값이다(ADR-0005, ADR-0007).
 var colorWhitespace = lipgloss.Color("240")
 
+// colorControl 은 제어문자를 보이게 한 `^[` 의 색이다(ADR-0118).
+//
+// **공백 마커와 반대로 눈에 띄어야 한다.** 마커는 늘 있는 것이라 물러나 있어야 하지만
+// 제어문자는 드물게 나타나 「여기 글자가 아닌 것이 있다」를 알리는 자리다. 흐리게 두면
+// `^[` 가 진짜 두 글자인 것과 구별되지 않는다.
+//
+// 분홍이다. 진단의 빨강(1)·노랑(11) 을 피했다 — 제어문자가 든 것은 오류가 아니라 사실이다.
+// 문법 색 아홉과도 겹치지 않는다(styleSyntax 아래의 목록).
+var colorControl = lipgloss.Color("205") // #ff5faf
+
 // styleSearchMatch, styleSearchCurrent 는 찾은 자리의 색이다.
 //
 // 반전은 statusBar·tabline 이 이미 쓰고 있어서(ADR-0004) 본문에 쓰면 그 둘과 같은 모양이 된다.

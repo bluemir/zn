@@ -56,9 +56,19 @@ func (mark whitespaceMark) marks(offset int) bool {
 // 마커에만 색을 덧씌우면 그 색을 끝내는 리셋(`ESC[m`) 이 바깥 style 까지 함께 꺼버려서,
 // 검색으로 강조한 구간이 마커 뒤에서 끊긴다. 조각으로 나눠 조각마다 style 을 한 번씩만
 // 입혀야 리셋이 조각 경계에서만 일어난다.
+// partKind 는 조각을 어떤 색으로 그릴지다. 글자가 무엇인지가 아니라 **그 자리가 무엇을
+// 나타내는지**가 갈래다. 같은 `»` 라도 파일에 든 것은 본문이고 마커로 그린 것은 마커다.
+type partKind int
+
+const (
+	partText    partKind = iota // 파일에 든 그대로의 글자
+	partMarker                  // 공백을 보이게 한 `»`·`⋅` (ADR-0020)
+	partControl                 // 제어문자를 보이게 한 `^[` (ADR-0118)
+)
+
 type screenPart struct {
-	text   string
-	marker bool
+	text string
+	kind partKind
 }
 
 // expandRow 는 line 의 start..end 를 화면에 그릴 조각들로 펼치고, 펼친 뒤의 칸을 같이 돌려준다.
@@ -72,37 +82,55 @@ type screenPart struct {
 func expandRow(line []byte, start, end, col int, mark whitespaceMark, tab int) ([]screenPart, int) {
 	parts := []screenPart{}
 	text := strings.Builder{}
-	marker := false
+	kind := partText
 
 	flush := func() {
 		if text.Len() < 1 {
 			return
 		}
 
-		parts = append(parts, screenPart{text: text.String(), marker: marker})
+		parts = append(parts, screenPart{text: text.String(), kind: kind})
 		text.Reset()
 	}
 
 	for offset := start; offset < end; {
-		size, width := clusterAt(line, offset, col, tab)
+		size, width := glyphAt(line, offset, col, tab)
 
 		char := line[offset]
 		isMarker := (char == '\t' || char == ' ') && mark.marks(offset)
 
-		if isMarker != marker {
-			flush()
-			marker = isMarker
+		// 제어문자는 `^[` 로 보이게 그린다. 그대로 넘기면 터미널이 먹어서 화면에서 사라지고,
+		// 그 자리를 세어 둔 폭과 어긋난다 (ADR-0118).
+		control := controlText(char)
+
+		next := partText
+		switch {
+		case isMarker:
+			next = partMarker
+		case control != "":
+			next = partControl
 		}
+
+		if next != kind {
+			flush()
+			kind = next
+		}
+
+		// tab 과 제어문자는 그대로 그리면 화면에서 사라진다. 무엇으로 바꿀지는
+		// cluster.go 가 정한다 — 폭을 정하는 자리와 같아야 어긋나지 않는다(ADR-0118).
+		screen := screenText(line, offset, col, tab)
 
 		switch {
 		case char == '\t' && isMarker:
-			// 마커는 tab 이 시작하는 한 칸뿐이다. 남는 칸까지 점으로 채우면 space 와 같아 보인다.
+			// **마커는 tab 이 펴진 빈 칸의 첫 칸뿐이다.** 남는 칸까지 점으로 채우면 space 와
+			// 같아 보인다. 편 것에서 첫 칸만 바꾸므로 펴는 규칙은 여기 없다 — 빈 칸은
+			// 한 byte 가 한 칸이라 앞을 그만큼 뗀다.
 			text.WriteString(markerTab)
-			text.WriteString(strings.Repeat(" ", width-1))
-		case char == '\t':
-			text.WriteString(strings.Repeat(" ", width))
+			text.WriteString(screen[1:])
 		case isMarker:
 			text.WriteString(markerSpace)
+		case screen != "":
+			text.WriteString(screen)
 		default:
 			text.Write(line[offset : offset+size])
 		}
@@ -116,18 +144,20 @@ func expandRow(line []byte, start, end, col int, mark whitespaceMark, tab int) (
 	return parts, col
 }
 
-// renderParts 는 조각들을 style 로 그린다. 마커 조각만 흐린 색으로 덮어쓴다.
+// renderParts 는 조각들을 style 로 그린다. 본문이 아닌 갈래만 제 색으로 덮어쓴다.
 // 아무 속성 없는 style 은 글자를 그대로 둔다.
 func renderParts(parts []screenPart, style lipgloss.Style) string {
 	out := strings.Builder{}
 
 	for _, part := range parts {
-		if part.marker {
+		switch part.kind {
+		case partMarker:
 			out.WriteString(style.Foreground(colorWhitespace).Render(part.text))
-			continue
+		case partControl:
+			out.WriteString(style.Foreground(colorControl).Render(part.text))
+		default:
+			out.WriteString(style.Render(part.text))
 		}
-
-		out.WriteString(style.Render(part.text))
 	}
 
 	return out.String()

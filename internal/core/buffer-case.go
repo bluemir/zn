@@ -152,7 +152,7 @@ func clusterEndClamped(line []byte, col, n int) int {
 			break
 		}
 
-		col += clusterSize(line, col)
+		col += glyphSize(line, col)
 	}
 
 	return col

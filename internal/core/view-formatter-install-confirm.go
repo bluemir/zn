@@ -110,7 +110,7 @@ func (m viewFormatterInstallConfirm) lines() (string, string) {
 func (m viewFormatterInstallConfirm) boxWidth() int {
 	title, question := m.lines()
 
-	maxContent := max(screenWidthOf(title), screenWidthOf(question))
+	maxContent := max(widthOf(title), widthOf(question))
 	wanted := maxContent + 8
 	if m.width <= 0 {
 		return max(wanted, 40)

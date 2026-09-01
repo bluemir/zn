@@ -82,7 +82,7 @@ func TestPaletteDoesNotGrowScreen(t *testing.T) {
 
 	require.Equal(t, len(before), len(after))
 	for i, row := range after {
-		assert.LessOrEqual(t, ansi.StringWidth(row), m.width, "행 %d", i)
+		assert.LessOrEqual(t, widthOf(row), m.width, "행 %d", i)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestPaletteBoxIsCenteredOnScreen(t *testing.T) {
 		assert.True(t, strings.HasPrefix(rows[0], "┌"))
 
 		for _, row := range rows {
-			assert.Equal(t, view.paletteWidth(), ansi.StringWidth(row))
+			assert.Equal(t, view.paletteWidth(), widthOf(row))
 		}
 	}
 }
@@ -230,7 +230,7 @@ func TestPaletteRowWidthWithWideChars(t *testing.T) {
 	m := newPaletteView(t, 40, 20, strings.Repeat("한글", 20)+".go")
 
 	for _, row := range boxRowsOf(t, m) {
-		assert.Equal(t, m.paletteWidth(), ansi.StringWidth(strings.TrimLeft(row, " ")))
+		assert.Equal(t, m.paletteWidth(), widthOf(strings.TrimLeft(row, " ")))
 	}
 }
 
@@ -592,5 +592,7 @@ func TestPaletteHidesEditingCommandsOnReadOnly(t *testing.T) {
 
 	assert.NotContains(t, names, "줄 끝 공백 지우기")
 	assert.NotContains(t, names, "특수문자 넣기")
+	assert.NotContains(t, names, "오늘 날짜 넣기")
+	assert.NotContains(t, names, "오늘 날짜와 시각 넣기")
 	assert.Contains(t, names, "화면을 평문으로 내보내기", "내보내는 것은 파일을 안 건드린다")
 }

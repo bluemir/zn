@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -204,7 +203,7 @@ func TestStickyRowIsOneRow(t *testing.T) {
 	rows := contentRowsOf(t, m)
 
 	assert.Len(t, rows, 5, "행 수는 그대로다")
-	assert.LessOrEqual(t, ansi.StringWidth(rows[0]), m.textWidth(), "편집 영역을 넘지 않는다")
+	assert.LessOrEqual(t, widthOf(rows[0]), m.textWidth(), "편집 영역을 넘지 않는다")
 }
 
 // **줄번호 칸이 넘치지 않는다.**
@@ -225,6 +224,6 @@ func TestStickyGutterDoesNotOverflow(t *testing.T) {
 	rows := contentRowsOf(t, m)
 	require.Contains(t, rows[0], "aaa", "맨 윗줄이 머리줄이다")
 
-	assert.LessOrEqual(t, ansi.StringWidth(rows[0]), m.textWidth(),
+	assert.LessOrEqual(t, widthOf(rows[0]), m.textWidth(),
 		"머리줄이 편집 영역보다 넓다 — 상대번호 칸이 넘쳤다")
 }

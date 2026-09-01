@@ -248,7 +248,7 @@ func TestCommandCandidateBoxKeepsScreenWidth(t *testing.T) {
 
 	for i, row := range strings.Split(here.View().Content, "\n") {
 		plain := ansi.Strip(row)
-		assert.Equal(t, here.width, screenColAt([]byte(plain), len(plain), defaultTabWidth),
+		assert.Equal(t, here.width, widthOf(plain),
 			"행 %d: %q", i, plain)
 	}
 }

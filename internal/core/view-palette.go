@@ -521,13 +521,13 @@ type paletteRow struct {
 // 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없다.
 func (r paletteRow) render(inner int) string {
 	left := truncateToWidth(sanitizeName(r.left), inner)
-	leftWidth := screenWidthOf(left)
+	leftWidth := widthOf(left)
 
 	// 오른쪽은 붙일 칸이 있을 때만 넣는다. 이름이 먼저다 — statusBar 의 git 표시와 같은 규칙이다.
 	right, rightWidth := "", 0
 	if r.right != "" {
 		right = sanitizeName(r.right)
-		rightWidth = screenWidthOf(right)
+		rightWidth = widthOf(right)
 
 		if leftWidth+2+rightWidth > inner {
 			right, rightWidth = "", 0
@@ -586,12 +586,12 @@ func renderMatches(text string, positions []int, base, match lipgloss.Style) str
 
 	for i := 0; i < len(positions); i++ {
 		start := positions[i]
-		end := start + clusterSize(line, start)
+		end := start + glyphSize(line, start)
 
 		// 이어지는 자리는 한 구간으로 묶는다.
 		for i+1 < len(positions) && positions[i+1] == end {
 			i++
-			end += clusterSize(line, positions[i])
+			end += glyphSize(line, positions[i])
 		}
 
 		put(text[offset:start], base)
@@ -606,5 +606,5 @@ func renderMatches(text string, positions []int, base, match lipgloss.Style) str
 
 // padTo 는 화면 칸을 채운다.
 func padTo(text string, width int) string {
-	return text + strings.Repeat(" ", max(width-screenWidthOf(text), 0))
+	return text + strings.Repeat(" ", max(width-widthOf(text), 0))
 }

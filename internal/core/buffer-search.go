@@ -1,6 +1,8 @@
 package core
 
-import "regexp"
+import (
+	"regexp"
+)
 
 // buffer 안에서 패턴을 찾는 것들이다. 패턴을 짓고 화면에 칠하는 것은 search.go 에 있다 (ADR-0042).
 
@@ -77,20 +79,20 @@ func (buf Buffer) wordUnderCursor() (string, int, bool) {
 	line := buf.lines[buf.cursorLine]
 
 	col := buf.cursorCol
-	for col < len(line) && !isWordClass(clusterClass(line, col, smallWord)) {
-		col += clusterSize(line, col)
+	for col < len(line) && !isWordClass(glyphClass(line, col)) {
+		col += glyphSize(line, col)
 	}
 	if col >= len(line) {
 		return "", 0, false
 	}
 
 	// 단어는 한 부류가 이어지는 구간이다. `한글abc` 가 두 단어인 것도 여기서 따라온다.
-	class := clusterClass(line, col, smallWord)
+	class := glyphClass(line, col)
 
 	start := col
 	for start > 0 {
-		prev := prevClusterStart(line, 0, start)
-		if clusterClass(line, prev, smallWord) != class {
+		prev := prevGlyphStart(line, 0, start)
+		if glyphClass(line, prev) != class {
 			break
 		}
 
@@ -98,8 +100,8 @@ func (buf Buffer) wordUnderCursor() (string, int, bool) {
 	}
 
 	end := col
-	for end < len(line) && clusterClass(line, end, smallWord) == class {
-		end += clusterSize(line, end)
+	for end < len(line) && glyphClass(line, end) == class {
+		end += glyphSize(line, end)
 	}
 
 	return string(line[start:end]), start, true

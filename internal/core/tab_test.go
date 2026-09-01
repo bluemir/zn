@@ -167,7 +167,7 @@ func TestTablineReverseSpansFullWidth(t *testing.T) {
 
 	plain, reversed := splitByReverse(rawTablineOf(t, m.View()))
 
-	assert.Equal(t, m.width, screenColAt([]byte(plain+reversed), len(plain+reversed), defaultTabWidth))
+	assert.Equal(t, m.width, widthOf(plain+reversed))
 	assert.True(t, strings.HasSuffix(reversed, "  "), "빈 칸도 칠해진다")
 }
 
@@ -209,7 +209,7 @@ func TestTablineTruncatesToWidth(t *testing.T) {
 
 	line := tablineOf(t, m.View())
 
-	assert.LessOrEqual(t, screenColAt([]byte(line), len(line), defaultTabWidth), 12)
+	assert.LessOrEqual(t, widthOf(line), 12)
 }
 
 // 넘치는 tab 은 양끝 표시가 알린다. `<n` 은 왼쪽으로, `n>` 는 오른쪽으로 그만큼 더 있다는 뜻이다.
@@ -276,7 +276,7 @@ func TestTablineDoesNotDrawPartialTab(t *testing.T) {
 
 		line := tablineOf(t, m.View())
 
-		assert.LessOrEqual(t, screenWidthOf(line), width, "width=%d", width)
+		assert.LessOrEqual(t, widthOf(line), width, "width=%d", width)
 		assert.Contains(t, line, " 3 c.txt", "활성 tab 은 온전히 보인다: width=%d", width)
 
 		// 마지막 tab 뒤에는 채운 빈 칸이 붙을 수 있다. 잘린 이름은 뒤에 빈 칸이 없다.

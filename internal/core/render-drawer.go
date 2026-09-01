@@ -23,7 +23,7 @@ type drawer struct {
 	// 정확히 그만큼이어야 한다.
 	//
 	// 고른 줄을 반전하는 것도 여기서 한다. 칸을 먼저 채우고 그다음에 강조를 입혀야 하는데
-	// (screenWidthOf 가 escape 까지 센다) 그 순서를 아는 것이 줄을 그리는 쪽이다.
+	// (lines.WidthOf 가 escape 까지 센다) 그 순서를 아는 것이 줄을 그리는 쪽이다.
 	row func(at, inner int) string
 
 	// at 은 아랫 테두리에 얹을 「몇 번째를 보고 있는가」다. 1 부터이고 0 이면 얹지 않는다

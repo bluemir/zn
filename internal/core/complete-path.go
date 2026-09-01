@@ -163,7 +163,7 @@ func sharedLen(a, b string) int {
 
 	at := 0
 	for at < len(line) && at < len(b) {
-		size := clusterSize(line, at)
+		size := glyphSize(line, at)
 		if at+size > len(b) || a[at:at+size] != b[at:at+size] {
 			break
 		}

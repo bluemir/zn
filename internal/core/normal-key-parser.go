@@ -164,25 +164,25 @@ func motionFor(op, key string) (moveMotion, bool) {
 	case "$":
 		return motionLineEnd{}, true
 	case "b":
-		return motionWordBack{kind: smallWord}, true
+		return motionWordBack{kind: wordSmall}, true
 	case "B":
-		return motionWordBack{kind: bigWord}, true
+		return motionWordBack{kind: wordBig}, true
 	case "e":
-		return motionWordEnd{kind: smallWord}, true
+		return motionWordEnd{kind: wordSmall}, true
 	case "E":
-		return motionWordEnd{kind: bigWord}, true
+		return motionWordEnd{kind: wordBig}, true
 	case "w":
 		if op == "c" {
-			return motionChangeWord{kind: smallWord}, true
+			return motionChangeWord{kind: wordSmall}, true
 		}
 
-		return motionWordForward{kind: smallWord}, true
+		return motionWordForward{kind: wordSmall}, true
 	case "W":
 		if op == "c" {
-			return motionChangeWord{kind: bigWord}, true
+			return motionChangeWord{kind: wordBig}, true
 		}
 
-		return motionWordForward{kind: bigWord}, true
+		return motionWordForward{kind: wordBig}, true
 	case "j":
 		return motionLineDown{}, true
 	case "k":
@@ -702,9 +702,9 @@ func (s normalTextObject) showcmd() string {
 func wordObjectKind(key string) (wordKind, bool) {
 	switch key {
 	case "w":
-		return smallWord, true
+		return wordSmall, true
 	case "W":
-		return bigWord, true
+		return wordBig, true
 	}
 
 	return 0, false

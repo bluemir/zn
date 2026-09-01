@@ -63,11 +63,11 @@ func fuzzyMatch(pattern, target string) (score int, positions []int, ok bool) {
 // clusterStarts 는 각 글자가 시작하는 byte offset 이다. 마지막에 len(line) 이 붙는다.
 //
 // 매칭을 byte 가 아니라 글자 단위로 하려면 경계를 먼저 알아야 한다. grapheme cluster 는
-// 뒤에서 앞으로 읽을 수 없어서(buffer.go 의 prevClusterStart 와 같은 이유) 한 번 모아둔다.
+// 뒤에서 앞으로 읽을 수 없어서(buffer.go 의 prevGlyphStart 와 같은 이유) 한 번 모아둔다.
 func clusterStarts(line []byte) []int {
 	starts := make([]int, 0, len(line)+1)
 
-	for offset := 0; offset < len(line); offset += clusterSize(line, offset) {
+	for offset := 0; offset < len(line); offset += glyphSize(line, offset) {
 		starts = append(starts, offset)
 	}
 

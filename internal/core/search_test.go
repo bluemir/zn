@@ -392,8 +392,8 @@ func TestSearchHighlightKeepsTabWidth(t *testing.T) {
 // 한 번씩만 입혀야 마커 뒤에서 강조가 이어진다.
 func TestRenderPartsKeepsStyleAcrossMarker(t *testing.T) {
 	parts := []screenPart{
-		{text: "⋅⋅", marker: true},
-		{text: "ab", marker: false},
+		{text: "⋅⋅", kind: partMarker},
+		{text: "ab"},
 	}
 
 	got := renderParts(parts, styleSearchMatch)
@@ -406,10 +406,22 @@ func TestRenderPartsKeepsStyleAcrossMarker(t *testing.T) {
 func TestRenderPartsDimsMarker(t *testing.T) {
 	var plain lipgloss.Style
 
-	got := renderParts([]screenPart{{text: "⋅⋅", marker: true}, {text: "ab"}}, plain)
+	got := renderParts([]screenPart{{text: "⋅⋅", kind: partMarker}, {text: "ab"}}, plain)
 
 	assert.Contains(t, got, plain.Foreground(colorWhitespace).Render("⋅⋅"))
 	assert.Equal(t, "⋅⋅ab", ansi.Strip(got))
+}
+
+// 제어문자는 마커와 반대로 눈에 띄는 색이다. 흐리게 두면 진짜 `^[` 두 글자와 갈리지 않는다
+// (ADR-0118).
+func TestRenderPartsColorsControl(t *testing.T) {
+	var plain lipgloss.Style
+
+	got := renderParts([]screenPart{{text: "^[", kind: partControl}, {text: "ab"}}, plain)
+
+	assert.Contains(t, got, plain.Foreground(colorControl).Render("^["))
+	assert.NotContains(t, got, plain.Foreground(colorWhitespace).Render("^["), "마커 색이 아니다")
+	assert.Equal(t, "^[ab", ansi.Strip(got))
 }
 
 // 검색은 tab 을 넘어 남는다. `n` 이 다른 tab 에서도 같은 것을 찾는다.

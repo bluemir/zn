@@ -395,7 +395,7 @@ func TestSidebarCellsAreExactlyWide(t *testing.T) {
 
 	for i, cell := range s.renderCells(10, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain), defaultTabWidth), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, widthOf(plain), "행 %d: %q", i, plain)
 	}
 }
 
@@ -421,7 +421,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 
 	for i, cell := range s.renderCells(4, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain), defaultTabWidth), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, widthOf(plain), "행 %d: %q", i, plain)
 	}
 }
 
@@ -508,7 +508,7 @@ func TestSidebarRendersFullHeightBesideShortFile(t *testing.T) {
 
 	require.Len(t, cells, m.sidebarHeight())
 	for i, cell := range cells {
-		assert.Equal(t, sidebarWidth, screenColAt([]byte(cell), len(cell), defaultTabWidth), "행 %d", i)
+		assert.Equal(t, sidebarWidth, widthOf(cell), "행 %d", i)
 	}
 	assert.Contains(t, cells[0], "▾ ", "뿌리가 tabline 옆줄에 온다")
 	assert.Contains(t, cells[len(cells)-1], "│", "파일은 2 줄뿐이지만 구분선은 statusBar 앞까지 간다")
@@ -545,8 +545,8 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	// 반전으로 칠하는 두 줄은 화면 끝까지 이어져야 한다.
 	// statusBar 는 sidebar 아래까지 한 덩어리라 왼쪽 끝부터 칠해진다.
 	for _, i := range []int{0, len(rows) - statusBarHeight} {
-		plain := []byte(ansi.Strip(rows[i]))
-		assert.Equal(t, 80, screenColAt(plain, len(plain), defaultTabWidth), "행 %d", i)
+		plain := ansi.Strip(rows[i])
+		assert.Equal(t, 80, widthOf(plain), "행 %d", i)
 	}
 	assert.True(t, strings.HasPrefix(rows[len(rows)-statusBarHeight], "\x1b["),
 		"sidebar 아래 빈 칸도 반전 안에 있어야 색이 끊기지 않는다")

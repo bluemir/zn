@@ -150,10 +150,10 @@ func TestGraphRendersTwoLines(t *testing.T) {
 	rows := graphFixtureRows(t)
 	m := newGraphView(t, rows)
 
-	lines := m.renderCommit(rows[0], false)
-	require.Len(t, lines, 2)
+	rendered := m.renderCommit(rows[0], false)
+	require.Len(t, rendered, 2)
 
-	head, subject := ansi.Strip(lines[0]), ansi.Strip(lines[1])
+	head, subject := ansi.Strip(rendered[0]), ansi.Strip(rendered[1])
 
 	assert.Contains(t, head, rows[0].commit.short+" - ")
 	assert.Contains(t, head, "(HEAD → master)")
@@ -161,8 +161,8 @@ func TestGraphRendersTwoLines(t *testing.T) {
 
 	// 화면 칸으로 견준다. 그래프 글자가 여러 byte 라 byte 자리로는 맞출 수 없다.
 	assert.Equal(t,
-		screenWidthOf(head[:strings.Index(head, " - ")+3]),
-		screenWidthOf(subject[:strings.Index(subject, "merge topic")]),
+		widthOf(head[:strings.Index(head, " - ")+3]),
+		widthOf(subject[:strings.Index(subject, "merge topic")]),
 		"제목이 날짜와 같은 칸에서 시작한다")
 }
 

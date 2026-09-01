@@ -173,7 +173,7 @@ func TestRegistersRowWidth(t *testing.T) {
 
 		// 합성하기 전의 판을 그대로 잰다. 화면에서 떼어 오면 넘친 부분이 이미 잘려 있다.
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), ansi.StringWidth(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }

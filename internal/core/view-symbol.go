@@ -380,11 +380,11 @@ func (m viewSymbol) renderInputRow(inner int) string {
 
 	// 이름이 먼저다. 붙일 칸이 없으면 개수를 뗀다 — statusBar 의 git 표시와 같은 규칙이다.
 	body = truncateToWidth(body, inner)
-	if screenWidthOf(body)+2+screenWidthOf(counter) > inner {
+	if widthOf(body)+2+widthOf(counter) > inner {
 		counter = ""
 	}
 
-	pad := strings.Repeat(" ", max(inner-screenWidthOf(body)-screenWidthOf(counter), 0))
+	pad := strings.Repeat(" ", max(inner-widthOf(body)-widthOf(counter), 0))
 
 	return side + " " + style.Render(body) + pad + styleDetail.Render(counter) + " " + side
 }
@@ -400,7 +400,7 @@ func (m viewSymbol) symbolCounter() string {
 // (input-line.go). 오른쪽 끝의 개수와 그 앞 빈 칸 둘, 그리고 커서 한 칸을 비켜 둔다 —
 // 개수를 뗄지는 접고 나서 정한다(renderInputRow).
 func (m viewSymbol) inputText(inner int) (text string, cursorCol int) {
-	room := inner - 2 - screenWidthOf(m.symbolCounter()) - 1
+	room := inner - 2 - widthOf(m.symbolCounter()) - 1
 
 	return m.input.visible("", max(room, 1))
 }
@@ -448,12 +448,12 @@ func (m viewSymbol) renderGridRows(inner int) []string {
 // renderCell 은 격자 한 칸이다. 글자를 놓고 남은 자리를 채워 늘 symbolCellWidth 칸이다.
 //
 // 폭은 화면의 나머지와 같은 자로 잰다. Ambiguous 글자(`→ ± × °`) 를 두 칸으로 그리는
-// 터미널에서는 screenWidthOf 가 이미 두 칸으로 답한다 — 눈금을 시작할 때 터미널에 맞춰
+// 터미널에서는 lines.WidthOf 가 이미 두 칸으로 답한다 — 눈금을 시작할 때 터미널에 맞춰
 // 놓았기 때문이고, 그 전에는 이 자리에만 있던 특례가 그 일을 했다(ADR-0072, ADR-0056).
 func (m viewSymbol) renderCell(at int) string {
 	entry := m.symbols[m.hits[at].index]
 
-	pad := strings.Repeat(" ", max(symbolCellWidth-screenWidthOf(entry.Char), 0))
+	pad := strings.Repeat(" ", max(symbolCellWidth-widthOf(entry.Char), 0))
 
 	// 고른 칸은 반전만 쓴다. 색을 섞으면 안쪽의 색 초기화가 반전까지 꺼버린다(view-palette.go).
 	if at == m.selected {
@@ -473,7 +473,7 @@ func (m viewSymbol) renderNameRow(inner int) string {
 		return side + " " + strings.Repeat(" ", inner) + " " + side
 	}
 
-	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-screenWidthOf(entry.Char), 0))
+	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-widthOf(entry.Char), 0))
 
 	// 맞은 자리는 label() 안의 offset 이라 paletteRow 가 그대로 갈라 준다.
 	row := paletteRow{

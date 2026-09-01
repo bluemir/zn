@@ -380,7 +380,7 @@ func trimTextRight(text string, width int) string {
 	if width < 1 {
 		return ""
 	}
-	if screenWidthOf(text) <= width {
+	if widthOf(text) <= width {
 		return text
 	}
 

@@ -372,5 +372,5 @@ func TestJobsListKeepsStateColumnAligned(t *testing.T) {
 
 // barColumnOf 는 막대가 시작하는 화면 칸이다.
 func barColumnOf(row string) int {
-	return screenWidthOf(row[:strings.Index(row, "⣿")])
+	return widthOf(row[:strings.Index(row, "⣿")])
 }

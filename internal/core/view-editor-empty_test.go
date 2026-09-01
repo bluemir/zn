@@ -81,7 +81,7 @@ func TestEmptyScreenKeepsScreenShape(t *testing.T) {
 
 	assert.Len(t, rows, 20+tablineHeight+statusBarHeight)
 	for i, row := range rows {
-		assert.LessOrEqual(t, screenWidthOf(ansi.Strip(row)), 80, "%d 번째 행이 넘친다", i)
+		assert.LessOrEqual(t, widthOf(ansi.Strip(row)), 80, "%d 번째 행이 넘친다", i)
 	}
 }
 
@@ -103,7 +103,7 @@ func TestEmptyScreenTipIsDim(t *testing.T) {
 
 	// 가운데 정렬이 escape 를 폭으로 세면 tip 만 왼쪽으로 밀린다.
 	left := len(tip) - len(strings.TrimLeft(tip, " "))
-	assert.Equal(t, (80-screenWidthOf(assets.Tips[0]))/2, left, "%q", tip)
+	assert.Equal(t, (80-widthOf(assets.Tips[0]))/2, left, "%q", tip)
 }
 
 // statusBar 에서 파일에 딸린 것들이 사라진다. `[No Name]` 도 적지 않는다.

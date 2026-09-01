@@ -24,13 +24,13 @@ func (buf *Buffer) indentText() []byte {
 //
 // 이 파일 내용을 재거나 그리는 자리는 전부 이것을 넘긴다 — 그리는 폭(render-row.go), 커서와
 // 줄바꿈(buffer-move.go·buffer-screen.go), 들여쓰기 한 단계(아래) 가 같은 답을 써야 한다.
-// tabline 의 제목이나 statusBar 처럼 파일 내용이 아닌 글은 넘기지 않는다(cluster.go 머리글).
+// tabline 의 제목이나 statusBar 처럼 파일 내용이 아닌 글은 넘기지 않는다(lines 패키지 머리글).
 //
 // **값 receiver 다.** 그리는 쪽의 visibleRows·advanceRows 가 값 receiver 라 여기가 포인터면
 // 그 자리에서 부를 수 없다. 정하는 것은 buffer 를 지을 때 끝나 있다(resolveTabWidth).
 //
 // 0 을 막는 자리가 하나 있다. `Buffer{path: "b.txt"}` 처럼 손으로 지은 것은 이 칸이 비는데,
-// 그대로 넘기면 clusterAt 의 나머지 연산이 죽는다. 빈 칸은 「아직 정하지 않았다」로 읽는다.
+// 그대로 넘기면 glyphAt 의 나머지 연산이 죽는다. 빈 칸은 「아직 정하지 않았다」로 읽는다.
 func (buf Buffer) tabWidth() int {
 	if buf.tab < 1 {
 		return defaultTabWidth

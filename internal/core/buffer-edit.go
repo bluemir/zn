@@ -251,8 +251,8 @@ func (buf *Buffer) deleteForward(width int) {
 	line := buf.lines[buf.cursorLine]
 
 	if buf.cursorCol < len(line) {
-		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. clusterSize 가 글자 경계를 준다.
-		to := buf.cursorCol + clusterSize(line, buf.cursorCol)
+		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. lines.Size 가 글자 경계를 준다.
+		to := buf.cursorCol + glyphSize(line, buf.cursorCol)
 
 		rest := make([]byte, 0, len(line)-(to-buf.cursorCol))
 		rest = append(rest, line[:buf.cursorCol]...)

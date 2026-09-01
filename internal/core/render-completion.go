@@ -95,7 +95,7 @@ func completionLabel(item lsp.CompletionItem, width int) string {
 		return item.Label
 	}
 
-	rest := width - screenWidthOf(item.Label) - 2
+	rest := width - widthOf(item.Label) - 2
 	if rest < 4 {
 		return item.Label
 	}

@@ -285,7 +285,7 @@ func TestLocationsDrawerWidth(t *testing.T) {
 		m := manyLocationsFixture(t, 20, width, 20)
 
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), ansi.StringWidth(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }
@@ -321,13 +321,13 @@ func TestTrimLeftToWidth(t *testing.T) {
 	assert.Equal(t, place, trimLeftToWidth(place, 200), "들어가면 그대로 둔다")
 
 	short := trimLeftToWidth(place, 20)
-	assert.LessOrEqual(t, screenWidthOf(short), 20)
+	assert.LessOrEqual(t, widthOf(short), 20)
 	assert.True(t, strings.HasPrefix(short, "…"), "접힌 것이 보여야 한다")
 	assert.True(t, strings.HasSuffix(short, "tea.go:603"), "파일 이름과 줄 번호가 남아야 한다")
 
 	// 한글이 든 경로도 칸으로 센다. 두 칸짜리 글자가 경계에 걸려도 넘치지 않는다.
 	korean := trimLeftToWidth("/집/가나다라마바사/파일.go:12", 12)
-	assert.LessOrEqual(t, screenWidthOf(korean), 12)
+	assert.LessOrEqual(t, widthOf(korean), 12)
 	assert.True(t, strings.HasSuffix(korean, ".go:12"))
 
 	assert.Equal(t, "", trimLeftToWidth(place, 0))

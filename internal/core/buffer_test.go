@@ -822,18 +822,18 @@ func TestClusterAt(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			size, width := clusterAt([]byte(test.text), 0, 0, defaultTabWidth)
+			size, width := glyphAt([]byte(test.text), 0, 0, defaultTabWidth)
 
 			assert.Equal(t, test.size, size, "글자 하나의 byte 길이")
 			assert.Equal(t, test.width, width, "화면 폭")
-			assert.Equal(t, test.width, screenColAt([]byte(test.text), len(test.text), defaultTabWidth))
+			assert.Equal(t, test.width, widthOf(test.text))
 		})
 	}
 }
 
 // 깨진 UTF-8 에서도 진행해야 한다. 0 을 돌려주면 무한 반복이다.
 func TestClusterAtInvalidUTF8(t *testing.T) {
-	size, _ := clusterAt([]byte{0xff, 0xfe}, 0, 0, defaultTabWidth)
+	size, _ := glyphAt([]byte{0xff, 0xfe}, 0, 0, defaultTabWidth)
 	assert.Positive(t, size)
 
 	assert.NotPanics(t, func() {
@@ -917,7 +917,7 @@ func TestClusterAtTab(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("col=%d", test.col), func(t *testing.T) {
-			size, width := clusterAt([]byte("\t"), 0, test.col, defaultTabWidth)
+			size, width := glyphAt([]byte("\t"), 0, test.col, defaultTabWidth)
 
 			assert.Equal(t, 1, size, "tab 은 1 byte")
 			assert.Equal(t, test.width, width)
@@ -1016,7 +1016,7 @@ func TestDeleteForward(t *testing.T) {
 	assert.Equal(t, 0, buf.cursorCol, "커서는 제자리다")
 }
 
-// 한글·이모지도 한 글자로 지운다. clusterSize 가 글자 경계를 준다.
+// 한글·이모지도 한 글자로 지운다. lines.Size 가 글자 경계를 준다.
 func TestDeleteForwardDeletesWholeCluster(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("한글x\n"))
 

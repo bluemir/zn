@@ -16,7 +16,7 @@ func ansiStrip(s string) string { return ansi.Strip(s) }
 func TestCountBorderPutsCountOnTheRight(t *testing.T) {
 	row := renderCountBorder(boxUnicode, 40, 30, 3540)
 
-	require.Equal(t, 40, screenWidthOf(row), "테두리 폭은 그대로다")
+	require.Equal(t, 40, widthOf(row), "테두리 폭은 그대로다")
 	assert.True(t, strings.HasPrefix(row, boxUnicode.bottomLeft), "왼쪽 모서리")
 	assert.True(t, strings.HasSuffix(row, boxUnicode.bottomRight), "오른쪽 모서리")
 	assert.Contains(t, row, "30/3,540", "세 자리마다 쉼표를 넣는다")
@@ -41,7 +41,7 @@ func TestCountBorderIsPlainWhenEmpty(t *testing.T) {
 func TestCountBorderIsPlainWhenTooNarrow(t *testing.T) {
 	narrow := renderCountBorder(boxUnicode, 8, 1234, 5678)
 
-	require.Equal(t, 8, screenWidthOf(narrow))
+	require.Equal(t, 8, widthOf(narrow))
 	assert.NotContains(t, narrow, "1,234")
 	assert.NotContains(t, narrow, "…", "자르지 않고 버린다")
 }
@@ -52,7 +52,7 @@ func TestCountBorderKeepsWidthAtTheEdge(t *testing.T) {
 	for width := 8; width <= 12; width++ {
 		row := renderCountBorder(boxUnicode, width, 9, 99)
 
-		assert.Equal(t, width, screenWidthOf(row), "폭 %d", width)
+		assert.Equal(t, width, widthOf(row), "폭 %d", width)
 	}
 
 	assert.Contains(t, renderCountBorder(boxUnicode, 8, 9, 99), "9/99")

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// lines 는 시험에서 쓰는 줄 묶음이다.
-func lines(text string) [][]byte {
+// toLines 는 시험에서 쓰는 줄 묶음이다.
+func toLines(text string) [][]byte {
 	out, _ := splitLines([]byte(text))
 
 	return out
@@ -17,8 +17,8 @@ func lines(text string) [][]byte {
 
 // 고친 줄에는 `~`, 새로 넣은 줄에는 `+` 다.
 func TestGitLineMarksAddedAndModified(t *testing.T) {
-	base := lines("one\ntwo\nthree\n")
-	now := lines("one\nTWO\nnew\nthree\n")
+	base := toLines("one\ntwo\nthree\n")
+	now := toLines("one\nTWO\nnew\nthree\n")
 
 	marks := gitLineMarks(base, now)
 
@@ -30,8 +30,8 @@ func TestGitLineMarksAddedAndModified(t *testing.T) {
 
 // 지운 줄은 화면에 없다. 표시는 그 앞 줄에 남는다.
 func TestGitLineMarksRemoved(t *testing.T) {
-	base := lines("one\ntwo\nthree\nfour\n")
-	now := lines("one\nfour\n")
+	base := toLines("one\ntwo\nthree\nfour\n")
+	now := toLines("one\nfour\n")
 
 	marks := gitLineMarks(base, now)
 
@@ -41,16 +41,16 @@ func TestGitLineMarksRemoved(t *testing.T) {
 
 // 파일 맨 앞이 지워지면 갈 곳이 없다. 첫 줄에 선다.
 func TestGitLineMarksRemovedAtTop(t *testing.T) {
-	base := lines("one\ntwo\nthree\n")
-	now := lines("three\n")
+	base := toLines("one\ntwo\nthree\n")
+	now := toLines("three\n")
 
 	assert.Equal(t, gitLineRemoved, gitLineMarks(base, now)[0])
 }
 
 // 한 줄에 둘이 겹치면 그 줄 자신에 대한 사실이 이긴다.
 func TestGitLineMarksKeepsOwnFactOverRemoved(t *testing.T) {
-	base := lines("one\ntwo\nthree\nfour\n")
-	now := lines("ONE\nfour\n")
+	base := toLines("one\ntwo\nthree\nfour\n")
+	now := toLines("ONE\nfour\n")
 
 	marks := gitLineMarks(base, now)
 
@@ -59,17 +59,17 @@ func TestGitLineMarksKeepsOwnFactOverRemoved(t *testing.T) {
 
 // 견줄 원본이 없으면 마커도 없다. 추적하지 않는 새 파일이 이것이다.
 func TestGitLineMarksWithoutBase(t *testing.T) {
-	assert.Nil(t, gitLineMarks(nil, lines("one\ntwo\n")))
+	assert.Nil(t, gitLineMarks(nil, toLines("one\ntwo\n")))
 }
 
 // 같은 내용이면 아무것도 없다.
 func TestGitLineMarksUnchanged(t *testing.T) {
-	assert.Empty(t, gitLineMarks(lines("one\ntwo\n"), lines("one\ntwo\n")))
+	assert.Empty(t, gitLineMarks(toLines("one\ntwo\n"), toLines("one\ntwo\n")))
 }
 
 // 통째로 지우면 첫 줄에만 표시가 선다.
 func TestGitLineMarksEmptiedFile(t *testing.T) {
-	marks := gitLineMarks(lines("one\ntwo\n"), lines(""))
+	marks := gitLineMarks(toLines("one\ntwo\n"), toLines(""))
 
 	assert.Equal(t, gitLineRemoved, marks[0])
 	assert.Len(t, marks, 1)
@@ -82,7 +82,7 @@ func TestGitLineMarksInBigFile(t *testing.T) {
 		builder.WriteString("line " + strconv.Itoa(i) + "\n")
 	}
 
-	base := lines(builder.String())
+	base := toLines(builder.String())
 	now := append([][]byte(nil), base...)
 	now[19000] = []byte("고친 줄")
 
@@ -95,7 +95,7 @@ func TestGitLineMarksInBigFile(t *testing.T) {
 // 마커 칸은 진단 칸 다음, 줄번호 앞이다.
 func TestGitMarkerInGutter(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 40, 2)
-	m.buffers[0].gitBase = lines("one\nTWO\n")
+	m.buffers[0].gitBase = toLines("one\nTWO\n")
 	m.buffers[0].refreshGitLines()
 
 	assert.Equal(t, []string{"    1  0 ", " ~  2  1 "}, gutterOf(t, m))

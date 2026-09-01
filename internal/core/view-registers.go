@@ -313,7 +313,7 @@ func (m viewRegisters) renderRow(row registerRow, inner int) string {
 		kind = "줄"
 	}
 
-	// 강조를 입힌 뒤에는 폭을 잴 수 없다(screenWidthOf 가 escape 까지 센다). 칸을 먼저
+	// 강조를 입힌 뒤에는 폭을 잴 수 없다(lines.WidthOf 가 escape 까지 센다). 칸을 먼저
 	// 채우고 그다음에 색을 입힌다 — 특수문자 판이 셀마다 하는 것과 같은 순서다.
 	body := max(inner-registerMarkWidth, 0)
 	text := padTo(trimTextRight(previewOf(row.reg), body), body)

@@ -203,7 +203,7 @@ func renderTable(rows [][]string, delimiter int, indent string) [][]byte {
 		}
 
 		for column, cell := range row {
-			widths[column] = max(widths[column], screenWidthOf(cell))
+			widths[column] = max(widths[column], widthOf(cell))
 		}
 	}
 
@@ -272,7 +272,7 @@ func renderTableDelimiter(widths []int, aligns []tableAlign, indent string) []by
 
 // padCell 은 칸 글을 그 폭에 맞춰 민다. 글이 폭보다 넓으면 그대로 둔다.
 func padCell(cell string, width int, align tableAlign) string {
-	pad := width - screenWidthOf(cell)
+	pad := width - widthOf(cell)
 	if pad < 1 {
 		return cell
 	}

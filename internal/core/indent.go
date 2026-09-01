@@ -73,6 +73,15 @@ func editorconfigUnit(path string) []byte {
 	return nil
 }
 
+// defaultTabWidth 는 tab 하나가 미는 칸 수의 기본값이다.
+//
+// 터미널 기본 tab stop 은 8 이지만, 8 칸은 깊게 들여쓴 코드를 화면 밖으로 밀어낸다.
+//
+// **줄을 재는 함수들은 이 값을 모른다.** 그것들은 tab 폭을 늘 인자로 받는다(cluster.go).
+// 기본값을 고르는 것은 「적힌 것이 없을 때 무엇으로 볼까」라는 `.editorconfig` 를 읽는
+// 자리의 판단이다 (ADR-0096).
+const defaultTabWidth = 4
+
 // resolveTabWidth 는 tab 하나가 미는 화면 칸 수다. 적힌 것이 없으면 defaultTabWidth 다.
 //
 // **부르는 자리는 buffer 를 짓는 자리와 이름이 붙는 자리 둘뿐이다**(buffer.go, buffer-save.go).
@@ -86,7 +95,7 @@ func editorconfigUnit(path string) []byte {
 // (definition.go 의 `tab_width defaults to indent_size`). 그것을 되돌리지 않는다 —
 // 명세대로 읽는 쪽이 다른 편집기와 같은 화면을 낸다 (ADR-0096).
 //
-// 1 보다 작으면 기본값이다. 0 을 그대로 넘기면 clusterAt 의 나머지 연산이 죽는다.
+// 1 보다 작으면 기본값이다. 0 을 그대로 넘기면 glyphAt 의 나머지 연산이 죽는다.
 //
 // **위로는 상한을 두지 않는다.** `tab_width = 200` 이면 tab 하나가 화면을 넘는데, 적어 둔
 // 사람의 뜻이 그렇다면 그대로 보이는 것이 맞다. 상한을 두면 적힌 것과 보이는 것이 갈리고

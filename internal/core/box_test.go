@@ -16,7 +16,7 @@ func TestASCIIBoxCharsAreSingleWidth(t *testing.T) {
 		boxASCII.topLeft, boxASCII.topRight, boxASCII.bottomLeft, boxASCII.bottomRight,
 		boxASCII.leftTee, boxASCII.rightTee,
 	} {
-		assert.Equal(t, 1, ansi.StringWidth(char), "%q", char)
+		assert.Equal(t, 1, widthOf(char), "%q", char)
 	}
 }
 
@@ -35,7 +35,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 	for i, row := range rows {
 		plain := ansi.Strip(row)
 
-		assert.Equal(t, m.paletteWidth(), ansi.StringWidth(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, m.paletteWidth(), widthOf(plain), "행 %d: %q", i, plain)
 		assert.NotContains(t, plain, "│", "행 %d 에 유니코드 박스 글자가 남았다", i)
 		assert.NotContains(t, plain, "─", "행 %d 에 유니코드 박스 글자가 남았다", i)
 	}
@@ -48,7 +48,7 @@ func TestASCIISidebarCells(t *testing.T) {
 	for i, cell := range s.renderCells(10, "", nil, boxASCII) {
 		plain := ansi.Strip(cell)
 
-		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain), defaultTabWidth), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, widthOf(plain), "행 %d: %q", i, plain)
 		assert.True(t, strings.HasSuffix(plain, "| "), "행 %d: %q", i, plain)
 	}
 }

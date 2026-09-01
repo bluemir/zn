@@ -562,7 +562,7 @@ func TestGrepExpandTabs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			text, col, end := grepExpandTabs(test.text, test.col, test.end)
+			text, col, end := grepExpandScreen(test.text, test.col, test.end)
 
 			assert.Equal(t, test.want, text)
 			assert.Equal(t, test.wantCol, col, "매칭 시작")
@@ -591,7 +591,7 @@ func TestGrepRowKeepsWidthWithTabs(t *testing.T) {
 
 	for i, row := range strings.Split(m.renderDrawer(), "\n") {
 		plain := ansi.Strip(row)
-		assert.Equal(t, m.textWidth(), screenColAt([]byte(plain), len(plain), defaultTabWidth),
+		assert.Equal(t, m.textWidth(), widthOf(plain),
 			"행 %d 이 판 폭과 같다: %q", i, plain)
 		assert.NotContains(t, plain, "\t", "행 %d 에 tab 이 남지 않는다", i)
 	}

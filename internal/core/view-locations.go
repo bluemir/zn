@@ -388,7 +388,7 @@ func (m viewLocations) renderRow(target lsp.Location, selected bool, inner int) 
 	// 어느 줄에나 같은 앞머리뿐이게 된다(render-status-bar.go 의 trimLeftToWidth).
 	body := max(inner-locationsMarkWidth, 0)
 
-	// 강조를 입힌 뒤에는 폭을 잴 수 없다(screenWidthOf 가 escape 까지 센다). 칸을 먼저
+	// 강조를 입힌 뒤에는 폭을 잴 수 없다(lines.WidthOf 가 escape 까지 센다). 칸을 먼저
 	// 채우고 그다음에 반전을 입힌다 — register 판과 같은 순서다.
 	text := marker + padTo(trimLeftToWidth(place, body), body)
 	if selected {

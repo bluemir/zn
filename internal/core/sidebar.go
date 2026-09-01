@@ -373,7 +373,7 @@ func renderGitTreeMarker(change gitChange) string {
 // 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
 func (r treeRow) render(active bool, change gitChange, box boxSet) string {
 	label := truncateToWidth(r.label(), labelWidth)
-	pad := max(0, labelWidth-screenWidthOf(label))
+	pad := max(0, labelWidth-widthOf(label))
 
 	// git 마커는 이름 칸 밖이다. 이름이 잘려도 마커는 늘 같은 자리에 선다.
 	mark := renderGitTreeMarker(change)

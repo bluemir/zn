@@ -361,15 +361,61 @@ func TestExpandWhitespaceMarkers(t *testing.T) {
 	}
 }
 
+// 파일에 든 제어문자는 `^[` 로 보인다. 그대로 넘기면 터미널이 그것을 명령으로 먹어서
+// 화면에서 사라지고, 세어 둔 폭과 어긋나 커서가 글자 밖에 뜬다 (ADR-0118).
+func TestExpandControlChars(t *testing.T) {
+	tests := []struct {
+		name string
+		row  string
+		want string
+	}{
+		{name: "ESC 하나", row: "a\x1bb", want: "a^[b"},
+		{name: "색을 켜는 escape 전체가 글자로 보인다", row: "\x1b[31mRED", want: "^[[31mRED"},
+		{name: "NUL", row: "a\x00b", want: "a^@b"},
+		{name: "DEL", row: "a\x7fb", want: "a^?b"},
+		{name: "홀로 남은 CR", row: "a\rb", want: "a^Mb"},
+		// tab 은 제어문자가 아니라 칸으로 펴는 쪽이다. 줄 가운데라 마커도 안 붙는다.
+		{name: "tab 은 칸으로 편다", row: "a\tb", want: "a   b"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, expandedRow(test.row))
+		})
+	}
+}
+
+// 제어문자는 본문과 다른 조각으로 갈려야 색을 따로 입힐 수 있다 (ADR-0118).
+func TestExpandRowSplitsControlParts(t *testing.T) {
+	line := []byte("a\x1bb")
+	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
+
+	assert.Equal(t, []screenPart{
+		{text: "a", kind: partText},
+		{text: "^[", kind: partControl},
+		{text: "b", kind: partText},
+	}, parts)
+	assert.Equal(t, 4, col, "a 1 칸 + ^[ 2 칸 + b 1 칸")
+}
+
+// 그린 글자와 세는 폭이 같은 자리에서 나와야 한다. 어긋나면 커서가 뜬다.
+func TestControlCharWidthMatchesRendering(t *testing.T) {
+	row := "a\x1bb"
+
+	assert.Equal(t, 4, screenColAt([]byte(row), len(row), defaultTabWidth), "a(1) + ^[(2) + b(1)")
+	assert.Len(t, []rune(expandedRow(row)), 4, "그린 글자 수도 같다")
+	assert.Equal(t, 1, glyphSize([]byte(row), 1), "지울 때는 1 byte 다")
+}
+
 // 마커와 본문은 색이 달라서 조각이 갈린다. 조각 경계가 어긋나면 색이 본문으로 번진다.
 func TestExpandRowSplitsMarkerParts(t *testing.T) {
 	line := []byte("\tab  ")
 	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
 
 	assert.Equal(t, []screenPart{
-		{text: "»   ", marker: true},
-		{text: "ab", marker: false},
-		{text: "⋅⋅", marker: true},
+		{text: "»   ", kind: partMarker},
+		{text: "ab"},
+		{text: "⋅⋅", kind: partMarker},
 	}, parts)
 	assert.Equal(t, 8, col, "tab 4 칸 + ab 2 칸 + 공백 2 칸")
 }

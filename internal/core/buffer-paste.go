@@ -1,6 +1,8 @@
 package core
 
-import "bytes"
+import (
+	"bytes"
+)
 
 // 붙여넣는 것들이다. `p`·`P` 다. register 가 줄 단위인지 글자 단위인지에 따라 갈린다 (ADR-0018).
 
@@ -23,7 +25,7 @@ func (buf *Buffer) pasteAfter(reg register, count, width int) {
 	line := buf.lines[buf.cursorLine]
 	col := buf.cursorCol
 	if col < len(line) {
-		col += clusterSize(line, col)
+		col += glyphSize(line, col)
 	}
 
 	buf.pasteText(col, reg, count, width)

@@ -21,7 +21,7 @@ func (buf *Buffer) includeCursorCluster() {
 		return
 	}
 
-	buf.cursorCol += clusterSize(line, buf.cursorCol)
+	buf.cursorCol += glyphSize(line, buf.cursorCol)
 }
 
 // wordForwardToDelete 는 `dw` 가 지울 끝 자리로 간다. 마지막 한 걸음은 줄을 넘지 않는다.

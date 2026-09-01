@@ -263,6 +263,6 @@ func TestJobProgressKeepsStatusBarWidth(t *testing.T) {
 	m, _ = m.Update(progressOf("파일 인덱싱", 42, 100))
 
 	for _, row := range barOf(t, m) {
-		assert.LessOrEqual(t, screenColAt([]byte(row), len(row), defaultTabWidth), 50, strings.TrimSpace(row))
+		assert.LessOrEqual(t, widthOf(row), 50, strings.TrimSpace(row))
 	}
 }

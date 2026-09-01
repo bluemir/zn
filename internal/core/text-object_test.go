@@ -39,7 +39,7 @@ func TestDeleteInnerWord(t *testing.T) {
 		{name: "aw 가 줄 끝이면 앞 공백", data: "foo bar\n", col: 5, keys: []string{"d", "a", "w"}, want: []string{"foo"}},
 		{name: "aw 가 첫 낱말이면 뒤 공백", data: "foo bar\n", col: 0, keys: []string{"d", "a", "w"}, want: []string{"bar"}},
 
-		// 부류가 바뀌는 자리가 경계다. `w` 가 걷는 것과 같다(word.go).
+		// 부류가 바뀌는 자리가 경계다. `w` 가 걷는 것과 같다(cluster.go).
 		{name: "문장부호는 따로 한 낱말", data: "foo.bar\n", col: 0, keys: []string{"d", "i", "w"}, want: []string{".bar"}},
 		{name: "문장부호 위에서는 그것만", data: "foo.bar\n", col: 3, keys: []string{"d", "i", "w"}, want: []string{"foobar"}},
 		{name: "한글과 영문이 갈린다", data: "한글abc\n", col: 0, keys: []string{"d", "i", "w"}, want: []string{"abc"}},

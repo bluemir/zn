@@ -205,7 +205,7 @@ func TestJumplogsDrawerWidth(t *testing.T) {
 		m.width = width
 
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), ansi.StringWidth(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }

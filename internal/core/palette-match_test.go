@@ -97,7 +97,7 @@ func TestFuzzyMatchPositionsAreClusterStarts(t *testing.T) {
 
 	line := []byte(target)
 	for _, offset := range positions {
-		size := clusterSize(line, offset)
+		size := glyphSize(line, offset)
 		assert.Contains(t, []string{"한", "글"}, string(line[offset:offset+size]))
 	}
 }

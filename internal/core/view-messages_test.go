@@ -320,13 +320,13 @@ func TestTrimTextRight(t *testing.T) {
 	assert.Equal(t, text, trimTextRight(text, 200), "들어가면 그대로 둔다")
 
 	short := trimTextRight(text, 20)
-	assert.LessOrEqual(t, screenWidthOf(short), 20)
+	assert.LessOrEqual(t, widthOf(short), 20)
 	assert.True(t, strings.HasPrefix(short, "cannot write"), "앞머리가 남아야 한다")
 	assert.True(t, strings.HasSuffix(short, "…"))
 
 	// 한글도 칸으로 센다. 두 칸짜리 글자가 경계에 걸려도 넘치지 않는다.
 	korean := trimTextRight("가나다라마바사아자차카타파하", 11)
-	assert.LessOrEqual(t, screenWidthOf(korean), 11)
+	assert.LessOrEqual(t, widthOf(korean), 11)
 	assert.True(t, strings.HasPrefix(korean, "가나다"))
 
 	assert.Equal(t, "", trimTextRight(text, 0))

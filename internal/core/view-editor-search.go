@@ -187,7 +187,7 @@ func (m viewEditorSearch) View() tea.View {
 	view := m.editorView(tea.CursorBlock, "SEARCH", prompt+m.input.text)
 
 	// 커서는 본문이 아니라 명령줄의 치는 자리에 있어야 한다. command mode 와 같은 자리다.
-	view.Cursor = tea.NewCursor(screenWidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(widthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	return view
 }

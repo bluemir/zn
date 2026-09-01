@@ -30,7 +30,7 @@ func (e editor) renderStatusBar(mode, bottom string) []string {
 	left, text := "", mode+"  "+path
 	if e.sidebarVisible() {
 		label := truncateToWidth(mode, sidebarWidth)
-		left = label + strings.Repeat(" ", max(0, sidebarWidth-screenWidthOf(label)))
+		left = label + strings.Repeat(" ", max(0, sidebarWidth-widthOf(label)))
 		text = path
 	}
 
@@ -104,14 +104,14 @@ func (e editor) renderWithStatus(top string) string {
 		}
 	}
 
-	used := screenWidthOf(top)
+	used := widthOf(top)
 
 	for _, label := range []string{right(e.renderJobText(e.renderJobBar())), right(e.renderJobText("")), git} {
 		if label == "" {
 			continue
 		}
 
-		pad := e.textWidth() - used - screenWidthOf(label)
+		pad := e.textWidth() - used - widthOf(label)
 		if pad < 2 {
 			continue
 		}
@@ -166,7 +166,7 @@ func (e editor) renderWithShowcmd(bottom, showcmd string) string {
 		return bottom
 	}
 
-	pad := e.textWidth() - screenWidthOf(bottom) - screenWidthOf(showcmd)
+	pad := e.textWidth() - widthOf(bottom) - widthOf(showcmd)
 	if pad < 1 {
 		return bottom
 	}
@@ -183,14 +183,14 @@ func trimLeftToWidth(text string, width int) string {
 	if width < 1 {
 		return ""
 	}
-	if screenWidthOf(text) <= width {
+	if widthOf(text) <= width {
 		return text
 	}
 
 	// `…` 한 칸을 남겨 두고, 들어갈 때까지 앞에서 한 글자씩 뗀다.
 	kept := text
-	for len(kept) > 0 && screenWidthOf(kept) > width-1 {
-		size, _ := clusterAt([]byte(kept), 0, 0, defaultTabWidth)
+	for len(kept) > 0 && widthOf(kept) > width-1 {
+		size, _ := glyphAt([]byte(kept), 0, 0, defaultTabWidth)
 		kept = kept[size:]
 	}
 
@@ -216,7 +216,7 @@ func truncateToWidth(s string, width int) string {
 			continue
 		}
 
-		size, w := clusterAt(line, offset, col, defaultTabWidth)
+		size, w := glyphAt(line, offset, col, defaultTabWidth)
 		if col+w > width {
 			// 색을 켠 채로 자르면 그 색이 줄 끝까지 번진다.
 			if styled {

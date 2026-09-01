@@ -1,6 +1,8 @@
 package core
 
-import "slices"
+import (
+	"slices"
+)
 
 // 화면을 보는 것들이다. `top`·`topRow` 를 옮기거나 화면 좌표와 오가고, 하나같이 height 를 받는다 —
 // Buffer 메서드 110 개 중 높이를 아는 것이 여기 든 열뿐이다.

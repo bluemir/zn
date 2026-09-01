@@ -104,13 +104,13 @@ func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 
 // boxWidth 는 모달 박스의 너비다. 내용에 맞추되 터미널 너비를 넘지 않는다.
 func (m viewConfirmDiscard) boxWidth() int {
-	maxContent := screenWidthOf("저장하지 않은 변경이 있습니다.")
+	maxContent := widthOf("저장하지 않은 변경이 있습니다.")
 	for _, qLine := range strings.Split(m.question, "\n") {
-		if w := screenWidthOf(qLine); w > maxContent {
+		if w := widthOf(qLine); w > maxContent {
 			maxContent = w
 		}
 	}
-	if btnW := screenWidthOf(cursor(true, "Yes") + "    " + cursor(false, "No")); btnW > maxContent {
+	if btnW := widthOf(cursor(true, "Yes") + "    " + cursor(false, "No")); btnW > maxContent {
 		maxContent = btnW
 	}
 

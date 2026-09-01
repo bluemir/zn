@@ -59,7 +59,7 @@ func TestTipsAreClean(t *testing.T) {
 // 남는다. 100 을 상한으로 두면 그 화면에는 하나도 빠짐없이 뜬다.
 func TestTipsFitWideScreen(t *testing.T) {
 	for _, tip := range assets.Tips {
-		assert.LessOrEqual(t, screenWidthOf(tip), 100, "어느 화면에도 못 뜬다: %q", tip)
+		assert.LessOrEqual(t, widthOf(tip), 100, "어느 화면에도 못 뜬다: %q", tip)
 	}
 }
 
@@ -102,7 +102,7 @@ func TestTipShowsAtBottomRight(t *testing.T) {
 	bottom := barOf(t, m)[1]
 	assert.True(t, strings.HasSuffix(bottom, assets.Tips[0]), "오른쪽 끝에 붙는다: %q", bottom)
 	assert.True(t, strings.HasPrefix(bottom, "1:1"), "커서 위치는 그대로다: %q", bottom)
-	assert.LessOrEqual(t, screenWidthOf(bottom), 120, "화면을 넘지 않는다")
+	assert.LessOrEqual(t, widthOf(bottom), 120, "화면을 넘지 않는다")
 }
 
 // tip 은 흐린 글씨다. 커서 위치와 같은 밝기로 서면 읽던 것을 끊는다(ADR-0061 §6).
@@ -113,8 +113,8 @@ func TestTipIsDim(t *testing.T) {
 	assert.True(t, strings.HasSuffix(raw, styleTip.Render(assets.Tips[0])), "%q", raw)
 
 	// 색을 입혀도 줄은 그만큼 어긋나지 않는다. escape 가 폭으로 세어지면 여기가 깨진다.
-	assert.Equal(t, screenWidthOf(ansi.Strip(raw)), screenWidthOfStyled(raw))
-	assert.LessOrEqual(t, screenWidthOfStyled(raw), 120)
+	assert.Equal(t, widthOf(ansi.Strip(raw)), widthOf(raw))
+	assert.LessOrEqual(t, widthOf(raw), 120)
 }
 
 // 접두 키를 치는 동안에는 그 키가 먹혔는지가 tip 보다 급하다.

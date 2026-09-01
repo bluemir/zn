@@ -98,7 +98,7 @@ func TestInputLineVisibleFollowsCursor(t *testing.T) {
 	text, cursor = in.visible("", 10)
 	assert.True(t, strings.HasPrefix(text, "aaa"), "맨 앞으로 가면 앞이 보인다: %q", text)
 	assert.Zero(t, cursor)
-	assert.LessOrEqual(t, screenWidthOf(text), 10, "폭을 넘지 않는다")
+	assert.LessOrEqual(t, widthOf(text), 10, "폭을 넘지 않는다")
 }
 
 // prefix 는 입력 앞에 늘 붙는 글이라 같이 접히고, 커서 칸도 그만큼 밀린다.
@@ -108,7 +108,7 @@ func TestInputLineVisibleCountsPrefix(t *testing.T) {
 	text, cursor := in.visible("옛 → ", 20)
 
 	assert.Equal(t, "옛 → ab", text)
-	assert.Equal(t, screenWidthOf("옛 → ab"), cursor)
+	assert.Equal(t, widthOf("옛 → ab"), cursor)
 }
 
 // 한 줄 입력 열이 같은 손을 가진다. 어느 창에서든 `home` 으로 앞에 가서 넣으면 앞에

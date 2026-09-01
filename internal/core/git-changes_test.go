@@ -113,7 +113,7 @@ func TestGitTreeMarkers(t *testing.T) {
 			marks[name] = plain[labelWidth : labelWidth+1]
 		}
 
-		assert.Equal(t, sidebarWidth, screenColAt([]byte(plain), len(plain), defaultTabWidth), "행 폭은 그대로다: %q", plain)
+		assert.Equal(t, sidebarWidth, widthOf(plain), "행 폭은 그대로다: %q", plain)
 	}
 
 	assert.Equal(t, markerGitTreeModified, marks["main.go"], "고친 파일")

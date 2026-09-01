@@ -61,7 +61,7 @@ func TestGrepInputTrimsInputFromLeft(t *testing.T) {
 
 	assert.True(t, strings.HasPrefix(text, "…"), "글: %q", text)
 	assert.True(t, strings.HasSuffix(text, "END"), "방금 친 글자가 남는다: %q", text)
-	assert.LessOrEqual(t, screenWidthOf(text), m.paletteWidth()-4, "박스 안에 든다")
+	assert.LessOrEqual(t, widthOf(text), m.paletteWidth()-4, "박스 안에 든다")
 }
 
 // `esc` 는 그만두고 `backspace` 로 다 지워도 나간다. 팔레트·명령줄과 같은 손이다.

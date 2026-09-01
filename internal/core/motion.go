@@ -378,7 +378,7 @@ func (m motionWordObject) span(buf Buffer, count, width int) (motionRange, bool)
 	// 줄 끝이 공백이라 저절로 멈춘다.
 	start := buf.cursorCol
 	for start > 0 {
-		prev := prevClusterStart(text, 0, start)
+		prev := prevGlyphStart(text, 0, start)
 		if buf.classAt(line, prev, m.kind) != class {
 			break
 		}
@@ -388,7 +388,7 @@ func (m motionWordObject) span(buf Buffer, count, width int) (motionRange, bool)
 
 	end := buf.cursorCol
 	for end < len(text) && buf.classAt(line, end, m.kind) == class {
-		end += clusterSize(text, end)
+		end += glyphSize(text, end)
 	}
 
 	if m.around {
@@ -410,7 +410,7 @@ func (buf Buffer) aroundWord(line, start, end int, kind wordKind) (int, int) {
 
 	after := end
 	for after < len(text) && buf.classAt(line, after, kind) == classBlank {
-		after += clusterSize(text, after)
+		after += glyphSize(text, after)
 	}
 
 	if after > end {
@@ -418,7 +418,7 @@ func (buf Buffer) aroundWord(line, start, end int, kind wordKind) (int, int) {
 	}
 
 	for start > 0 {
-		prev := prevClusterStart(text, 0, start)
+		prev := prevGlyphStart(text, 0, start)
 		if buf.classAt(line, prev, kind) != classBlank {
 			break
 		}

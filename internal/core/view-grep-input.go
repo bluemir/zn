@@ -161,11 +161,11 @@ func (m viewGrepInput) renderTitleLine(width int) string {
 	chars := m.boxChars
 
 	room := width - 2
-	if screenWidthOf(grepInputTitle) > room {
+	if widthOf(grepInputTitle) > room {
 		return chars.topLeft + strings.Repeat(chars.horizontal, room) + chars.topRight
 	}
 
-	rest := room - screenWidthOf(grepInputTitle)
+	rest := room - widthOf(grepInputTitle)
 
 	return chars.topLeft + grepInputTitle + strings.Repeat(chars.horizontal, rest) + chars.topRight
 }

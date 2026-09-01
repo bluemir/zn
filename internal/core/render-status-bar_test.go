@@ -196,7 +196,7 @@ func TestStatusBarSkipsGitWhenNarrow(t *testing.T) {
 	top := barOf(t, m)[0]
 
 	assert.Equal(t, "NORMAL  test.txt", strings.TrimRight(top, " "))
-	assert.LessOrEqual(t, screenColAt([]byte(top), len(top), defaultTabWidth), 24)
+	assert.LessOrEqual(t, widthOf(top), 24)
 }
 
 // 붙일 칸이 없으면 아래 줄을 그대로 둔다. 커서 위치가 밀려나는 것이 더 나쁘다.
@@ -220,7 +220,7 @@ func TestStatusBarTruncatesToWidth(t *testing.T) {
 	}
 
 	for _, row := range barOf(t, m) {
-		assert.LessOrEqual(t, screenColAt([]byte(row), len(row), defaultTabWidth), 20)
+		assert.LessOrEqual(t, widthOf(row), 20)
 	}
 }
 
@@ -252,7 +252,7 @@ func TestStatusBarTopLineIsReversed(t *testing.T) {
 
 	assert.Empty(t, plain, "위 줄은 통째로 반전이다")
 	assert.Contains(t, reversed, "NORMAL")
-	assert.Equal(t, 40, screenColAt([]byte(reversed), len(reversed), defaultTabWidth), "빈 칸까지 줄 끝을 채운다")
+	assert.Equal(t, 40, widthOf(reversed), "빈 칸까지 줄 끝을 채운다")
 }
 
 // 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.

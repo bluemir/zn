@@ -715,7 +715,7 @@ func (m viewEditorCommand) View() tea.View {
 
 	// 커서는 본문이 아니라 명령줄의 치는 자리에 있어야 한다.
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
-	view.Cursor = tea.NewCursor(screenWidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(widthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	// `tab` 이 채우다 만 뒤의 후보를 명령줄 위에 얹는다(ADR-0099).
 	return m.overlayCandidates(view)

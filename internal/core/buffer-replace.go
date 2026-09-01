@@ -1,6 +1,8 @@
 package core
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+)
 
 // 글자를 덮어쓰는 것들이다. vim 의 `r` 다. 지우고 넣는 것이 아니라 그 자리를 갈아끼운다.
 
@@ -19,9 +21,9 @@ func replacementText(key string) ([]byte, bool) {
 	}
 
 	// 글자 하나여야 한다. `up` `esc` `ctrl+a` 같은 이름은 여기서 걸린다.
-	// 결합 문자가 붙은 글자와 이모지는 여러 rune 이라 clusterSize 로 센다.
+	// 결합 문자가 붙은 글자와 이모지는 여러 rune 이라 lines.Size 로 센다.
 	text := []byte(key)
-	if len(text) == 0 || clusterSize(text, 0) != len(text) {
+	if len(text) == 0 || glyphSize(text, 0) != len(text) {
 		return nil, false
 	}
 
@@ -102,7 +104,7 @@ func clusterEnd(line []byte, col, n int) (int, bool) {
 			return 0, false
 		}
 
-		col += clusterSize(line, col)
+		col += glyphSize(line, col)
 	}
 
 	return col, true

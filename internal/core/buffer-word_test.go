@@ -36,52 +36,52 @@ func TestWordForward(t *testing.T) {
 		{
 			name: "공백으로 끊는다",
 			data: "foo bar baz\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:4", "0:8", "0:11"}, // 마지막 단어 뒤는 줄 끝이다. normal mode 는 clamp 로 마지막 글자에 선다
 		},
 		{
 			// 문장부호는 단어 글자와 다른 부류라 따로 끊긴다. vim 과 같다.
 			name: "문장부호가 부류를 가른다",
 			data: "a.b(c)\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:1", "0:2", "0:3", "0:4", "0:5", "0:6"},
 		},
 		{
 			name: "큰 단어는 공백으로만 끊는다",
 			data: "a.b(c) x\n",
-			kind: bigWord,
+			kind: wordBig,
 			want: []string{"0:7", "0:8"},
 		},
 		{
 			// `_` 와 숫자는 단어 글자다. camelCase 도 한 단어다(ADR-0006).
 			name: "snake_case 와 camelCase 는 한 단어",
 			data: "foo_bar fooBar99 x\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:8", "0:17", "0:18"},
 		},
 		{
 			name: "줄을 넘는다",
 			data: "ab\ncd\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"1:0", "1:2"},
 		},
 		{
 			name: "빈 줄은 그 자체로 단어다",
 			data: "ab\n\ncd\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"1:0", "2:0", "2:2"},
 		},
 		{
 			// 한글은 단어 글자와 다른 부류다(ADR-0006). `한글abc` 가 두 단어다.
 			name: "한글과 영문이 갈린다",
 			data: "한글abc 123나라\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:6", "0:10", "0:13", "0:19"},
 		},
 		{
 			name: "큰 단어는 한글도 안 가른다",
 			data: "한글abc 123나라\n",
-			kind: bigWord,
+			kind: wordBig,
 			want: []string{"0:10", "0:19"},
 		},
 	}
@@ -107,32 +107,32 @@ func TestWordEnd(t *testing.T) {
 		{
 			name: "단어의 마지막 글자에 선다",
 			data: "foo bar\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:2", "0:6"},
 		},
 		{
 			name: "문장부호도 한 덩어리다",
 			data: "a.. b\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:2", "0:4"},
 		},
 		{
 			name: "줄을 넘는다",
 			data: "ab\ncd\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:1", "1:1"},
 		},
 		{
 			// e 는 끝낼 단어가 없는 빈 줄에서 멈추지 않는다. vim 과 같다.
 			name: "빈 줄에서 멈추지 않는다",
 			data: "ab\n\ncd\n",
-			kind: smallWord,
+			kind: wordSmall,
 			want: []string{"0:1", "2:1"},
 		},
 		{
 			name: "큰 단어",
 			data: "a.b(c) xy\n",
-			kind: bigWord,
+			kind: wordBig,
 			want: []string{"0:5", "0:8"},
 		},
 	}
@@ -159,28 +159,28 @@ func TestWordBackward(t *testing.T) {
 		{
 			name:  "단어의 첫 글자로 되돌아간다",
 			data:  "foo bar baz\n",
-			kind:  smallWord,
+			kind:  wordSmall,
 			start: 10,
 			want:  []string{"0:8", "0:4", "0:0"},
 		},
 		{
 			name:  "단어 중간에서는 그 단어의 처음으로",
 			data:  "foo bar\n",
-			kind:  smallWord,
+			kind:  wordSmall,
 			start: 5,
 			want:  []string{"0:4", "0:0"},
 		},
 		{
 			name:  "문장부호가 부류를 가른다",
 			data:  "a.b\n",
-			kind:  smallWord,
+			kind:  wordSmall,
 			start: 2,
 			want:  []string{"0:1", "0:0"},
 		},
 		{
 			name:  "큰 단어는 공백으로만 끊는다",
 			data:  "a.b c\n",
-			kind:  bigWord,
+			kind:  wordBig,
 			start: 4,
 			want:  []string{"0:0"},
 		},
@@ -203,7 +203,7 @@ func TestWordBackwardCrossesLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n\ncd\n"))
 	buf.cursorLine, buf.cursorCol = 2, 1
 
-	got := wordStops(buf, func(b *Buffer) { b.moveWordBackward(1, smallWord, wide) })
+	got := wordStops(buf, func(b *Buffer) { b.moveWordBackward(1, wordSmall, wide) })
 
 	assert.Equal(t, []string{"2:0", "1:0", "0:0"}, got)
 }
@@ -212,13 +212,13 @@ func TestWordBackwardCrossesLines(t *testing.T) {
 func TestWordMoveCounted(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("one two three four\n"))
 
-	buf.moveWordForward(2, smallWord, wide)
+	buf.moveWordForward(2, wordSmall, wide)
 	assert.Equal(t, 8, buf.cursorCol, "2w")
 
-	buf.moveWordBackward(2, smallWord, wide)
+	buf.moveWordBackward(2, wordSmall, wide)
 	assert.Equal(t, 0, buf.cursorCol, "2b")
 
-	buf.moveWordForward(99, smallWord, wide)
+	buf.moveWordForward(99, wordSmall, wide)
 	assert.Equal(t, 18, buf.cursorCol, "파일 끝에서 멈춘다")
 }
 
@@ -226,7 +226,7 @@ func TestWordMoveCounted(t *testing.T) {
 func TestWordMoveUpdatesDesiredCol(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("one two\nx\nabcdefg\n"))
 
-	buf.moveWordForward(1, smallWord, wide)
+	buf.moveWordForward(1, wordSmall, wide)
 	assert.Equal(t, 4, buf.cursorCol)
 
 	buf.moveDownLine(2)

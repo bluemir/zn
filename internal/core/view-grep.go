@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -461,7 +460,7 @@ func (m viewGrep) View() tea.View {
 	// **바꿀 글을 칠 때도 선다.** 거르기만 세우고 있었는데 둘 다 아래 줄에서 글자를 받는
 	// 자리라 갈라 둘 값이 없다.
 	if line, ok := m.hintInput(); ok {
-		view.Cursor = tea.NewCursor(screenWidthOf(m.hintPrefix())+line.screenCursor()+m.sidebarLeft(), m.height-1)
+		view.Cursor = tea.NewCursor(widthOf(m.hintPrefix())+line.screenCursor()+m.sidebarLeft(), m.height-1)
 		view.Cursor.Shape = tea.CursorBlock
 	}
 
@@ -616,7 +615,7 @@ func (m viewGrep) renderRow(hit grepHit, selected bool, inner int) string {
 	trimmed := len(hit.text) - len(text)
 
 	// 줄 가운데 tab 을 빈 칸으로 편다. 매칭 자리도 같이 옮겨진다(ADR-0098).
-	text, col, end := grepExpandTabs(text, max(hit.col-trimmed, 0), max(hit.end-trimmed, 0))
+	text, col, end := grepExpandScreen(text, max(hit.col-trimmed, 0), max(hit.end-trimmed, 0))
 
 	// 내용 칸은 경로 칸과 사이 한 칸을 뺀 나머지다.
 	rest := max(body-width-1, 0)
@@ -691,7 +690,7 @@ const grepContextCols = 8
 func grepWindow(text string, col, width int) (string, int) {
 	col = min(max(col, 0), len(text))
 
-	if width < 1 || screenWidthOf(text) <= width {
+	if width < 1 || widthOf(text) <= width {
 		return text, col
 	}
 
@@ -700,22 +699,21 @@ func grepWindow(text string, col, width int) (string, int) {
 	return head + text[col:], len(head)
 }
 
-// grepExpandTabs 는 목록에 그릴 줄의 tab 을 빈 칸으로 편다. 매칭의 byte 자리도 옮겨서 준다.
+// grepExpandScreen 은 목록에 그릴 줄을 화면 글자로 바꾼다. 매칭의 byte 자리도 옮겨서 준다.
 //
 // **편집 영역이 하는 일과 같다.** bubbletea 의 셀 렌더러는 폭 0 인 제어문자를 셀에 담지
 // 못해 버리는데(render-row.go 의 expandRow), 이 판은 그 길을 지나지 않아서 tab 이 화면에서
-// 사라졌다. 그런데 칸을 채우고 자르는 자(`screenWidthOf`) 는 tab 을 폭 있는 것으로 세므로
+// 사라졌다. 그런데 칸을 채우고 자르는 자(`widthOf`) 는 tab 을 폭 있는 것으로 세므로
 // **센 것과 그린 것이 갈려 오른쪽 테두리가 들쭉날쭉해졌다.** 펴고 나면 tab 이 남지 않아
 // 둘이 같아진다 (ADR-0098).
+//
+// **바꿀 글자는 `screenText` 가 정한다.** 여기서 tab 만 손수 펴던 때에는 제어문자가
+// 빠져서, 파일에 든 escape 가 목록으로 새어 나가 매칭 강조 색까지 꺼버렸다 (ADR-0118).
 //
 // 폭은 기본값이다. 그 파일의 `tab_width` 를 쓰지 않는 까닭은 **앞의 들여쓰기를 이미 뗐기
 // 때문**이다 — 뗀 순간 tab stop 의 원점이 파일과 어긋나서, 어느 폭을 가져와도 파일에서
 // 보이던 자리가 되지 않는다(ADR-0096, ADR-0098).
-func grepExpandTabs(text string, col, end int) (string, int, int) {
-	if !strings.Contains(text, "\t") {
-		return text, col, end
-	}
-
+func grepExpandScreen(text string, col, end int) (string, int, int) {
 	line := []byte(text)
 	out := make([]byte, 0, len(line)+defaultTabWidth)
 
@@ -732,17 +730,14 @@ func grepExpandTabs(text string, col, end int) (string, int, int) {
 			newEnd = len(out)
 		}
 
-		if line[offset] == '\t' {
-			gap := defaultTabWidth - width%defaultTabWidth
-			out = append(out, bytes.Repeat([]byte{' '}, gap)...)
-			width += gap
-			offset++
+		size, w := glyphAt(line, offset, width, defaultTabWidth)
 
-			continue
+		if screen := screenText(line, offset, width, defaultTabWidth); screen != "" {
+			out = append(out, screen...)
+		} else {
+			out = append(out, line[offset:offset+size]...)
 		}
 
-		size, w := clusterAt(line, offset, width, defaultTabWidth)
-		out = append(out, line[offset:offset+size]...)
 		width += w
 		offset += size
 	}

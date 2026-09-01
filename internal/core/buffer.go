@@ -17,7 +17,10 @@ import (
 //
 // **`buffer-*.go` 에는 Buffer 의 메서드만 둔다.** 여러 갈래가 나눠 쓰는 type·도우미와 다른
 // receiver 의 메서드는 접두 없는 파일에 남는다 — `register` 는 register.go, `motionRange` 는
-// range.go, 줄을 화면에서 재는 것은 cluster.go, 무엇이 한 단어인지는 word.go 에 있다.
+// range.go, `screenRow` 는 row.go 에 있다.
+//
+// **줄 하나를 재고 가르는 것도 접두 없는 파일이다.** 화면에서 재고 그릴 글자로 바꾸는 것은
+// cluster.go, 무엇이 한 단어인지는 glyph-class.go 다 (ADR-0119).
 //
 // # Buffer 가 하는 일과 안 하는 일 (ADR-0100)
 //
