@@ -10,45 +10,45 @@ import (
 //
 // 줄 단위면 커서 줄 아래에 줄로 끼우고, 글자 단위면 커서가 선 글자 뒤에 끼운다.
 // count 는 되풀이다 — `3p` 는 세 번 붙인다(ADR-0017).
-func (buf *Viewport) PasteAfter(block TextBlock, count int) {
+func (viewport *Viewport) PasteAfter(block TextBlock, count int) {
 	if len(block.Lines) == 0 {
 		return
 	}
 
 	if block.Linewise {
-		buf.pasteLines(buf.Cursor.Line+1, block, count)
+		viewport.pasteLines(viewport.Cursor.Line+1, block, count)
 
 		return
 	}
 
 	// 커서가 선 글자 뒤다. 빈 줄이나 줄 끝이면 그 자리가 곧 줄 끝이다.
-	Line := buf.Lines[buf.Cursor.Line]
-	Col := buf.Cursor.Col
+	Line := viewport.Lines[viewport.Cursor.Line]
+	Col := viewport.Cursor.Col
 	if Col < len(Line) {
 		Col += GlyphSize(Line, Col)
 	}
 
-	buf.pasteText(Col, block, count)
+	viewport.pasteText(Col, block, count)
 }
 
 // pasteBefore 는 register 를 커서 앞에 붙인다. vim 의 `P` 다.
-func (buf *Viewport) PasteBefore(block TextBlock, count int) {
+func (viewport *Viewport) PasteBefore(block TextBlock, count int) {
 	if len(block.Lines) == 0 {
 		return
 	}
 
 	if block.Linewise {
-		buf.pasteLines(buf.Cursor.Line, block, count)
+		viewport.pasteLines(viewport.Cursor.Line, block, count)
 
 		return
 	}
 
-	buf.pasteText(buf.Cursor.Col, block, count)
+	viewport.pasteText(viewport.Cursor.Col, block, count)
 }
 
 // pasteLines 는 at 자리에 register 의 줄을 count 번 끼운다.
 // 커서는 붙인 첫 줄의 첫 비공백이다. vim 과 같다.
-func (buf *Viewport) pasteLines(at int, block TextBlock, count int) {
+func (viewport *Viewport) pasteLines(at int, block TextBlock, count int) {
 	Lines := make([][]byte, 0, len(block.Lines)*count)
 	for range count {
 		Lines = append(Lines, block.Lines...)
@@ -56,40 +56,40 @@ func (buf *Viewport) pasteLines(at int, block TextBlock, count int) {
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 붙여넣기는 언제나 제 구간이다.
 	// `3p` 도 한 구간이라 `u` 한 번에 전부 사라진다.
-	buf.EndEdit()
-	buf.insertLines(at, Lines)
-	buf.EndEdit()
+	viewport.EndEdit()
+	viewport.insertLines(at, Lines)
+	viewport.EndEdit()
 
-	buf.Cursor.Line = at
-	buf.MoveLineFirstNonBlank()
-	buf.ClampToNormal()
+	viewport.Cursor.Line = at
+	viewport.MoveLineFirstNonBlank()
+	viewport.ClampToNormal()
 }
 
 // pasteText 는 지금 줄의 col 칸에 register 를 글자로 끼운다.
 //
 // 줄바꿈을 가르는 곳은 insert 하나뿐이라(ADR-0001) 여러 줄 register 도 그대로 먹는다.
-func (buf *Viewport) pasteText(Col int, block TextBlock, count int) {
+func (viewport *Viewport) pasteText(Col int, block TextBlock, count int) {
 	text := bytes.Repeat(bytes.Join(block.Lines, []byte{'\n'}), count)
 	if len(text) == 0 {
 		return
 	}
 
-	startLine, startCol := buf.Cursor.Line, Col
+	startLine, startCol := viewport.Cursor.Line, Col
 
-	buf.EndEdit()
-	buf.Cursor.Col = Col
-	buf.Insert(text)
-	buf.EndEdit()
+	viewport.EndEdit()
+	viewport.Cursor.Col = Col
+	viewport.Insert(text)
+	viewport.EndEdit()
 
 	// 여러 줄이면 커서는 붙인 첫 글자다. vim 과 같다.
 	if len(block.Lines) > 1 {
-		buf.Cursor.Line, buf.Cursor.Col = startLine, startCol
-		buf.UpdateDesiredCol()
+		viewport.Cursor.Line, viewport.Cursor.Col = startLine, startCol
+		viewport.UpdateDesiredCol()
 
 		return
 	}
 
 	// 한 줄이면 붙인 마지막 글자 위다. insert 는 그 다음 칸에 커서를 두고 나온다.
-	buf.Cursor.Col = buf.prevOffset(buf.Cursor.Col)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Col = viewport.prevOffset(viewport.Cursor.Col)
+	viewport.UpdateDesiredCol()
 }

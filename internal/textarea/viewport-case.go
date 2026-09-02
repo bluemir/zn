@@ -32,39 +32,39 @@ const (
 //
 // **줄을 넘지 않는다.** 이것도 vim 과 같다. 커서는 마지막으로 바꾼 글자 **다음** 이고,
 // 줄 끝을 넘으면 normal 커서 자리로 당겨진다(clampToNormal).
-func (buf *Viewport) ChangeCaseChars(kind CaseKind, count int) {
-	Line := buf.Lines[buf.Cursor.Line]
+func (viewport *Viewport) ChangeCaseChars(kind CaseKind, count int) {
+	Line := viewport.Lines[viewport.Cursor.Line]
 
-	End := clusterEndClamped(Line, buf.Cursor.Col, max(count, 1))
-	changed := applyCase(Line[buf.Cursor.Col:End], kind)
+	End := clusterEndClamped(Line, viewport.Cursor.Col, max(count, 1))
+	changed := applyCase(Line[viewport.Cursor.Col:End], kind)
 
-	if !bytes.Equal(changed, Line[buf.Cursor.Col:End]) {
-		next := concat(concat(Line[:buf.Cursor.Col], changed), Line[End:])
+	if !bytes.Equal(changed, Line[viewport.Cursor.Col:End]) {
+		next := concat(concat(Line[:viewport.Cursor.Col], changed), Line[End:])
 
 		// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. `r` 과 같은 자리다.
-		buf.EndEdit()
-		buf.BeginEdit(buf.Cursor.Line, 1)
-		buf.ReplaceLines(buf.Cursor.Line, 1, [][]byte{next})
-		buf.EndEdit()
+		viewport.EndEdit()
+		viewport.BeginEdit(viewport.Cursor.Line, 1)
+		viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{next})
+		viewport.EndEdit()
 	}
 
 	// 커서는 바뀐 것이 없어도 옮긴다. `~` 는 훑어 가는 키라 대소문자가 없는 글자
 	// (한글·문장부호) 위에서도 오른쪽으로 간다. vim 과 같다.
-	buf.Cursor.Col += len(changed)
-	buf.UpdateDesiredCol()
-	buf.ClampToNormal()
+	viewport.Cursor.Col += len(changed)
+	viewport.UpdateDesiredCol()
+	viewport.ClampToNormal()
 }
 
 // changeCaseRange 는 고른 범위의 대소문자를 바꾼다. visual 의 `~`·`u`·`U` 다.
 //
 // 줄 단위면 걸친 줄 전체이고 글자 단위면 고른 자리만이다. 커서는 범위의 시작으로 간다 —
 // 복사(`y`) 와 같은 길이다(moveToRangeStart).
-func (buf *Viewport) ChangeCaseRange(area scheme.MotionRange, kind CaseKind) {
+func (viewport *Viewport) ChangeCaseRange(area scheme.MotionRange, kind CaseKind) {
 	next := make([][]byte, 0, area.End.Line-area.Start.Line+1)
 	same := true
 
 	for i := area.Start.Line; i <= area.End.Line; i++ {
-		Line := buf.Lines[i]
+		Line := viewport.Lines[i]
 
 		Start, End := 0, len(Line)
 		if !area.Linewise {
@@ -90,12 +90,12 @@ func (buf *Viewport) ChangeCaseRange(area scheme.MotionRange, kind CaseKind) {
 		return
 	}
 
-	buf.EndEdit()
-	buf.BeginEdit(area.Start.Line, len(next))
+	viewport.EndEdit()
+	viewport.BeginEdit(area.Start.Line, len(next))
 
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
-	buf.ReplaceLines(area.Start.Line, len(next), next)
-	buf.EndEdit()
+	viewport.ReplaceLines(area.Start.Line, len(next), next)
+	viewport.EndEdit()
 }
 
 // applyCase 는 글 한 덩이의 대소문자를 바꾼다.

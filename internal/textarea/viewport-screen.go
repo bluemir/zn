@@ -15,22 +15,22 @@ package textarea
 
 // scrollTo 는 커서가 화면 안에 들어오도록 top 을 최소한으로 움직인다.
 // 커서가 이미 화면 안이면 아무것도 하지 않는다.
-func (buf *Viewport) ScrollTo(Height int) {
+func (viewport *Viewport) ScrollTo(Height int) {
 	if Height < 1 {
 		return
 	}
 
-	buf.clampTop()
+	viewport.clampTop()
 
-	Width := buf.ContentWidth()
+	Width := viewport.ContentWidth()
 
-	cursorRow := rowIndexAt(WrapOffsets(buf.Lines[buf.Cursor.Line], Width, buf.TabWidth()), buf.Cursor.Col)
+	cursorRow := rowIndexAt(WrapOffsets(viewport.Lines[viewport.Cursor.Line], Width, viewport.TabWidth()), viewport.Cursor.Col)
 
 	// 커서에서 height-1 행 위로 올라간 지점이 top 의 하한이다.
 	// 뒤에서 앞으로 세기 때문에 화면 높이만큼만 훑는다.
-	limitLine, limitRow := buf.retreatRows(buf.Cursor.Line, cursorRow, Height-1, Width)
-	if rowBefore(buf.Top.Line, buf.Top.Row, limitLine, limitRow) {
-		buf.Top.Line, buf.Top.Row = limitLine, limitRow
+	limitLine, limitRow := viewport.retreatRows(viewport.Cursor.Line, cursorRow, Height-1, Width)
+	if rowBefore(viewport.Top.Line, viewport.Top.Row, limitLine, limitRow) {
+		viewport.Top.Line, viewport.Top.Row = limitLine, limitRow
 	}
 
 	// 위쪽은 sticky 머리줄이 덮는 만큼 더 올라간다(ADR-0049).
@@ -46,14 +46,14 @@ func (buf *Viewport) ScrollTo(Height int) {
 	// 머리줄이 없으면(강조하지 않는 파일) margin 이 0 이라 첫 바퀴가 곧 예전의
 	// 「위로 벗어나면 커서 행을 최상단으로」다. 그 갈래를 이것이 대신한다.
 	for range stickyMaxRows(Height) + 1 {
-		margin := len(buf.StickyAt(buf.Top.Line, Height))
+		margin := len(viewport.StickyAt(viewport.Top.Line, Height))
 
-		wantLine, wantRow := buf.retreatRows(buf.Cursor.Line, cursorRow, margin, Width)
-		if !rowBefore(wantLine, wantRow, buf.Top.Line, buf.Top.Row) {
+		wantLine, wantRow := viewport.retreatRows(viewport.Cursor.Line, cursorRow, margin, Width)
+		if !rowBefore(wantLine, wantRow, viewport.Top.Line, viewport.Top.Row) {
 			return
 		}
 
-		buf.Top.Line, buf.Top.Row = wantLine, wantRow
+		viewport.Top.Line, viewport.Top.Row = wantLine, wantRow
 	}
 }
 
@@ -65,35 +65,35 @@ func (buf *Viewport) ScrollTo(Height int) {
 //
 // 폭이 바뀌는 경로가 여럿(터미널 리사이즈, tab 전환, sidebar 여닫기)이라
 // 부르는 쪽마다 챙기지 않고 scrollTo 안에서 한 번에 맞춘다.
-func (buf *Viewport) clampTop() {
-	buf.Top.Line = min(buf.Top.Line, len(buf.Lines)-1)
-	buf.Top.Row = min(buf.Top.Row, len(WrapOffsets(buf.Lines[buf.Top.Line], buf.ContentWidth(), buf.TabWidth()))-1)
+func (viewport *Viewport) clampTop() {
+	viewport.Top.Line = min(viewport.Top.Line, len(viewport.Lines)-1)
+	viewport.Top.Row = min(viewport.Top.Row, len(WrapOffsets(viewport.Lines[viewport.Top.Line], viewport.ContentWidth(), viewport.TabWidth()))-1)
 }
 
 // scrollBy 는 화면을 n 행 굴린다. 위로 굴릴 때는 n 이 음수다.
 //
 // 커서는 그대로 두고 화면만 움직인다. 화면 밖으로 밀려나면 그때만 화면 안 끝 행으로
 // 끌어온다 — vim 의 휠과 같다. scrollTo 가 커서를 따라 화면을 옮기는 것의 반대다.
-func (buf *Viewport) ScrollBy(n, Height int) {
+func (viewport *Viewport) ScrollBy(n, Height int) {
 	if Height < 1 || n == 0 {
 		return
 	}
 
 	// 폭이 바뀐 뒤일 수 있다. scrollTo 와 같은 이유로 여기서 한 번 맞춘다.
-	buf.clampTop()
+	viewport.clampTop()
 
-	Width := buf.ContentWidth()
+	Width := viewport.ContentWidth()
 
 	if n < 0 {
-		buf.Top.Line, buf.Top.Row = buf.retreatRows(buf.Top.Line, buf.Top.Row, -n, Width)
+		viewport.Top.Line, viewport.Top.Row = viewport.retreatRows(viewport.Top.Line, viewport.Top.Row, -n, Width)
 	} else {
-		buf.Top.Line, buf.Top.Row = buf.advanceRows(buf.Top.Line, buf.Top.Row, n, Width)
+		viewport.Top.Line, viewport.Top.Row = viewport.advanceRows(viewport.Top.Line, viewport.Top.Row, n, Width)
 	}
 
 	// 커서가 아직 화면 안이고 머리줄 아래면 건드릴 것이 없다.
 	// 머리줄이 없으면 sticky 가 0 이라 예전과 같은 물음이다(ADR-0049).
-	sticky := len(buf.StickyAt(buf.Top.Line, Height))
-	if _, y, ok := buf.CursorScreenPos(Height); ok && y >= sticky {
+	sticky := len(viewport.StickyAt(viewport.Top.Line, Height))
+	if _, y, ok := viewport.CursorScreenPos(Height); ok && y >= sticky {
 		return
 	}
 
@@ -104,13 +104,13 @@ func (buf *Viewport) ScrollBy(n, Height int) {
 	//
 	// 맨 윗줄이 아니라 **머리줄 바로 아래 행**이다. 맨 윗줄은 머리줄이 덮고 있어서, 거기에
 	// 두면 커서가 커서 줄이 아닌 글자 위에 선다. 머리줄이 없으면 sticky 가 0 이라 맨 윗줄이다.
-	Line, Row := buf.advanceRows(buf.Top.Line, buf.Top.Row, sticky, Width)
+	Line, Row := viewport.advanceRows(viewport.Top.Line, viewport.Top.Row, sticky, Width)
 	if n < 0 {
-		Line, Row = buf.advanceRows(buf.Top.Line, buf.Top.Row, Height-1, Width)
+		Line, Row = viewport.advanceRows(viewport.Top.Line, viewport.Top.Row, Height-1, Width)
 	}
 
 	// 칸은 desiredX 를 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
-	buf.placeCursorInRow(Line, WrapOffsets(buf.Lines[Line], Width, buf.TabWidth()), Row)
+	viewport.placeCursorInRow(Line, WrapOffsets(viewport.Lines[Line], Width, viewport.TabWidth()), Row)
 }
 
 // movePage 는 화면과 커서를 한 번에 **같이** 옮긴다. vim 의 `ctrl+d`·`ctrl+u`(반 화면) 와
@@ -124,7 +124,7 @@ func (buf *Viewport) ScrollBy(n, Height int) {
 // 화면을 다 차지하면 그 줄 안에서 움직이는 것이 맞다 — `↓` 와 같은 단위다(ADR-0006).
 //
 // count 는 되풀이다. `3ctrl+f` 는 한 화면 세 번이다.
-func (buf *Viewport) MovePage(direction PageDirection, span PageSpan, count, Height int) {
+func (viewport *Viewport) MovePage(direction PageDirection, span PageSpan, count, Height int) {
 	if Height < 1 {
 		return
 	}
@@ -132,63 +132,63 @@ func (buf *Viewport) MovePage(direction PageDirection, span PageSpan, count, Hei
 	rows := PageRows(span, Height) * max(count, 1)
 
 	// 폭이 바뀐 뒤일 수 있다. scrollBy 와 같은 이유로 여기서 한 번 맞춘다.
-	buf.clampTop()
+	viewport.clampTop()
 
-	Width := buf.ContentWidth()
+	Width := viewport.ContentWidth()
 
 	// 커서도 화면 행으로 옮긴다. 되풀이해 한 행씩 가는 moveUp/moveDown 을 쓰지 않는 것은
 	// 저쪽이 파일 끝에 닿아도 남은 횟수를 다 도는데, 여기서는 그 횟수가 숫자 곱 한 화면이라
 	// 커질 수 있어서다. advanceRows·retreatRows 는 끝에서 곧바로 돌아온다.
-	cursorRow := rowIndexAt(WrapOffsets(buf.Lines[buf.Cursor.Line], Width, buf.TabWidth()), buf.Cursor.Col)
+	cursorRow := rowIndexAt(WrapOffsets(viewport.Lines[viewport.Cursor.Line], Width, viewport.TabWidth()), viewport.Cursor.Col)
 
 	if direction == PageUp {
-		buf.Top.Line, buf.Top.Row = buf.retreatRows(buf.Top.Line, buf.Top.Row, rows, Width)
+		viewport.Top.Line, viewport.Top.Row = viewport.retreatRows(viewport.Top.Line, viewport.Top.Row, rows, Width)
 
-		Line, Row := buf.retreatRows(buf.Cursor.Line, cursorRow, rows, Width)
-		buf.placeCursorInRow(Line, WrapOffsets(buf.Lines[Line], Width, buf.TabWidth()), Row)
+		Line, Row := viewport.retreatRows(viewport.Cursor.Line, cursorRow, rows, Width)
+		viewport.placeCursorInRow(Line, WrapOffsets(viewport.Lines[Line], Width, viewport.TabWidth()), Row)
 
-		buf.ScrollTo(Height)
+		viewport.ScrollTo(Height)
 
 		return
 	}
 
-	buf.Top.Line, buf.Top.Row = buf.advanceRows(buf.Top.Line, buf.Top.Row, rows, Width)
+	viewport.Top.Line, viewport.Top.Row = viewport.advanceRows(viewport.Top.Line, viewport.Top.Row, rows, Width)
 
-	Line, Row := buf.advanceRows(buf.Cursor.Line, cursorRow, rows, Width)
-	buf.placeCursorInRow(Line, WrapOffsets(buf.Lines[Line], Width, buf.TabWidth()), Row)
+	Line, Row := viewport.advanceRows(viewport.Cursor.Line, cursorRow, rows, Width)
+	viewport.placeCursorInRow(Line, WrapOffsets(viewport.Lines[Line], Width, viewport.TabWidth()), Row)
 
 	// 파일 끝을 지나서까지 굴리지 않는다. 마지막 행이 화면 맨 아래에 오는 자리가 끝이고
 	// 거기서부터는 커서만 내려간다 — vim 의 `ctrl+d`·`ctrl+f` 와 같다. 휠에는 이 한계가
 	// 없어서 마지막 줄을 화면 맨 위까지 올릴 수 있는데(vim 의 `ctrl+e`), 이동 키는 눌러도
 	// 아무것도 새로 보이지 않는 빈 행을 만들지 않는다.
-	lastLine := len(buf.Lines) - 1
-	lastRow := len(WrapOffsets(buf.Lines[lastLine], Width, buf.TabWidth())) - 1
+	lastLine := len(viewport.Lines) - 1
+	lastRow := len(WrapOffsets(viewport.Lines[lastLine], Width, viewport.TabWidth())) - 1
 
-	limitLine, limitRow := buf.retreatRows(lastLine, lastRow, Height-1, Width)
-	if rowBefore(limitLine, limitRow, buf.Top.Line, buf.Top.Row) {
-		buf.Top.Line, buf.Top.Row = limitLine, limitRow
+	limitLine, limitRow := viewport.retreatRows(lastLine, lastRow, Height-1, Width)
+	if rowBefore(limitLine, limitRow, viewport.Top.Line, viewport.Top.Row) {
+		viewport.Top.Line, viewport.Top.Row = limitLine, limitRow
 	}
 
-	buf.ScrollTo(Height)
+	viewport.ScrollTo(Height)
 }
 
 // visibleRows 는 화면에 그릴 행들을 위에서부터 돌려준다.
-func (buf Viewport) VisibleRows(Height int) []ScreenRow {
+func (viewport Viewport) VisibleRows(Height int) []ScreenRow {
 	if Height < 1 {
 		return nil
 	}
 
 	rows := make([]ScreenRow, 0, Height)
-	Line, Row := buf.Top.Line, buf.Top.Row
+	Line, Row := viewport.Top.Line, viewport.Top.Row
 
-	for len(rows) < Height && Line < len(buf.Lines) {
-		offsets := WrapOffsets(buf.Lines[Line], buf.ContentWidth(), buf.TabWidth())
+	for len(rows) < Height && Line < len(viewport.Lines) {
+		offsets := WrapOffsets(viewport.Lines[Line], viewport.ContentWidth(), viewport.TabWidth())
 		if Row >= len(offsets) {
 			Line, Row = Line+1, 0
 			continue
 		}
 
-		Start, End := rowRange(buf.Lines[Line], offsets, Row)
+		Start, End := rowRange(viewport.Lines[Line], offsets, Row)
 		rows = append(rows, ScreenRow{Line: Line, Start: Start, End: End})
 		Row++
 	}
@@ -197,20 +197,20 @@ func (buf Viewport) VisibleRows(Height int) []ScreenRow {
 }
 
 // cursorScreenPos 는 커서의 화면 좌표를 돌려준다. 커서가 화면 밖이면 ok 가 false 다.
-func (buf Viewport) CursorScreenPos(Height int) (x, y int, ok bool) {
-	Line := buf.Lines[buf.Cursor.Line]
+func (viewport Viewport) CursorScreenPos(Height int) (x, y int, ok bool) {
+	Line := viewport.Lines[viewport.Cursor.Line]
 
-	for y, Row := range buf.VisibleRows(Height) {
-		if Row.Line != buf.Cursor.Line || buf.Cursor.Col < Row.Start {
+	for y, Row := range viewport.VisibleRows(Height) {
+		if Row.Line != viewport.Cursor.Line || viewport.Cursor.Col < Row.Start {
 			continue
 		}
 		// 행 경계의 offset 은 앞 행의 끝이 아니라 다음 행의 시작으로 본다.
 		// 줄 끝일 때만 마지막 행의 끝에 놓는다.
-		if buf.Cursor.Col > Row.End || (buf.Cursor.Col == Row.End && Row.End != len(Line)) {
+		if viewport.Cursor.Col > Row.End || (viewport.Cursor.Col == Row.End && Row.End != len(Line)) {
 			continue
 		}
 
-		return ScreenColAt(Line[Row.Start:Row.End], buf.Cursor.Col-Row.Start, buf.TabWidth()), y, true
+		return ScreenColAt(Line[Row.Start:Row.End], viewport.Cursor.Col-Row.Start, viewport.TabWidth()), y, true
 	}
 
 	return 0, 0, false
@@ -223,8 +223,8 @@ func (buf Viewport) CursorScreenPos(Height int) (x, y int, ok bool) {
 // 아무것도 없는 곳을 눌렀는데 커서가 움직이면 어디를 눌렀는지와 어긋난다.
 //
 // x 가 음수면 줄 시작이다. 줄번호 칸을 누른 경우가 그렇게 들어온다.
-func (buf Viewport) PositionAt(x, y, Height int) (Line, Col int, ok bool) {
-	rows := buf.VisibleRows(Height)
+func (viewport Viewport) PositionAt(x, y, Height int) (Line, Col int, ok bool) {
+	rows := viewport.VisibleRows(Height)
 	if y < 0 || y >= len(rows) {
 		return 0, 0, false
 	}
@@ -233,7 +233,7 @@ func (buf Viewport) PositionAt(x, y, Height int) (Line, Col int, ok bool) {
 
 	// 행 안에서 잘라서 센다. tab 이 다음 tab stop 까지 벌어지는 기준이 논리 줄이 아니라
 	// 화면 행의 시작이라(wrapOffsets 주석) 줄을 통째로 넘기면 tab 으로 들여쓴 줄에서 어긋난다.
-	return Row.Line, Row.Start + OffsetAtScreenCol(buf.Lines[Row.Line][Row.Start:Row.End], max(0, x), buf.TabWidth()), true
+	return Row.Line, Row.Start + OffsetAtScreenCol(viewport.Lines[Row.Line][Row.Start:Row.End], max(0, x), viewport.TabWidth()), true
 }
 
 // stickyMaxRows 는 머리줄이 먹을 수 있는 최대 행 수다. 편집 영역의 절반이다.

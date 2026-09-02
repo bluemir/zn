@@ -51,7 +51,7 @@ import "github.com/bluemir/zn/internal/scheme"
 // 이 파일은 type 과 viewport 그 자체를 다루는 것만 든다. 커서를 옮기고 화면을 굴리는
 // 메서드 88 개는 갈래별로 `viewport-*.go` 에 나뉘어 있다(buffer.go 의 머리글과 같은 손이다).
 type Viewport struct {
-	Buffer
+	Buffer // TODO 나중에는 이것을 그냥 embed 하지 말고 한번 감춰야 할까?
 
 	// size 는 editor 가 이 창에 준 편집 영역이다. 그것이 바뀔 때 밀려 들어온다(layoutViews).
 	Size ViewSize
@@ -132,8 +132,8 @@ type ViewSize struct {
 //
 // `Buffer` 가 viewPlace 를 embed 하므로 그 덩어리를 그대로 돌려주면 된다. 값 receiver 라
 // 사본이 나가서 담아 둔 뒤에 커서가 움직여도 그것이 따라 바뀌지 않는다.
-func (buf Viewport) Place() ViewPlace {
-	return buf.ViewPlace
+func (viewport Viewport) Place() ViewPlace {
+	return viewport.ViewPlace
 }
 
 // moveToPlace 는 담아 둔 자리로 커서와 화면을 되돌린다.
@@ -141,9 +141,9 @@ func (buf Viewport) Place() ViewPlace {
 // **`desiredX` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
 // 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
 // 칸으로 간다(ADR-0100).
-func (buf *Viewport) MoveToPlace(at ViewPlace) {
-	buf.ViewPlace = at
-	buf.UpdateDesiredCol()
+func (viewport *Viewport) MoveToPlace(at ViewPlace) {
+	viewport.ViewPlace = at
+	viewport.UpdateDesiredCol()
 }
 
 // 줄번호 칸의 최소 자릿수다. 파일이 짧아도 이만큼은 잡아서 줄을 오갈 때 본문이 흔들리지 않는다.
@@ -178,9 +178,9 @@ const MarkerWidth = 2
 // **줄 수를 아는 것이 창이라 여기서 센다.** 전에는 editor 가 `e.buffers[e.active].lines` 를
 // 들여다봐 세고 그만큼 뗀 폭을 창에 돌려주었는데, 의존이 거꾸로 가는 자리였다. 화면 분할이
 // 오면 창마다 파일이 달라 자릿수도 달라진다 (ADR-0121).
-func (buf Viewport) LineNumberDigits() (absolute, relative int) {
-	return max(digits(len(buf.Lines)), MinAbsoluteDigits),
-		max(digits(buf.Size.Height), MinRelativeDigits)
+func (viewport Viewport) LineNumberDigits() (absolute, relative int) {
+	return max(digits(len(viewport.Lines)), MinAbsoluteDigits),
+		max(digits(viewport.Size.Height), MinRelativeDigits)
 }
 
 // gutterWidth 는 이 창에서 본문 앞에 붙는 칸의 폭이다.
@@ -191,14 +191,14 @@ func (buf Viewport) LineNumberDigits() (absolute, relative int) {
 // **폭이 한 항이다.** 마커 칸과 번호 칸을 따로 재면 좁은 화면에서 한쪽만 사라질 수 있고,
 // 폭을 보는 자리(contentWidth·contentLeft·sticky·시험의 gutterWidthOf) 가 둘을 각각
 // 더해야 한다. 한 군데라도 어긋나면 화면 절반만 밀린 상태가 된다(ADR-0086).
-func (buf Viewport) GutterWidth() int {
-	absolute, relative := buf.LineNumberDigits()
+func (viewport Viewport) GutterWidth() int {
+	absolute, relative := viewport.LineNumberDigits()
 
 	// 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
 	// 마커 칸도 여기서 같이 사라진다 — 번호가 없는데 마커만 남으면 그것이 어느 줄의 것인지
 	// 셀 수 없다(ADR-0086).
 	gutter := MarkerWidth + absolute + 1 + relative + 1
-	if buf.Size.Width-gutter < MinTextWidth {
+	if viewport.Size.Width-gutter < MinTextWidth {
 		return 0
 	}
 
@@ -212,8 +212,8 @@ func (buf Viewport) GutterWidth() int {
 //
 // **그때그때 잰다.** 자릿수가 이 파일의 줄 수에서 나오므로 편집할 때마다 달라질 수 있다.
 // 담아 두면 999 줄에서 1000 줄로 넘어가는 순간부터 조용히 한 칸 틀린다.
-func (buf Viewport) ContentWidth() int {
-	return max(0, buf.Size.Width-buf.GutterWidth())
+func (viewport Viewport) ContentWidth() int {
+	return max(0, viewport.Size.Width-viewport.GutterWidth())
 }
 
 // digits 는 십진수 자릿수다.

@@ -15,9 +15,9 @@ package textarea
 //
 // 새 줄을 짓는 것은 부르는 쪽이다. 무엇으로 바꿀지가 언어나 명령의 일이라 창이 알 것이
 // 아니다 (ADR-0126, ADR-0128).
-func (buf *Viewport) ReplaceRun(at int, next [][]byte) {
-	buf.EndEdit()
-	buf.BeginEdit(at, len(next))
-	buf.ReplaceLines(at, len(next), next)
-	buf.EndEdit()
+func (viewport *Viewport) ReplaceRun(at int, next [][]byte) {
+	viewport.EndEdit()
+	viewport.BeginEdit(at, len(next))
+	viewport.ReplaceLines(at, len(next), next)
+	viewport.EndEdit()
 }

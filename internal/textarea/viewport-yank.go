@@ -16,19 +16,19 @@ import "github.com/bluemir/zn/internal/scheme"
 //
 // 「앞이 아니면 안 옮긴다」가 곧 「앞으로 가는 이동은 제자리」이고, `yy` 처럼 시작이 지금
 // 자리인 것도 같은 조건에 걸려 안 움직인다(ADR-0100).
-func (buf *Viewport) MoveToRangeStart(area scheme.MotionRange) {
-	if area.Start.Line > buf.Cursor.Line ||
-		(area.Start.Line == buf.Cursor.Line && area.Start.Col >= buf.Cursor.Col) {
+func (viewport *Viewport) MoveToRangeStart(area scheme.MotionRange) {
+	if area.Start.Line > viewport.Cursor.Line ||
+		(area.Start.Line == viewport.Cursor.Line && area.Start.Col >= viewport.Cursor.Col) {
 		return
 	}
 
-	buf.Cursor.Line, buf.Cursor.Col = area.Start.Line, area.Start.Col
+	viewport.Cursor.Line, viewport.Cursor.Col = area.Start.Line, area.Start.Col
 
 	// 줄 단위 motion 의 칸은 desiredX 를 이미 따라간 값이라 다시 잡지 않는다.
 	// 글자 단위는 좌우로 움직인 것이라 이동 키와 같이 desiredX 를 갱신한다.
 	if !area.Linewise {
-		buf.UpdateDesiredCol()
+		viewport.UpdateDesiredCol()
 	}
 
-	buf.ClampToNormal()
+	viewport.ClampToNormal()
 }

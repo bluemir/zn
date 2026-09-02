@@ -7,24 +7,24 @@ package textarea
 // buffer-word.go 에 있다 (ADR-0121).
 
 // moveWordForward 는 다음 단어의 첫 글자로 간다. vim 의 w/W 다.
-func (buf *Viewport) MoveWordForward(n int, kind WordKind) {
+func (viewport *Viewport) MoveWordForward(n int, kind WordKind) {
 	for range n {
-		buf.WordForward(kind)
+		viewport.WordForward(kind)
 	}
 
-	buf.UpdateDesiredCol()
+	viewport.UpdateDesiredCol()
 }
 
-func (buf *Viewport) WordForward(kind WordKind) {
-	Line, Col := buf.Cursor.Line, buf.Cursor.Col
+func (viewport *Viewport) WordForward(kind WordKind) {
+	Line, Col := viewport.Cursor.Line, viewport.Cursor.Col
 
 	// 지금 글자와 같은 부류가 이어지는 동안 앞으로 간다.
 	// 공백에서 시작했으면 건너뛸 단어가 없으므로 아래 공백 건너뛰기로 바로 간다.
-	class := buf.ClassAt(Line, Col, kind)
-	for class != ClassBlank && buf.ClassAt(Line, Col, kind) == class {
-		next, nextCol, ok := buf.nextPos(Line, Col)
+	class := viewport.ClassAt(Line, Col, kind)
+	for class != ClassBlank && viewport.ClassAt(Line, Col, kind) == class {
+		next, nextCol, ok := viewport.nextPos(Line, Col)
 		if !ok {
-			buf.Cursor.Line, buf.Cursor.Col = Line, Col
+			viewport.Cursor.Line, viewport.Cursor.Col = Line, Col
 
 			return
 		}
@@ -33,12 +33,12 @@ func (buf *Viewport) WordForward(kind WordKind) {
 	}
 
 	// 공백을 건너뛴다. 빈 줄은 그 자체로 단어라 거기서 멈춘다.
-	for buf.ClassAt(Line, Col, kind) == ClassBlank {
-		if Col == 0 && len(buf.Lines[Line]) == 0 && Line != buf.Cursor.Line {
+	for viewport.ClassAt(Line, Col, kind) == ClassBlank {
+		if Col == 0 && len(viewport.Lines[Line]) == 0 && Line != viewport.Cursor.Line {
 			break
 		}
 
-		next, nextCol, ok := buf.nextPos(Line, Col)
+		next, nextCol, ok := viewport.nextPos(Line, Col)
 		if !ok {
 			break
 		}
@@ -46,75 +46,75 @@ func (buf *Viewport) WordForward(kind WordKind) {
 		Line, Col = next, nextCol
 	}
 
-	buf.Cursor.Line, buf.Cursor.Col = Line, Col
+	viewport.Cursor.Line, viewport.Cursor.Col = Line, Col
 }
 
 // moveWordBackward 는 단어의 첫 글자로 되돌아간다. vim 의 b/B 다.
-func (buf *Viewport) MoveWordBackward(n int, kind WordKind) {
+func (viewport *Viewport) MoveWordBackward(n int, kind WordKind) {
 	for range n {
-		buf.wordBackward(kind)
+		viewport.wordBackward(kind)
 	}
 
-	buf.UpdateDesiredCol()
+	viewport.UpdateDesiredCol()
 }
 
-func (buf *Viewport) wordBackward(kind WordKind) {
-	Line, Col, ok := buf.prevPos(buf.Cursor.Line, buf.Cursor.Col)
+func (viewport *Viewport) wordBackward(kind WordKind) {
+	Line, Col, ok := viewport.prevPos(viewport.Cursor.Line, viewport.Cursor.Col)
 	if !ok {
-		buf.Cursor.Col = 0
+		viewport.Cursor.Col = 0
 
 		return
 	}
 
 	// 공백을 거꾸로 건너뛴다. 빈 줄은 그 자체로 단어다.
-	for buf.ClassAt(Line, Col, kind) == ClassBlank && len(buf.Lines[Line]) > 0 {
-		prev, prevCol, ok := buf.prevPos(Line, Col)
+	for viewport.ClassAt(Line, Col, kind) == ClassBlank && len(viewport.Lines[Line]) > 0 {
+		prev, prevCol, ok := viewport.prevPos(Line, Col)
 		if !ok {
 			break
 		}
 
 		Line, Col = prev, prevCol
 	}
-	if len(buf.Lines[Line]) == 0 {
-		buf.Cursor.Line, buf.Cursor.Col = Line, 0
+	if len(viewport.Lines[Line]) == 0 {
+		viewport.Cursor.Line, viewport.Cursor.Col = Line, 0
 
 		return
 	}
 
 	// 같은 부류가 시작하는 자리까지 거꾸로 간다.
-	class := buf.ClassAt(Line, Col, kind)
+	class := viewport.ClassAt(Line, Col, kind)
 	for {
-		prev, prevCol, ok := buf.prevPos(Line, Col)
-		if !ok || prev != Line || buf.ClassAt(prev, prevCol, kind) != class {
+		prev, prevCol, ok := viewport.prevPos(Line, Col)
+		if !ok || prev != Line || viewport.ClassAt(prev, prevCol, kind) != class {
 			break
 		}
 
 		Line, Col = prev, prevCol
 	}
 
-	buf.Cursor.Line, buf.Cursor.Col = Line, Col
+	viewport.Cursor.Line, viewport.Cursor.Col = Line, Col
 }
 
 // moveWordEnd 는 단어의 마지막 글자로 간다. vim 의 e/E 다.
 //
 // w/b 와 달리 빈 줄에서 멈추지 않는다. 빈 줄에는 끝낼 단어가 없기 때문이다. vim 과 같다.
-func (buf *Viewport) MoveWordEnd(n int, kind WordKind) {
+func (viewport *Viewport) MoveWordEnd(n int, kind WordKind) {
 	for range n {
-		buf.WordEnd(kind)
+		viewport.WordEnd(kind)
 	}
 
-	buf.UpdateDesiredCol()
+	viewport.UpdateDesiredCol()
 }
 
-func (buf *Viewport) WordEnd(kind WordKind) {
-	Line, Col, ok := buf.nextPos(buf.Cursor.Line, buf.Cursor.Col)
+func (viewport *Viewport) WordEnd(kind WordKind) {
+	Line, Col, ok := viewport.nextPos(viewport.Cursor.Line, viewport.Cursor.Col)
 	if !ok {
 		return
 	}
 
 	// 공백을 건너뛴다. 끝낼 단어가 더 없으면 제자리에 둔다.
-	for buf.ClassAt(Line, Col, kind) == ClassBlank {
-		next, nextCol, ok := buf.nextPos(Line, Col)
+	for viewport.ClassAt(Line, Col, kind) == ClassBlank {
+		next, nextCol, ok := viewport.nextPos(Line, Col)
 		if !ok {
 			return
 		}
@@ -123,15 +123,15 @@ func (buf *Viewport) WordEnd(kind WordKind) {
 	}
 
 	// 같은 부류가 끝나는 자리까지 간다.
-	class := buf.ClassAt(Line, Col, kind)
+	class := viewport.ClassAt(Line, Col, kind)
 	for {
-		next, nextCol, ok := buf.nextPos(Line, Col)
-		if !ok || next != Line || buf.ClassAt(next, nextCol, kind) != class {
+		next, nextCol, ok := viewport.nextPos(Line, Col)
+		if !ok || next != Line || viewport.ClassAt(next, nextCol, kind) != class {
 			break
 		}
 
 		Line, Col = next, nextCol
 	}
 
-	buf.Cursor.Line, buf.Cursor.Col = Line, Col
+	viewport.Cursor.Line, viewport.Cursor.Col = Line, Col
 }

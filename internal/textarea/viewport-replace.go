@@ -38,31 +38,31 @@ func ReplacementText(key string) ([]byte, bool) {
 //
 // 줄에 남은 글자가 count 보다 적으면 아무것도 바꾸지 않는다. vim 과 같다 — `3r` 은 세 글자를
 // 바꾸겠다는 뜻이라, 두 글자만 바꿔주면 친 것과 다른 일이 일어난다.
-func (buf *Viewport) ReplaceChar(text []byte, count int) bool {
+func (viewport *Viewport) ReplaceChar(text []byte, count int) bool {
 	n := max(count, 1)
 
-	Line := buf.Lines[buf.Cursor.Line]
-	End, ok := clusterEnd(Line, buf.Cursor.Col, n)
+	Line := viewport.Lines[viewport.Cursor.Line]
+	End, ok := clusterEnd(Line, viewport.Cursor.Col, n)
 	if !ok {
 		return false
 	}
 
-	next := make([]byte, 0, len(Line)-(End-buf.Cursor.Col)+len(text)*n)
-	next = append(next, Line[:buf.Cursor.Col]...)
+	next := make([]byte, 0, len(Line)-(End-viewport.Cursor.Col)+len(text)*n)
+	next = append(next, Line[:viewport.Cursor.Col]...)
 	for range n {
 		next = append(next, text...)
 	}
 	next = append(next, Line[End:]...)
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 바꿔 넣기는 언제나 제 구간이다.
-	buf.EndEdit()
-	buf.BeginEdit(buf.Cursor.Line, 1)
-	buf.ReplaceLines(buf.Cursor.Line, 1, [][]byte{next})
-	buf.EndEdit()
+	viewport.EndEdit()
+	viewport.BeginEdit(viewport.Cursor.Line, 1)
+	viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{next})
+	viewport.EndEdit()
 
 	// 커서는 마지막으로 바꾼 글자 위다. vim 과 같다.
-	buf.Cursor.Col += (n - 1) * len(text)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Col += (n - 1) * len(text)
+	viewport.UpdateDesiredCol()
 
 	return true
 }
@@ -70,27 +70,27 @@ func (buf *Viewport) ReplaceChar(text []byte, count int) bool {
 // replaceWithNewline 은 커서부터 count 글자를 지우고 그 자리에서 줄을 가른다. vim 의 `r<Enter>` 다.
 //
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다. `o` 와 같다(indent.go).
-func (buf *Viewport) ReplaceWithNewline(count int) bool {
-	Line := buf.Lines[buf.Cursor.Line]
+func (viewport *Viewport) ReplaceWithNewline(count int) bool {
+	Line := viewport.Lines[viewport.Cursor.Line]
 
-	End, ok := clusterEnd(Line, buf.Cursor.Col, max(count, 1))
+	End, ok := clusterEnd(Line, viewport.Cursor.Col, max(count, 1))
 	if !ok {
 		return false
 	}
 
 	// 자르기 전에 정한다. 자른 뒤의 앞 줄은 커서 앞까지라 줄 끝의 여는 괄호가 사라질 수 있다.
-	indent := buf.indentForNewLine(buf.Cursor.Line, Line[:buf.Cursor.Col])
+	indent := viewport.indentForNewLine(viewport.Cursor.Line, Line[:viewport.Cursor.Col])
 	below := concat(indent, Line[End:])
 
-	buf.EndEdit()
-	buf.BeginEdit(buf.Cursor.Line, 1)
-	buf.ReplaceLines(buf.Cursor.Line, 1, [][]byte{Line[:buf.Cursor.Col], below})
-	buf.growEdit(1)
-	buf.EndEdit()
+	viewport.EndEdit()
+	viewport.BeginEdit(viewport.Cursor.Line, 1)
+	viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{Line[:viewport.Cursor.Col], below})
+	viewport.growEdit(1)
+	viewport.EndEdit()
 
-	buf.Cursor.Line++
-	buf.Cursor.Col = len(indent)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Line++
+	viewport.Cursor.Col = len(indent)
+	viewport.UpdateDesiredCol()
 
 	return true
 }

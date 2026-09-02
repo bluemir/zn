@@ -17,19 +17,19 @@ package textarea
 //
 // 커서는 **마지막으로 이은 자리**에 선다. `3J` 는 셋째 줄이 붙은 자리이고, 그것이 다음에
 // 칠 것(`x` 로 공백 지우기, `i` 로 손보기) 이 놓인 자리다. 이것도 vim 과 같다.
-func (buf *Viewport) JoinLines(count int) {
+func (viewport *Viewport) JoinLines(count int) {
 	// 남은 줄로 이을 수 있는 만큼으로 줄인다. 마지막 줄에서는 이을 것이 없어 아무 일도 없다.
-	Lines := min(max(count, 2), len(buf.Lines)-buf.Cursor.Line)
+	Lines := min(max(count, 2), len(viewport.Lines)-viewport.Cursor.Line)
 	if Lines < 2 {
 		return
 	}
 
-	at := buf.Cursor.Line
+	at := viewport.Cursor.Line
 
-	joined := buf.Lines[at]
+	joined := viewport.Lines[at]
 	Cursor := 0
 
-	for _, next := range buf.Lines[at+1 : at+Lines] {
+	for _, next := range viewport.Lines[at+1 : at+Lines] {
 		// 다음 줄의 들여쓰기를 걷는다. 공백뿐인 줄은 줄 전체가 들여쓰기라 걷고 나면 빈 줄이
 		// 되고, 그러면 이은 자리에 공백도 들어가지 않는다(joinSeparator).
 		rest := next[len(leadingBlank(next)):]
@@ -44,22 +44,22 @@ func (buf *Viewport) JoinLines(count int) {
 	//
 	// 이은 것 전부가 한 구간이다. `3J` 를 `u` 한 번으로 되돌린다 — 친 것이 하나였으므로
 	// 무르는 것도 하나다.
-	buf.EndEdit()
-	buf.BeginEdit(at, Lines)
-	buf.ReplaceLines(at, Lines, [][]byte{joined})
+	viewport.EndEdit()
+	viewport.BeginEdit(at, Lines)
+	viewport.ReplaceLines(at, Lines, [][]byte{joined})
 
 	// 줄 수가 줄었다고 알린다. 구간이 든 count 는 「편집 **후** 그 자리를 차지하는 줄 수」라
 	// 이것을 빼먹으면 `u` 가 없는 줄을 되돌리려 한다(buffer-edit.go 의 revert).
-	buf.growEdit(1 - Lines)
+	viewport.growEdit(1 - Lines)
 
-	buf.EndEdit()
+	viewport.EndEdit()
 
-	buf.Cursor.Col = Cursor
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Col = Cursor
+	viewport.UpdateDesiredCol()
 
 	// 이은 자리가 줄 끝을 넘을 수 있다. 다음 줄이 비어 있거나 공백뿐이면 붙는 것이 없어서
 	// 이은 자리가 곧 줄 끝이다(joinSeparator).
-	buf.ClampToNormal()
+	viewport.ClampToNormal()
 }
 
 // joinSeparator 는 이은 자리에 넣을 것이다. 넣지 않으면 빈 조각이다.

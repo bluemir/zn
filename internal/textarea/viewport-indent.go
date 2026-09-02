@@ -16,11 +16,11 @@ import (
 //
 // insert 를 **한 번**만 부른다. 그것이 여러 줄을 이미 한 되돌리기 구간으로 다루므로(edit.go)
 // Enter 와 들여쓰기가 `u` 한 번에 같이 사라지고, 커서도 들여쓰기 다음 칸에 알아서 선다.
-func (buf *Viewport) InsertNewLine() {
-	Line := buf.Lines[buf.Cursor.Line]
-	indent := buf.indentForNewLine(buf.Cursor.Line, Line[:buf.Cursor.Col])
+func (viewport *Viewport) InsertNewLine() {
+	Line := viewport.Lines[viewport.Cursor.Line]
+	indent := viewport.indentForNewLine(viewport.Cursor.Line, Line[:viewport.Cursor.Col])
 
-	buf.Insert(concat([]byte{'\n'}, indent))
+	viewport.Insert(concat([]byte{'\n'}, indent))
 }
 
 // reindentClosing 은 방금 친 글자가 그 줄을 닫는 줄로 만들었으면 한 단계 당긴다.
@@ -36,25 +36,25 @@ func (buf *Viewport) InsertNewLine() {
 // **여기서 문맥을 채우지 않는다.** 글자마다 부르는 자리라 lexSyntaxTo 를 끼우면 아직 다
 // 치지 않은 줄에서 수렴 판정이 돌아 캐시가 흔들린다. 커서 줄은 화면 안이라 그리는 쪽이
 // 이미 채워 두었고, 없으면 파일 언어의 규칙으로 물러난다(buffer-syntax.go).
-func (buf *Viewport) ReindentClosing(typed []byte) {
-	rule := buf.indentRuleAt(buf.Cursor.Line)
+func (viewport *Viewport) ReindentClosing(typed []byte) {
+	rule := viewport.indentRuleAt(viewport.Cursor.Line)
 	if rule == nil {
 		return
 	}
 
-	Line := buf.Lines[buf.Cursor.Line]
+	Line := viewport.Lines[viewport.Cursor.Line]
 	indent := leadingBlank(Line)
-	if buf.Cursor.Col < len(indent) || buf.Cursor.Col > len(Line) {
+	if viewport.Cursor.Col < len(indent) || viewport.Cursor.Col > len(Line) {
 		return
 	}
 
-	before := Line[len(indent):buf.Cursor.Col]
+	before := Line[len(indent):viewport.Cursor.Col]
 	head := concat(before, typed)
 	if rule.Close(head) <= rule.Close(before) {
 		return
 	}
 
-	unit, tab := buf.indentText(), buf.TabWidth()
+	unit, tab := viewport.indentText(), viewport.TabWidth()
 	pulled := shiftBlank(indent, unit, -blankColumns(unit, tab), tab)
 	if len(pulled) == len(indent) {
 		return
@@ -63,11 +63,11 @@ func (buf *Viewport) ReindentClosing(typed []byte) {
 	next := concat(pulled, Line[len(indent):])
 
 	// 열린 구간이 넓어질 뿐이라 이어 치는 글자와 한 번의 `u` 로 같이 돌아간다.
-	buf.BeginEdit(buf.Cursor.Line, 1)
-	buf.ReplaceLines(buf.Cursor.Line, 1, [][]byte{next})
+	viewport.BeginEdit(viewport.Cursor.Line, 1)
+	viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{next})
 
-	buf.Cursor.Col -= len(indent) - len(pulled)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Col -= len(indent) - len(pulled)
+	viewport.UpdateDesiredCol()
 }
 
 // insertIndent 는 `tab` 키다. 커서를 **다음 단위 경계**까지 민다.
@@ -79,46 +79,46 @@ func (buf *Viewport) ReindentClosing(typed []byte) {
 // 정확히 다음 경계까지 민다. space 면 모자란 칸만큼 넣는다.
 //
 // markdown 의 목록 줄에서는 커서 자리가 아니라 줄 전체가 한 단계 들어간다(syntax.Indent).
-func (buf *Viewport) InsertIndent() {
-	Line := buf.Lines[buf.Cursor.Line]
+func (viewport *Viewport) InsertIndent() {
+	Line := viewport.Lines[viewport.Cursor.Line]
 
 	// 규칙이 문맥을 따라오므로 담아둔 것이 있어야 한다. 글자마다가 아니라 `tab` 을 칠 때만
 	// 지나는 자리라 채워도 된다 — reindentClosing 이 못 하는 것이 이것이다.
-	buf.LexSyntaxTo(buf.Cursor.Line)
+	viewport.LexSyntaxTo(viewport.Cursor.Line)
 
-	if rule := buf.indentRuleAt(buf.Cursor.Line); rule != nil && rule.TabIndentsLine(Line) {
-		buf.ShiftLines(buf.Cursor.Line, buf.Cursor.Line, IndentRight)
+	if rule := viewport.indentRuleAt(viewport.Cursor.Line); rule != nil && rule.TabIndentsLine(Line) {
+		viewport.ShiftLines(viewport.Cursor.Line, viewport.Cursor.Line, IndentRight)
 		return
 	}
 
-	unit, tab := buf.indentText(), buf.TabWidth()
+	unit, tab := viewport.indentText(), viewport.TabWidth()
 	step := blankColumns(unit, tab)
 
 	if unit[0] == '\t' {
-		buf.Insert([]byte{'\t'})
+		viewport.Insert([]byte{'\t'})
 		return
 	}
 
-	Col := ScreenColAt(Line, buf.Cursor.Col, tab)
-	buf.Insert(makeBlank(step-Col%step, false, tab))
+	Col := ScreenColAt(Line, viewport.Cursor.Col, tab)
+	viewport.Insert(makeBlank(step-Col%step, false, tab))
 }
 
 // outdentLine 은 `shift+tab` 이다. 지금 줄을 한 단계 내어쓴다.
 //
 // insert mode 에서 내어쓰는 유일한 길이다. 이것이 없으면 `esc` 로 나가 `<<` 를 치고 다시
 // 들어와야 한다.
-func (buf *Viewport) OutdentLine() {
-	before := len(leadingBlank(buf.Lines[buf.Cursor.Line]))
-	Col := buf.Cursor.Col
+func (viewport *Viewport) OutdentLine() {
+	before := len(leadingBlank(viewport.Lines[viewport.Cursor.Line]))
+	Col := viewport.Cursor.Col
 
-	buf.ShiftLines(buf.Cursor.Line, buf.Cursor.Line, IndentLeft)
+	viewport.ShiftLines(viewport.Cursor.Line, viewport.Cursor.Line, IndentLeft)
 
 	// shiftLines 는 커서를 들여쓰기 다음에 세운다. insert 에서는 치던 자리를 지켜야 하므로
 	// 줄어든 만큼 왼쪽으로 옮긴다. 들여쓰기 안에 있었으면 그 끝에 선다.
-	after := len(leadingBlank(buf.Lines[buf.Cursor.Line]))
+	after := len(leadingBlank(viewport.Lines[viewport.Cursor.Line]))
 
-	buf.Cursor.Col = max(Col+after-before, after)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Col = max(Col+after-before, after)
+	viewport.UpdateDesiredCol()
 }
 
 // deleteIndentBackward 는 커서 앞이 공백뿐일 때의 `backspace` 다. 한 칸이 아니라 **앞 단위
@@ -126,15 +126,15 @@ func (buf *Viewport) OutdentLine() {
 //
 // space 로 들여쓴 파일에서 tab 한 번이 넣은 것을 backspace 네 번으로 지우는 어긋남을 없앤다.
 // 커서 앞에 글자가 하나라도 있으면 걸리지 않는다 — 글 가운데 공백은 들여쓰기가 아니다.
-func (buf *Viewport) DeleteIndentBackward() bool {
-	Line := buf.Lines[buf.Cursor.Line]
-	if buf.Cursor.Col < 1 || buf.Cursor.Col > len(leadingBlank(Line)) {
+func (viewport *Viewport) DeleteIndentBackward() bool {
+	Line := viewport.Lines[viewport.Cursor.Line]
+	if viewport.Cursor.Col < 1 || viewport.Cursor.Col > len(leadingBlank(Line)) {
 		return false
 	}
 
-	blank := Line[:buf.Cursor.Col]
-	tab := buf.TabWidth()
-	step := blankColumns(buf.indentText(), tab)
+	blank := Line[:viewport.Cursor.Col]
+	tab := viewport.TabWidth()
+	step := blankColumns(viewport.indentText(), tab)
 
 	// 경계에 서 있으면 한 단계 앞으로, 아니면 바로 앞 경계로 간다.
 	cols := blankColumns(blank, tab)
@@ -145,11 +145,11 @@ func (buf *Viewport) DeleteIndentBackward() bool {
 		return false
 	}
 
-	buf.BeginEdit(buf.Cursor.Line, 1)
-	buf.ReplaceLines(buf.Cursor.Line, 1, [][]byte{concat(pulled, Line[buf.Cursor.Col:])})
+	viewport.BeginEdit(viewport.Cursor.Line, 1)
+	viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{concat(pulled, Line[viewport.Cursor.Col:])})
 
-	buf.Cursor.Col = len(pulled)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Col = len(pulled)
+	viewport.UpdateDesiredCol()
 
 	return true
 }
@@ -163,8 +163,8 @@ func (buf *Viewport) DeleteIndentBackward() bool {
 // 한 단계다 — 칸 수만 맞추고 그 줄이 쓰던 글자는 그대로 둔다(shiftBlank).
 //
 // **빈 줄은 건드리지 않는다.** 밀면 줄 끝 공백만 남고, 당길 것은 애초에 없다. vim 과 같다.
-func (buf *Viewport) ShiftLines(from, to int, direction IndentDirection) {
-	unit, tab := buf.indentText(), buf.TabWidth()
+func (viewport *Viewport) ShiftLines(from, to int, direction IndentDirection) {
+	unit, tab := viewport.indentText(), viewport.TabWidth()
 
 	by := blankColumns(unit, tab)
 	if direction == IndentLeft {
@@ -172,7 +172,7 @@ func (buf *Viewport) ShiftLines(from, to int, direction IndentDirection) {
 	}
 
 	next := make([][]byte, 0, to-from+1)
-	for _, Line := range buf.Lines[from : to+1] {
+	for _, Line := range viewport.Lines[from : to+1] {
 		indent := leadingBlank(Line)
 		if len(indent) == len(Line) {
 			next = append(next, Line)
@@ -182,7 +182,7 @@ func (buf *Viewport) ShiftLines(from, to int, direction IndentDirection) {
 		next = append(next, concat(shiftBlank(indent, unit, by, tab), Line[len(indent):]))
 	}
 
-	buf.replaceIndented(from, to, next)
+	viewport.replaceIndented(from, to, next)
 }
 
 // reindentLines 는 [from, to] 를 언어 규칙이 정한 자리로 다시 들여쓴다. `=` 가 쓴다.
@@ -194,13 +194,13 @@ func (buf *Viewport) ShiftLines(from, to int, direction IndentDirection) {
 //
 // **판정이 줄마다다.** markdown 문서 안의 코드펜스는 안쪽 언어의 규칙을 받으므로(ADR-0102)
 // 산문은 그대로 두고 그 안만 정리한다. 건드리지 않는 줄도 기준선은 이어 간다.
-func (buf *Viewport) ReindentLines(from, to int) {
-	if buf.Language.Indent() == nil {
+func (viewport *Viewport) ReindentLines(from, to int) {
+	if viewport.Language.Indent() == nil {
 		return
 	}
 
-	buf.LexSyntaxTo(to)
-	unit, tab := buf.indentText(), buf.TabWidth()
+	viewport.LexSyntaxTo(to)
+	unit, tab := viewport.indentText(), viewport.TabWidth()
 
 	// prev 는 마지막으로 자리를 정한 줄이다. 줄 내용과 토큰은 **원래 것**이고 들여쓰기만 새것이다.
 	// Next 는 「이 줄이 블록을 여는가」만 보므로 앞이 몇 칸이었는지와 무관하다.
@@ -209,14 +209,14 @@ func (buf *Viewport) ReindentLines(from, to int) {
 	var prevIndent []byte
 
 	if from > 0 {
-		prevLine = buf.Lines[from-1]
-		prevTokens = buf.SyntaxTokens(from - 1)
+		prevLine = viewport.Lines[from-1]
+		prevTokens = viewport.SyntaxTokens(from - 1)
 		prevIndent = leadingBlank(prevLine)
 	}
 
 	next := make([][]byte, 0, to-from+1)
 	for i := from; i <= to; i++ {
-		Line := buf.Lines[i]
+		Line := viewport.Lines[i]
 		body := Line[len(leadingBlank(Line)):]
 
 		// 빈 줄은 비운 채로 둔다. 들여쓰기를 붙이면 줄 끝 공백이 된다.
@@ -228,10 +228,10 @@ func (buf *Viewport) ReindentLines(from, to int) {
 
 		// 이 줄의 자리를 정할 규칙이 없으면 그대로 둔다. markdown 문서의 산문과 목록이다 —
 		// 깊이를 글쓴이가 정한 것이라 앞 줄에서 되짚을 수 없다(syntax.Indent 의 Reindents).
-		rule := buf.indentRuleAt(i)
+		rule := viewport.indentRuleAt(i)
 		if rule == nil || !rule.Reindents() {
 			next = append(next, Line)
-			prevLine, prevTokens, prevIndent = Line, buf.SyntaxTokens(i), leadingBlank(Line)
+			prevLine, prevTokens, prevIndent = Line, viewport.SyntaxTokens(i), leadingBlank(Line)
 
 			continue
 		}
@@ -239,7 +239,7 @@ func (buf *Viewport) ReindentLines(from, to int) {
 		// **여는 것은 앞 줄의 규칙이 본다.** 코드펜스를 여는 줄(```` ```go ````) 은 markdown 이고
 		// 그 다음 줄부터가 안쪽 언어다. 이 줄의 규칙으로 앞 줄을 보면 경계에서 답이 갈린다.
 		level, prefix := 0, []byte(nil)
-		if prev := buf.indentRuleAt(i - 1); prev != nil {
+		if prev := viewport.indentRuleAt(i - 1); prev != nil {
 			level, prefix = prev.Next(prevLine, prevTokens)
 		}
 
@@ -253,10 +253,10 @@ func (buf *Viewport) ReindentLines(from, to int) {
 
 		next = append(next, concat(indent, body))
 
-		prevLine, prevTokens, prevIndent = Line, buf.SyntaxTokens(i), indent
+		prevLine, prevTokens, prevIndent = Line, viewport.SyntaxTokens(i), indent
 	}
 
-	buf.replaceIndented(from, to, next)
+	viewport.replaceIndented(from, to, next)
 }
 
 // replaceIndented 는 다시 들여쓴 줄들을 갈아끼운다. shiftLines 와 reindentLines 가 나눠 쓴다.
@@ -265,10 +265,10 @@ func (buf *Viewport) ReindentLines(from, to int) {
 // trimTrailingSpace 와 같은 자리다(edit.go).
 //
 // 커서는 첫 줄의 들여쓰기 다음이다. vim 과 같다.
-func (buf *Viewport) replaceIndented(from, to int, next [][]byte) {
+func (viewport *Viewport) replaceIndented(from, to int, next [][]byte) {
 	same := true
 	for i, Line := range next {
-		if !bytes.Equal(Line, buf.Lines[from+i]) {
+		if !bytes.Equal(Line, viewport.Lines[from+i]) {
 			same = false
 			break
 		}
@@ -278,14 +278,14 @@ func (buf *Viewport) replaceIndented(from, to int, next [][]byte) {
 	}
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
-	buf.EndEdit()
-	buf.BeginEdit(from, to-from+1)
+	viewport.EndEdit()
+	viewport.BeginEdit(from, to-from+1)
 
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
-	buf.ReplaceLines(from, to-from+1, next)
-	buf.EndEdit()
+	viewport.ReplaceLines(from, to-from+1, next)
+	viewport.EndEdit()
 
-	buf.Cursor.Line = from
-	buf.Cursor.Col = len(leadingBlank(buf.Lines[from]))
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Line = from
+	viewport.Cursor.Col = len(leadingBlank(viewport.Lines[from]))
+	viewport.UpdateDesiredCol()
 }

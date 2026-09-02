@@ -18,15 +18,15 @@ import "github.com/bluemir/zn/internal/scheme"
 //   - `cw` 는 단어 뒤 공백을 남긴다. vim 의 예외다
 //
 // 바꿀 것이 없어도(빈 줄에서 친 `cw`) true 다 — vim 처럼 그 자리에서 넣기 시작한다.
-func (buf *Viewport) ChangeRange(area scheme.MotionRange) (TextBlock, bool) {
+func (viewport *Viewport) ChangeRange(area scheme.MotionRange) (TextBlock, bool) {
 	if area.Linewise {
-		removed := buf.changeLines(area.Start.Line, area.End.Line)
-		buf.resumeEdit()
+		removed := viewport.changeLines(area.Start.Line, area.End.Line)
+		viewport.resumeEdit()
 
 		return removed, true
 	}
 
-	removed, changed := buf.deleteText(area.Start, area.End)
+	removed, changed := viewport.deleteText(area.Start, area.End)
 	if !changed {
 		// 바꿀 것이 없었다. 편집이 없었으니 되돌리기 구간도 열지 않는다.
 		return TextBlock{}, true
@@ -34,9 +34,9 @@ func (buf *Viewport) ChangeRange(area scheme.MotionRange) (TextBlock, bool) {
 
 	// 지운 자리에서 이어 친다. deleteText 가 normal mode 규칙으로 당겨 둔 커서를 되돌린다 —
 	// `c$` 는 줄 끝 다음 칸에서 시작해야 하고 그 자리는 insert mode 에만 있다.
-	buf.Cursor.Line, buf.Cursor.Col = area.Start.Line, area.Start.Col
-	buf.UpdateDesiredCol()
-	buf.resumeEdit()
+	viewport.Cursor.Line, viewport.Cursor.Col = area.Start.Line, area.Start.Col
+	viewport.UpdateDesiredCol()
+	viewport.resumeEdit()
 
 	return removed, true
 }
@@ -45,15 +45,15 @@ func (buf *Viewport) ChangeRange(area scheme.MotionRange) (TextBlock, bool) {
 //
 // `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
-func (buf Viewport) AtWordEnd(kind WordKind) bool {
-	class := buf.ClassAt(buf.Cursor.Line, buf.Cursor.Col, kind)
+func (viewport Viewport) AtWordEnd(kind WordKind) bool {
+	class := viewport.ClassAt(viewport.Cursor.Line, viewport.Cursor.Col, kind)
 	if class == ClassBlank {
 		return false
 	}
 
-	Line, Col, ok := buf.nextPos(buf.Cursor.Line, buf.Cursor.Col)
+	Line, Col, ok := viewport.nextPos(viewport.Cursor.Line, viewport.Cursor.Col)
 
-	return !ok || Line != buf.Cursor.Line || buf.ClassAt(Line, Col, kind) != class
+	return !ok || Line != viewport.Cursor.Line || viewport.ClassAt(Line, Col, kind) != class
 }
 
 // changeLines 는 [from, to] 줄을 들여쓰기만 남기고 비운다.
@@ -64,19 +64,19 @@ func (buf Viewport) AtWordEnd(kind WordKind) bool {
 // 남기는 들여쓰기는 첫 줄의 것이다. 들여쓴 코드에서 `cc` 를 칠 때마다 tab 을 다시 치지 않는다.
 // autoindent 가 아직 없어서 `o` `O` 는 들여쓰기를 이어받지 않는데, 이쪽은 새 줄을 만드는 것이
 // 아니라 있던 줄을 비우는 것이라 원래 들여쓰기가 그 줄의 것이다.
-func (buf *Viewport) changeLines(from, to int) TextBlock {
+func (viewport *Viewport) changeLines(from, to int) TextBlock {
 	count := to - from + 1
-	indent := leadingBlank(buf.Lines[from])
+	indent := leadingBlank(viewport.Lines[from])
 
-	buf.EndEdit()
-	buf.BeginEdit(from, count)
-	removed := buf.ReplaceLines(from, count, [][]byte{indent})
-	buf.growEdit(1 - count)
-	buf.EndEdit()
+	viewport.EndEdit()
+	viewport.BeginEdit(from, count)
+	removed := viewport.ReplaceLines(from, count, [][]byte{indent})
+	viewport.growEdit(1 - count)
+	viewport.EndEdit()
 
 	// 들여쓰기 다음 칸에서 이어 친다.
-	buf.Cursor.Line, buf.Cursor.Col = from, len(indent)
-	buf.UpdateDesiredCol()
+	viewport.Cursor.Line, viewport.Cursor.Col = from, len(indent)
+	viewport.UpdateDesiredCol()
 
 	return TextBlock{Lines: removed, Linewise: true}
 }

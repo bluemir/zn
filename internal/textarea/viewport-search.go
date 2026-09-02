@@ -6,20 +6,20 @@ package textarea
 // buffer-search.go 에 있다 (ADR-0121).
 
 // moveTo 는 커서를 그 자리로 옮긴다. 검색이 찾은 자리로 뛸 때 쓴다.
-func (buf *Viewport) MoveTo(Line, Col int) {
-	buf.Cursor.Line = min(max(Line, 0), len(buf.Lines)-1)
-	buf.Cursor.Col = min(max(Col, 0), len(buf.Lines[buf.Cursor.Line]))
-	buf.UpdateDesiredCol()
+func (viewport *Viewport) MoveTo(Line, Col int) {
+	viewport.Cursor.Line = min(max(Line, 0), len(viewport.Lines)-1)
+	viewport.Cursor.Col = min(max(Col, 0), len(viewport.Lines[viewport.Cursor.Line]))
+	viewport.UpdateDesiredCol()
 }
 
 // wordUnderCursor 는 `*` `#` 가 찾을 단어와 그 단어가 시작하는 자리다.
 //
 // 커서가 단어 위가 아니면 그 줄에서 오른쪽으로 첫 단어를 찾는다. 줄에 단어가 없으면 false 다.
 // vim 과 같다 — 들여쓰기 위에서 눌러도 그 줄의 첫 낱말을 찾아준다.
-func (buf Viewport) WordUnderCursor() (string, int, bool) {
-	Line := buf.Lines[buf.Cursor.Line]
+func (viewport Viewport) WordUnderCursor() (string, int, bool) {
+	Line := viewport.Lines[viewport.Cursor.Line]
 
-	Col := buf.Cursor.Col
+	Col := viewport.Cursor.Col
 	for Col < len(Line) && !isWordClass(glyphClass(Line, Col)) {
 		Col += GlyphSize(Line, Col)
 	}
