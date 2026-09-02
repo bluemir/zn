@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"slices"
 	"time"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -11,14 +12,6 @@ import (
 //
 // 진단이 서버가 밀어주는 상태였던 것과 달리(ADR-0086) 이것은 우리가 직접 잰다.
 // HEAD 에 든 그 파일(gitBase) 과 지금 buffer 를 견주는 일이다.
-
-// 마커 글자다. 셋 다 ASCII 라 어느 터미널에서나 한 칸이다 — 진단 마커가 East Asian Width 가
-// Neutral 인 글자만 쓴 것과 같은 기준이다(ADR-0020, ADR-0086 §4).
-const (
-	markerGitAdded    = "+"
-	markerGitModified = "~"
-	markerGitRemoved  = "_"
-)
 
 // gitDiffTimeout 은 줄 diff 에 주는 시간 상한이다.
 //
@@ -161,16 +154,23 @@ func (buf *Buffer) refreshGitLines() {
 	buf.git.marks = gitLineMarks(buf.git.base, buf.lines)
 }
 
-// renderGitMarker 는 마커 칸 한 칸이다. 변경이 없으면 빈 칸이다.
-func renderGitMarker(mark gitLineMark) string {
-	switch mark {
-	case gitLineAdded:
-		return styleGitAdded.Render(markerGitAdded)
-	case gitLineModified:
-		return styleGitModified.Render(markerGitModified)
-	case gitLineRemoved:
-		return styleGitRemoved.Render(markerGitRemoved)
+// gitChangeLines 는 git 으로 바뀐 자리들의 **첫 줄**이다(ADR-0094).
+//
+// **잇달아 붙은 줄은 한 자리로 본다.** 열 줄을 고쳤으면 `~` 가 열 개 서는데, 뛰는 쪽에서는
+// 그것이 열 곳이 아니라 한 곳이다. vim 이 `]c` 를 「변경의 시작으로」라고 적어 둔 것과 같다.
+func (buf *Buffer) gitChangeLines() []int {
+	if len(buf.git.marks) == 0 {
+		return nil
 	}
 
-	return " "
+	lines := make([]int, 0, len(buf.git.marks))
+	for line := range buf.git.marks {
+		if buf.git.marks[line-1] == gitLineNone {
+			lines = append(lines, line)
+		}
+	}
+
+	slices.Sort(lines)
+
+	return lines
 }

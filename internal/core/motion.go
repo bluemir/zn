@@ -384,33 +384,5 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 	return scheme.MotionRange{Start: scheme.Cursor{Line: line, Col: start}, End: scheme.Cursor{Line: line, Col: end}}, true
 }
 
-// aroundWord 는 `aw` 가 단어에 더 먹는 공백까지 넓힌 범위다.
-//
-// **뒤 공백을 먹고, 없으면 앞 공백을 먹는다.** vim 과 같다. 줄 가운데 낱말을 `daw` 로 지우면
-// 공백이 하나만 남고, 줄 끝 낱말이면 앞 공백을 먹어서 줄 끝에 공백이 남지 않는다.
-func (buf Buffer) aroundWord(line, start, end int, kind wordKind) (int, int) {
-	text := buf.lines[line]
-
-	after := end
-	for after < len(text) && buf.classAt(line, after, kind) == classBlank {
-		after += glyphSize(text, after)
-	}
-
-	if after > end {
-		return start, after
-	}
-
-	for start > 0 {
-		prev := prevGlyphStart(text, 0, start)
-		if buf.classAt(line, prev, kind) != classBlank {
-			break
-		}
-
-		start = prev
-	}
-
-	return start, end
-}
-
 // scheme.MotionRange 는 `internal/scheme` 에 있다. 만드는 곳이 넷이고 받는 곳이 글과 창이라
 // 어느 한쪽에 세 들어 살 자료가 아니다 (ADR-0100, ADR-0122).

@@ -370,55 +370,6 @@ func firstLine(text string, fallback error) string {
 	return line
 }
 
-// splitFormatted 는 포매터가 낸 글을 buffer 의 줄로 나눈다.
-//
-// 마지막 줄바꿈은 떼고 나눈다. buffer 는 그것을 내용이 아니라 사실로 들고 있고, 그 사실은
-// 여기서 바꾸지 않는다 — 마지막 줄바꿈을 넣고 빼는 것은 `.editorconfig` 가 정할 일이다
-// (editorconfig.go 의 insert_final_newline, ADR-0052).
-//
-// 아무것도 안 나왔으면 빈 줄 하나다. buffer 에는 줄이 적어도 하나 있어야 한다.
-func splitFormatted(out []byte) [][]byte {
-	out = bytes.TrimSuffix(out, []byte{'\n'})
-	if len(out) == 0 {
-		return [][]byte{{}}
-	}
-
-	return bytes.Split(out, []byte{'\n'})
-}
-
-// equalLines 는 두 줄 묶음이 같은지다.
-func equalLines(a, b [][]byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if !bytes.Equal(a[i], b[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// countChangedLines 는 자리로 맞대어 다른 줄이 몇인지다.
-//
-// 참 diff 가 아니다. 줄이 하나 늘면 그 아래가 전부 다른 줄로 세어진다 — 여기서 세는 것은
-// 「이만큼 달라졌다」는 눈짐작이고, 정확한 자리는 화면이 이미 보여주고 있다.
-func countChangedLines(old, next [][]byte) int {
-	changed := 0
-	for i := range max(len(old), len(next)) {
-		switch {
-		case i >= len(old) || i >= len(next):
-			changed++
-		case !bytes.Equal(old[i], next[i]):
-			changed++
-		}
-	}
-
-	return changed
-}
-
 // formatterJobName 은 그 포매터의 설치 작업 이름이다. `:jobs` 에 이 이름으로 뜬다.
 func formatterJobName(spec *formatter) string {
 	return spec.name + " 설치"

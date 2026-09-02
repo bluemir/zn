@@ -71,3 +71,20 @@ func (buf Buffer) findBackward(pattern *regexp.Regexp, fromLine, fromCol int) (s
 
 	return searchResult{}, false
 }
+
+// searchDirection 은 검색이 훑는 방향이다. `/` 가 아래로, `?` 가 위로다.
+type searchDirection int
+
+const (
+	searchForward searchDirection = iota
+	searchBackward
+)
+
+// searchResult 는 찾은 자리다.
+type searchResult struct {
+	line, col int
+
+	// wrapped 는 파일 끝이나 처음을 지나 감쌌는지다. vim 처럼 아래 줄에 알린다 —
+	// 알리지 않으면 커서가 왜 뒤로 갔는지 알 수 없다.
+	wrapped bool
+}

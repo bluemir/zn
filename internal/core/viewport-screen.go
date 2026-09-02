@@ -235,3 +235,15 @@ func (buf viewport) positionAt(x, y, height int) (line, col int, ok bool) {
 	// 화면 행의 시작이라(wrapOffsets 주석) 줄을 통째로 넘기면 tab 으로 들여쓴 줄에서 어긋난다.
 	return row.line, row.start + offsetAtScreenCol(buf.lines[row.line][row.start:row.end], max(0, x), buf.tabWidth()), true
 }
+
+// stickyMaxRows 는 머리줄이 먹을 수 있는 최대 행 수다. 편집 영역의 절반이다.
+//
+// **설정이 아니라 자물쇠다.** 이 편집기에는 설정이 없고(README) 머리줄은 늘 켜져 있다.
+// 그래서 깊게 중첩된 코드에서 감싸는 것이 열 겹일 때 화면이 통째로 머리줄이 되어 정작
+// 보려던 줄이 남지 않는 일을 막을 자리가 여기밖에 없다. 절반은 「본문이 머리줄보다 적어지지
+// 않는다」는 뜻이다.
+//
+// 40 행 화면에서 20 겹이 필요하므로 실제로 걸릴 일은 거의 없다. 그래서 정책이 아니라 자물쇠다.
+func stickyMaxRows(height int) int {
+	return height / 2
+}

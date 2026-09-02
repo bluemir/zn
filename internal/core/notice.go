@@ -47,9 +47,10 @@ func (e *editor) notifyError(err error) {
 // **앞말을 문자열로 지어서 나르지 않는 이유가 이것이다.** 지어 나르면 error 가 들고 있던
 // 구조(경로·까닭)를 부수어 글자로 만든 뒤 다시 error 에 담게 된다. 표시는 오려면 언젠가
 // 글자가 되어야 하지만, 그 자리는 **보여 주는 곳 하나**여야 한다(ADR-0053).
+//
+// **글을 읽고 쓰다 나는 둘은 buffer.go 에 있다.** 내는 자리가 그쪽이라 거기 두고, 고르는 것은
+// 여기 noticeText 가 한다.
 var (
-	errOpenFile     = errors.New("열 수 없습니다")
-	errWriteFile    = errors.New("쓸 수 없습니다")
 	errCreateFile   = errors.New("만들 수 없습니다")
 	errRemoveFile   = errors.New("지울 수 없습니다")
 	errRenameFile   = errors.New("이름을 바꿀 수 없습니다")

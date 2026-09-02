@@ -36,26 +36,3 @@ func pageRows(span pageSpan, height int) int {
 
 	return max(height/2, 1)
 }
-
-// movePage 는 고른 항목과 트리 화면을 한 번에 같이 옮긴다. 편집 영역의 것과 같다.
-//
-// 트리는 줄을 접지 않아서 한 항목이 한 행이다. 그래서 화면 행과 항목 번호가 같은 수다.
-//
-// top 을 옮기고 나서 부르는 쪽의 scrollTo 가 둘을 맞춘다 — 여기서는 더하기만 하고 범위
-// 맞추기를 되풀이하지 않는다(view-sidebar.go).
-func (s *sidebar) movePage(direction pageDirection, span pageSpan, count, height int) {
-	rows := len(s.rows())
-	if rows == 0 || height < 1 {
-		return
-	}
-
-	n := pageRows(span, height) * max(count, 1)
-	if direction == pageUp {
-		n = -n
-	}
-
-	s.selected = max(0, min(s.selected+n, rows-1))
-
-	// 마지막 항목이 화면 맨 아래에 오는 자리가 끝이다. 편집 영역과 같은 한계다.
-	s.top = max(0, min(s.top+n, max(0, rows-height)))
-}

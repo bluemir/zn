@@ -1,7 +1,5 @@
 package core
 
-import "slices"
-
 // 줄 앞 마커 사이를 뛰는 자리다(ADR-0095).
 //
 // 마커가 둘이라 뛰는 키도 둘이다. `]c`·`[c` 가 git 으로 바뀐 자리(ADR-0094) 로 가고
@@ -94,44 +92,4 @@ func markerWrapMessage(direction markerDirection) string {
 	}
 
 	return "아래에서 처음으로 돌아옴"
-}
-
-// gitChangeLines 는 git 으로 바뀐 자리들의 **첫 줄**이다(ADR-0094).
-//
-// **잇달아 붙은 줄은 한 자리로 본다.** 열 줄을 고쳤으면 `~` 가 열 개 서는데, 뛰는 쪽에서는
-// 그것이 열 곳이 아니라 한 곳이다. vim 이 `]c` 를 「변경의 시작으로」라고 적어 둔 것과 같다.
-func (buf *Buffer) gitChangeLines() []int {
-	if len(buf.git.marks) == 0 {
-		return nil
-	}
-
-	lines := make([]int, 0, len(buf.git.marks))
-	for line := range buf.git.marks {
-		if buf.git.marks[line-1] == gitLineNone {
-			lines = append(lines, line)
-		}
-	}
-
-	slices.Sort(lines)
-
-	return lines
-}
-
-// diagnosticLines 는 진단이 있는 줄들이다(ADR-0086).
-//
-// 이쪽은 묶지 않는다. 잇달아 선 오류는 저마다 다른 오류라, 한 줄씩 짚어 가며 고치는 것이
-// 이 키를 쓰는 손이다.
-func (buf *Buffer) diagnosticLines() []int {
-	if len(buf.diagnostics) == 0 {
-		return nil
-	}
-
-	lines := make([]int, 0, len(buf.diagnostics))
-	for line := range buf.diagnostics {
-		lines = append(lines, line)
-	}
-
-	slices.Sort(lines)
-
-	return lines
 }

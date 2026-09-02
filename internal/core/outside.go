@@ -346,17 +346,3 @@ func outsideChangeMessage(change outsideChange) string {
 
 	return ""
 }
-
-// outsideChange 는 파일이 읽은(또는 마지막으로 쓴) 시점과 어떻게 달라졌는지다.
-//
-// 알릴 문구는 부르는 쪽이 만든다. 같은 사실에 붙는 다음 걸음이 자리마다 다르다 —
-// 저장이 막힌 자리는 빠져나가는 길(`:w!`) 을 알려야 하고, 셸에서 돌아온 자리는
-// 가져오는 길(`:e`) 을 알린다 (ADR-0015, ADR-0023).
-type outsideChange int
-
-const (
-	outsideSame     outsideChange = iota // 읽은 시점과 같다
-	outsideModified                      // 내용이 달라졌다
-	outsideCreated                       // 없던 파일이 생겼다
-	outsideRemoved                       // 있던 파일이 사라졌다
-)

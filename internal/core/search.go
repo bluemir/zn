@@ -8,14 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-// searchDirection 은 검색이 훑는 방향이다. `/` 가 아래로, `?` 가 위로다.
-type searchDirection int
-
-const (
-	searchForward searchDirection = iota
-	searchBackward
-)
-
 // reverse 는 반대 방향이다. `N` 이 마지막 검색을 거꾸로 되풀이할 때 쓴다.
 func (d searchDirection) reverse() searchDirection {
 	if d == searchBackward {
@@ -124,15 +116,6 @@ func (e editor) searchMatches(line []byte) [][]int {
 	}
 
 	return e.search.pattern.FindAllIndex(line, -1)
-}
-
-// searchResult 는 찾은 자리다.
-type searchResult struct {
-	line, col int
-
-	// wrapped 는 파일 끝이나 처음을 지나 감쌌는지다. vim 처럼 아래 줄에 알린다 —
-	// 알리지 않으면 커서가 왜 뒤로 갔는지 알 수 없다.
-	wrapped bool
 }
 
 // wordSearchPattern 은 `*` `#` 가 쓰는 패턴이다. 단어 전체와 맞는 자리만 찾는다.

@@ -11,17 +11,6 @@ import (
 // sidebarWidth 는 좌측 sidebar 가 차지하는 칸 수다(docs/spec.md).
 const sidebarWidth = 32
 
-// minTextWidth 는 본문이 있어야 하는 최소 너비다.
-//
-// **두 자리가 이 하나를 지킨다.** sidebar 는 이만큼 안 남으면 켜져 있어도 안 그리고
-// (sidebarVisible), 창은 본문 앞 칸을 떼고 이만큼 안 남으면 그 칸을 통째로 버린다
-// (viewport.gutterWidth). 폭 52 에서 sidebar 를 열면 편집 영역이 20 이고 앞 칸 아홉을
-// 떼면 11 이라, 창이 앞 칸을 버려서 본문이 다시 20 이 된다. 이어진 한 규칙이다.
-//
-// **화면 배치 상수 중 이것만 두 겹에 걸친다.** 나머지 넷(markerWidth·minAbsoluteDigits·
-// minRelativeDigits·digits) 은 창만 쓰므로 viewport.go 로 갔다 (ADR-0123).
-const minTextWidth = 20
-
 // sidebar 는 좌측 파일 트리다.
 //
 // mode 가 바뀌어도 유지되어야 하므로 editor 가 들고 있다.
@@ -479,4 +468,27 @@ func sanitizeName(name string) string {
 		}
 		return r
 	}, name)
+}
+
+// movePage 는 고른 항목과 트리 화면을 한 번에 같이 옮긴다. 편집 영역의 것과 같다.
+//
+// 트리는 줄을 접지 않아서 한 항목이 한 행이다. 그래서 화면 행과 항목 번호가 같은 수다.
+//
+// top 을 옮기고 나서 부르는 쪽의 scrollTo 가 둘을 맞춘다 — 여기서는 더하기만 하고 범위
+// 맞추기를 되풀이하지 않는다(view-sidebar.go).
+func (s *sidebar) movePage(direction pageDirection, span pageSpan, count, height int) {
+	rows := len(s.rows())
+	if rows == 0 || height < 1 {
+		return
+	}
+
+	n := pageRows(span, height) * max(count, 1)
+	if direction == pageUp {
+		n = -n
+	}
+
+	s.selected = max(0, min(s.selected+n, rows-1))
+
+	// 마지막 항목이 화면 맨 아래에 오는 자리가 끝이다. 편집 영역과 같은 한계다.
+	s.top = max(0, min(s.top+n, max(0, rows-height)))
 }

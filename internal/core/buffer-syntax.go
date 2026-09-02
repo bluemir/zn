@@ -114,3 +114,27 @@ func (buf Buffer) syntaxTokens(line int) []syntax.Token {
 
 	return buf.syntax.lines[line].tokens
 }
+
+// setSemanticTokens 는 [from, to) 의 서버 답을 갈아끼운다. 열은 이미 byte 로 옮겨져 있다.
+//
+// **구간을 먼저 비운다.** 서버가 아무 말도 하지 않은 줄은 lexer 에게 돌려주어야 한다.
+// 문법이 깨진 동안 서버의 답에서 빠지는 줄이 그렇다 — 낡은 답을 남겨 두면 그 줄만 지나간
+// 글의 색으로 굳는다.
+//
+// 물을 때와 글이 달라졌는지는 부르는 쪽이 이미 본다(applySemanticTokens).
+func (buf *Buffer) setSemanticTokens(from, to int, tokens []semanticToken) {
+	from = max(0, from)
+	to = min(len(buf.syntax.lines), to)
+
+	for line := from; line < to; line++ {
+		buf.syntax.lines[line].semantic = nil
+	}
+
+	for _, item := range tokens {
+		if item.line < from || item.line >= to {
+			continue
+		}
+
+		buf.syntax.lines[item.line].semantic = append(buf.syntax.lines[item.line].semantic, item.token)
+	}
+}
