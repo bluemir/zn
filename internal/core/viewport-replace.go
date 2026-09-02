@@ -38,7 +38,7 @@ func replacementText(key string) ([]byte, bool) {
 //
 // 줄에 남은 글자가 count 보다 적으면 아무것도 바꾸지 않는다. vim 과 같다 — `3r` 은 세 글자를
 // 바꾸겠다는 뜻이라, 두 글자만 바꿔주면 친 것과 다른 일이 일어난다.
-func (buf *viewport) replaceChar(text []byte, count, width int) bool {
+func (buf *viewport) replaceChar(text []byte, count int) bool {
 	n := max(count, 1)
 
 	line := buf.lines[buf.cursor.Line]
@@ -62,7 +62,7 @@ func (buf *viewport) replaceChar(text []byte, count, width int) bool {
 
 	// 커서는 마지막으로 바꾼 글자 위다. vim 과 같다.
 	buf.cursor.Col += (n - 1) * len(text)
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 
 	return true
 }
@@ -70,7 +70,7 @@ func (buf *viewport) replaceChar(text []byte, count, width int) bool {
 // replaceWithNewline 은 커서부터 count 글자를 지우고 그 자리에서 줄을 가른다. vim 의 `r<Enter>` 다.
 //
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다. `o` 와 같다(indent.go).
-func (buf *viewport) replaceWithNewline(count, width int) bool {
+func (buf *viewport) replaceWithNewline(count int) bool {
 	line := buf.lines[buf.cursor.Line]
 
 	end, ok := clusterEnd(line, buf.cursor.Col, max(count, 1))
@@ -90,7 +90,7 @@ func (buf *viewport) replaceWithNewline(count, width int) bool {
 
 	buf.cursor.Line++
 	buf.cursor.Col = len(indent)
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 
 	return true
 }

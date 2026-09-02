@@ -74,12 +74,10 @@ func (e *editor) jumpToMarkerLines(lines []int, direction markerDirection, count
 	// **닿을 자리를 확인한 뒤에 담는다.** 못 가면 커서가 그대로라 담을 것도 없다(jumpToMatch).
 	e.recordJump()
 
-	width := e.contentWidth()
-
 	// 줄의 첫 글자로 간다. 마커가 가리키는 것이 줄이라 칸에는 뜻이 없고, `gg`·`G` 가 줄 앞으로
 	// 가는 것과 같은 손이다.
-	buf.moveTo(line, 0, width)
-	buf.clampToNormal(width)
+	buf.moveTo(line, 0)
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	e.arrive()

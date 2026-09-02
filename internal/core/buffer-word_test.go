@@ -90,7 +90,7 @@ func TestWordForward(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 
-			got := wordStops(buf, func(b *viewport) { b.moveWordForward(1, test.kind, wide) })
+			got := wordStops(buf, func(b *viewport) { b.moveWordForward(1, test.kind) })
 
 			assert.Equal(t, test.want, got)
 		})
@@ -141,7 +141,7 @@ func TestWordEnd(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 
-			got := wordStops(buf, func(b *viewport) { b.moveWordEnd(1, test.kind, wide) })
+			got := wordStops(buf, func(b *viewport) { b.moveWordEnd(1, test.kind) })
 
 			assert.Equal(t, test.want, got)
 		})
@@ -191,7 +191,7 @@ func TestWordBackward(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 			buf.cursor.Col = test.start
 
-			got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, test.kind, wide) })
+			got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, test.kind) })
 
 			assert.Equal(t, test.want, got)
 		})
@@ -203,7 +203,7 @@ func TestWordBackwardCrossesLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n\ncd\n"))
 	buf.cursor.Line, buf.cursor.Col = 2, 1
 
-	got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, wordSmall, wide) })
+	got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, wordSmall) })
 
 	assert.Equal(t, []string{"2:0", "1:0", "0:0"}, got)
 }
@@ -212,13 +212,13 @@ func TestWordBackwardCrossesLines(t *testing.T) {
 func TestWordMoveCounted(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("one two three four\n"))
 
-	buf.moveWordForward(2, wordSmall, wide)
+	buf.moveWordForward(2, wordSmall)
 	assert.Equal(t, 8, buf.cursor.Col, "2w")
 
-	buf.moveWordBackward(2, wordSmall, wide)
+	buf.moveWordBackward(2, wordSmall)
 	assert.Equal(t, 0, buf.cursor.Col, "2b")
 
-	buf.moveWordForward(99, wordSmall, wide)
+	buf.moveWordForward(99, wordSmall)
 	assert.Equal(t, 18, buf.cursor.Col, "파일 끝에서 멈춘다")
 }
 
@@ -226,7 +226,7 @@ func TestWordMoveCounted(t *testing.T) {
 func TestWordMoveUpdatesDesiredCol(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("one two\nx\nabcdefg\n"))
 
-	buf.moveWordForward(1, wordSmall, wide)
+	buf.moveWordForward(1, wordSmall)
 	assert.Equal(t, 4, buf.cursor.Col)
 
 	buf.moveDownLine(2)

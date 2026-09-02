@@ -17,7 +17,7 @@ package core
 //
 // 커서는 **마지막으로 이은 자리**에 선다. `3J` 는 셋째 줄이 붙은 자리이고, 그것이 다음에
 // 칠 것(`x` 로 공백 지우기, `i` 로 손보기) 이 놓인 자리다. 이것도 vim 과 같다.
-func (buf *viewport) joinLines(count, width int) {
+func (buf *viewport) joinLines(count int) {
 	// 남은 줄로 이을 수 있는 만큼으로 줄인다. 마지막 줄에서는 이을 것이 없어 아무 일도 없다.
 	lines := min(max(count, 2), len(buf.lines)-buf.cursor.Line)
 	if lines < 2 {
@@ -55,11 +55,11 @@ func (buf *viewport) joinLines(count, width int) {
 	buf.endEdit()
 
 	buf.cursor.Col = cursor
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 
 	// 이은 자리가 줄 끝을 넘을 수 있다. 다음 줄이 비어 있거나 공백뿐이면 붙는 것이 없어서
 	// 이은 자리가 곧 줄 끝이다(joinSeparator).
-	buf.clampToNormal(width)
+	buf.clampToNormal()
 }
 
 // joinSeparator 는 이은 자리에 넣을 것이다. 넣지 않으면 빈 조각이다.

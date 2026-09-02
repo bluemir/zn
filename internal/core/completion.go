@@ -174,7 +174,7 @@ func (e *editor) applyCompletion() {
 	}
 
 	item := e.completion.items[e.completion.selected]
-	e.activeBuffer().insertCompletion(item, e.contentWidth())
+	e.activeBuffer().insertCompletion(item)
 	e.closeCompletion()
 	e.scrollToCursor()
 }

@@ -173,7 +173,7 @@ func TestJoinKeepsCursorVisible(t *testing.T) {
 	buf := bufferOf(t, next)
 	require.Equal(t, 200, buf.cursor.Col, "이은 자리는 원래 첫 줄의 끝 다음이다")
 
-	_, y, ok := buf.cursorScreenPos(view.contentWidth(), view.textHeight())
+	_, y, ok := buf.cursorScreenPos(view.textHeight())
 	require.True(t, ok, "커서가 화면 안에 있다")
 	assert.Less(t, y, view.textHeight())
 }

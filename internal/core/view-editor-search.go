@@ -140,8 +140,8 @@ func (m *viewEditorSearch) preview() {
 	// 찾은 자리를 미리 강조한다. 아직 마지막 검색으로 굳히는 것은 아니라 Esc 로 되돌아간다.
 	m.search = searchState{input: m.input.text, pattern: pattern, direction: m.direction, highlight: true}
 
-	buf.moveTo(result.line, result.col, m.contentWidth())
-	buf.clampToNormal(m.contentWidth())
+	buf.moveTo(result.line, result.col)
+	buf.clampToNormal()
 	m.scrollToCursor()
 }
 
@@ -149,7 +149,7 @@ func (m *viewEditorSearch) preview() {
 func (m *viewEditorSearch) restore() {
 	buf := m.activeBuffer()
 
-	buf.moveToPlace(m.origin.place, m.contentWidth())
+	buf.moveToPlace(m.origin.place)
 
 	m.search = m.origin.search
 }
@@ -215,7 +215,6 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 
 	line, col := buf.cursor.Line, buf.cursor.Col
 	wrapped := false
@@ -237,8 +236,8 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	// 여기가 `/` `?` `n` `N` `*` `#` 이 모두 지나는 자리다(ADR-0070).
 	e.recordJump()
 
-	buf.moveTo(line, col, width)
-	buf.clampToNormal(width)
+	buf.moveTo(line, col)
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	// 닿은 자리도 방문 기록에 남는다. 떠난 자리는 위의 recordJump 가 남겼다(ADR-0074).
@@ -271,7 +270,7 @@ func (e *editor) searchWord(direction searchDirection, n int) {
 
 	// 커서를 단어 앞으로 옮기고 거기서 찾는다. 옮기지 않으면 커서 오른쪽에 있던 그 단어가
 	// 첫 매칭이 되어, `*` 를 눌렀는데 제자리에서 한 칸 옆으로 가는 것으로 끝난다. vim 과 같다.
-	buf.moveTo(buf.cursor.Line, col, e.contentWidth())
+	buf.moveTo(buf.cursor.Line, col)
 
 	// QuoteMeta 를 거친 글자와 `\b` 뿐이라 정규식이 될 수 없는 경우가 없다.
 	input := wordSearchPattern(word)

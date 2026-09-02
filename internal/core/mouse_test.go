@@ -95,8 +95,9 @@ func TestPositionAt(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
+			setContentWidth(&buf, test.width, 10)
 
-			line, col, ok := buf.positionAt(test.x, test.y, test.width, 10)
+			line, col, ok := buf.positionAt(test.x, test.y, 10)
 			if test.missing {
 				assert.False(t, ok)
 				return

@@ -34,7 +34,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.PasteMsg:
 		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
 		buf := m.activeBuffer()
-		buf.insert([]byte(msg.Content), m.contentWidth())
+		buf.insert([]byte(msg.Content))
 		m.scrollToCursor()
 
 		return m, m.scheduleEditTick()
@@ -74,7 +74,7 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.closeCompletion()
 
 			buf.endEdit()
-			buf.moveLeft(1, m.contentWidth())
+			buf.moveLeft(1)
 			m.scrollToCursor()
 
 			return paletteMode(m.editor)
@@ -89,53 +89,53 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// vim 과 같은 동작이라 a<Esc> 는 제자리로 돌아오고 i<Esc> 는 한 글자 왼쪽이 된다.
 			// 줄 끝 다음 칸에서 돌아오는 경우도 이 한 번의 이동으로 같이 처리된다.
 			buf.endEdit()
-			buf.moveLeft(1, m.contentWidth())
+			buf.moveLeft(1)
 			m.scrollToCursor()
 
 			return normalMode(m.editor)
 		case "enter":
 			// 낱말로 블록을 닫는 언어(shell 의 `fi`) 는 줄을 떠나는 이 순간에 낱말이 끝난다.
-			buf.reindentClosing([]byte{'\n'}, m.contentWidth())
-			buf.insertNewLine(m.contentWidth())
+			buf.reindentClosing([]byte{'\n'})
+			buf.insertNewLine()
 		case "backspace":
 			// 커서 앞이 들여쓰기뿐이면 한 칸이 아니라 앞 단위 경계까지 지운다(indent.go).
-			if !buf.deleteIndentBackward(m.contentWidth()) {
-				buf.deleteBackward(m.contentWidth())
+			if !buf.deleteIndentBackward() {
+				buf.deleteBackward()
 			}
 		case "delete":
 			// 커서 자리 글자를 지운다. 들여쓰기 단위로 묶지 않는다 — 뒤쪽 공백은
 			// 들여쓰기가 아니라 줄 끝 공백이고, 그것을 한 번에 지우는 것은 별개 결정이다.
-			buf.deleteForward(m.contentWidth())
+			buf.deleteForward()
 		case "ctrl+space":
 			// 손으로 부르는 자리다. 글자를 넣지 않고 묻기만 한다 — VS Code 와 같은 키다.
 			// 이 키는 터미널에서 NUL 로 와서 `msg.Text` 가 비어 있고, 아래 default 가
 			// 그것을 걸러 내므로 여기서 따로 받는다.
 			return m, m.startCompletion()
 		case "tab":
-			buf.insertIndent(m.contentWidth())
+			buf.insertIndent()
 		case "shift+tab":
-			buf.outdentLine(m.contentWidth())
+			buf.outdentLine()
 		case "up", "down", "left", "right", "home", "end", "pgup", "pgdown":
 			// 커서를 옮기면 undo 구간이 끊긴다. vim 과 같다.
 			buf.endEdit()
 
 			switch msg.String() {
 			case "up":
-				buf.moveUpRow(1, m.contentWidth())
+				buf.moveUpRow(1)
 			case "down":
-				buf.moveDownRow(1, m.contentWidth())
+				buf.moveDownRow(1)
 			case "left":
-				buf.moveLeft(1, m.contentWidth())
+				buf.moveLeft(1)
 			case "right":
-				buf.moveRight(1, m.contentWidth())
+				buf.moveRight(1)
 			case "home":
-				buf.moveRowStart(m.contentWidth())
+				buf.moveRowStart()
 			case "end":
-				buf.moveRowEnd(m.contentWidth())
+				buf.moveRowEnd()
 			case "pgdown":
-				buf.movePage(pageDown, pageFull, 1, m.contentWidth(), m.textHeight())
+				buf.movePage(pageDown, pageFull, 1, m.textHeight())
 			case "pgup":
-				buf.movePage(pageUp, pageFull, 1, m.contentWidth(), m.textHeight())
+				buf.movePage(pageUp, pageFull, 1, m.textHeight())
 			}
 		default:
 			// Text 는 출력 가능한 문자에만 채워진다. Enter·Tab 같은 특수 키와
@@ -146,8 +146,8 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// 줄 앞이 닫는 표시가 되면 그 줄이 한 단계 당겨진다. 넣기 전에 자리를 잡아야
 			// 커서가 옮겨진 자리에서 글자를 받는다(indent.go).
-			buf.reindentClosing([]byte(msg.Text), m.contentWidth())
-			buf.insert([]byte(msg.Text), m.contentWidth())
+			buf.reindentClosing([]byte(msg.Text))
+			buf.insert([]byte(msg.Text))
 		}
 
 		m.scrollToCursor()

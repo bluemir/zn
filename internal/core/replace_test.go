@@ -131,7 +131,7 @@ func TestReplaceFileGoesThroughTheOpenBuffer(t *testing.T) {
 	assert.Equal(t, "bar one\nfoo two\n", string(data))
 
 	// 되돌리기가 그 tab 에서는 산다.
-	e.buffers[0].applyUndo(wide)
+	e.buffers[0].applyUndo()
 	assert.Equal(t, "foo one", string(e.buffers[0].lines[0]))
 }
 

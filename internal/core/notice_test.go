@@ -77,7 +77,7 @@ func TestNoticeTextJoinsSentinelPathAndCause(t *testing.T) {
 		buf, err := OpenBuffer(locked)
 		require.NoError(t, err)
 
-		_, err = buf.SaveForce(wide, nil)
+		_, err = buf.SaveForce(nil)
 
 		require.Error(t, err)
 		assert.Equal(t, "쓸 수 없습니다: "+locked+": permission denied", noticeText(err))

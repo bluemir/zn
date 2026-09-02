@@ -509,8 +509,8 @@ func (e *editor) moveToLocation(target lsp.Location) {
 		column = lsp.ByteColumn(buf.lines[line], target.Range.Start.Character)
 	}
 
-	buf.moveTo(line, column, e.contentWidth())
-	buf.clampToNormal(e.contentWidth())
+	buf.moveTo(line, column)
+	buf.clampToNormal()
 	e.scrollToCursor()
 }
 

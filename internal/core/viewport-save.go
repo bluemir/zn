@@ -23,7 +23,7 @@ import (
 // hook 은 쓰기 직전에 통과시킬 포매터다. 없으면 nil 이다(save-hook.go). 부르는 쪽이 찾아서
 // 넘기는 것은 「무엇이 깔려 있는가」가 편집기가 도는 동안의 상태라서다 — buffer 는 그것을
 // 들 자리가 아니다.
-func (buf *viewport) Save(width int, hook *saveHook) (string, error) {
+func (buf *viewport) Save(hook *saveHook) (string, error) {
 	// :tabnew 로 만든 buffer 는 이름이 없어서 쓸 곳이 없다. vim 의 E32 와 같다.
 	// 이름을 주려면 `:w <파일>`, 즉 SaveTo 다 (ADR-0024).
 	if buf.path == "" {
@@ -36,19 +36,19 @@ func (buf *viewport) Save(width int, hook *saveHook) (string, error) {
 		return "", err
 	}
 
-	return buf.formatAndWrite(width, hook)
+	return buf.formatAndWrite(hook)
 }
 
 // SaveForce 는 밖에서 바뀌었는지 보지 않고 덮어쓴다. `:w!` 다.
 //
 // 맞추는 것은 건너뛰지 않는다. `!` 는 「바깥 변경을 무릅쓰고 덮어쓴다」 하나만 뜻한다 —
 // 한 키에 뜻을 둘 담으면 어느 쪽을 부른 것인지 갈리지 않는다(ADR-0015, ADR-0052).
-func (buf *viewport) SaveForce(width int, hook *saveHook) (string, error) {
+func (buf *viewport) SaveForce(hook *saveHook) (string, error) {
 	if buf.path == "" {
 		return "", errors.New("파일 이름이 없습니다. `:w <파일>` 로 이름을 주십시오")
 	}
 
-	return buf.formatAndWrite(width, hook)
+	return buf.formatAndWrite(hook)
 }
 
 // formatAndWrite 는 `.editorconfig` 가 적어 둔 모습으로 맞춘 뒤 쓴다.
@@ -57,15 +57,15 @@ func (buf *viewport) SaveForce(width int, hook *saveHook) (string, error) {
 // 맞추는 것이 쓰기보다 먼저다. buffer 를 고치고 그것을 쓰는 순서라야 화면과 파일이 같아진다.
 // 나가는 바이트만 고치면 화면에는 지운 공백이 그대로 남고, 그 상태로 dirty 가 내려가서
 // 다음 자동 다시읽기(ADR-0038) 에 조용히 사라진다.
-func (buf *viewport) formatAndWrite(width int, hook *saveHook) (string, error) {
+func (buf *viewport) formatAndWrite(hook *saveHook) (string, error) {
 	// 포매터가 먼저고 `.editorconfig` 가 뒤다. 적어 둔 사람의 뜻이 마지막에 서야 한다 —
 	// gofmt 계열은 줄끝을 LF 로, 마지막 줄바꿈을 있는 것으로 내는데, 그 파일에 `end_of_line`
 	// 이나 `insert_final_newline` 이 적혀 있으면 그쪽이 이긴다(ADR-0052, ADR-0065).
 	notes := []string{}
-	if note := buf.applySaveHook(hook, width); note != "" {
+	if note := buf.applySaveHook(hook); note != "" {
 		notes = append(notes, note)
 	}
-	if note := buf.applyFileFormat(width); note != "" {
+	if note := buf.applyFileFormat(); note != "" {
 		notes = append(notes, note)
 	}
 
@@ -84,7 +84,7 @@ func (buf *viewport) formatAndWrite(width int, hook *saveHook) (string, error) {
 //
 // 읽기 전용 파일은 손대지 않는다. 쓰기가 어차피 실패하는데 buffer 만 바뀌면 되돌릴 길도
 // 없다 — applyFileFormat 과 같은 자리다(editorconfig.go).
-func (buf *viewport) applySaveHook(hook *saveHook, width int) string {
+func (buf *viewport) applySaveHook(hook *saveHook) string {
 	if hook == nil || buf.readOnly {
 		return ""
 	}
@@ -106,7 +106,7 @@ func (buf *viewport) applySaveHook(hook *saveHook, width int) string {
 	changed := countChangedLines(buf.lines, next)
 	grew := len(next) - len(buf.lines)
 
-	buf.replaceAll(next, width)
+	buf.replaceAll(next)
 
 	note := fmt.Sprintf("%s: %d 줄 맞춤", hook.name, changed)
 	switch {
@@ -129,7 +129,7 @@ func (buf *viewport) applySaveHook(hook *saveHook, width int) string {
 //
 // 파일을 읽거나 다시 읽는 길에는 걸리지 않는다. 여는 것은 있는 그대로 보여주는 일이고,
 // 맞추는 것은 쓰는 일이다.
-func (buf *viewport) applyFileFormat(width int) string {
+func (buf *viewport) applyFileFormat() string {
 	// 읽기 전용 파일은 손대지 않는다. 쓰기가 어차피 실패하는데 buffer 만 다듬어지면,
 	// 되돌릴 길도 없다 — `u` 도 읽기 전용이라 거절된다(readonly.go, ADR-0051).
 	if buf.readOnly {
@@ -147,7 +147,7 @@ func (buf *viewport) applyFileFormat(width int) string {
 	// 넣어 줄 일은 없다.
 	if def.TrimTrailingWhitespace != nil && *def.TrimTrailingWhitespace {
 		// 저장은 언제나 파일 전체다. 고른 범위를 보는 것은 팔레트 쪽이다(ADR-0111).
-		if count := buf.trimTrailingSpace(0, len(buf.lines), width); count > 0 {
+		if count := buf.trimTrailingSpace(0, len(buf.lines)); count > 0 {
 			done = append(done, fmt.Sprintf("줄끝 공백 %d 줄 지움", count))
 		}
 	}

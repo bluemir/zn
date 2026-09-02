@@ -17,7 +17,7 @@ func newJumpsView(t *testing.T) (viewJumps, []string) {
 
 	e.active = 0
 	for i, path := range paths {
-		e.activeBuffer().moveTo(i*2, 0, e.contentWidth())
+		e.activeBuffer().moveTo(i*2, 0)
 		e.recordJump()
 		require.NoError(t, gotoFile(e, path, i*2+1))
 	}
@@ -227,7 +227,7 @@ func jumpsViewWithClosedTabs(t *testing.T) (viewJumps, []string) {
 
 	e.active = 0
 	for i, path := range paths {
-		e.activeBuffer().moveTo(i*2, 0, e.contentWidth())
+		e.activeBuffer().moveTo(i*2, 0)
 		e.recordJump()
 		require.NoError(t, gotoFile(e, path, i*2+1))
 	}

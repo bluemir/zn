@@ -169,7 +169,7 @@ func TestWindowTitle(t *testing.T) {
 		require.NoError(t, err)
 
 		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
-		e.activeBuffer().insert([]byte("X"), 80)
+		e.activeBuffer().insert([]byte("X"))
 
 		assert.Equal(t, "zn editor.go + (internal/core)", e.renderWindowTitle())
 	})
@@ -245,10 +245,10 @@ func TestViewEditorCursorPosition(t *testing.T) {
 	assert.Equal(t, tea.Position{X: left, Y: 1}, m.View().Cursor.Position)
 
 	// 한글 한 글자 = 두 칸
-	buf.moveRight(1, m.width)
+	buf.moveRight(1)
 	assert.Equal(t, tea.Position{X: left + 2, Y: 1}, m.View().Cursor.Position)
 
-	buf.moveDownRow(1, m.width)
+	buf.moveDownRow(1)
 	assert.Equal(t, tea.Position{X: left + 2, Y: 2}, m.View().Cursor.Position)
 }
 
@@ -257,8 +257,8 @@ func TestViewEditorCursorAfterScroll(t *testing.T) {
 	m := newTestEditor(strings.Repeat("line\n", 100), 80, 10)
 	buf := &m.buffers[0]
 
-	buf.moveDownRow(20, m.width)
-	buf.scrollTo(m.width, m.textHeight())
+	buf.moveDownRow(20)
+	buf.scrollTo(m.textHeight())
 
 	require.Equal(t, 11, buf.top.line)
 	assert.Equal(t, 10, m.View().Cursor.Position.Y, "커서는 편집 영역 맨 아래 줄")
@@ -269,10 +269,10 @@ func TestViewEditorCursorInWrappedLine(t *testing.T) {
 	m := newTestEditor("0123456789\n", 4, 4)
 	buf := &m.buffers[0]
 
-	buf.moveRight(1, m.width)
+	buf.moveRight(1)
 	assert.Equal(t, tea.Position{X: 1, Y: 1}, m.View().Cursor.Position)
 
-	buf.moveDownRow(1, m.width)
+	buf.moveDownRow(1)
 	assert.Equal(t, tea.Position{X: 1, Y: 2}, m.View().Cursor.Position, "같은 줄의 두 번째 행")
 }
 

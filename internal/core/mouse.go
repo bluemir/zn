@@ -68,18 +68,18 @@ func (e *editor) clickText(x, y int) {
 	//
 	// 여기서는 화면을 옮긴다. 가려는 곳이 화면 밖이라 위의 「이미 보이는 자리」가 아니다.
 	if sticky := buf.stickyAt(buf.top.line, e.textHeight()); row < len(sticky) {
-		buf.moveToLine(sticky[row], e.contentWidth())
+		buf.moveToLine(sticky[row])
 		e.scrollToCursor()
 
 		return
 	}
 
-	line, col, ok := buf.positionAt(x-e.contentLeft(), row, e.contentWidth(), e.textHeight())
+	line, col, ok := buf.positionAt(x-e.contentLeft(), row, e.textHeight())
 	if !ok {
 		return
 	}
 
-	buf.moveTo(line, col, e.contentWidth())
+	buf.moveTo(line, col)
 }
 
 // clickSidebar 는 sidebar 좌표의 항목을 고르고 연다.
@@ -178,7 +178,7 @@ func (e *editor) wheel(mouse tea.Mouse) {
 	case regionSidebar:
 		e.sidebar.scrollBy(rows, e.sidebarHeight())
 	case regionText:
-		e.activeBuffer().scrollBy(rows, e.contentWidth(), e.textHeight())
+		e.activeBuffer().scrollBy(rows, e.textHeight())
 	}
 }
 
@@ -194,7 +194,7 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		m.clickText(mouse.X, mouse.Y)
 
 		// normal 의 커서는 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
-		m.activeBuffer().clampToNormal(m.contentWidth())
+		m.activeBuffer().clampToNormal()
 	}
 
 	return m, nil
@@ -233,7 +233,7 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmd, reveal)
 	case regionText:
 		m.clickText(mouse.X, mouse.Y)
-		m.activeBuffer().clampToNormal(m.contentWidth())
+		m.activeBuffer().clampToNormal()
 
 		return normalMode(m.editor)
 	}
@@ -250,7 +250,7 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 // **위아래로 나갔으면 그 방향으로 한 행 굴린다.** motion 이벤트는 포인터가 실제로 움직일 때만
 // 오므로(MouseModeCellMotion) 잡은 채 가만히 있으면 굴러가지 않는다. 타이머는 두지 않았다.
 func (e *editor) dragTo(x, y int) {
-	buf, width, height := e.activeBuffer(), e.contentWidth(), e.textHeight()
+	buf, height := e.activeBuffer(), e.textHeight()
 	if height < 1 {
 		return
 	}
@@ -262,20 +262,20 @@ func (e *editor) dragTo(x, y int) {
 	row := y - tablineHeight
 	switch {
 	case row < sticky:
-		buf.scrollBy(-1, width, height)
+		buf.scrollBy(-1, height)
 
 		row = len(buf.stickyAt(buf.top.line, height))
 	case row >= height:
-		buf.scrollBy(1, width, height)
+		buf.scrollBy(1, height)
 
 		row = height - 1
 	}
 
-	line, col, ok := buf.positionAt(x-e.contentLeft(), row, width, height)
+	line, col, ok := buf.positionAt(x-e.contentLeft(), row, height)
 	if !ok {
 		// 마지막 줄 아래로 끌었다. 클릭은 그 자리에서 멈추지만(positionAt 주석) 끄는 중에는
 		// 있는 데까지 따라가야 한다 — 범위가 손을 놓치면 어디까지 골랐는지 알 수 없다.
-		rows := buf.visibleRows(width, height)
+		rows := buf.visibleRows(height)
 		if len(rows) < 1 {
 			return
 		}
@@ -284,8 +284,8 @@ func (e *editor) dragTo(x, y int) {
 		line, col = last.line, last.end
 	}
 
-	buf.moveTo(line, col, width)
-	buf.clampToNormal(width)
+	buf.moveTo(line, col)
+	buf.clampToNormal()
 }
 
 // dragTab 은 끌린 자리로 활성 tab 을 옮긴다(ADR-0090).
@@ -338,7 +338,7 @@ func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 
 	m.clickText(mouse.X, mouse.Y)
-	m.activeBuffer().clampToNormal(m.contentWidth())
+	m.activeBuffer().clampToNormal()
 
 	return normalMode(m.editor)
 }

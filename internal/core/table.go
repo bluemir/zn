@@ -31,9 +31,8 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 
-	found, changed := buf.formatTables(from, to, width)
+	found, changed := buf.formatTables(from, to)
 
 	switch {
 	case found == 0:
@@ -42,7 +41,7 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 		return normalModeMessage(e, "표가 이미 맞춰져 있습니다")
 	}
 
-	buf.clampToNormal(width)
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("표 %s 개를 맞췄습니다", formatCount(changed)))
@@ -68,7 +67,7 @@ const (
 //
 // **범위에 걸치기만 하면 그 표를 통째로 맞춘다.** 고른 범위가 표의 가운데를 자를 때
 // 그 안쪽만 맞추면 한 표의 위아래가 서로 다른 폭이 된다. 표는 칸이 세로로 서야 표다.
-func (buf *viewport) formatTables(from, to, width int) (found, changed int) {
+func (buf *viewport) formatTables(from, to int) (found, changed int) {
 	// **담아둔 문맥을 쓰지 않고 여기서 다시 훑는다.** 담아둔 것은 화면 아래를 비워 두고
 	// (lexSyntaxTo) 편집 뒤에는 수렴한 자리에서 멈춰서, 파일 끝까지 차 있다는 보장이 없다.
 	// 없는 자리를 「표가 아니다」로 읽으면 아래쪽 표가 조용히 빠진다. 사람이 한 번 부르는
@@ -147,7 +146,7 @@ func (buf *viewport) formatTables(from, to, width int) (found, changed int) {
 
 	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
 	buf.cursor.Col = min(buf.cursor.Col, len(buf.lines[buf.cursor.Line]))
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 
 	buf.endEdit()
 

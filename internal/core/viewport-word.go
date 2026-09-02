@@ -7,12 +7,12 @@ package core
 // buffer-word.go 에 있다 (ADR-0121).
 
 // moveWordForward 는 다음 단어의 첫 글자로 간다. vim 의 w/W 다.
-func (buf *viewport) moveWordForward(n int, kind wordKind, width int) {
+func (buf *viewport) moveWordForward(n int, kind wordKind) {
 	for range n {
 		buf.wordForward(kind)
 	}
 
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 }
 
 func (buf *viewport) wordForward(kind wordKind) {
@@ -50,12 +50,12 @@ func (buf *viewport) wordForward(kind wordKind) {
 }
 
 // moveWordBackward 는 단어의 첫 글자로 되돌아간다. vim 의 b/B 다.
-func (buf *viewport) moveWordBackward(n int, kind wordKind, width int) {
+func (buf *viewport) moveWordBackward(n int, kind wordKind) {
 	for range n {
 		buf.wordBackward(kind)
 	}
 
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 }
 
 func (buf *viewport) wordBackward(kind wordKind) {
@@ -98,12 +98,12 @@ func (buf *viewport) wordBackward(kind wordKind) {
 // moveWordEnd 는 단어의 마지막 글자로 간다. vim 의 e/E 다.
 //
 // w/b 와 달리 빈 줄에서 멈추지 않는다. 빈 줄에는 끝낼 단어가 없기 때문이다. vim 과 같다.
-func (buf *viewport) moveWordEnd(n int, kind wordKind, width int) {
+func (buf *viewport) moveWordEnd(n int, kind wordKind) {
 	for range n {
 		buf.wordEnd(kind)
 	}
 
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 }
 
 func (buf *viewport) wordEnd(kind wordKind) {

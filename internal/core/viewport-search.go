@@ -6,10 +6,10 @@ package core
 // buffer-search.go 에 있다 (ADR-0121).
 
 // moveTo 는 커서를 그 자리로 옮긴다. 검색이 찾은 자리로 뛸 때 쓴다.
-func (buf *viewport) moveTo(line, col, width int) {
+func (buf *viewport) moveTo(line, col int) {
 	buf.cursor.Line = min(max(line, 0), len(buf.lines)-1)
 	buf.cursor.Col = min(max(col, 0), len(buf.lines[buf.cursor.Line]))
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 }
 
 // wordUnderCursor 는 `*` `#` 가 찾을 단어와 그 단어가 시작하는 자리다.

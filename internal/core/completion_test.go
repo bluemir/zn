@@ -40,7 +40,7 @@ func TestInsertCompletionReplacesPrefix(t *testing.T) {
 	buf := newBuffer("a.go", []byte("x := strings.Con\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, len("x := strings.Con")
 
-	buf.insertCompletion(item("Contains", 0, 13, 16), wide)
+	buf.insertCompletion(item("Contains", 0, 13, 16))
 
 	assert.Equal(t, "x := strings.Contains", string(buf.lines[0]))
 	assert.Equal(t, len("x := strings.Contains"), buf.cursor.Col, "커서가 넣은 글자 뒤에 선다")
@@ -51,7 +51,7 @@ func TestInsertCompletionWithoutRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, 2
 
-	buf.insertCompletion(lsp.CompletionItem{Label: "cd"}, wide)
+	buf.insertCompletion(lsp.CompletionItem{Label: "cd"})
 
 	assert.Equal(t, "abcd", string(buf.lines[0]))
 }
@@ -61,7 +61,7 @@ func TestInsertCompletionClampsRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, 2
 
-	buf.insertCompletion(item("Z", 0, 100, 200), wide)
+	buf.insertCompletion(item("Z", 0, 100, 200))
 
 	assert.Equal(t, "abZ", string(buf.lines[0]))
 }
@@ -69,12 +69,12 @@ func TestInsertCompletionClampsRange(t *testing.T) {
 // 넣은 것은 치던 글자와 한 구간이다. `u` 한 번에 그 insert 가 통째로 돌아간다(vim 과 같다).
 func TestInsertCompletionKeepsUndoChunkOpen(t *testing.T) {
 	buf := newBuffer("a.go", []byte("\n"))
-	buf.insert([]byte("st"), wide)
+	buf.insert([]byte("st"))
 
-	buf.insertCompletion(item("strings", 0, 0, 2), wide)
-	buf.insert([]byte("."), wide)
+	buf.insertCompletion(item("strings", 0, 0, 2))
+	buf.insert([]byte("."))
 
-	require.True(t, buf.applyUndo(wide))
+	require.True(t, buf.applyUndo())
 	assert.Equal(t, "", string(buf.lines[0]), "친 것과 넣은 것이 한 번에 돌아간다")
 }
 
@@ -89,7 +89,7 @@ func TestInsertCompletionIgnoresMultilineRange(t *testing.T) {
 			Start: lsp.Position{Line: 0, Character: 0},
 			End:   lsp.Position{Line: 1, Character: 1},
 		}},
-	}, wide)
+	})
 
 	assert.Equal(t, "aZb", string(buf.lines[0]), "커서 자리에 넣는다")
 	assert.Equal(t, "cd", string(buf.lines[1]), "아래 줄은 그대로다")

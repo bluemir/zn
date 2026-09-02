@@ -10,13 +10,13 @@ import (
 //
 // 줄 단위면 커서 줄 아래에 줄로 끼우고, 글자 단위면 커서가 선 글자 뒤에 끼운다.
 // count 는 되풀이다 — `3p` 는 세 번 붙인다(ADR-0017).
-func (buf *viewport) pasteAfter(reg register, count, width int) {
+func (buf *viewport) pasteAfter(reg register, count int) {
 	if len(reg.lines) == 0 {
 		return
 	}
 
 	if reg.linewise {
-		buf.pasteLines(buf.cursor.Line+1, reg, count, width)
+		buf.pasteLines(buf.cursor.Line+1, reg, count)
 
 		return
 	}
@@ -28,27 +28,27 @@ func (buf *viewport) pasteAfter(reg register, count, width int) {
 		col += glyphSize(line, col)
 	}
 
-	buf.pasteText(col, reg, count, width)
+	buf.pasteText(col, reg, count)
 }
 
 // pasteBefore 는 register 를 커서 앞에 붙인다. vim 의 `P` 다.
-func (buf *viewport) pasteBefore(reg register, count, width int) {
+func (buf *viewport) pasteBefore(reg register, count int) {
 	if len(reg.lines) == 0 {
 		return
 	}
 
 	if reg.linewise {
-		buf.pasteLines(buf.cursor.Line, reg, count, width)
+		buf.pasteLines(buf.cursor.Line, reg, count)
 
 		return
 	}
 
-	buf.pasteText(buf.cursor.Col, reg, count, width)
+	buf.pasteText(buf.cursor.Col, reg, count)
 }
 
 // pasteLines 는 at 자리에 register 의 줄을 count 번 끼운다.
 // 커서는 붙인 첫 줄의 첫 비공백이다. vim 과 같다.
-func (buf *viewport) pasteLines(at int, reg register, count, width int) {
+func (buf *viewport) pasteLines(at int, reg register, count int) {
 	lines := make([][]byte, 0, len(reg.lines)*count)
 	for range count {
 		lines = append(lines, reg.lines...)
@@ -61,14 +61,14 @@ func (buf *viewport) pasteLines(at int, reg register, count, width int) {
 	buf.endEdit()
 
 	buf.cursor.Line = at
-	buf.moveLineFirstNonBlank(width)
-	buf.clampToNormal(width)
+	buf.moveLineFirstNonBlank()
+	buf.clampToNormal()
 }
 
 // pasteText 는 지금 줄의 col 칸에 register 를 글자로 끼운다.
 //
 // 줄바꿈을 가르는 곳은 insert 하나뿐이라(ADR-0001) 여러 줄 register 도 그대로 먹는다.
-func (buf *viewport) pasteText(col int, reg register, count, width int) {
+func (buf *viewport) pasteText(col int, reg register, count int) {
 	text := bytes.Repeat(bytes.Join(reg.lines, []byte{'\n'}), count)
 	if len(text) == 0 {
 		return
@@ -78,18 +78,18 @@ func (buf *viewport) pasteText(col int, reg register, count, width int) {
 
 	buf.endEdit()
 	buf.cursor.Col = col
-	buf.insert(text, width)
+	buf.insert(text)
 	buf.endEdit()
 
 	// 여러 줄이면 커서는 붙인 첫 글자다. vim 과 같다.
 	if len(reg.lines) > 1 {
 		buf.cursor.Line, buf.cursor.Col = startLine, startCol
-		buf.updateDesiredCol(width)
+		buf.updateDesiredCol()
 
 		return
 	}
 
 	// 한 줄이면 붙인 마지막 글자 위다. insert 는 그 다음 칸에 커서를 두고 나온다.
-	buf.cursor.Col = buf.prevOffset(buf.cursor.Col, width)
-	buf.updateDesiredCol(width)
+	buf.cursor.Col = buf.prevOffset(buf.cursor.Col)
+	buf.updateDesiredCol()
 }

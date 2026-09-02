@@ -151,12 +151,12 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 	t.Run("커서를 화면 맨 위로 올린다", func(t *testing.T) {
 		buf := newBuffer("doc.md", []byte(data))
 		buf.top.line, buf.cursor.Line = 30, 30
-		buf.scrollTo(40, 10)
+		buf.scrollTo(10)
 
 		sticky := buf.stickyAt(buf.top.line, 10)
 		require.NotEmpty(t, sticky, "감싸는 제목이 있어야 시험이 뜻을 가진다")
 
-		_, y, ok := buf.cursorScreenPos(40, 10)
+		_, y, ok := buf.cursorScreenPos(10)
 		require.True(t, ok, "커서가 화면 안이다")
 		assert.GreaterOrEqual(t, y, len(sticky), "커서가 머리줄에 덮였다")
 	})
@@ -171,7 +171,7 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 			editor := m.(viewEditorNormal).editor
 			buf := editor.activeBuffer()
 
-			_, y, ok := buf.cursorScreenPos(editor.contentWidth(), editor.textHeight())
+			_, y, ok := buf.cursorScreenPos(editor.textHeight())
 			require.True(t, ok, "커서가 화면 안이다")
 			assert.GreaterOrEqual(t, y, len(buf.stickyAt(buf.top.line, editor.textHeight())),
 				"커서가 머리줄에 덮였다")
@@ -185,10 +185,10 @@ func TestStickyScrollToConverges(t *testing.T) {
 
 	buf := newBuffer("main.go", []byte(data))
 	buf.cursor.Line = 3
-	buf.scrollTo(40, 4)
+	buf.scrollTo(4)
 
 	top, topRow := buf.top.line, buf.top.row
-	buf.scrollTo(40, 4)
+	buf.scrollTo(4)
 
 	assert.Equal(t, top, buf.top.line, "두 번째 부름이 화면을 또 옮기면 안 된다")
 	assert.Equal(t, topRow, buf.top.row)

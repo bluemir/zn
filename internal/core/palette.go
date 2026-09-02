@@ -477,15 +477,14 @@ func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 	from, to := newRunOptions(opts).lines(len(buf.lines))
 
-	count := buf.trimTrailingSpace(from, to, width)
+	count := buf.trimTrailingSpace(from, to)
 	if count == 0 {
 		return normalModeMessage(e, "지울 줄 끝 공백이 없습니다")
 	}
 
-	buf.clampToNormal(width)
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 끝 공백을 지웠습니다", count))
@@ -545,10 +544,9 @@ func paletteChangeCase(e *editor, kind caseKind, o runOptions) (tea.Model, tea.C
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 
-	buf.changeCaseRange(o.area, kind, width)
-	buf.moveToRangeStart(o.area, width)
+	buf.changeCaseRange(o.area, kind)
+	buf.moveToRangeStart(o.area)
 	e.scrollToCursor()
 
 	return normalMode(e)
@@ -590,7 +588,7 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	// 커서 칸은 유지하지만 그 자리가 새 내용에서는 줄 끝 다음일 수 있다.
-	buf.clampToNormal(e.contentWidth())
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, "다시 읽음: "+buf.path)
@@ -662,15 +660,14 @@ func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 	from, to := newRunOptions(opts).lines(len(buf.lines))
 
-	count := buf.squeezeSpaces(from, to, width)
+	count := buf.squeezeSpaces(from, to)
 	if count == 0 {
 		return normalModeMessage(e, "줄일 중복 공백이 없습니다")
 	}
 
-	buf.clampToNormal(width)
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 중복 공백을 줄였습니다", count))
@@ -693,15 +690,14 @@ func runSortLines(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 	from, to := newRunOptions(opts).lines(len(buf.lines))
 
-	moved := buf.sortLines(from, to, width)
+	moved := buf.sortLines(from, to)
 	if moved == 0 {
 		return normalModeMessage(e, "이미 정렬되어 있습니다")
 	}
 
-	buf.clampToNormal(width)
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 자리가 바뀌었습니다", moved))

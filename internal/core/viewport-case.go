@@ -32,7 +32,7 @@ const (
 //
 // **줄을 넘지 않는다.** 이것도 vim 과 같다. 커서는 마지막으로 바꾼 글자 **다음** 이고,
 // 줄 끝을 넘으면 normal 커서 자리로 당겨진다(clampToNormal).
-func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
+func (buf *viewport) changeCaseChars(kind caseKind, count int) {
 	line := buf.lines[buf.cursor.Line]
 
 	end := clusterEndClamped(line, buf.cursor.Col, max(count, 1))
@@ -51,15 +51,15 @@ func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
 	// 커서는 바뀐 것이 없어도 옮긴다. `~` 는 훑어 가는 키라 대소문자가 없는 글자
 	// (한글·문장부호) 위에서도 오른쪽으로 간다. vim 과 같다.
 	buf.cursor.Col += len(changed)
-	buf.updateDesiredCol(width)
-	buf.clampToNormal(width)
+	buf.updateDesiredCol()
+	buf.clampToNormal()
 }
 
 // changeCaseRange 는 고른 범위의 대소문자를 바꾼다. visual 의 `~`·`u`·`U` 다.
 //
 // 줄 단위면 걸친 줄 전체이고 글자 단위면 고른 자리만이다. 커서는 범위의 시작으로 간다 —
 // 복사(`y`) 와 같은 길이다(moveToRangeStart).
-func (buf *viewport) changeCaseRange(area scheme.MotionRange, kind caseKind, width int) {
+func (buf *viewport) changeCaseRange(area scheme.MotionRange, kind caseKind) {
 	next := make([][]byte, 0, area.End.Line-area.Start.Line+1)
 	same := true
 

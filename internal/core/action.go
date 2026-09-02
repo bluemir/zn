@@ -43,11 +43,11 @@ func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 		from, jumping = e.here()
 	}
 
-	c.motion.move(buf, c.count, e.contentWidth())
+	c.motion.move(buf, c.count)
 
 	// normal mode 의 커서는 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
 	// 왼쪽으로 가는 이동에는 걸릴 것이 없지만 나누어 둘 이유도 없다.
-	buf.clampToNormal(e.contentWidth())
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	if jumping {
@@ -72,10 +72,10 @@ type actionPage struct {
 func (c actionPage) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
-	buf.movePage(c.direction, c.span, c.count, e.contentWidth(), e.textHeight())
+	buf.movePage(c.direction, c.span, c.count, e.textHeight())
 
 	// 커서가 글자 위에 있어야 한다. actionMove 와 같은 자리다.
-	buf.clampToNormal(e.contentWidth())
+	buf.clampToNormal()
 
 	// scrollToCursor 는 부르지 않는다. movePage 가 화면을 이미 옮겼는데 그것이 커서를 좇아
 	// top 을 다시 최소한으로 당기면, 한 화면 굴린 것이 한 행 굴린 것이 된다.
@@ -102,8 +102,8 @@ func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 
 	// 잡을 것이 없거나 지울 것이 없으면 아무것도 하지 않는다. 그래야 `d` 뒤에 손이 미끄러진
 	// 키가 dirty 를 세우거나 되돌릴 앞날(redo) 을 날리지 않는다.
-	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
-		if deleted, cut := buf.deleteRange(area, e.contentWidth()); cut {
+	if area, ok := c.motion.span(*buf, c.count); ok {
+		if deleted, cut := buf.deleteRange(area); cut {
 			e.registers.storeDelete(deleted, c.reg)
 		}
 	}
@@ -123,7 +123,7 @@ func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	// 범위를 잡는 자는 `d` 와 같은 것이다. 규칙이 두 벌이 되면 `dw` 와 `yw` 가 갈린다(ADR-0017).
-	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
+	if area, ok := c.motion.span(*buf, c.count); ok {
 		// **복사하고, 커서를 옮긴다.** 둘은 별개의 걸음이라 여기서 그 차례로 한다 —
 		// 복사는 읽는 일이고 커서를 옮기는 것은 vim `y` 의 규칙이다(ADR-0100).
 		//
@@ -131,7 +131,7 @@ func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 		if yanked, copied := buf.yankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
 			e.notify(yanked.copiedMessage())
-			buf.moveToRangeStart(area, e.contentWidth())
+			buf.moveToRangeStart(area)
 		}
 	}
 	e.scrollToCursor()
@@ -159,14 +159,14 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 
 	// 모르는 motion 이면 mode 도 바꾸지 않는다 — 손이 미끄러진 `c` 가 글자를 파일에 넣기
 	// 시작하면 무를 길이 없다(ADR-0033).
-	area, ok := c.motion.span(*buf, c.count, e.contentWidth())
+	area, ok := c.motion.span(*buf, c.count)
 	if !ok {
 		return nil, nil
 	}
 
 	// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
 	// 숫자 링도 밀지 않는다 — 담기지 않은 것이 링을 흔들면 `"1` 이 뜻을 잃는다(ADR-0058).
-	if removed, changed := buf.changeRange(area, e.contentWidth()); changed && len(removed.lines) > 0 {
+	if removed, changed := buf.changeRange(area); changed && len(removed.lines) > 0 {
 		e.registers.storeDelete(removed, c.reg)
 	}
 
@@ -194,8 +194,8 @@ func (c actionIndent) run(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
-	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
-		buf.shiftLines(area.Start.Line, area.End.Line, c.direction, e.contentWidth())
+	if area, ok := c.motion.span(*buf, c.count); ok {
+		buf.shiftLines(area.Start.Line, area.End.Line, c.direction)
 	}
 	e.scrollToCursor()
 
@@ -216,8 +216,8 @@ func (c actionReindent) run(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
-	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
-		buf.reindentLines(area.Start.Line, area.End.Line, e.contentWidth())
+	if area, ok := c.motion.span(*buf, c.count); ok {
+		buf.reindentLines(area.Start.Line, area.End.Line)
 	}
 	e.scrollToCursor()
 
@@ -238,12 +238,12 @@ func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	buf, width := e.activeBuffer(), e.contentWidth()
+	buf := e.activeBuffer()
 
 	if c.key == "enter" {
-		buf.replaceWithNewline(c.count, width)
+		buf.replaceWithNewline(c.count)
 	} else if text, ok := replacementText(c.key); ok {
-		buf.replaceChar(text, c.count, width)
+		buf.replaceChar(text, c.count)
 	}
 	e.scrollToCursor()
 
@@ -265,7 +265,7 @@ func (c actionChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().changeCaseChars(c.kind, c.count, e.contentWidth())
+	e.activeBuffer().changeCaseChars(c.kind, c.count)
 	e.scrollToCursor()
 
 	return nil, nil
@@ -283,7 +283,7 @@ func (c actionJoin) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().joinLines(c.count, e.contentWidth())
+	e.activeBuffer().joinLines(c.count)
 	e.scrollToCursor()
 
 	return nil, nil
@@ -339,7 +339,7 @@ func (c actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
-		if deleted, cut := buf.deleteRange(area, e.contentWidth()); cut {
+		if deleted, cut := buf.deleteRange(area); cut {
 			e.registers.storeDelete(deleted, c.reg)
 		}
 	}
@@ -358,7 +358,7 @@ func (c actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 		if yanked, copied := buf.yankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
 			e.notify(yanked.copiedMessage())
-			buf.moveToRangeStart(area, e.contentWidth())
+			buf.moveToRangeStart(area)
 		}
 	}
 	e.scrollToCursor()
@@ -385,7 +385,7 @@ func (c actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	// 지운 것과 이어 친 글자가 한 번의 `u` 로 함께 돌아간다. changeRange 가 구간을 열어 둔다.
-	if removed, changed := buf.changeRange(area, e.contentWidth()); changed {
+	if removed, changed := buf.changeRange(area); changed {
 		if len(removed.lines) > 0 {
 			e.registers.storeDelete(removed, c.reg)
 		}
@@ -409,7 +409,7 @@ func (c actionVisualIndent) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
-		buf.shiftLines(area.Start.Line, area.End.Line, c.direction, e.contentWidth())
+		buf.shiftLines(area.Start.Line, area.End.Line, c.direction)
 	}
 	e.scrollToCursor()
 
@@ -428,7 +428,7 @@ func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
-		buf.reindentLines(area.Start.Line, area.End.Line, e.contentWidth())
+		buf.reindentLines(area.Start.Line, area.End.Line)
 	}
 	e.scrollToCursor()
 
@@ -452,8 +452,8 @@ func (c actionVisualChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
 	if area, ok := buf.selectionRange(); ok {
 		// **바꾸고, 커서를 옮긴다.** `y` 와 달리 바뀐 것이 없어도 옮긴다 — visual 을 나가는
 		// 자리라 커서가 고른 범위의 시작에 서야 한다(ADR-0100).
-		buf.changeCaseRange(area, c.kind, e.contentWidth())
-		buf.moveToRangeStart(area, e.contentWidth())
+		buf.changeCaseRange(area, c.kind)
+		buf.moveToRangeStart(area)
 	}
 	e.scrollToCursor()
 
@@ -476,7 +476,7 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteAfter(e.registers.byName(c.reg), max(c.count, 1), e.contentWidth())
+	e.activeBuffer().pasteAfter(e.registers.byName(c.reg), max(c.count, 1))
 	e.scrollToCursor()
 
 	return nil, nil
@@ -494,7 +494,7 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteBefore(e.registers.byName(c.reg), max(c.count, 1), e.contentWidth())
+	e.activeBuffer().pasteBefore(e.registers.byName(c.reg), max(c.count, 1))
 	e.scrollToCursor()
 
 	return nil, nil
@@ -508,10 +508,10 @@ func (actionUndo) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	buf, width := e.activeBuffer(), e.contentWidth()
+	buf := e.activeBuffer()
 
-	buf.applyUndo(width)
-	buf.clampToNormal(width)
+	buf.applyUndo()
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return nil, nil
@@ -525,10 +525,10 @@ func (actionRedo) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	buf, width := e.activeBuffer(), e.contentWidth()
+	buf := e.activeBuffer()
 
-	buf.applyRedo(width)
-	buf.clampToNormal(width)
+	buf.applyRedo()
+	buf.clampToNormal()
 	e.scrollToCursor()
 
 	return nil, nil
@@ -560,7 +560,7 @@ func (actionAppend) run(e *editor) (tea.Model, tea.Cmd) {
 
 	next, cmd := insertMode(e)
 
-	e.activeBuffer().moveRight(1, e.contentWidth())
+	e.activeBuffer().moveRight(1)
 	e.scrollToCursor()
 
 	return next, cmd
@@ -577,7 +577,7 @@ func (actionOpenBelow) run(e *editor) (tea.Model, tea.Cmd) {
 
 	next, cmd := insertMode(e)
 
-	e.activeBuffer().openLineBelow(e.contentWidth())
+	e.activeBuffer().openLineBelow()
 	e.scrollToCursor()
 
 	return next, cmd
@@ -594,7 +594,7 @@ func (actionOpenAbove) run(e *editor) (tea.Model, tea.Cmd) {
 
 	next, cmd := insertMode(e)
 
-	e.activeBuffer().openLineAbove(e.contentWidth())
+	e.activeBuffer().openLineAbove()
 	e.scrollToCursor()
 
 	return next, cmd
@@ -665,7 +665,7 @@ func (c actionVisualCat) run(e *editor) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	buf.moveToRangeStart(area, e.contentWidth())
+	buf.moveToRangeStart(area)
 	e.scrollToCursor()
 
 	return runCat(e, area)

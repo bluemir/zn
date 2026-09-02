@@ -43,15 +43,14 @@ func paletteInsertText(e *editor, text string) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	width := e.contentWidth()
 
-	buf.moveRight(1, width)
-	buf.insert([]byte(text), width)
+	buf.moveRight(1)
+	buf.insert([]byte(text))
 
 	// 넣은 것을 한 편집으로 닫는다. 한 번의 `u` 로 통째로 돌아온다.
 	// 커서는 마지막 글자 위에 선다 — insert 의 `esc` 와 같다.
 	buf.endEdit()
-	buf.moveLeft(1, width)
+	buf.moveLeft(1)
 	e.scrollToCursor()
 
 	return normalMode(e)

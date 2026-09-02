@@ -315,7 +315,7 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
 	m := newFilePalette(t, path, "> reload")
-	m.activeBuffer().insert([]byte("X"), m.contentWidth())
+	m.activeBuffer().insert([]byte("X"))
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	confirm := send(m, "enter")
@@ -343,7 +343,7 @@ func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 		input: newInputLine("> reload"),
 	}
 	m.filter()
-	m.activeBuffer().insert([]byte("X"), m.contentWidth())
+	m.activeBuffer().insert([]byte("X"))
 
 	var next tea.Model = send(m, "enter")
 

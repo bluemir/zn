@@ -440,12 +440,16 @@
 	- [x] `Buffer` 를 composite 로 볼지 정한다 (ADR-0100, ADR-0120)
 	- [x] 「보는 자리」를 `Buffer` 밖으로 낼지 정한다 (ADR-0100, ADR-0121)
 	- [ ] `rowHighlight.cursorCol` 과 `inputLine.visible` 의 `cursorCol` 을 좌표 type 으로 옮길지 정한다. 앞엣것은 렌더 쪽 type 이고 뒤엣것은 한 줄짜리 글이라 좌표계가 또 다르다 (ADR-0122)
-	- [ ] 메서드 예순 남짓이 받는 화면 폭(`width`) 을 viewport 로 모을지 정한다. 화면 행 이동과 `desiredCol` 이 줄바꿈에 걸려 있어서인데, 그 둘이 이제 viewport 에 있다 (ADR-0108, ADR-0121)
+	- [x] 메서드 예순 남짓이 받는 화면 폭(`width`) 을 viewport 로 모을지 정한다 (ADR-0108, ADR-0121, ADR-0123)
+		- [ ] `height` 인자 여덟도 걷을지 정한다. `size.height` 가 이미 있어서 같은 손인데, 화면 높이를 쓰는 자리가 판(drawer) 과 얽혀 있다 (ADR-0123)
+		- [ ] 창을 새로 짓는 자리가 자기 크기를 이어받는지 검사로 막을지 정한다. `adopt` 이 놓쳐서 다시 읽으면 본문이 사라지던 것을 훑어서 찾았다 (ADR-0123)
+		- [x] `paneHeight` 가 판(drawer) 을 안고 있는 높이라는 것이 이름에 안 드러나던 것 (ADR-0123)
 	- [ ] viewport 메서드 88 개의 receiver 이름이 `buf` 인 것을 다듬을지 정한다. 옮길 때 본문을 안 건드리려고 타입만 바꿨다 (ADR-0121)
 	- [ ] `editor.buffers`(285 곳)·`activeBuffer`(317)·`bufferByPath`(3) 의 이름이 낡은 것을 언제 고칠지 정한다. 타입은 `viewport` 인데 이름은 「buffer」라 그 낱말이 글과 창 둘을 가리킨다. 화면 분할이 오면 `editor` 가 글과 창을 따로 들게 되어 이름이 그때 저절로 정해지므로, 지금 고르면 두 번 고치게 된다 (ADR-0121)
 	- [ ] 화면 분할이 오면 viewport 의 `Buffer` embed 를 포인터로 바꾼다. 그때 `newBuffer`·`OpenBuffer` 가 창을 주는 것과, `openTab` 이 「같은 파일을 두 tab 에」를 막고 있는 것도 같이 푼다 (ADR-0015, ADR-0121)
 - 패키지 경계 후속 (ADR-0100, ADR-0117, ADR-0119, ADR-0122)
 	- [ ] `internal/scheme` 에 무엇을 더 올릴지 정한다. 잣대는 「이 말이 어디까지 통용되나」이고, 메서드가 붙으면 그 겹의 물건이라 안 올린다. `register` 는 행동이 넷이라 editor 쪽에 남겼다 (ADR-0122)
+		- [ ] `viewSize` 를 올릴지는 나중에 다시 본다. 오가는 자료이고 메서드가 없다는 조건은 맞는데, 크기 쌍이 이미 셋이라(터미널·판·창) 공용 `Size` 로 모으면 셋을 서로 대입해도 컴파일된다. core 를 가를 때 정말 그 선을 넘는지가 드러난다 (ADR-0122, ADR-0123)
 	- [ ] `core` 의 노출 면을 내릴지 정한다. `cmd/main.go` 가 부르는 것은 `core.Run` 하나뿐인데 `Buffer`·`OpenBuffer`·`ConfirmDiscard`·`Exit` 와 메서드 다섯이 대문자로 서 있다. 440 곳 남짓을 건드려서 동작은 안 바뀐다 (ADR-0100)
 	- [x] `Buffer` 를 `internal/buffer` 패키지로 뺄지 정한다 (ADR-0100, ADR-0117)
 	- [ ] 다음에 패키지를 가를지 물을 때는 의존 방향보다 「이 덩어리가 무엇을 결정하고 있나」를 먼저 적는다. `internal/lines` 가 나가는 의존 0 인 잎이면서도 tab 폭·제어문자 폭이라는 편집기의 결정을 지니고 있었다 (ADR-0119)
@@ -495,3 +499,4 @@
 - [ ] 새 버전 알림
 - [x] 오늘 날자 시간 넣는 기능 추가
 - [ ] tab에 열려있는 file 을 sidebar 에서 파일삭제하면 탭을 닫아 주기
+- [ ] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기

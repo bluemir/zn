@@ -27,7 +27,7 @@ func newUnnamedEditor(t *testing.T) (viewEditorNormal, string) {
 // `:w <파일>` 은 사본을 쓴다. 보고 있는 파일도 tab 이름도 그대로다 (ADR-0024).
 func TestWriteToOtherFileWritesCopy(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 
 	copyPath := filepath.Join(dir, "copy.txt")
 	m := runCommand(start, "w "+copyPath)
@@ -51,7 +51,7 @@ func TestWriteToOtherFileWritesCopy(t *testing.T) {
 // 사본을 쓴 뒤 그냥 `:w` 를 치면 사본이 아니라 원래 파일에 쓴다. 이름이 옮겨가지 않았다.
 func TestWriteAfterCopyStillSavesOriginal(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 
 	m := runCommand(start, "w "+filepath.Join(dir, "copy.txt"))
 	m = runCommand(m, "w")
@@ -172,7 +172,7 @@ func TestWriteCopyAllowsFileOpenInAnotherTab(t *testing.T) {
 // 사본으로 보면 「이미 있습니다」로 막히고, `!` 를 붙여도 변경 표시가 남는다.
 func TestWriteToActiveFileIsPlainSave(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 
 	// 표기가 달라도 같은 파일이면 제자리 저장이다. tabOf 와 같은 기준이다.
 	m := runCommand(start, "w "+dir+"/./a.txt")

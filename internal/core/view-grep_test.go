@@ -171,7 +171,7 @@ func TestGrepCancelRestoresOrigin(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
 	require.NoError(t, gotoFile(e, paths[0], 0))
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	tabs := len(e.buffers)
 
@@ -208,7 +208,7 @@ func TestGrepConfirmKeepsPlaceAndRecordsJump(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
 	require.NoError(t, gotoFile(e, paths[0], 0))
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	e.grep = grepResult{
 		input:   "func b",

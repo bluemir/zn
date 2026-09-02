@@ -44,7 +44,7 @@ func TestInsertText(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 			buf.cursor.Col = test.at
 
-			buf.insert([]byte(test.text), wide)
+			buf.insert([]byte(test.text))
 
 			assert.Equal(t, test.want, string(buf.lines[0]))
 			assert.Equal(t, test.cursor, buf.cursor.Col)
@@ -57,7 +57,7 @@ func TestInsertNewlineSplitsLine(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abcd\nnext\n"))
 	buf.cursor.Col = 2
 
-	buf.insert([]byte("\n"), wide)
+	buf.insert([]byte("\n"))
 
 	assert.Equal(t, []string{"ab", "cd", "next"}, linesOf(buf))
 	assert.Equal(t, 1, buf.cursor.Line)
@@ -68,7 +68,7 @@ func TestInsertNewlineAtLineEnd(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n"))
 	buf.cursor.Col = 2
 
-	buf.insert([]byte("\n"), wide)
+	buf.insert([]byte("\n"))
 
 	assert.Equal(t, []string{"ab", ""}, linesOf(buf))
 	assert.Equal(t, 1, buf.cursor.Line)
@@ -79,7 +79,7 @@ func TestInsertMultipleLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ad\n"))
 	buf.cursor.Col = 1
 
-	buf.insert([]byte("b\nmiddle\nc"), wide)
+	buf.insert([]byte("b\nmiddle\nc"))
 
 	assert.Equal(t, []string{"ab", "middle", "cd"}, linesOf(buf))
 	assert.Equal(t, 2, buf.cursor.Line)
@@ -105,7 +105,7 @@ func TestDeleteBackward(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.line+"\n"))
 			buf.cursor.Col = test.at
 
-			buf.deleteBackward(wide)
+			buf.deleteBackward()
 
 			assert.Equal(t, test.want, string(buf.lines[0]))
 			assert.Equal(t, test.cursor, buf.cursor.Col)
@@ -118,7 +118,7 @@ func TestDeleteBackwardJoinsLines(t *testing.T) {
 	buf.cursor.Line = 1
 	buf.cursor.Col = 0
 
-	buf.deleteBackward(wide)
+	buf.deleteBackward()
 
 	assert.Equal(t, []string{"abcd"}, linesOf(buf))
 	assert.Equal(t, 0, buf.cursor.Line)
@@ -128,7 +128,7 @@ func TestDeleteBackwardJoinsLines(t *testing.T) {
 func TestDeleteBackwardAtStartOfFileDoesNothing(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n"))
 
-	buf.deleteBackward(wide)
+	buf.deleteBackward()
 
 	assert.Equal(t, []string{"ab"}, linesOf(buf))
 	assert.Equal(t, 0, buf.cursor.Col)
@@ -141,7 +141,7 @@ func TestEditKeepsBackingBuffer(t *testing.T) {
 	buf := newBuffer("test.txt", data)
 	buf.cursor.Col = 1
 
-	buf.insert([]byte("XYZ"), wide)
+	buf.insert([]byte("XYZ"))
 
 	assert.Equal(t, "abc\ndef\n", string(data), "data 는 안 바뀐다")
 	assert.Equal(t, "aXYZbc", string(buf.lines[0]))
@@ -151,7 +151,7 @@ func TestEditKeepsBackingBuffer(t *testing.T) {
 func TestEditKeepsUntouchedLinesAliased(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\ndef\n"))
 	buf.cursor.Col = 1
-	buf.insert([]byte("X"), wide)
+	buf.insert([]byte("X"))
 
 	buf.data[4] = 'D'
 	assert.Equal(t, "Def", string(buf.lines[1]), "안 건드린 줄이 data 를 안 가리킨다")
@@ -163,15 +163,15 @@ func TestUndoTypingRun(t *testing.T) {
 	buf.cursor.Col = 3
 
 	for _, c := range []string{"d", "e", "f"} {
-		buf.insert([]byte(c), wide)
+		buf.insert([]byte(c))
 	}
 	require.Equal(t, "abcdef", string(buf.lines[0]))
 
-	assert.True(t, buf.applyUndo(wide))
+	assert.True(t, buf.applyUndo())
 	assert.Equal(t, "abc", string(buf.lines[0]), "타이핑 구간 전체가 한 번에")
 	assert.Equal(t, 3, buf.cursor.Col, "커서가 구간 시작 자리로")
 
-	assert.False(t, buf.applyUndo(wide), "더 되돌릴 것이 없다")
+	assert.False(t, buf.applyUndo(), "더 되돌릴 것이 없다")
 }
 
 // 커서를 옮기면 구간이 끊긴다. vim 과 같다.
@@ -179,15 +179,15 @@ func TestCursorMoveBreaksUndoRun(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
 	buf.cursor.Col = 3
 
-	buf.insert([]byte("d"), wide)
+	buf.insert([]byte("d"))
 	buf.endEdit() // 화살표 이동이 하는 일
-	buf.insert([]byte("e"), wide)
+	buf.insert([]byte("e"))
 	require.Equal(t, "abcde", string(buf.lines[0]))
 
-	require.True(t, buf.applyUndo(wide))
+	require.True(t, buf.applyUndo())
 	assert.Equal(t, "abcd", string(buf.lines[0]), "한 번에 하나씩")
 
-	require.True(t, buf.applyUndo(wide))
+	require.True(t, buf.applyUndo())
 	assert.Equal(t, "abc", string(buf.lines[0]))
 }
 
@@ -195,10 +195,10 @@ func TestUndoNewline(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abcd\n"))
 	buf.cursor.Col = 2
 
-	buf.insert([]byte("\n"), wide)
+	buf.insert([]byte("\n"))
 	require.Equal(t, []string{"ab", "cd"}, linesOf(buf))
 
-	require.True(t, buf.applyUndo(wide))
+	require.True(t, buf.applyUndo())
 	assert.Equal(t, []string{"abcd"}, linesOf(buf))
 	assert.Equal(t, 0, buf.cursor.Line)
 }
@@ -209,43 +209,43 @@ func TestUndoLineJoinWithinRun(t *testing.T) {
 	buf.cursor.Line = 1
 	buf.cursor.Col = 0
 
-	buf.insert([]byte("X"), wide) // "ab", "Xcd"
-	buf.cursor.Col = 0            // 줄 시작으로
-	buf.deleteBackward(wide)      // 앞 줄과 합침 → "abXcd"
-	buf.insert([]byte("Y"), wide) // "abYXcd"
+	buf.insert([]byte("X")) // "ab", "Xcd"
+	buf.cursor.Col = 0      // 줄 시작으로
+	buf.deleteBackward()    // 앞 줄과 합침 → "abXcd"
+	buf.insert([]byte("Y")) // "abYXcd"
 	require.Equal(t, []string{"abYXcd"}, linesOf(buf))
 
-	require.True(t, buf.applyUndo(wide))
+	require.True(t, buf.applyUndo())
 	assert.Equal(t, []string{"ab", "cd"}, linesOf(buf), "구간 전체가 한 번에 되돌아간다")
-	assert.False(t, buf.applyUndo(wide))
+	assert.False(t, buf.applyUndo())
 }
 
 func TestRedo(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
 	buf.cursor.Col = 3
 
-	buf.insert([]byte("d"), wide)
-	require.True(t, buf.applyUndo(wide))
+	buf.insert([]byte("d"))
+	require.True(t, buf.applyUndo())
 	require.Equal(t, "abc", string(buf.lines[0]))
 
-	assert.True(t, buf.applyRedo(wide))
+	assert.True(t, buf.applyRedo())
 	assert.Equal(t, "abcd", string(buf.lines[0]))
 
-	assert.False(t, buf.applyRedo(wide), "더 다시 적용할 것이 없다")
+	assert.False(t, buf.applyRedo(), "더 다시 적용할 것이 없다")
 }
 
 func TestRedoClearedByNewEdit(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
 	buf.cursor.Col = 3
 
-	buf.insert([]byte("d"), wide)
-	require.True(t, buf.applyUndo(wide))
+	buf.insert([]byte("d"))
+	require.True(t, buf.applyUndo())
 	require.NotEmpty(t, buf.redo)
 
-	buf.insert([]byte("Z"), wide)
+	buf.insert([]byte("Z"))
 
 	assert.Empty(t, buf.redo, "새 편집이 앞날을 지운다")
-	assert.False(t, buf.applyRedo(wide))
+	assert.False(t, buf.applyRedo())
 }
 
 // undo 기록은 옛 줄을 참조로만 담는다. 되돌린 내용이 원본 data 를 그대로 가리켜야 한다.
@@ -253,8 +253,8 @@ func TestUndoRestoresAliasedLine(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\ndef\n"))
 	buf.cursor.Col = 1
 
-	buf.insert([]byte("X"), wide)
-	require.True(t, buf.applyUndo(wide))
+	buf.insert([]byte("X"))
+	require.True(t, buf.applyUndo())
 
 	buf.data[0] = 'A'
 	assert.Equal(t, "Abc", string(buf.lines[0]), "되돌린 줄이 data 를 가리키지 않는다")
@@ -281,7 +281,7 @@ func TestSaveAfterEdit(t *testing.T) {
 			require.NoError(t, err)
 
 			buf.cursor.Col = 2
-			buf.insert([]byte("X"), wide)
+			buf.insert([]byte("X"))
 			require.NoError(t, saveBuffer(t, &buf))
 
 			saved, err := os.ReadFile(path)
@@ -300,7 +300,7 @@ func TestSaveAfterNewline(t *testing.T) {
 	require.NoError(t, err)
 
 	buf.cursor.Col = 2
-	buf.insert([]byte("\n"), wide)
+	buf.insert([]byte("\n"))
 	require.NoError(t, saveBuffer(t, &buf))
 
 	saved, err := os.ReadFile(path)
@@ -313,8 +313,8 @@ func TestInsertManyLinesScrolls(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("start\n"))
 	buf.cursor.Col = 5
 
-	buf.insert([]byte(strings.Repeat("\nx", 20)), wide)
-	buf.scrollTo(wide, 10)
+	buf.insert([]byte(strings.Repeat("\nx", 20)))
+	buf.scrollTo(10)
 
 	assert.Equal(t, 20, buf.cursor.Line)
 	assert.Positive(t, buf.top.line, "커서가 화면 아래로 나가면 스크롤된다")
@@ -428,7 +428,7 @@ func TestUndoClampsCursorInNormalMode(t *testing.T) {
 func TestTrimTrailingSpace(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a  \nb\nc\t\t\n"))
 
-	count := buf.trimTrailingSpace(0, len(buf.lines), 40)
+	count := buf.trimTrailingSpace(0, len(buf.lines))
 
 	assert.Equal(t, 2, count)
 	assert.Equal(t, "a", string(buf.lines[0]))
@@ -439,20 +439,20 @@ func TestTrimTrailingSpace(t *testing.T) {
 // 여러 줄을 지워도 `u` 한 번에 전부 돌아온다. 이 기능의 핵심이다.
 func TestTrimTrailingSpaceUndoesAsOne(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a  \nb\nc\t\t\n"))
-	buf.trimTrailingSpace(0, len(buf.lines), 40)
+	buf.trimTrailingSpace(0, len(buf.lines))
 
-	require.True(t, buf.applyUndo(40))
+	require.True(t, buf.applyUndo())
 
 	assert.Equal(t, []string{"a  ", "b", "c\t\t"}, linesOf(buf))
-	assert.False(t, buf.applyUndo(40), "되돌릴 것이 하나뿐이었다")
+	assert.False(t, buf.applyUndo(), "되돌릴 것이 하나뿐이었다")
 }
 
 func TestTrimTrailingSpaceRedo(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a  \nb  \n"))
-	buf.trimTrailingSpace(0, len(buf.lines), 40)
-	buf.applyUndo(40)
+	buf.trimTrailingSpace(0, len(buf.lines))
+	buf.applyUndo()
 
-	require.True(t, buf.applyRedo(40))
+	require.True(t, buf.applyRedo())
 
 	assert.Equal(t, []string{"a", "b"}, linesOf(buf))
 }
@@ -461,7 +461,7 @@ func TestTrimTrailingSpaceRedo(t *testing.T) {
 func TestTrimTrailingSpaceNoop(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a\nb\n"))
 
-	count := buf.trimTrailingSpace(0, len(buf.lines), 40)
+	count := buf.trimTrailingSpace(0, len(buf.lines))
 
 	assert.Equal(t, 0, count)
 	assert.False(t, buf.dirty)
@@ -472,7 +472,7 @@ func TestTrimTrailingSpaceNoop(t *testing.T) {
 func TestTrimTrailingSpaceEmptiesBlankLine(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("   \n"))
 
-	buf.trimTrailingSpace(0, len(buf.lines), 40)
+	buf.trimTrailingSpace(0, len(buf.lines))
 
 	assert.Equal(t, "", string(buf.lines[0]))
 }
@@ -482,10 +482,10 @@ func TestTrimTrailingSpaceMovesCursor(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab    \n"))
 	buf.cursor.Col = 5
 
-	buf.trimTrailingSpace(0, len(buf.lines), 40)
+	buf.trimTrailingSpace(0, len(buf.lines))
 	assert.Equal(t, 2, buf.cursor.Col)
 
-	buf.applyUndo(40)
+	buf.applyUndo()
 	assert.Equal(t, 5, buf.cursor.Col)
 }
 
@@ -493,7 +493,7 @@ func TestTrimTrailingSpaceMovesCursor(t *testing.T) {
 func TestSqueezeSpaces(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a   b\tc\nd e\n\tf    g\n"))
 
-	count := buf.squeezeSpaces(0, len(buf.lines), 40)
+	count := buf.squeezeSpaces(0, len(buf.lines))
 
 	assert.Equal(t, 2, count)
 	assert.Equal(t, "a b c", string(buf.lines[0]), "space 든 tab 이든 빈 칸 하나")
@@ -505,7 +505,7 @@ func TestSqueezeSpaces(t *testing.T) {
 func TestSqueezeSpacesKeepsIndent(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("    if a   b:\n\t\treturn   1\n"))
 
-	buf.squeezeSpaces(0, len(buf.lines), 40)
+	buf.squeezeSpaces(0, len(buf.lines))
 
 	assert.Equal(t, "    if a b:", string(buf.lines[0]), "space 네 칸 들여쓰기가 남는다")
 	assert.Equal(t, "\t\treturn 1", string(buf.lines[1]), "tab 두 개도 남는다")
@@ -515,12 +515,12 @@ func TestSqueezeSpacesKeepsIndent(t *testing.T) {
 func TestSqueezeSpacesKeepsTrailing(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a   b   \n"))
 
-	buf.squeezeSpaces(0, len(buf.lines), 40)
+	buf.squeezeSpaces(0, len(buf.lines))
 
 	assert.Equal(t, "a b   ", string(buf.lines[0]))
 
 	// 둘을 이어 쓰면 둘 다 사라진다. 한 명령이 두 가지를 하지 않는 대신이다.
-	buf.trimTrailingSpace(0, len(buf.lines), 40)
+	buf.trimTrailingSpace(0, len(buf.lines))
 	assert.Equal(t, "a b", string(buf.lines[0]))
 }
 
@@ -528,7 +528,7 @@ func TestSqueezeSpacesKeepsTrailing(t *testing.T) {
 func TestSqueezeSpacesLeavesBlankLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("    \n\n"))
 
-	count := buf.squeezeSpaces(0, len(buf.lines), 40)
+	count := buf.squeezeSpaces(0, len(buf.lines))
 
 	assert.Equal(t, 0, count)
 	assert.False(t, buf.dirty, "흔적을 남기지 않는다")
@@ -538,20 +538,20 @@ func TestSqueezeSpacesLeavesBlankLines(t *testing.T) {
 // 여러 줄을 줄여도 `u` 한 번에 전부 돌아온다.
 func TestSqueezeSpacesUndoesAsOne(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a   b\nc\nd   e\n"))
-	buf.squeezeSpaces(0, len(buf.lines), 40)
+	buf.squeezeSpaces(0, len(buf.lines))
 	require.Equal(t, []string{"a b", "c", "d e"}, linesOf(buf))
 
-	require.True(t, buf.applyUndo(40))
+	require.True(t, buf.applyUndo())
 
 	assert.Equal(t, []string{"a   b", "c", "d   e"}, linesOf(buf))
-	assert.False(t, buf.applyUndo(40), "되돌릴 것이 하나뿐이었다")
+	assert.False(t, buf.applyUndo(), "되돌릴 것이 하나뿐이었다")
 }
 
 // 줄을 오름차순으로 다시 늘어놓는다. byte 순이라 한글은 가나다 순이다.
 func TestSortLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("다\n나\n가\n"))
 
-	moved := buf.sortLines(0, len(buf.lines), 40)
+	moved := buf.sortLines(0, len(buf.lines))
 
 	assert.Equal(t, 2, moved, "가운데 줄은 제자리라 안 세어진다")
 	assert.Equal(t, []string{"가", "나", "다"}, linesOf(buf))
@@ -561,7 +561,7 @@ func TestSortLines(t *testing.T) {
 func TestSortLinesIsByteOrder(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("b\nA\na\nB\n"))
 
-	buf.sortLines(0, len(buf.lines), 40)
+	buf.sortLines(0, len(buf.lines))
 
 	assert.Equal(t, []string{"A", "B", "a", "b"}, linesOf(buf))
 }
@@ -570,7 +570,7 @@ func TestSortLinesIsByteOrder(t *testing.T) {
 func TestSortLinesInRange(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("c\nb\nd\na\n"))
 
-	moved := buf.sortLines(0, 3, 40)
+	moved := buf.sortLines(0, 3)
 
 	assert.Equal(t, 2, moved)
 	assert.Equal(t, []string{"b", "c", "d", "a"}, linesOf(buf), "마지막 줄은 자리를 지킨다")
@@ -580,7 +580,7 @@ func TestSortLinesInRange(t *testing.T) {
 func TestSortLinesInRangeNoop(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a\nb\nz\nc\n"))
 
-	moved := buf.sortLines(0, 3, 40)
+	moved := buf.sortLines(0, 3)
 
 	assert.Equal(t, 0, moved)
 	assert.False(t, buf.dirty)
@@ -590,11 +590,11 @@ func TestSortLinesInRangeNoop(t *testing.T) {
 // 줄 끝 공백과 중복 공백도 구간 밖을 두고 간다.
 func TestTrimAndSqueezeInRange(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a  \nb  \n"))
-	require.Equal(t, 1, buf.trimTrailingSpace(0, 1, 40))
+	require.Equal(t, 1, buf.trimTrailingSpace(0, 1))
 	assert.Equal(t, []string{"a", "b  "}, linesOf(buf))
 
 	other := newBuffer("test.txt", []byte("a  b\nc  d\n"))
-	require.Equal(t, 1, other.squeezeSpaces(1, 2, 40))
+	require.Equal(t, 1, other.squeezeSpaces(1, 2))
 	assert.Equal(t, []string{"a  b", "c d"}, linesOf(other))
 }
 
@@ -602,7 +602,7 @@ func TestTrimAndSqueezeInRange(t *testing.T) {
 func TestSortLinesNoop(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a\nb\nc\n"))
 
-	moved := buf.sortLines(0, len(buf.lines), 40)
+	moved := buf.sortLines(0, len(buf.lines))
 
 	assert.Equal(t, 0, moved)
 	assert.False(t, buf.dirty)
@@ -612,37 +612,37 @@ func TestSortLinesNoop(t *testing.T) {
 // 정렬은 `u` 한 번에 통째로 돌아간다. 줄이 자리를 바꾸는 일이라 구간이 파일 전체다.
 func TestSortLinesUndoesAsOne(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("c\na\nb\n"))
-	buf.sortLines(0, len(buf.lines), 40)
+	buf.sortLines(0, len(buf.lines))
 	require.Equal(t, []string{"a", "b", "c"}, linesOf(buf))
 
-	require.True(t, buf.applyUndo(40))
+	require.True(t, buf.applyUndo())
 
 	assert.Equal(t, []string{"c", "a", "b"}, linesOf(buf))
-	assert.False(t, buf.applyUndo(40))
+	assert.False(t, buf.applyUndo())
 }
 
 // 두 번 돌려도 결과가 같다. 안정 정렬이라 같은 줄끼리 자리를 바꾸지 않는다.
 func TestSortLinesIsStable(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("b\na\nb\na\n"))
 
-	require.NotZero(t, buf.sortLines(0, len(buf.lines), 40))
+	require.NotZero(t, buf.sortLines(0, len(buf.lines)))
 	require.Equal(t, []string{"a", "a", "b", "b"}, linesOf(buf))
 
-	assert.Equal(t, 0, buf.sortLines(0, len(buf.lines), 40), "두 번째는 바꿀 것이 없다")
+	assert.Equal(t, 0, buf.sortLines(0, len(buf.lines)), "두 번째는 바꿀 것이 없다")
 }
 
 // 앞의 타이핑 구간과 섞이지 않는다. 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
 func TestTrimTrailingSpaceDoesNotJoinOpenEdit(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("a  \n"))
-	buf.insert([]byte("X"), 40)
+	buf.insert([]byte("X"))
 	require.Equal(t, "Xa  ", string(buf.lines[0]))
 
-	buf.trimTrailingSpace(0, len(buf.lines), 40)
+	buf.trimTrailingSpace(0, len(buf.lines))
 	require.Equal(t, "Xa", string(buf.lines[0]))
 
-	buf.applyUndo(40)
+	buf.applyUndo()
 	assert.Equal(t, "Xa  ", string(buf.lines[0]), "공백만 돌아온다")
 
-	buf.applyUndo(40)
+	buf.applyUndo()
 	assert.Equal(t, "a  ", string(buf.lines[0]), "타이핑은 그 다음이다")
 }

@@ -89,7 +89,7 @@ func TestEditMovesToTabAlreadyOpen(t *testing.T) {
 // 옮겨가기만 할 때는 잃을 것이 없으므로 지금 tab 이 dirty 여도 묻지 않는다.
 func TestEditDoesNotAskWhenMovingToOpenTab(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt", "b.txt")
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 
 	m := runCommand(start, "e "+filepath.Join(dir, "b.txt"))
 
@@ -103,7 +103,7 @@ func TestEditDoesNotAskWhenMovingToOpenTab(t *testing.T) {
 func TestEditAsksWhenDirty(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("bbb\n"), 0644))
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 
 	confirm := runCommand(start, "e "+filepath.Join(dir, "b.txt"))
 	require.IsType(t, viewConfirmDiscard{}, confirm)
@@ -122,7 +122,7 @@ func TestEditAsksWhenDirty(t *testing.T) {
 func TestEditForceDoesNotAsk(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("bbb\n"), 0644))
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 
 	m := runCommand(start, "e! "+filepath.Join(dir, "b.txt"))
 
@@ -145,7 +145,7 @@ func TestEditWithoutArgReloads(t *testing.T) {
 // 저장하지 않은 변경이 있으면 다시 읽기도 묻는다. `:e!` 는 묻지 않는다.
 func TestEditWithoutArgAsksWhenDirty(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"), start.contentWidth())
+	start.activeBuffer().insert([]byte("X"))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("남이 쓴 것\n"), 0644))
 
 	confirm := runCommand(start, "e")

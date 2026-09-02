@@ -254,7 +254,7 @@ func TestSyncServersReconcilesOpenTabs(t *testing.T) {
 	assert.False(t, client.Tracks(python), "남의 언어 파일은 이 서버에 알리지 않는다")
 
 	// 고친 것이 다음 tick 에 간다. 사본이 갱신되어 그다음 tick 에는 보낼 것이 없다.
-	e.buffers[1].insert([]byte("// 끼운 줄\n"), 80)
+	e.buffers[1].insert([]byte("// 끼운 줄\n"))
 
 	cmd = e.syncServers()
 	require.NotNil(t, cmd)

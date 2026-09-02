@@ -236,9 +236,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// (ADR-0065).
 		hook, _ := m.saveHookFor(buf.path)
 		if cmd.force {
-			note, err = buf.SaveForce(m.contentWidth(), hook)
+			note, err = buf.SaveForce(hook)
 		} else {
-			note, err = buf.Save(m.contentWidth(), hook)
+			note, err = buf.Save(hook)
 		}
 		if err != nil {
 			return normalModeError(m.editor, err)
@@ -398,7 +398,7 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 
 	// 지울 것이 없으면 조용히 나간다. visual 의 `d` 와 같다 — 빈 줄 하나를 글자로 고른
 	// 자리이고, 알릴 것도 register 에 담을 것도 없다.
-	removed, cut := buf.deleteRange(area, m.contentWidth())
+	removed, cut := buf.deleteRange(area)
 	if !cut {
 		return normalMode(m.editor)
 	}
@@ -432,7 +432,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	// `'<,'>` 만 갈린다. 보고 있던 범위라 visual 의 `y` 처럼 시작으로 가는 것이 맞다
 	// (ADR-0089, ADR-0100).
 	if cmd.lines.isSelection() {
-		buf.moveToRangeStart(area, m.contentWidth())
+		buf.moveToRangeStart(area)
 	}
 
 	m.registers.storeYank(copied, "")
@@ -500,8 +500,8 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 		return normalModeMessage(m.editor, "찾을 수 없음: "+sub.input)
 	}
 
-	buf.moveToLine(last, m.contentWidth())
-	buf.clampToNormal(m.contentWidth())
+	buf.moveToLine(last)
+	buf.clampToNormal()
 	m.scrollToCursor()
 
 	return normalModeMessage(m.editor, substituteMessage(changes, lines))
@@ -524,8 +524,8 @@ func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
 
 	from, jumping := m.here()
 
-	buf.moveToLine(to, m.contentWidth())
-	buf.clampToNormal(m.contentWidth())
+	buf.moveToLine(to)
+	buf.clampToNormal()
 	m.scrollToCursor()
 
 	if jumping {
@@ -614,9 +614,9 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 		note string
 	)
 	if cmd.force {
-		note, err = buf.SaveForce(m.contentWidth(), hook)
+		note, err = buf.SaveForce(hook)
 	} else {
-		note, err = buf.Save(m.contentWidth(), hook)
+		note, err = buf.Save(hook)
 	}
 	if err != nil {
 		return normalModeError(m.editor, err)

@@ -284,7 +284,7 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 	//
 	// 보고 있는 tab 이 아니면 화면을 건드릴 것이 없다. 그 tab 으로 옮겨갈 때 scrollToCursor 가 돈다.
 	if buf == e.activeBuffer() {
-		buf.clampToNormal(e.contentWidth())
+		buf.clampToNormal()
 		e.scrollToCursor()
 	}
 

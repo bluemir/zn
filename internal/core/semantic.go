@@ -56,7 +56,7 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 		return nil
 	}
 
-	rows := buf.visibleRows(e.contentWidth(), e.textHeight())
+	rows := buf.visibleRows(e.textHeight())
 	if len(rows) < 1 {
 		return nil
 	}

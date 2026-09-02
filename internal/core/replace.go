@@ -231,9 +231,9 @@ func (e *editor) replaceFile(full string, at []int, sub substitution) (changed, 
 			return 0, missed, nil
 		}
 
-		buf.replaceAll(next, e.contentWidth())
+		buf.replaceAll(next)
 
-		if _, err := buf.Save(e.contentWidth(), nil); err != nil {
+		if _, err := buf.Save(nil); err != nil {
 			return 0, missed, err
 		}
 

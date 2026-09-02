@@ -50,7 +50,7 @@ func TestJumpBackReturnsToRecordedPlace(t *testing.T) {
 
 	// first.go 의 2 번째 줄에서 second.go 로 뛴다.
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
@@ -72,7 +72,7 @@ func TestJumpForwardRetracesBack(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -105,7 +105,7 @@ func TestNewJumpDropsForwardHistory(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -132,7 +132,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 	e, _ := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	e.recordJump()
 	e.recordJump()
@@ -141,7 +141,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 	assert.Len(t, e.jumps.places, 1)
 
 	// 줄이 달라지면 담는다.
-	e.activeBuffer().moveTo(4, 0, e.contentWidth())
+	e.activeBuffer().moveTo(4, 0)
 	e.recordJump()
 
 	assert.Len(t, e.jumps.places, 2)
@@ -163,7 +163,7 @@ func TestJumpListDropsOldest(t *testing.T) {
 	e.active = 0
 	for i := range jumpListMax + 20 {
 		// 줄을 번갈아 바꾸어 같은 줄 거르기에 걸리지 않게 한다.
-		e.activeBuffer().moveTo(i%6, 0, e.contentWidth())
+		e.activeBuffer().moveTo(i%6, 0)
 		e.recordJump()
 	}
 
@@ -176,7 +176,7 @@ func TestGoToPlaceDoesNotRecord(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -196,7 +196,7 @@ func gotoFile(e *editor, path string, line int) error {
 		return err
 	}
 
-	e.activeBuffer().moveTo(line, 0, e.contentWidth())
+	e.activeBuffer().moveTo(line, 0)
 
 	return nil
 }

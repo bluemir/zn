@@ -204,8 +204,8 @@ func (m *viewEditorSubstitute) step() (tea.Model, tea.Cmd) {
 func (m *viewEditorSubstitute) show() {
 	buf := m.activeBuffer()
 
-	buf.moveTo(m.line, m.matches[m.at][0]+m.delta, m.contentWidth())
-	buf.clampToNormal(m.contentWidth())
+	buf.moveTo(m.line, m.matches[m.at][0]+m.delta)
+	buf.clampToNormal()
 	m.scrollToCursor()
 }
 
@@ -257,13 +257,13 @@ func (m *viewEditorSubstitute) finish() (tea.Model, tea.Cmd) {
 	}
 
 	if m.changes == 0 {
-		buf.moveToPlace(m.back, m.contentWidth())
+		buf.moveToPlace(m.back)
 
 		return normalModeMessage(m.editor, "바꾼 것이 없습니다")
 	}
 
-	buf.moveToLine(m.last, m.contentWidth())
-	buf.clampToNormal(m.contentWidth())
+	buf.moveToLine(m.last)
+	buf.clampToNormal()
 	m.scrollToCursor()
 
 	return normalModeMessage(m.editor, substituteMessage(m.changes, m.lines))

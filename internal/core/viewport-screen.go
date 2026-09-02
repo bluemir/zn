@@ -15,12 +15,14 @@ package core
 
 // scrollTo 는 커서가 화면 안에 들어오도록 top 을 최소한으로 움직인다.
 // 커서가 이미 화면 안이면 아무것도 하지 않는다.
-func (buf *viewport) scrollTo(width, height int) {
+func (buf *viewport) scrollTo(height int) {
 	if height < 1 {
 		return
 	}
 
-	buf.clampTop(width)
+	buf.clampTop()
+
+	width := buf.contentWidth()
 
 	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursor.Line], width, buf.tabWidth()), buf.cursor.Col)
 
@@ -63,22 +65,24 @@ func (buf *viewport) scrollTo(width, height int) {
 //
 // 폭이 바뀌는 경로가 여럿(터미널 리사이즈, tab 전환, sidebar 여닫기)이라
 // 부르는 쪽마다 챙기지 않고 scrollTo 안에서 한 번에 맞춘다.
-func (buf *viewport) clampTop(width int) {
+func (buf *viewport) clampTop() {
 	buf.top.line = min(buf.top.line, len(buf.lines)-1)
-	buf.top.row = min(buf.top.row, len(wrapOffsets(buf.lines[buf.top.line], width, buf.tabWidth()))-1)
+	buf.top.row = min(buf.top.row, len(wrapOffsets(buf.lines[buf.top.line], buf.contentWidth(), buf.tabWidth()))-1)
 }
 
 // scrollBy 는 화면을 n 행 굴린다. 위로 굴릴 때는 n 이 음수다.
 //
 // 커서는 그대로 두고 화면만 움직인다. 화면 밖으로 밀려나면 그때만 화면 안 끝 행으로
 // 끌어온다 — vim 의 휠과 같다. scrollTo 가 커서를 따라 화면을 옮기는 것의 반대다.
-func (buf *viewport) scrollBy(n, width, height int) {
+func (buf *viewport) scrollBy(n, height int) {
 	if height < 1 || n == 0 {
 		return
 	}
 
 	// 폭이 바뀐 뒤일 수 있다. scrollTo 와 같은 이유로 여기서 한 번 맞춘다.
-	buf.clampTop(width)
+	buf.clampTop()
+
+	width := buf.contentWidth()
 
 	if n < 0 {
 		buf.top.line, buf.top.row = buf.retreatRows(buf.top.line, buf.top.row, -n, width)
@@ -89,7 +93,7 @@ func (buf *viewport) scrollBy(n, width, height int) {
 	// 커서가 아직 화면 안이고 머리줄 아래면 건드릴 것이 없다.
 	// 머리줄이 없으면 sticky 가 0 이라 예전과 같은 물음이다(ADR-0049).
 	sticky := len(buf.stickyAt(buf.top.line, height))
-	if _, y, ok := buf.cursorScreenPos(width, height); ok && y >= sticky {
+	if _, y, ok := buf.cursorScreenPos(height); ok && y >= sticky {
 		return
 	}
 
@@ -106,7 +110,7 @@ func (buf *viewport) scrollBy(n, width, height int) {
 	}
 
 	// 칸은 desiredX 를 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
-	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
+	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row)
 }
 
 // movePage 는 화면과 커서를 한 번에 **같이** 옮긴다. vim 의 `ctrl+d`·`ctrl+u`(반 화면) 와
@@ -120,7 +124,7 @@ func (buf *viewport) scrollBy(n, width, height int) {
 // 화면을 다 차지하면 그 줄 안에서 움직이는 것이 맞다 — `↓` 와 같은 단위다(ADR-0006).
 //
 // count 는 되풀이다. `3ctrl+f` 는 한 화면 세 번이다.
-func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, width, height int) {
+func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, height int) {
 	if height < 1 {
 		return
 	}
@@ -128,7 +132,9 @@ func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, wid
 	rows := pageRows(span, height) * max(count, 1)
 
 	// 폭이 바뀐 뒤일 수 있다. scrollBy 와 같은 이유로 여기서 한 번 맞춘다.
-	buf.clampTop(width)
+	buf.clampTop()
+
+	width := buf.contentWidth()
 
 	// 커서도 화면 행으로 옮긴다. 되풀이해 한 행씩 가는 moveUp/moveDown 을 쓰지 않는 것은
 	// 저쪽이 파일 끝에 닿아도 남은 횟수를 다 도는데, 여기서는 그 횟수가 숫자 곱 한 화면이라
@@ -139,9 +145,9 @@ func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, wid
 		buf.top.line, buf.top.row = buf.retreatRows(buf.top.line, buf.top.row, rows, width)
 
 		line, row := buf.retreatRows(buf.cursor.Line, cursorRow, rows, width)
-		buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
+		buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row)
 
-		buf.scrollTo(width, height)
+		buf.scrollTo(height)
 
 		return
 	}
@@ -149,7 +155,7 @@ func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, wid
 	buf.top.line, buf.top.row = buf.advanceRows(buf.top.line, buf.top.row, rows, width)
 
 	line, row := buf.advanceRows(buf.cursor.Line, cursorRow, rows, width)
-	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
+	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row)
 
 	// 파일 끝을 지나서까지 굴리지 않는다. 마지막 행이 화면 맨 아래에 오는 자리가 끝이고
 	// 거기서부터는 커서만 내려간다 — vim 의 `ctrl+d`·`ctrl+f` 와 같다. 휠에는 이 한계가
@@ -163,11 +169,11 @@ func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, wid
 		buf.top.line, buf.top.row = limitLine, limitRow
 	}
 
-	buf.scrollTo(width, height)
+	buf.scrollTo(height)
 }
 
 // visibleRows 는 화면에 그릴 행들을 위에서부터 돌려준다.
-func (buf viewport) visibleRows(width, height int) []screenRow {
+func (buf viewport) visibleRows(height int) []screenRow {
 	if height < 1 {
 		return nil
 	}
@@ -176,7 +182,7 @@ func (buf viewport) visibleRows(width, height int) []screenRow {
 	line, row := buf.top.line, buf.top.row
 
 	for len(rows) < height && line < len(buf.lines) {
-		offsets := wrapOffsets(buf.lines[line], width, buf.tabWidth())
+		offsets := wrapOffsets(buf.lines[line], buf.contentWidth(), buf.tabWidth())
 		if row >= len(offsets) {
 			line, row = line+1, 0
 			continue
@@ -191,10 +197,10 @@ func (buf viewport) visibleRows(width, height int) []screenRow {
 }
 
 // cursorScreenPos 는 커서의 화면 좌표를 돌려준다. 커서가 화면 밖이면 ok 가 false 다.
-func (buf viewport) cursorScreenPos(width, height int) (x, y int, ok bool) {
+func (buf viewport) cursorScreenPos(height int) (x, y int, ok bool) {
 	line := buf.lines[buf.cursor.Line]
 
-	for y, row := range buf.visibleRows(width, height) {
+	for y, row := range buf.visibleRows(height) {
 		if row.line != buf.cursor.Line || buf.cursor.Col < row.start {
 			continue
 		}
@@ -217,8 +223,8 @@ func (buf viewport) cursorScreenPos(width, height int) (x, y int, ok bool) {
 // 아무것도 없는 곳을 눌렀는데 커서가 움직이면 어디를 눌렀는지와 어긋난다.
 //
 // x 가 음수면 줄 시작이다. 줄번호 칸을 누른 경우가 그렇게 들어온다.
-func (buf viewport) positionAt(x, y, width, height int) (line, col int, ok bool) {
-	rows := buf.visibleRows(width, height)
+func (buf viewport) positionAt(x, y, height int) (line, col int, ok bool) {
+	rows := buf.visibleRows(height)
 	if y < 0 || y >= len(rows) {
 		return 0, 0, false
 	}

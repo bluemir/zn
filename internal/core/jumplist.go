@@ -191,8 +191,8 @@ func (e *editor) goToPlace(place jumpPlace) tea.Cmd {
 	}
 
 	buf := e.activeBuffer()
-	buf.moveTo(place.line, place.col, e.contentWidth())
-	buf.clampToNormal(e.contentWidth())
+	buf.moveTo(place.line, place.col)
+	buf.clampToNormal()
 	e.scrollToCursor()
 	e.clearNotice()
 

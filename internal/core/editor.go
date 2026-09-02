@@ -266,7 +266,7 @@ func (e *editor) scrollToCursor() {
 		return
 	}
 
-	e.activeBuffer().scrollTo(e.contentWidth(), e.textHeight())
+	e.activeBuffer().scrollTo(e.textHeight())
 }
 
 func (e *editor) resize(msg tea.WindowSizeMsg) {
@@ -726,7 +726,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 	// 자리를 먼저 배정하고 화면을 맞춘다(ADR-0123).
 	e.layoutViews()
 	e.scrollToCursor()
-	// 편집 영역 너비가 32 칸 달라져서 tabline 에 들어가는 tab 수도 달라진다.
+	// tabline 에 들어가는 tab 수도 같이 달라진다.
 	e.scrollTabsTo()
 
 	return cmd, nil
@@ -772,7 +772,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 	height := e.textHeight()
 
 	// 화면보다 긴 줄은 visibleRows 가 이미 화면 행 여러 개로 나눠서 준다.
-	rows := buf.visibleRows(e.contentWidth(), height)
+	rows := buf.visibleRows(height)
 	textRows := make([]string, 0, height)
 
 	// 문법 토큰을 화면 맨 아래 줄까지 채운다. 줄 하나를 훑으려면 그 앞 줄을 끝낸 문맥이
@@ -834,7 +834,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 	view := newView(e.renderScreen(textRows, mode, bottom), e.renderWindowTitle())
 
-	if x, y, ok := buf.cursorScreenPos(e.contentWidth(), height); ok {
+	if x, y, ok := buf.cursorScreenPos(height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
 		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)
 		view.Cursor.Shape = shape

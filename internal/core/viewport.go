@@ -141,9 +141,9 @@ func (buf viewport) place() viewPlace {
 // **`desiredX` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
 // 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
 // 칸으로 간다(ADR-0100).
-func (buf *viewport) moveToPlace(at viewPlace, width int) {
+func (buf *viewport) moveToPlace(at viewPlace) {
 	buf.viewPlace = at
-	buf.updateDesiredCol(width)
+	buf.updateDesiredCol()
 }
 
 // lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.

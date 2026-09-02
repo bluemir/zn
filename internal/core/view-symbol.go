@@ -76,7 +76,7 @@ func symbolMode(e *editor) (tea.Model, tea.Cmd) {
 
 	e.setDrawerHeight(e.symbolDrawerHeight())
 
-	e.activeBuffer().moveRight(1, e.contentWidth())
+	e.activeBuffer().moveRight(1)
 	e.scrollToCursor()
 
 	m := viewSymbol{editor: e}
@@ -228,7 +228,7 @@ func (m viewSymbol) finishEdit() {
 	buf := m.activeBuffer()
 
 	buf.endEdit()
-	buf.moveLeft(1, m.contentWidth())
+	buf.moveLeft(1)
 	m.scrollToCursor()
 }
 
@@ -313,7 +313,7 @@ func (m viewSymbol) insertSelected() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.activeBuffer().insert([]byte(entry.Char), m.contentWidth())
+	m.activeBuffer().insert([]byte(entry.Char))
 	m.scrollToCursor()
 
 	return m, m.scheduleEditTick()

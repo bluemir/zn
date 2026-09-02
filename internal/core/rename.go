@@ -170,11 +170,11 @@ func (e *editor) applyRenameTo(file lsp.FileEdits) (int, error) {
 			return 0, nil
 		}
 
-		buf.replaceAll(next, e.contentWidth())
+		buf.replaceAll(next)
 
 		// 포매터는 걸지 않는다(hook 이 nil 이다). 이름을 바꾸다가 남의 파일이 통째로
 		// 다시 포맷되면 그 diff 가 무엇 때문인지 알 수 없다(ADR-0065).
-		if _, err := buf.Save(e.contentWidth(), nil); err != nil {
+		if _, err := buf.Save(nil); err != nil {
 			return 0, err
 		}
 

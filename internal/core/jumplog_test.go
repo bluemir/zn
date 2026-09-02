@@ -23,7 +23,7 @@ func TestJumpLogKeepsBothEnds(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	// A(first.go:2) 에서 B(second.go:4) 로
 	e.recordJump()
@@ -48,20 +48,20 @@ func TestJumpLogMovesRepeatToFront(t *testing.T) {
 
 	e.active = 0
 	for _, line := range []int{0, 2, 4} {
-		e.activeBuffer().moveTo(line, 0, e.contentWidth())
+		e.activeBuffer().moveTo(line, 0)
 		e.arrive()
 	}
 	require.Equal(t, []int{4, 2, 0}, logLines(e))
 
 	// 가운데 것을 다시 방문한다.
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 	e.arrive()
 
 	assert.Equal(t, []int{2, 4, 0}, logLines(e), "쌓이지 않고 위로 올라온다")
 	assert.Len(t, e.logs.places, 3)
 
 	// 칸만 다르면 같은 자리다.
-	e.activeBuffer().moveTo(2, 3, e.contentWidth())
+	e.activeBuffer().moveTo(2, 3)
 	e.arrive()
 
 	assert.Len(t, e.logs.places, 3, "칸은 보지 않는다")
@@ -78,7 +78,7 @@ func TestJumpLogKeepsWhatJumplistDrops(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
@@ -110,7 +110,7 @@ func TestJumpLogRecordsRetrace(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0, e.contentWidth())
+	e.activeBuffer().moveTo(2, 0)
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))

@@ -115,7 +115,7 @@ func catHeader(buf viewport, area scheme.MotionRange) string {
 func (e *editor) visibleRange() scheme.MotionRange {
 	buf := e.activeBuffer()
 
-	rows := buf.visibleRows(e.contentWidth(), e.textHeight())
+	rows := buf.visibleRows(e.textHeight())
 	if len(rows) == 0 {
 		// 그릴 행이 없을 만큼 좁은 화면이다. 커서 줄 하나를 낸다.
 		return scheme.MotionRange{Start: scheme.Cursor{Line: buf.cursor.Line}, End: scheme.Cursor{Line: buf.cursor.Line}, Linewise: true}
