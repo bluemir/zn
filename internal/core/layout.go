@@ -160,7 +160,7 @@ func (e editor) renderGutter(buf *viewport, row screenRow) string {
 	absolute, relative := e.lineNumberDigits()
 
 	// 커서 줄은 0 이다. 절대번호가 바로 옆에 있어서 거기에 또 찍을 이유가 없다.
-	distance := row.line - buf.cursor.line
+	distance := row.line - buf.cursor.Line
 	if distance < 0 {
 		distance = -distance
 	}

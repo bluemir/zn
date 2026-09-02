@@ -150,7 +150,7 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 
 	t.Run("커서를 화면 맨 위로 올린다", func(t *testing.T) {
 		buf := newBuffer("doc.md", []byte(data))
-		buf.top.line, buf.cursor.line = 30, 30
+		buf.top.line, buf.cursor.Line = 30, 30
 		buf.scrollTo(40, 10)
 
 		sticky := buf.stickyAt(buf.top.line, 10)
@@ -184,7 +184,7 @@ func TestStickyScrollToConverges(t *testing.T) {
 	data := "func alpha() {\n\tif y {\n\t\tp()\n\t\tq()\n"
 
 	buf := newBuffer("main.go", []byte(data))
-	buf.cursor.line = 3
+	buf.cursor.Line = 3
 	buf.scrollTo(40, 4)
 
 	top, topRow := buf.top.line, buf.top.row
@@ -219,7 +219,7 @@ func TestStickyGutterDoesNotOverflow(t *testing.T) {
 
 	m := newTestEditorFile("doc.md", data, 40, 6)
 	buf := m.activeBuffer()
-	buf.top.line, buf.cursor.line = 200, 203
+	buf.top.line, buf.cursor.Line = 200, 203
 
 	rows := contentRowsOf(t, m)
 	require.Contains(t, rows[0], "aaa", "맨 윗줄이 머리줄이다")

@@ -27,7 +27,7 @@ func TestEnterIndentsAfterOpeningBrace(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\tx", "}"}, linesOf(buf))
-	assert.Equal(t, 2, buf.cursor.col, "들여쓰기 다음에 글자가 하나")
+	assert.Equal(t, 2, buf.cursor.Col, "들여쓰기 다음에 글자가 하나")
 }
 
 func TestEnterKeepsIndentOnPlainLine(t *testing.T) {
@@ -46,7 +46,7 @@ func TestTypingClosingBracePullsTheLineBack(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\ta()", "}"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.col, "`}` 뒤")
+	assert.Equal(t, 1, buf.cursor.Col, "`}` 뒤")
 }
 
 func TestTypingBraceMidLineDoesNotMove(t *testing.T) {
@@ -74,8 +74,8 @@ func TestOpenLineAboveTakesTheIndentFromTheLineAbove(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\tb", "\ta()", "}"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line)
-	assert.Equal(t, 2, buf.cursor.col)
+	assert.Equal(t, 1, buf.cursor.Line)
+	assert.Equal(t, 2, buf.cursor.Col)
 }
 
 func TestOpenLineAboveAtFirstLineHasNoIndent(t *testing.T) {
@@ -94,7 +94,7 @@ func TestReplaceWithNewlineIndents(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\t}"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.col, "들여쓰기 다음")
+	assert.Equal(t, 1, buf.cursor.Col, "들여쓰기 다음")
 }
 
 func TestPasteIsNotIndented(t *testing.T) {

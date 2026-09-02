@@ -92,7 +92,7 @@ func TestPasteCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, test.line, test.col, test.keys...)
 
-			assert.Equal(t, test.want, [2]int{buf.cursor.line, buf.cursor.col})
+			assert.Equal(t, test.want, [2]int{buf.cursor.Line, buf.cursor.Col})
 		})
 	}
 }
@@ -133,7 +133,7 @@ func TestYankFillsRegister(t *testing.T) {
 
 // 복사한 뒤 커서 자리다. 뒤로 가는 motion 만 움직이고, 그 자리는 motion 이 커서를 두는 자리다.
 //
-// `yk` 가 지키는 칸은 이동 키가 남긴 desiredX 이라 커서를 손으로 놓지 않고 키로 옮겨간다.
+// `yk` 가 지키는 칸은 이동 키가 남긴 desiredX 가라 커서를 손으로 놓지 않고 키로 옮겨간다.
 // vim 의 curswant 와 같은 것이라, 자리를 놓기만 하면 vim 과 다른 것을 재게 된다.
 func TestYankCursor(t *testing.T) {
 	tests := []struct {
@@ -166,7 +166,7 @@ func TestYankCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, 0, 0, test.keys...)
 
-			assert.Equal(t, test.want, [2]int{buf.cursor.line, buf.cursor.col})
+			assert.Equal(t, test.want, [2]int{buf.cursor.Line, buf.cursor.Col})
 		})
 	}
 }

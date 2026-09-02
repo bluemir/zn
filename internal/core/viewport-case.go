@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // 대소문자를 바꾸는 자리다. normal 의 `~` 와 visual 의 `~`·`u`·`U` 가 쓴다.
@@ -31,24 +33,24 @@ const (
 // **줄을 넘지 않는다.** 이것도 vim 과 같다. 커서는 마지막으로 바꾼 글자 **다음** 이고,
 // 줄 끝을 넘으면 normal 커서 자리로 당겨진다(clampToNormal).
 func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
-	line := buf.lines[buf.cursor.line]
+	line := buf.lines[buf.cursor.Line]
 
-	end := clusterEndClamped(line, buf.cursor.col, max(count, 1))
-	changed := applyCase(line[buf.cursor.col:end], kind)
+	end := clusterEndClamped(line, buf.cursor.Col, max(count, 1))
+	changed := applyCase(line[buf.cursor.Col:end], kind)
 
-	if !bytes.Equal(changed, line[buf.cursor.col:end]) {
-		next := concat(concat(line[:buf.cursor.col], changed), line[end:])
+	if !bytes.Equal(changed, line[buf.cursor.Col:end]) {
+		next := concat(concat(line[:buf.cursor.Col], changed), line[end:])
 
 		// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. `r` 과 같은 자리다.
 		buf.endEdit()
-		buf.beginEdit(buf.cursor.line, 1)
-		buf.replaceLines(buf.cursor.line, 1, [][]byte{next})
+		buf.beginEdit(buf.cursor.Line, 1)
+		buf.replaceLines(buf.cursor.Line, 1, [][]byte{next})
 		buf.endEdit()
 	}
 
 	// 커서는 바뀐 것이 없어도 옮긴다. `~` 는 훑어 가는 키라 대소문자가 없는 글자
 	// (한글·문장부호) 위에서도 오른쪽으로 간다. vim 과 같다.
-	buf.cursor.col += len(changed)
+	buf.cursor.Col += len(changed)
 	buf.updateDesiredCol(width)
 	buf.clampToNormal(width)
 }
@@ -57,20 +59,20 @@ func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
 //
 // 줄 단위면 걸친 줄 전체이고 글자 단위면 고른 자리만이다. 커서는 범위의 시작으로 간다 —
 // 복사(`y`) 와 같은 길이다(moveToRangeStart).
-func (buf *viewport) changeCaseRange(area MotionRange, kind caseKind, width int) {
-	next := make([][]byte, 0, area.end.line-area.start.line+1)
+func (buf *viewport) changeCaseRange(area scheme.MotionRange, kind caseKind, width int) {
+	next := make([][]byte, 0, area.End.Line-area.Start.Line+1)
 	same := true
 
-	for i := area.start.line; i <= area.end.line; i++ {
+	for i := area.Start.Line; i <= area.End.Line; i++ {
 		line := buf.lines[i]
 
 		start, end := 0, len(line)
-		if !area.linewise {
-			if i == area.start.line {
-				start = area.start.col
+		if !area.Linewise {
+			if i == area.Start.Line {
+				start = area.Start.Col
 			}
-			if i == area.end.line {
-				end = min(area.end.col, len(line))
+			if i == area.End.Line {
+				end = min(area.End.Col, len(line))
 			}
 		}
 
@@ -89,10 +91,10 @@ func (buf *viewport) changeCaseRange(area MotionRange, kind caseKind, width int)
 	}
 
 	buf.endEdit()
-	buf.beginEdit(area.start.line, len(next))
+	buf.beginEdit(area.Start.Line, len(next))
 
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
-	buf.replaceLines(area.start.line, len(next), next)
+	buf.replaceLines(area.Start.Line, len(next), next)
 	buf.endEdit()
 }
 

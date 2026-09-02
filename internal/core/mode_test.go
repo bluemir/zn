@@ -112,7 +112,7 @@ func bufferOf(t *testing.T, m tea.Model) viewport {
 // cursorColOf 는 활성 buffer 의 커서 offset 이다.
 func cursorColOf(t *testing.T, m tea.Model) int {
 	t.Helper()
-	return bufferOf(t, m).cursor.col
+	return bufferOf(t, m).cursor.Col
 }
 
 func TestStartsInNormalMode(t *testing.T) {
@@ -180,8 +180,8 @@ func TestOpenLineBelow(t *testing.T) {
 	require.IsType(t, viewEditorInsert{}, m)
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"ab", "", "cd"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line, "새로 만든 줄 위")
-	assert.Equal(t, 0, buf.cursor.col)
+	assert.Equal(t, 1, buf.cursor.Line, "새로 만든 줄 위")
+	assert.Equal(t, 0, buf.cursor.Col)
 }
 
 // 커서가 줄 중간에 있어도 `o` 는 줄 끝에서 가른다. 들여쓰기는 이어받는다.
@@ -202,20 +202,20 @@ func TestOpenLineBelowAtLastLine(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"ab", "x"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 1, buf.cursor.Line)
 }
 
 // O 는 위에 빈 줄을 만든다.
 func TestOpenLineAbove(t *testing.T) {
 	var m tea.Model = newTestEditor("ab\ncd\n", 40, 5)
 	m = send(m, "j")
-	require.Equal(t, 1, bufferOf(t, m).cursor.line)
+	require.Equal(t, 1, bufferOf(t, m).cursor.Line)
 
 	m = send(m, "O", "x")
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"ab", "x", "cd"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line, "새로 만든 줄 위")
+	assert.Equal(t, 1, buf.cursor.Line, "새로 만든 줄 위")
 }
 
 // 첫 줄에서 O 를 누르면 파일 맨 앞에 줄이 생긴다.
@@ -226,7 +226,7 @@ func TestOpenLineAboveAtFirstLine(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"x", "ab"}, linesOf(buf))
-	assert.Equal(t, 0, buf.cursor.line)
+	assert.Equal(t, 0, buf.cursor.Line)
 }
 
 // o 로 만든 줄과 거기에 친 글자는 한 번의 u 로 같이 사라진다. vim 과 같다.
@@ -344,7 +344,7 @@ func TestNormalModeClampsWhenMovingToShorterLine(t *testing.T) {
 	assert.Equal(t, 0, cursorColOf(t, m), "한 글자 줄에서는 그 글자 위")
 }
 
-// 짧은 줄을 지나가도 원래 칸으로 돌아와야 한다. clamp 가 desiredX 을 건드리면 깨진다.
+// 짧은 줄을 지나가도 원래 칸으로 돌아와야 한다. clamp 가 desiredX 를 건드리면 깨진다.
 func TestNormalModeKeepsDesiredColThroughShortLine(t *testing.T) {
 	var m tea.Model = newTestEditor("abcde\nx\nabcde\n", 40, 5)
 	m = send(m, "right", "right", "right")
@@ -358,7 +358,7 @@ func TestNormalModeKeepsDesiredColThroughShortLine(t *testing.T) {
 // cursorLineOf 는 활성 buffer 의 커서 줄이다.
 func cursorLineOf(t *testing.T, m tea.Model) int {
 	t.Helper()
-	return bufferOf(t, m).cursor.line
+	return bufferOf(t, m).cursor.Line
 }
 
 // hjkl 은 화살표와 같은 이동이다. 위아래만 단위가 다르다(ADR-0006).

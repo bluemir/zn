@@ -160,12 +160,12 @@ func TestAutoReloadKeepsCursorLine(t *testing.T) {
 	m, path := newWideFileEditor(t, "a\nb\nc\n")
 
 	model := send(m, "j", "j")
-	require.Equal(t, 2, bufferOf(t, model).cursor.line)
+	require.Equal(t, 2, bufferOf(t, model).cursor.Line)
 
 	require.NoError(t, os.WriteFile(path, []byte("a\nb\nc\nd\n"), 0644))
 	model = afterFocus(t, model)
 
-	assert.Equal(t, 2, bufferOf(t, model).cursor.line)
+	assert.Equal(t, 2, bufferOf(t, model).cursor.Line)
 }
 
 // 자동으로 읽으면 undo 이력이 사라진다. 저장한 뒤에도 `u` 로 돌아갈 것이 없다 —

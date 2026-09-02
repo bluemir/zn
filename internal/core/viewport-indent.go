@@ -17,8 +17,8 @@ import (
 // insert 를 **한 번**만 부른다. 그것이 여러 줄을 이미 한 되돌리기 구간으로 다루므로(edit.go)
 // Enter 와 들여쓰기가 `u` 한 번에 같이 사라지고, 커서도 들여쓰기 다음 칸에 알아서 선다.
 func (buf *viewport) insertNewLine(width int) {
-	line := buf.lines[buf.cursor.line]
-	indent := buf.indentForNewLine(buf.cursor.line, line[:buf.cursor.col])
+	line := buf.lines[buf.cursor.Line]
+	indent := buf.indentForNewLine(buf.cursor.Line, line[:buf.cursor.Col])
 
 	buf.insert(concat([]byte{'\n'}, indent), width)
 }
@@ -37,18 +37,18 @@ func (buf *viewport) insertNewLine(width int) {
 // 치지 않은 줄에서 수렴 판정이 돌아 캐시가 흔들린다. 커서 줄은 화면 안이라 그리는 쪽이
 // 이미 채워 두었고, 없으면 파일 언어의 규칙으로 물러난다(buffer-syntax.go).
 func (buf *viewport) reindentClosing(typed []byte, width int) {
-	rule := buf.indentRuleAt(buf.cursor.line)
+	rule := buf.indentRuleAt(buf.cursor.Line)
 	if rule == nil {
 		return
 	}
 
-	line := buf.lines[buf.cursor.line]
+	line := buf.lines[buf.cursor.Line]
 	indent := leadingBlank(line)
-	if buf.cursor.col < len(indent) || buf.cursor.col > len(line) {
+	if buf.cursor.Col < len(indent) || buf.cursor.Col > len(line) {
 		return
 	}
 
-	before := line[len(indent):buf.cursor.col]
+	before := line[len(indent):buf.cursor.Col]
 	head := concat(before, typed)
 	if rule.Close(head) <= rule.Close(before) {
 		return
@@ -63,10 +63,10 @@ func (buf *viewport) reindentClosing(typed []byte, width int) {
 	next := concat(pulled, line[len(indent):])
 
 	// 열린 구간이 넓어질 뿐이라 이어 치는 글자와 한 번의 `u` 로 같이 돌아간다.
-	buf.beginEdit(buf.cursor.line, 1)
-	buf.replaceLines(buf.cursor.line, 1, [][]byte{next})
+	buf.beginEdit(buf.cursor.Line, 1)
+	buf.replaceLines(buf.cursor.Line, 1, [][]byte{next})
 
-	buf.cursor.col -= len(indent) - len(pulled)
+	buf.cursor.Col -= len(indent) - len(pulled)
 	buf.updateDesiredCol(width)
 }
 
@@ -80,14 +80,14 @@ func (buf *viewport) reindentClosing(typed []byte, width int) {
 //
 // markdown 의 목록 줄에서는 커서 자리가 아니라 줄 전체가 한 단계 들어간다(syntax.Indent).
 func (buf *viewport) insertIndent(width int) {
-	line := buf.lines[buf.cursor.line]
+	line := buf.lines[buf.cursor.Line]
 
 	// 규칙이 문맥을 따라오므로 담아둔 것이 있어야 한다. 글자마다가 아니라 `tab` 을 칠 때만
 	// 지나는 자리라 채워도 된다 — reindentClosing 이 못 하는 것이 이것이다.
-	buf.lexSyntaxTo(buf.cursor.line)
+	buf.lexSyntaxTo(buf.cursor.Line)
 
-	if rule := buf.indentRuleAt(buf.cursor.line); rule != nil && rule.TabIndentsLine(line) {
-		buf.shiftLines(buf.cursor.line, buf.cursor.line, indentRight, width)
+	if rule := buf.indentRuleAt(buf.cursor.Line); rule != nil && rule.TabIndentsLine(line) {
+		buf.shiftLines(buf.cursor.Line, buf.cursor.Line, indentRight, width)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (buf *viewport) insertIndent(width int) {
 		return
 	}
 
-	col := screenColAt(line, buf.cursor.col, tab)
+	col := screenColAt(line, buf.cursor.Col, tab)
 	buf.insert(makeBlank(step-col%step, false, tab), width)
 }
 
@@ -108,16 +108,16 @@ func (buf *viewport) insertIndent(width int) {
 // insert mode 에서 내어쓰는 유일한 길이다. 이것이 없으면 `esc` 로 나가 `<<` 를 치고 다시
 // 들어와야 한다.
 func (buf *viewport) outdentLine(width int) {
-	before := len(leadingBlank(buf.lines[buf.cursor.line]))
-	col := buf.cursor.col
+	before := len(leadingBlank(buf.lines[buf.cursor.Line]))
+	col := buf.cursor.Col
 
-	buf.shiftLines(buf.cursor.line, buf.cursor.line, indentLeft, width)
+	buf.shiftLines(buf.cursor.Line, buf.cursor.Line, indentLeft, width)
 
 	// shiftLines 는 커서를 들여쓰기 다음에 세운다. insert 에서는 치던 자리를 지켜야 하므로
 	// 줄어든 만큼 왼쪽으로 옮긴다. 들여쓰기 안에 있었으면 그 끝에 선다.
-	after := len(leadingBlank(buf.lines[buf.cursor.line]))
+	after := len(leadingBlank(buf.lines[buf.cursor.Line]))
 
-	buf.cursor.col = max(col+after-before, after)
+	buf.cursor.Col = max(col+after-before, after)
 	buf.updateDesiredCol(width)
 }
 
@@ -127,12 +127,12 @@ func (buf *viewport) outdentLine(width int) {
 // space 로 들여쓴 파일에서 tab 한 번이 넣은 것을 backspace 네 번으로 지우는 어긋남을 없앤다.
 // 커서 앞에 글자가 하나라도 있으면 걸리지 않는다 — 글 가운데 공백은 들여쓰기가 아니다.
 func (buf *viewport) deleteIndentBackward(width int) bool {
-	line := buf.lines[buf.cursor.line]
-	if buf.cursor.col < 1 || buf.cursor.col > len(leadingBlank(line)) {
+	line := buf.lines[buf.cursor.Line]
+	if buf.cursor.Col < 1 || buf.cursor.Col > len(leadingBlank(line)) {
 		return false
 	}
 
-	blank := line[:buf.cursor.col]
+	blank := line[:buf.cursor.Col]
 	tab := buf.tabWidth()
 	step := blankColumns(buf.indentText(), tab)
 
@@ -145,10 +145,10 @@ func (buf *viewport) deleteIndentBackward(width int) bool {
 		return false
 	}
 
-	buf.beginEdit(buf.cursor.line, 1)
-	buf.replaceLines(buf.cursor.line, 1, [][]byte{concat(pulled, line[buf.cursor.col:])})
+	buf.beginEdit(buf.cursor.Line, 1)
+	buf.replaceLines(buf.cursor.Line, 1, [][]byte{concat(pulled, line[buf.cursor.Col:])})
 
-	buf.cursor.col = len(pulled)
+	buf.cursor.Col = len(pulled)
 	buf.updateDesiredCol(width)
 
 	return true
@@ -285,7 +285,7 @@ func (buf *viewport) replaceIndented(from, to int, next [][]byte, width int) {
 	buf.replaceLines(from, to-from+1, next)
 	buf.endEdit()
 
-	buf.cursor.line = from
-	buf.cursor.col = len(leadingBlank(buf.lines[from]))
+	buf.cursor.Line = from
+	buf.cursor.Col = len(leadingBlank(buf.lines[from]))
 	buf.updateDesiredCol(width)
 }

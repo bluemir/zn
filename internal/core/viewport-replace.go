@@ -41,14 +41,14 @@ func replacementText(key string) ([]byte, bool) {
 func (buf *viewport) replaceChar(text []byte, count, width int) bool {
 	n := max(count, 1)
 
-	line := buf.lines[buf.cursor.line]
-	end, ok := clusterEnd(line, buf.cursor.col, n)
+	line := buf.lines[buf.cursor.Line]
+	end, ok := clusterEnd(line, buf.cursor.Col, n)
 	if !ok {
 		return false
 	}
 
-	next := make([]byte, 0, len(line)-(end-buf.cursor.col)+len(text)*n)
-	next = append(next, line[:buf.cursor.col]...)
+	next := make([]byte, 0, len(line)-(end-buf.cursor.Col)+len(text)*n)
+	next = append(next, line[:buf.cursor.Col]...)
 	for range n {
 		next = append(next, text...)
 	}
@@ -56,12 +56,12 @@ func (buf *viewport) replaceChar(text []byte, count, width int) bool {
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 바꿔 넣기는 언제나 제 구간이다.
 	buf.endEdit()
-	buf.beginEdit(buf.cursor.line, 1)
-	buf.replaceLines(buf.cursor.line, 1, [][]byte{next})
+	buf.beginEdit(buf.cursor.Line, 1)
+	buf.replaceLines(buf.cursor.Line, 1, [][]byte{next})
 	buf.endEdit()
 
 	// 커서는 마지막으로 바꾼 글자 위다. vim 과 같다.
-	buf.cursor.col += (n - 1) * len(text)
+	buf.cursor.Col += (n - 1) * len(text)
 	buf.updateDesiredCol(width)
 
 	return true
@@ -71,25 +71,25 @@ func (buf *viewport) replaceChar(text []byte, count, width int) bool {
 //
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다. `o` 와 같다(indent.go).
 func (buf *viewport) replaceWithNewline(count, width int) bool {
-	line := buf.lines[buf.cursor.line]
+	line := buf.lines[buf.cursor.Line]
 
-	end, ok := clusterEnd(line, buf.cursor.col, max(count, 1))
+	end, ok := clusterEnd(line, buf.cursor.Col, max(count, 1))
 	if !ok {
 		return false
 	}
 
 	// 자르기 전에 정한다. 자른 뒤의 앞 줄은 커서 앞까지라 줄 끝의 여는 괄호가 사라질 수 있다.
-	indent := buf.indentForNewLine(buf.cursor.line, line[:buf.cursor.col])
+	indent := buf.indentForNewLine(buf.cursor.Line, line[:buf.cursor.Col])
 	below := concat(indent, line[end:])
 
 	buf.endEdit()
-	buf.beginEdit(buf.cursor.line, 1)
-	buf.replaceLines(buf.cursor.line, 1, [][]byte{line[:buf.cursor.col], below})
+	buf.beginEdit(buf.cursor.Line, 1)
+	buf.replaceLines(buf.cursor.Line, 1, [][]byte{line[:buf.cursor.Col], below})
 	buf.growEdit(1)
 	buf.endEdit()
 
-	buf.cursor.line++
-	buf.cursor.col = len(indent)
+	buf.cursor.Line++
+	buf.cursor.Col = len(indent)
 	buf.updateDesiredCol(width)
 
 	return true

@@ -99,7 +99,7 @@ func TestJumpsPreviewsWhileMoving(t *testing.T) {
 	m = next.(viewJumps)
 
 	assert.Equal(t, 1, m.selected)
-	assert.Equal(t, m.jumps.places[1].line, m.activeBuffer().cursor.line, "그 자리를 보여준다")
+	assert.Equal(t, m.jumps.places[1].line, m.activeBuffer().cursor.Line, "그 자리를 보여준다")
 	assert.Equal(t, m.jumps.places[1].path, m.activeBuffer().path)
 	assert.Equal(t, at, m.jumps.at, "확정 전이라 지금 자리는 그대로다")
 
@@ -107,13 +107,13 @@ func TestJumpsPreviewsWhileMoving(t *testing.T) {
 	next, _ = m.press("g")
 	m = next.(viewJumps)
 	assert.Equal(t, 0, m.selected)
-	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.line)
+	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.Line)
 
 	// 위 끝에서 멈추면 커서도 그대로다.
 	next, _ = m.press("k")
 	m = next.(viewJumps)
 	assert.Equal(t, 0, m.selected)
-	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.line)
+	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.Line)
 	assert.Equal(t, at, m.jumps.at, "끝까지 둘러봐도 지금 자리는 그대로다")
 }
 
@@ -131,7 +131,7 @@ func TestJumpsConfirmsAndCloses(t *testing.T) {
 	assert.Zero(t, model.(viewEditorNormal).drawerHeight)
 
 	assert.Equal(t, paths[0], m.activeBuffer().path)
-	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.line)
+	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.Line)
 	assert.Equal(t, 0, m.jumps.at, "지금 자리가 고른 자리로 옮겨간다")
 	assert.Equal(t, before, len(m.jumps.places), "되짚는 이동은 이력에 담기지 않는다")
 
@@ -148,7 +148,7 @@ func TestJumpsConfirmsWithoutBrowsing(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, model)
 
 	assert.Equal(t, 2, m.jumps.at)
-	assert.Equal(t, m.jumps.places[2].line, m.activeBuffer().cursor.line)
+	assert.Equal(t, m.jumps.places[2].line, m.activeBuffer().cursor.Line)
 }
 
 // **q 와 esc 는 취소다.** 둘러본 것이 없던 일이 되어 판을 열기 전 자리로 되돌아간다(ADR-0071).
@@ -159,13 +159,13 @@ func TestJumpsCancelRestoresOrigin(t *testing.T) {
 
 			pane := m.paneHeight()
 			originPath := m.activeBuffer().path
-			originLine := m.activeBuffer().cursor.line
+			originLine := m.activeBuffer().cursor.Line
 			at := m.jumps.at
 
 			// 둘러본다. 커서가 실제로 움직인다.
 			next, _ := m.press("g")
 			m = next.(viewJumps)
-			require.NotEqual(t, originLine, m.activeBuffer().cursor.line)
+			require.NotEqual(t, originLine, m.activeBuffer().cursor.Line)
 
 			model, _ := m.press(key)
 
@@ -174,7 +174,7 @@ func TestJumpsCancelRestoresOrigin(t *testing.T) {
 			assert.Equal(t, pane, model.(viewEditorNormal).textHeight())
 
 			assert.Equal(t, originPath, m.activeBuffer().path, "열기 전 파일로 돌아온다")
-			assert.Equal(t, originLine, m.activeBuffer().cursor.line, "열기 전 줄로 돌아온다")
+			assert.Equal(t, originLine, m.activeBuffer().cursor.Line, "열기 전 줄로 돌아온다")
 			assert.Equal(t, at, m.jumps.at, "확정한 것이 없으니 이력도 그대로다")
 		})
 	}

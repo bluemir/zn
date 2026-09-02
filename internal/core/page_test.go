@@ -27,7 +27,7 @@ func TestHalfPageDownMovesCursorAndScreenTogether(t *testing.T) {
 	model := send(tea.Model(m), "ctrl+d")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 5, buf.cursor.line, "반 화면은 높이의 절반이다")
+	assert.Equal(t, 5, buf.cursor.Line, "반 화면은 높이의 절반이다")
 	assert.Equal(t, 5, buf.top.line, "화면도 같은 행 수만큼 내려간다")
 }
 
@@ -38,7 +38,7 @@ func TestHalfPageUpComesBack(t *testing.T) {
 	model := send(tea.Model(m), "ctrl+d", "ctrl+d", "ctrl+u")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 5, buf.cursor.line)
+	assert.Equal(t, 5, buf.cursor.Line)
 	assert.Equal(t, 5, buf.top.line)
 }
 
@@ -49,7 +49,7 @@ func TestHalfPageCountRepeats(t *testing.T) {
 	model := send(tea.Model(m), "3", "ctrl+d")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 15, buf.cursor.line)
+	assert.Equal(t, 15, buf.cursor.Line)
 	assert.Equal(t, 15, buf.top.line)
 }
 
@@ -64,7 +64,7 @@ func TestHalfPageDownStopsAtLastPage(t *testing.T) {
 	}
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 39, buf.cursor.line, "커서는 마지막 줄이다")
+	assert.Equal(t, 39, buf.cursor.Line, "커서는 마지막 줄이다")
 	assert.Equal(t, 30, buf.top.line, "마지막 줄이 화면 맨 아래에 오는 자리에서 멈춘다")
 }
 
@@ -75,7 +75,7 @@ func TestHalfPageUpStopsAtFirstLine(t *testing.T) {
 	model := send(tea.Model(m), "ctrl+u")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 0, buf.cursor.line)
+	assert.Equal(t, 0, buf.cursor.Line)
 	assert.Equal(t, 0, buf.top.line)
 }
 
@@ -86,8 +86,8 @@ func TestHalfPageKeepsColumn(t *testing.T) {
 	model := send(tea.Model(m), "l", "l", "l", "ctrl+d")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 5, buf.cursor.line)
-	assert.Equal(t, 3, buf.cursor.col, "칸이 그대로다")
+	assert.Equal(t, 5, buf.cursor.Line)
+	assert.Equal(t, 3, buf.cursor.Col, "칸이 그대로다")
 }
 
 // 짧은 파일에서는 갈 곳이 없어 커서만 끝으로 간다. 화면은 그대로다.
@@ -97,7 +97,7 @@ func TestHalfPageInShortFile(t *testing.T) {
 	model := send(tea.Model(m), "ctrl+d")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 2, buf.cursor.line, "마지막 줄이다")
+	assert.Equal(t, 2, buf.cursor.Line, "마지막 줄이다")
 	assert.Equal(t, 0, buf.top.line, "화면은 굴러가지 않는다")
 }
 
@@ -111,7 +111,7 @@ func TestHalfPageGrowsVisualSelection(t *testing.T) {
 
 	buf := bufferOf(t, model)
 	assert.Equal(t, 0, buf.selection.line, "anchor 는 그대로다")
-	assert.Equal(t, 5, buf.cursor.line)
+	assert.Equal(t, 5, buf.cursor.Line)
 }
 
 // visual 에서도 숫자는 되풀이다. 반 화면 이동만 숫자를 본다.
@@ -120,7 +120,7 @@ func TestHalfPageCountInVisual(t *testing.T) {
 
 	model := send(tea.Model(m), "v", "2", "ctrl+d")
 
-	assert.Equal(t, 10, bufferOf(t, model).cursor.line)
+	assert.Equal(t, 10, bufferOf(t, model).cursor.Line)
 }
 
 // operator 뒤에는 오지 않는다. `d ctrl+d` 는 아무것도 지우지 않는다 — vim 과 같다.
@@ -131,7 +131,7 @@ func TestHalfPageIsNotAMotion(t *testing.T) {
 
 	buf := bufferOf(t, model)
 	assert.Equal(t, len(m.activeBuffer().lines), len(buf.lines), "줄이 그대로다")
-	assert.Equal(t, 0, buf.cursor.line, "커서도 움직이지 않는다")
+	assert.Equal(t, 0, buf.cursor.Line, "커서도 움직이지 않는다")
 }
 
 // 세는 것은 논리 줄이 아니라 화면 행이다. wrap 된 긴 줄은 그 안에서 여러 행을 지난다.
@@ -142,7 +142,7 @@ func TestHalfPageCountsScreenRows(t *testing.T) {
 	model := send(tea.Model(m), "ctrl+d")
 
 	// 첫 줄에서 다섯 행 내려간다 — 긴 줄이 세 행을 먹으므로 넷째 줄이다.
-	assert.Equal(t, 3, bufferOf(t, model).cursor.line, "논리 줄로 세면 여섯째 줄이 된다")
+	assert.Equal(t, 3, bufferOf(t, model).cursor.Line, "논리 줄로 세면 여섯째 줄이 된다")
 }
 
 // `ctrl+f` 는 한 화면이다. 두 행을 겹쳐 두므로 높이에서 둘을 뺀 만큼 움직인다.
@@ -153,7 +153,7 @@ func TestFullPageDownLeavesTwoRowsOverlap(t *testing.T) {
 
 	buf := bufferOf(t, model)
 	assert.Equal(t, 8, buf.top.line, "높이 10 에서 여덟 행 — 두 행이 겹친다")
-	assert.Equal(t, 8, buf.cursor.line, "커서도 같이 간다")
+	assert.Equal(t, 8, buf.cursor.Line, "커서도 같이 간다")
 }
 
 // `ctrl+b` 는 그 반대다. 한 번 넘긴 것이 그대로 돌아온다.
@@ -164,7 +164,7 @@ func TestFullPageUpComesBack(t *testing.T) {
 
 	buf := bufferOf(t, model)
 	assert.Equal(t, 8, buf.top.line)
-	assert.Equal(t, 8, buf.cursor.line)
+	assert.Equal(t, 8, buf.cursor.Line)
 }
 
 // 겹치는 두 행 덕분에 앞 화면 마지막 두 줄이 새 화면 맨 위에 다시 선다.
@@ -184,7 +184,7 @@ func TestFullPageCountRepeats(t *testing.T) {
 
 	model := send(tea.Model(m), "2", "ctrl+f")
 
-	assert.Equal(t, 16, bufferOf(t, model).cursor.line)
+	assert.Equal(t, 16, bufferOf(t, model).cursor.Line)
 }
 
 // 한 화면도 마지막 줄이 화면 맨 아래에 오는 자리에서 멈춘다. 반 화면과 같은 한계다.
@@ -197,7 +197,7 @@ func TestFullPageDownStopsAtLastPage(t *testing.T) {
 	}
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 39, buf.cursor.line)
+	assert.Equal(t, 39, buf.cursor.Line)
 	assert.Equal(t, 30, buf.top.line)
 }
 
@@ -208,7 +208,7 @@ func TestFullPageGrowsVisualSelection(t *testing.T) {
 	model := send(tea.Model(m), "v", "ctrl+f")
 
 	require.IsType(t, viewEditorVisual{}, model, "visual 에 머문다")
-	assert.Equal(t, 8, bufferOf(t, model).cursor.line)
+	assert.Equal(t, 8, bufferOf(t, model).cursor.Line)
 }
 
 // 화면이 아주 낮으면 겹칠 자리가 없다. 그래도 한 행은 움직인다.
@@ -217,7 +217,7 @@ func TestFullPageInTinyWindow(t *testing.T) {
 
 	model := send(tea.Model(m), "ctrl+f")
 
-	assert.Equal(t, 1, bufferOf(t, model).cursor.line, "높이 2 에서 한 행이다")
+	assert.Equal(t, 1, bufferOf(t, model).cursor.Line, "높이 2 에서 한 행이다")
 }
 
 // 트리에서도 같은 키다. 고른 항목과 트리 화면이 같이 반 화면 내려간다.

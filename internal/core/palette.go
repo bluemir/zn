@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // paletteHit 은 거른 결과 한 줄이다.
@@ -255,12 +256,12 @@ type runOptions struct {
 	//
 	// **사본이다.** 팔레트는 명령을 돌리기 직전에 buffer 가 든 것을 놓는다(view-palette.go).
 	// 그래서 명령이 tab 을 옮기거나 커서를 움직여도 이 값은 그대로다.
-	area    MotionRange
+	area    scheme.MotionRange
 	hasArea bool
 }
 
 // withRange 는 고른 범위를 싣는다. visual 에서 연 팔레트만 붙인다.
-func withRange(area MotionRange) runOption {
+func withRange(area scheme.MotionRange) runOption {
 	return func(o *runOptions) {
 		o.area, o.hasArea = area, true
 	}
@@ -291,7 +292,7 @@ func (o runOptions) lines(lineCount int) (from, to int) {
 		return 0, lineCount
 	}
 
-	return o.area.start.line, o.area.end.line + 1
+	return o.area.Start.Line, o.area.End.Line + 1
 }
 
 // paletteCommand 는 `>` 목록의 한 줄이다.

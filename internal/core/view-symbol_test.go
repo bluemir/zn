@@ -141,7 +141,7 @@ func TestSymbolKeepsCursorAboveDrawer(t *testing.T) {
 	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
 
 	// 파일 끝으로 내려가서 연다. 커서가 편집 영역 맨 아래에 있는 상태다.
-	e.activeBuffer().cursor.line = 99
+	e.activeBuffer().cursor.Line = 99
 	e.scrollToCursor()
 
 	model, _ := symbolMode(e)
@@ -154,7 +154,7 @@ func TestSymbolKeepsCursorAboveDrawer(t *testing.T) {
 
 	// 편집 커서가 그려지는 행도 판 위여야 한다.
 	buf := m.activeBuffer()
-	assert.Less(t, buf.cursor.line-buf.top.line, m.textHeight(), "편집 커서가 판에 가리면 안 된다")
+	assert.Less(t, buf.cursor.Line-buf.top.line, m.textHeight(), "편집 커서가 판에 가리면 안 된다")
 }
 
 // drawer 는 편집 영역 아래에만 있다. 폭이 편집 영역과 같아서 트리 옆을 지나가지 않는다.
@@ -274,13 +274,13 @@ func TestSymbolInsertsUndoAsOne(t *testing.T) {
 func TestSymbolEscapeKeepsCursor(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 20).editor
 	e.symbols, e.symbolsIndexed = assets.CuratedSymbols, true
-	e.activeBuffer().cursor.col = 1
+	e.activeBuffer().cursor.Col = 1
 
 	model, _ := symbolMode(e)
 	next, _ := model.(viewSymbol).Update(key("esc"))
 
 	assert.IsType(t, viewEditorNormal{}, next)
-	assert.Equal(t, 1, bufferOf(t, next).cursor.col, "열기 전 자리로 돌아온다")
+	assert.Equal(t, 1, bufferOf(t, next).cursor.Col, "열기 전 자리로 돌아온다")
 	assert.Equal(t, "abc", string(bufferOf(t, next).lines[0]))
 	assert.Zero(t, e.drawerHeight)
 }
@@ -302,7 +302,7 @@ func TestSymbolRoundTripsFromInsert(t *testing.T) {
 	require.IsType(t, viewEditorInsert{}, m)
 	require.Equal(t, "Xabc", string(bufferOf(t, m).lines[0]))
 
-	before := bufferOf(t, m).cursor.col
+	before := bufferOf(t, m).cursor.Col
 
 	m = send(m, "ctrl+p")
 	require.IsType(t, viewPalette{}, m)
@@ -310,7 +310,7 @@ func TestSymbolRoundTripsFromInsert(t *testing.T) {
 	m = send(m, ">", "특", "수", "enter")
 	require.IsType(t, viewSymbol{}, m)
 
-	assert.Equal(t, before, bufferOf(t, m).cursor.col, "치던 자리가 그대로다")
+	assert.Equal(t, before, bufferOf(t, m).cursor.Col, "치던 자리가 그대로다")
 
 	m = send(m, "esc")
 	assert.IsType(t, viewEditorNormal{}, m)
@@ -326,12 +326,12 @@ func TestSymbolShiftsOnceAtLineStart(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 80, 20)
 
 	m = send(m, "i")
-	require.Equal(t, 0, bufferOf(t, m).cursor.col)
+	require.Equal(t, 0, bufferOf(t, m).cursor.Col)
 
 	m = send(m, "ctrl+p", ">", "특", "수", "enter")
 	require.IsType(t, viewSymbol{}, m)
 
-	assert.Equal(t, 1, bufferOf(t, m).cursor.col, "0 칸에서는 한 칸 오른쪽이다")
+	assert.Equal(t, 1, bufferOf(t, m).cursor.Col, "0 칸에서는 한 칸 오른쪽이다")
 }
 
 // 격자는 두 칸짜리 글자가 섞여도 밀리지 않는다.

@@ -36,7 +36,7 @@ func renameInputMode(e *editor) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	buf.moveTo(buf.cursor.line, col, e.contentWidth())
+	buf.moveTo(buf.cursor.Line, col, e.contentWidth())
 	e.scrollToCursor()
 
 	return viewRenameInput{editor: e, old: word, input: newInputLine(word)}, nil

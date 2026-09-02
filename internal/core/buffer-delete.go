@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // 지우는 것들이다. `d`·`x`·`dd` 다. 지운 것은 register 로 나간다 (ADR-0017).
 //
 // **여기 남은 것은 글만 다룬다.** 커서를 옮기며 이것을 부르는 쪽은
@@ -9,16 +11,16 @@ package core
 // 지우기와 복사가 같은 모양으로 register 를 채운다.
 //
 // 줄은 제자리에서 바뀌지 않으므로(ADR-0001) 잘라낸 조각을 그대로 들고 있어도 된다.
-func (buf Buffer) textBetween(start, end Cursor) [][]byte {
-	count := end.line - start.line + 1
+func (buf Buffer) textBetween(start, end scheme.Cursor) [][]byte {
+	count := end.Line - start.Line + 1
 
 	text := make([][]byte, 0, count)
 	if count == 1 {
-		return append(text, buf.lines[start.line][start.col:end.col])
+		return append(text, buf.lines[start.Line][start.Col:end.Col])
 	}
 
-	text = append(text, buf.lines[start.line][start.col:])
-	text = append(text, buf.lines[start.line+1:end.line]...)
+	text = append(text, buf.lines[start.Line][start.Col:])
+	text = append(text, buf.lines[start.Line+1:end.Line]...)
 
-	return append(text, buf.lines[end.line][:end.col])
+	return append(text, buf.lines[end.Line][:end.Col])
 }

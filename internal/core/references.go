@@ -97,8 +97,8 @@ func (e *editor) startReferences() tea.Cmd {
 
 	lines := buf.lines
 	position := lsp.Position{
-		Line:      buf.cursor.line,
-		Character: lsp.UTF16Column(buf.lines[buf.cursor.line], buf.cursor.col),
+		Line:      buf.cursor.Line,
+		Character: lsp.UTF16Column(buf.lines[buf.cursor.Line], buf.cursor.Col),
 	}
 
 	e.notify("사용처를 찾는 중입니다")

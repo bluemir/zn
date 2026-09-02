@@ -221,12 +221,12 @@ func TestSaveTrimPullsCursorIn(t *testing.T) {
 
 	// 공백 위에 커서를 둔다.
 	buf.moveTo(0, 12, wide)
-	require.Equal(t, 12, buf.cursor.col)
+	require.Equal(t, 12, buf.cursor.Col)
 
 	_, err = buf.Save(wide, nil)
 	require.NoError(t, err)
 
-	assert.Equal(t, len("가나다"), buf.cursor.col, "잘려나간 자리에 남지 않는다")
+	assert.Equal(t, len("가나다"), buf.cursor.Col, "잘려나간 자리에 남지 않는다")
 }
 
 // 다듬은 것은 `u` 로 되돌아온다. 줄을 고치는 일이라 되돌리기 구간에 들어간다.

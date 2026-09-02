@@ -32,8 +32,8 @@ func TestVisualColonKeepsSelection(t *testing.T) {
 
 	area, ok := buf.selectionRange()
 	require.True(t, ok)
-	assert.Equal(t, 0, area.start.line)
-	assert.Equal(t, 1, area.end.line)
+	assert.Equal(t, 0, area.Start.Line)
+	assert.Equal(t, 1, area.End.Line)
 }
 
 // `backspace` 로 걷어내면 그냥 커서 줄 하나짜리 명령이다.

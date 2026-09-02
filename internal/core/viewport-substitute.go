@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // `:s` 가 파일을 건드리는 자리다. 무엇을 바꿀지는 substitution 이 정하고(substitute.go)
 // 여기는 그것을 buffer 에 얹는다 (ADR-0084).
 //
@@ -18,8 +20,8 @@ package core
 // **하나도 안 바뀌었으면 구간을 열지 않는다.** 열면 dirty 가 서고 되돌아갈 앞날(redo) 이
 // 날아간다 — 못 찾은 `:s` 가 파일을 건드린 것이 된다. `~` 가 한글 위에서 파일을 그대로
 // 두는 것과 같은 까닭이다(ADR-0083).
-func (buf *viewport) substitute(sub substitution, area MotionRange) (changes, lines, last int) {
-	from, to := area.start.line, area.end.line
+func (buf *viewport) substitute(sub substitution, area scheme.MotionRange) (changes, lines, last int) {
+	from, to := area.Start.Line, area.End.Line
 
 	next := make([][]byte, 0, to-from+1)
 

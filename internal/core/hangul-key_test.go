@@ -46,21 +46,21 @@ func TestNormalHangulJamoMoves(t *testing.T) {
 
 	m = send(m, "ㅓ")
 
-	assert.Equal(t, 1, bufferOf(t, m).cursor.line, "ㅓ 가 j 로 동작한다")
+	assert.Equal(t, 1, bufferOf(t, m).cursor.Line, "ㅓ 가 j 로 동작한다")
 }
 
 // 겹모음은 키 둘이 합쳐진 것이라 동작 둘이 된다. `ㅘ` 는 `h` 와 `k` 를 이어 누른 것이다.
 func TestNormalHangulCompoundVowelRunsBothKeys(t *testing.T) {
 	var m tea.Model = newTestEditor("one\ntwo\nthree\n", 40, 5)
 	m = send(m, "j", "l", "l")
-	require.Equal(t, 1, bufferOf(t, m).cursor.line)
-	require.Equal(t, 2, bufferOf(t, m).cursor.col)
+	require.Equal(t, 1, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, m).cursor.Col)
 
 	m = send(m, "ㅘ")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 0, buf.cursor.line, "ㅘ 의 k 가 위로 옮긴다")
-	assert.Equal(t, 1, buf.cursor.col, "ㅘ 의 h 가 왼쪽으로 옮긴다")
+	assert.Equal(t, 0, buf.cursor.Line, "ㅘ 의 k 가 위로 옮긴다")
+	assert.Equal(t, 1, buf.cursor.Col, "ㅘ 의 h 가 왼쪽으로 옮긴다")
 }
 
 // 조합된 음절도 자모로 되돌린다. `어` 는 `d` 와 `j` 라 `dj` 가 되어 두 줄이 지워진다.
@@ -80,18 +80,18 @@ func TestNormalHangulKeepsCount(t *testing.T) {
 
 	m = send(m, "3", "ㅓ")
 
-	assert.Equal(t, 3, bufferOf(t, m).cursor.line, "3ㅓ 는 3j 다")
+	assert.Equal(t, 3, bufferOf(t, m).cursor.Line, "3ㅓ 는 3j 다")
 }
 
 // 접두 키도 한글로 낼 수 있다. `ㅎㅎ` 는 `gg` 다.
 func TestNormalHangulPrefixKey(t *testing.T) {
 	var m tea.Model = newTestEditor("1\n2\n3\n4\n5\n", 40, 5)
 	m = send(m, "G")
-	require.Equal(t, 4, bufferOf(t, m).cursor.line)
+	require.Equal(t, 4, bufferOf(t, m).cursor.Line)
 
 	m = send(m, "ㅎ", "ㅎ")
 
-	assert.Equal(t, 0, bufferOf(t, m).cursor.line, "ㅎㅎ 는 gg 로 첫 줄로 간다")
+	assert.Equal(t, 0, bufferOf(t, m).cursor.Line, "ㅎㅎ 는 gg 로 첫 줄로 간다")
 }
 
 // mode 가 바뀌면 남은 키는 버린다.

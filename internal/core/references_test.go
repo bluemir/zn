@@ -59,8 +59,8 @@ func TestFinishReferencesJumpsWhenSingle(t *testing.T) {
 	assert.Nil(t, next, "하나면 mode 를 바꾸지 않는다")
 	require.Len(t, e.buffers, 2)
 	assert.Equal(t, there, e.activeBuffer().path)
-	assert.Equal(t, 2, e.activeBuffer().cursor.line)
-	assert.Equal(t, 12, e.activeBuffer().cursor.col)
+	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 12, e.activeBuffer().cursor.Col)
 }
 
 // 여럿이면 고르는 화면이 열린다. 정의와 같은 화면이고 제목만 다르다.
@@ -83,7 +83,7 @@ func TestFinishReferencesOpensList(t *testing.T) {
 	require.True(t, ok, "고르는 화면이 열려야 한다")
 	assert.Equal(t, "사용처", list.title)
 	assert.Len(t, list.locations, 2)
-	assert.Equal(t, 0, e.activeBuffer().cursor.line, "고르기 전에는 커서가 움직이지 않는다")
+	assert.Equal(t, 0, e.activeBuffer().cursor.Line, "고르기 전에는 커서가 움직이지 않는다")
 }
 
 // 아무도 쓰지 않는 이름이면 0 개로 온다. 선언 자리를 목록에서 뺐기 때문에 이 말이 맞다.

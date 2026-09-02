@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // 복사하는 것들이다. `y`·`yy` 다. 지우기와 범위 잡는 법이 같아서 모양이 나란하다 (ADR-0017).
 //
 // **여기 있는 것은 커서나 화면 자리를 만진다.** 글만 다루는 것은
@@ -14,17 +16,17 @@ package core
 //
 // 「앞이 아니면 안 옮긴다」가 곧 「앞으로 가는 이동은 제자리」이고, `yy` 처럼 시작이 지금
 // 자리인 것도 같은 조건에 걸려 안 움직인다(ADR-0100).
-func (buf *viewport) moveToRangeStart(area MotionRange, width int) {
-	if area.start.line > buf.cursor.line ||
-		(area.start.line == buf.cursor.line && area.start.col >= buf.cursor.col) {
+func (buf *viewport) moveToRangeStart(area scheme.MotionRange, width int) {
+	if area.Start.Line > buf.cursor.Line ||
+		(area.Start.Line == buf.cursor.Line && area.Start.Col >= buf.cursor.Col) {
 		return
 	}
 
-	buf.cursor.line, buf.cursor.col = area.start.line, area.start.col
+	buf.cursor.Line, buf.cursor.Col = area.Start.Line, area.Start.Col
 
-	// 줄 단위 motion 의 칸은 desiredX 을 이미 따라간 값이라 다시 잡지 않는다.
-	// 글자 단위는 좌우로 움직인 것이라 이동 키와 같이 desiredX 을 갱신한다.
-	if !area.linewise {
+	// 줄 단위 motion 의 칸은 desiredX 를 이미 따라간 값이라 다시 잡지 않는다.
+	// 글자 단위는 좌우로 움직인 것이라 이동 키와 같이 desiredX 를 갱신한다.
+	if !area.Linewise {
 		buf.updateDesiredCol(width)
 	}
 

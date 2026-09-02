@@ -13,14 +13,14 @@ func wordStops(buf viewport, move func(*viewport)) []string {
 	stops := []string{}
 
 	for range 20 {
-		line, col := buf.cursor.line, buf.cursor.col
+		line, col := buf.cursor.Line, buf.cursor.Col
 		move(&buf)
 
-		if buf.cursor.line == line && buf.cursor.col == col {
+		if buf.cursor.Line == line && buf.cursor.Col == col {
 			break
 		}
 
-		stops = append(stops, fmt.Sprintf("%d:%d", buf.cursor.line, buf.cursor.col))
+		stops = append(stops, fmt.Sprintf("%d:%d", buf.cursor.Line, buf.cursor.Col))
 	}
 
 	return stops
@@ -189,7 +189,7 @@ func TestWordBackward(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
-			buf.cursor.col = test.start
+			buf.cursor.Col = test.start
 
 			got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, test.kind, wide) })
 
@@ -201,7 +201,7 @@ func TestWordBackward(t *testing.T) {
 // 줄을 거꾸로 넘고, 빈 줄에서는 멈춘다.
 func TestWordBackwardCrossesLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n\ncd\n"))
-	buf.cursor.line, buf.cursor.col = 2, 1
+	buf.cursor.Line, buf.cursor.Col = 2, 1
 
 	got := wordStops(buf, func(b *viewport) { b.moveWordBackward(1, wordSmall, wide) })
 
@@ -213,13 +213,13 @@ func TestWordMoveCounted(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("one two three four\n"))
 
 	buf.moveWordForward(2, wordSmall, wide)
-	assert.Equal(t, 8, buf.cursor.col, "2w")
+	assert.Equal(t, 8, buf.cursor.Col, "2w")
 
 	buf.moveWordBackward(2, wordSmall, wide)
-	assert.Equal(t, 0, buf.cursor.col, "2b")
+	assert.Equal(t, 0, buf.cursor.Col, "2b")
 
 	buf.moveWordForward(99, wordSmall, wide)
-	assert.Equal(t, 18, buf.cursor.col, "파일 끝에서 멈춘다")
+	assert.Equal(t, 18, buf.cursor.Col, "파일 끝에서 멈춘다")
 }
 
 // 위아래로 움직일 때 유지할 칸도 같이 갱신된다. 가로로 움직인 것이기 때문이다.
@@ -227,8 +227,8 @@ func TestWordMoveUpdatesDesiredCol(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("one two\nx\nabcdefg\n"))
 
 	buf.moveWordForward(1, wordSmall, wide)
-	assert.Equal(t, 4, buf.cursor.col)
+	assert.Equal(t, 4, buf.cursor.Col)
 
 	buf.moveDownLine(2)
-	assert.Equal(t, 4, buf.cursor.col, "단어 이동 뒤에도 칸이 유지된다")
+	assert.Equal(t, 4, buf.cursor.Col, "단어 이동 뒤에도 칸이 유지된다")
 }

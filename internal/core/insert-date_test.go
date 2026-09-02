@@ -45,7 +45,7 @@ func TestPaletteInsertsDate(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), when, 24*time.Hour)
 
 	// 커서는 넣은 마지막 글자 위에 선다. insert 의 `esc` 와 같다.
-	assert.Equal(t, len("a")+len(got)-1, bufferOf(t, m).cursor.col)
+	assert.Equal(t, len("a")+len(got)-1, bufferOf(t, m).cursor.Col)
 
 	// 넣은 것은 한 번의 `u` 로 통째로 돌아온다.
 	m = send(m, "u")

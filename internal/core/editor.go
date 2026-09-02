@@ -791,8 +791,8 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 		// 커서가 선 매칭만 색이 다르다. 다른 줄이면 그런 매칭이 없다.
 		cursorCol := -1
-		if row.line == buf.cursor.line {
-			cursorCol = buf.cursor.col
+		if row.line == buf.cursor.Line {
+			cursorCol = buf.cursor.Col
 		}
 
 		highlight := rowHighlight{

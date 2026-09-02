@@ -55,7 +55,7 @@ func (e *editor) here() (jumpPlace, bool) {
 		return jumpPlace{}, false
 	}
 
-	return jumpPlace{path: buf.path, line: buf.cursor.line, col: buf.cursor.col}, true
+	return jumpPlace{path: buf.path, line: buf.cursor.Line, col: buf.cursor.Col}, true
 }
 
 // jumpMotion 은 되돌아오기 이력에 담는 이동인지다.

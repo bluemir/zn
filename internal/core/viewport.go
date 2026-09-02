@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // viewport 는 파일 하나를 보고 있는 창이다. 글과 「그 글의 어디를 보고 있나」를 함께 든다.
 //
 // **`Buffer` 를 embed 한다.** 그래서 `v.lines`·`v.insert`·`v.Save` 처럼 글 쪽 이름이 그대로
@@ -52,7 +54,7 @@ type viewport struct {
 	// viewPlace 는 커서와 화면 자리다. 담아 두었다가 되돌리는 단위이기도 하다(place·moveToPlace).
 	viewPlace
 
-	// desiredX 은 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
+	// desiredX 는 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
 	//
 	// 그렇게 둔 것은 `↑`/`↓` 가 화면 행 단위라서다(ADR-0006, ADR-0076). 대가로 wrap 된 줄의
 	// 둘째 행 이후에서 `j`/`k` 를 누르면 다음 줄의 첫 화면 행에 선다. vim 은 이 칸을 줄
@@ -79,41 +81,8 @@ type viewport struct {
 // **`desiredX` 과 `selection` 은 여기 없다.** 앞엣것은 담는 것이 아니라 되돌린 뒤 다시
 // 재는 파생값이고, 뒤엣것은 고른 범위라 「어디를 보고 있나」와 갈래가 다르다.
 type viewPlace struct {
-	cursor Cursor
+	cursor scheme.Cursor
 	top    viewTop
-}
-
-// 아래 셋(Cursor·Cell·MotionRange) 만 대문자다. **겹 사이를 오가는 자료**이기 때문이다.
-//
-// 이 저장소는 대문자를 「나중에 패키지를 가를 때 그 경계를 넘을 것」이라는 표시로 쓴다.
-// 무엇이 넘을지는 「지금 누가 부르나」가 아니라 **「이 말이 어디까지 통용되나」**로 가른다.
-//
-//   - **오가는 자료.** 값만 들고 아무 일도 하지 않는다. 키가 MotionRange 를 지어 글에
-//     건네고, 글이 그 Cursor 로 자르고, 창이 그리며 Cell 로 옮긴다. 누구의 것도 아니다
-//   - **한 겹의 상태.** viewTop·selection·edit 은 메서드가 없어도 오가지 않는다. 자기 겹이
-//     들고 있을 뿐이라 소문자다
-//   - **뜻을 아는 물건.** register 는 「몇 자인가」·「무엇을 알릴까」를 스스로 안다. 값만 든
-//     것이 아니라 소문자다
-//
-// 「메서드가 없다」는 필요조건이고 「겹을 넘나든다」가 그 위에 있다 (ADR-0122).
-
-// Cursor 는 파일 안의 자리다.
-//
-// **col 은 화면 칸이 아니라 byte offset 이다.** 이 저장소에는 `col` 이라는 낱말이 두 단위로
-// 있어서 type 으로 가른다 — 여기는 줄 안의 byte 이고, 화면에 그려진 칸은 cell 이다.
-// 그냥 `int` 둘이던 때는 바꿔 넣어도 컴파일이 되었다 (ADR-0122).
-type Cursor struct {
-	line int // lines 의 index
-	col  int // 그 줄 안의 byte offset
-}
-
-// Cell 은 화면에 그려진 자리다. 터미널 셀 격자의 칸이라 둘 다 화면 칸으로 센다.
-//
-// x, y 로 세는 것은 받는 쪽(`tea.NewCursor`) 의 어휘이기도 하고, `col` 을 쓰면 cursor 의
-// byte offset 과 같은 낱말이 되어 다시 헷갈린다.
-type Cell struct {
-	x int // 왼쪽에서 몇 번째 칸
-	y int // 위에서 몇 번째 행
 }
 
 // viewTop 은 화면 맨 위에 그릴 자리다.

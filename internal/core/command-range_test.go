@@ -78,7 +78,7 @@ func TestLineRangeResolve(t *testing.T) {
 	// 다섯 줄이고 커서는 셋째 줄(자리 2)이다.
 	newBuffer := func() viewport {
 		buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
-		buf.cursor.line = 2
+		buf.cursor.Line = 2
 
 		return buf
 	}
@@ -129,7 +129,7 @@ func TestLineRangeResolveOutOfFile(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
-			buf.cursor.line = 2
+			buf.cursor.Line = 2
 
 			rng, err := parseLineRange(test.input)
 			require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestCommandYankRange(t *testing.T) {
 	m = send(m, ":", "1", ",", "2", "y", "enter")
 
 	assert.Equal(t, []string{"a", "b", "c", "d"}, linesOf(bufferOf(t, m)), "파일은 그대로다")
-	assert.Equal(t, 2, bufferOf(t, m).cursor.line, "커서도 그대로다")
+	assert.Equal(t, 2, bufferOf(t, m).cursor.Line, "커서도 그대로다")
 	assert.Contains(t, barOf(t, m)[1], "2 줄 복사되었습니다")
 
 	m = send(m, "p")
@@ -262,7 +262,7 @@ func TestCommandGoToLine(t *testing.T) {
 			m = send(m, append(append([]string{":"}, test.input...), "enter")...)
 
 			assert.IsType(t, viewEditorNormal{}, m)
-			assert.Equal(t, test.want, bufferOf(t, m).cursor.line)
+			assert.Equal(t, test.want, bufferOf(t, m).cursor.Line)
 		})
 	}
 }
@@ -273,7 +273,7 @@ func TestCommandGoToLineMovesToFirstNonBlank(t *testing.T) {
 
 	m = send(m, ":", "2", "enter")
 
-	assert.Equal(t, 4, bufferOf(t, m).cursor.col)
+	assert.Equal(t, 4, bufferOf(t, m).cursor.Col)
 }
 
 func TestCommandRangeErrors(t *testing.T) {

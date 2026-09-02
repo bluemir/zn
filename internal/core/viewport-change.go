@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // 바꾸는 것들이다. `c`·`cc` 다. 지우고 insert 로 들어가는 것이라 지우기와 나란한데,
 // `cc` 만 줄을 없애지 않고 들여쓰기를 남긴다 — vim 과 같다 (ADR-0017).
 
@@ -16,15 +18,15 @@ package core
 //   - `cw` 는 단어 뒤 공백을 남긴다. vim 의 예외다
 //
 // 바꿀 것이 없어도(빈 줄에서 친 `cw`) true 다 — vim 처럼 그 자리에서 넣기 시작한다.
-func (buf *viewport) changeRange(area MotionRange, width int) (register, bool) {
-	if area.linewise {
-		removed := buf.changeLines(area.start.line, area.end.line, width)
+func (buf *viewport) changeRange(area scheme.MotionRange, width int) (register, bool) {
+	if area.Linewise {
+		removed := buf.changeLines(area.Start.Line, area.End.Line, width)
 		buf.resumeEdit()
 
 		return removed, true
 	}
 
-	removed, changed := buf.deleteText(area.start, area.end, width)
+	removed, changed := buf.deleteText(area.Start, area.End, width)
 	if !changed {
 		// 바꿀 것이 없었다. 편집이 없었으니 되돌리기 구간도 열지 않는다.
 		return register{}, true
@@ -32,7 +34,7 @@ func (buf *viewport) changeRange(area MotionRange, width int) (register, bool) {
 
 	// 지운 자리에서 이어 친다. deleteText 가 normal mode 규칙으로 당겨 둔 커서를 되돌린다 —
 	// `c$` 는 줄 끝 다음 칸에서 시작해야 하고 그 자리는 insert mode 에만 있다.
-	buf.cursor.line, buf.cursor.col = area.start.line, area.start.col
+	buf.cursor.Line, buf.cursor.Col = area.Start.Line, area.Start.Col
 	buf.updateDesiredCol(width)
 	buf.resumeEdit()
 
@@ -44,14 +46,14 @@ func (buf *viewport) changeRange(area MotionRange, width int) (register, bool) {
 // `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 func (buf viewport) atWordEnd(kind wordKind) bool {
-	class := buf.classAt(buf.cursor.line, buf.cursor.col, kind)
+	class := buf.classAt(buf.cursor.Line, buf.cursor.Col, kind)
 	if class == classBlank {
 		return false
 	}
 
-	line, col, ok := buf.nextPos(buf.cursor.line, buf.cursor.col)
+	line, col, ok := buf.nextPos(buf.cursor.Line, buf.cursor.Col)
 
-	return !ok || line != buf.cursor.line || buf.classAt(line, col, kind) != class
+	return !ok || line != buf.cursor.Line || buf.classAt(line, col, kind) != class
 }
 
 // changeLines 는 [from, to] 줄을 들여쓰기만 남기고 비운다.
@@ -73,7 +75,7 @@ func (buf *viewport) changeLines(from, to, width int) register {
 	buf.endEdit()
 
 	// 들여쓰기 다음 칸에서 이어 친다.
-	buf.cursor.line, buf.cursor.col = from, len(indent)
+	buf.cursor.Line, buf.cursor.Col = from, len(indent)
 	buf.updateDesiredCol(width)
 
 	return register{lines: removed, linewise: true}

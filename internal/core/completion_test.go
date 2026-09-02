@@ -38,18 +38,18 @@ func TestCompletionTriggers(t *testing.T) {
 // 서버가 준 범위가 이미 친 접두를 덮는다. 우리가 접두를 세지 않는다.
 func TestInsertCompletionReplacesPrefix(t *testing.T) {
 	buf := newBuffer("a.go", []byte("x := strings.Con\n"))
-	buf.cursor.line, buf.cursor.col = 0, len("x := strings.Con")
+	buf.cursor.Line, buf.cursor.Col = 0, len("x := strings.Con")
 
 	buf.insertCompletion(item("Contains", 0, 13, 16), wide)
 
 	assert.Equal(t, "x := strings.Contains", string(buf.lines[0]))
-	assert.Equal(t, len("x := strings.Contains"), buf.cursor.col, "커서가 넣은 글자 뒤에 선다")
+	assert.Equal(t, len("x := strings.Contains"), buf.cursor.Col, "커서가 넣은 글자 뒤에 선다")
 }
 
 // 범위가 없으면 커서 자리에 넣는다.
 func TestInsertCompletionWithoutRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\n"))
-	buf.cursor.line, buf.cursor.col = 0, 2
+	buf.cursor.Line, buf.cursor.Col = 0, 2
 
 	buf.insertCompletion(lsp.CompletionItem{Label: "cd"}, wide)
 
@@ -59,7 +59,7 @@ func TestInsertCompletionWithoutRange(t *testing.T) {
 // 서버가 보던 판과 어긋나 범위가 줄 밖을 가리켜도 죽지 않는다.
 func TestInsertCompletionClampsRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\n"))
-	buf.cursor.line, buf.cursor.col = 0, 2
+	buf.cursor.Line, buf.cursor.Col = 0, 2
 
 	buf.insertCompletion(item("Z", 0, 100, 200), wide)
 
@@ -81,7 +81,7 @@ func TestInsertCompletionKeepsUndoChunkOpen(t *testing.T) {
 // 여러 줄에 걸친 범위는 따르지 않는다. snippet 은 켜지 않았다.
 func TestInsertCompletionIgnoresMultilineRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\ncd\n"))
-	buf.cursor.line, buf.cursor.col = 0, 1
+	buf.cursor.Line, buf.cursor.Col = 0, 1
 
 	buf.insertCompletion(lsp.CompletionItem{
 		Label: "Z",

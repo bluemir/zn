@@ -293,11 +293,11 @@ func TestViewEditorArrowKeysMoveCursor(t *testing.T) {
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	moved := updated.(viewEditorNormal)
-	assert.Equal(t, 1, moved.buffers[0].cursor.col)
+	assert.Equal(t, 1, moved.buffers[0].cursor.Col)
 
 	updated, _ = moved.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	moved = updated.(viewEditorNormal)
-	assert.Equal(t, 1, moved.buffers[0].cursor.line)
+	assert.Equal(t, 1, moved.buffers[0].cursor.Line)
 }
 
 // expandedRow 는 줄 하나를 화면 글자로 펼친 것이다. 색은 빼고 글자만 본다.

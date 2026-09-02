@@ -512,7 +512,7 @@ func TestPaletteChangesCaseOfSelection(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Equal(t, []string{"FOO bar"}, linesOf(bufferOf(t, m)))
 	// 커서는 범위의 시작이다. visual 의 `U` 와 같다(ADR-0100).
-	assert.Equal(t, 0, bufferOf(t, m).cursor.col)
+	assert.Equal(t, 0, bufferOf(t, m).cursor.Col)
 }
 
 // 짝이 되는 둘 중 하나만 목록에 선다. 무엇에 걸리는지가 고르기 전에 이름에 있다(ADR-0112).

@@ -58,7 +58,7 @@ func TestSubstitute(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			start := newTestEditor(test.data, 60, 8)
-			start.buffers[0].cursor.line = test.line
+			start.buffers[0].cursor.Line = test.line
 
 			m := runCommand(start, test.input)
 
@@ -96,8 +96,8 @@ func TestSubstituteCursor(t *testing.T) {
 	m := runCommand(newTestEditor("a\nb\n    a\nc\n", 60, 8), "%s/a/X/")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 2, buf.cursor.line)
-	assert.Equal(t, 4, buf.cursor.col)
+	assert.Equal(t, 2, buf.cursor.Line)
+	assert.Equal(t, 4, buf.cursor.Col)
 }
 
 // 되돌리기는 한 구간이다. 한 번의 `u` 로 범위 전체가 돌아온다.

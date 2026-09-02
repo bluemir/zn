@@ -22,11 +22,11 @@ func (buf *viewport) scrollTo(width, height int) {
 
 	buf.clampTop(width)
 
-	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursor.line], width, buf.tabWidth()), buf.cursor.col)
+	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursor.Line], width, buf.tabWidth()), buf.cursor.Col)
 
 	// 커서에서 height-1 행 위로 올라간 지점이 top 의 하한이다.
 	// 뒤에서 앞으로 세기 때문에 화면 높이만큼만 훑는다.
-	limitLine, limitRow := buf.retreatRows(buf.cursor.line, cursorRow, height-1, width)
+	limitLine, limitRow := buf.retreatRows(buf.cursor.Line, cursorRow, height-1, width)
 	if rowBefore(buf.top.line, buf.top.row, limitLine, limitRow) {
 		buf.top.line, buf.top.row = limitLine, limitRow
 	}
@@ -46,7 +46,7 @@ func (buf *viewport) scrollTo(width, height int) {
 	for range stickyMaxRows(height) + 1 {
 		margin := len(buf.stickyAt(buf.top.line, height))
 
-		wantLine, wantRow := buf.retreatRows(buf.cursor.line, cursorRow, margin, width)
+		wantLine, wantRow := buf.retreatRows(buf.cursor.Line, cursorRow, margin, width)
 		if !rowBefore(wantLine, wantRow, buf.top.line, buf.top.row) {
 			return
 		}
@@ -105,7 +105,7 @@ func (buf *viewport) scrollBy(n, width, height int) {
 		line, row = buf.advanceRows(buf.top.line, buf.top.row, height-1, width)
 	}
 
-	// 칸은 desiredX 을 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
+	// 칸은 desiredX 를 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
 	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
 }
 
@@ -133,12 +133,12 @@ func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, wid
 	// 커서도 화면 행으로 옮긴다. 되풀이해 한 행씩 가는 moveUp/moveDown 을 쓰지 않는 것은
 	// 저쪽이 파일 끝에 닿아도 남은 횟수를 다 도는데, 여기서는 그 횟수가 숫자 곱 한 화면이라
 	// 커질 수 있어서다. advanceRows·retreatRows 는 끝에서 곧바로 돌아온다.
-	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursor.line], width, buf.tabWidth()), buf.cursor.col)
+	cursorRow := rowIndexAt(wrapOffsets(buf.lines[buf.cursor.Line], width, buf.tabWidth()), buf.cursor.Col)
 
 	if direction == pageUp {
 		buf.top.line, buf.top.row = buf.retreatRows(buf.top.line, buf.top.row, rows, width)
 
-		line, row := buf.retreatRows(buf.cursor.line, cursorRow, rows, width)
+		line, row := buf.retreatRows(buf.cursor.Line, cursorRow, rows, width)
 		buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
 
 		buf.scrollTo(width, height)
@@ -148,7 +148,7 @@ func (buf *viewport) movePage(direction pageDirection, span pageSpan, count, wid
 
 	buf.top.line, buf.top.row = buf.advanceRows(buf.top.line, buf.top.row, rows, width)
 
-	line, row := buf.advanceRows(buf.cursor.line, cursorRow, rows, width)
+	line, row := buf.advanceRows(buf.cursor.Line, cursorRow, rows, width)
 	buf.placeCursorInRow(line, wrapOffsets(buf.lines[line], width, buf.tabWidth()), row, width)
 
 	// 파일 끝을 지나서까지 굴리지 않는다. 마지막 행이 화면 맨 아래에 오는 자리가 끝이고
@@ -192,19 +192,19 @@ func (buf viewport) visibleRows(width, height int) []screenRow {
 
 // cursorScreenPos 는 커서의 화면 좌표를 돌려준다. 커서가 화면 밖이면 ok 가 false 다.
 func (buf viewport) cursorScreenPos(width, height int) (x, y int, ok bool) {
-	line := buf.lines[buf.cursor.line]
+	line := buf.lines[buf.cursor.Line]
 
 	for y, row := range buf.visibleRows(width, height) {
-		if row.line != buf.cursor.line || buf.cursor.col < row.start {
+		if row.line != buf.cursor.Line || buf.cursor.Col < row.start {
 			continue
 		}
 		// 행 경계의 offset 은 앞 행의 끝이 아니라 다음 행의 시작으로 본다.
 		// 줄 끝일 때만 마지막 행의 끝에 놓는다.
-		if buf.cursor.col > row.end || (buf.cursor.col == row.end && row.end != len(line)) {
+		if buf.cursor.Col > row.end || (buf.cursor.Col == row.end && row.end != len(line)) {
 			continue
 		}
 
-		return screenColAt(line[row.start:row.end], buf.cursor.col-row.start, buf.tabWidth()), y, true
+		return screenColAt(line[row.start:row.end], buf.cursor.Col-row.start, buf.tabWidth()), y, true
 	}
 
 	return 0, 0, false

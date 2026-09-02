@@ -69,8 +69,8 @@ func TestShiftPutsCursorOnFirstNonBlank(t *testing.T) {
 	m = send(m, ">", ">")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 0, buf.cursor.line)
-	assert.Equal(t, 1, buf.cursor.col, "들여쓰기 다음")
+	assert.Equal(t, 0, buf.cursor.Line)
+	assert.Equal(t, 1, buf.cursor.Col, "들여쓰기 다음")
 }
 
 func TestShiftIsOneUndo(t *testing.T) {

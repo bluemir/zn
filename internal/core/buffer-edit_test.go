@@ -42,12 +42,12 @@ func TestInsertText(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
-			buf.cursor.col = test.at
+			buf.cursor.Col = test.at
 
 			buf.insert([]byte(test.text), wide)
 
 			assert.Equal(t, test.want, string(buf.lines[0]))
-			assert.Equal(t, test.cursor, buf.cursor.col)
+			assert.Equal(t, test.cursor, buf.cursor.Col)
 		})
 	}
 }
@@ -55,35 +55,35 @@ func TestInsertText(t *testing.T) {
 // Enter 는 줄바꿈을 넣는 것이므로 insert 와 같은 경로다.
 func TestInsertNewlineSplitsLine(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abcd\nnext\n"))
-	buf.cursor.col = 2
+	buf.cursor.Col = 2
 
 	buf.insert([]byte("\n"), wide)
 
 	assert.Equal(t, []string{"ab", "cd", "next"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line)
-	assert.Equal(t, 0, buf.cursor.col)
+	assert.Equal(t, 1, buf.cursor.Line)
+	assert.Equal(t, 0, buf.cursor.Col)
 }
 
 func TestInsertNewlineAtLineEnd(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\n"))
-	buf.cursor.col = 2
+	buf.cursor.Col = 2
 
 	buf.insert([]byte("\n"), wide)
 
 	assert.Equal(t, []string{"ab", ""}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 1, buf.cursor.Line)
 }
 
 // 붙여넣기는 여러 줄일 수 있다. 같은 함수가 처리한다.
 func TestInsertMultipleLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ad\n"))
-	buf.cursor.col = 1
+	buf.cursor.Col = 1
 
 	buf.insert([]byte("b\nmiddle\nc"), wide)
 
 	assert.Equal(t, []string{"ab", "middle", "cd"}, linesOf(buf))
-	assert.Equal(t, 2, buf.cursor.line)
-	assert.Equal(t, 1, buf.cursor.col, "마지막 조각 뒤")
+	assert.Equal(t, 2, buf.cursor.Line)
+	assert.Equal(t, 1, buf.cursor.Col, "마지막 조각 뒤")
 }
 
 func TestDeleteBackward(t *testing.T) {
@@ -103,26 +103,26 @@ func TestDeleteBackward(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.line+"\n"))
-			buf.cursor.col = test.at
+			buf.cursor.Col = test.at
 
 			buf.deleteBackward(wide)
 
 			assert.Equal(t, test.want, string(buf.lines[0]))
-			assert.Equal(t, test.cursor, buf.cursor.col)
+			assert.Equal(t, test.cursor, buf.cursor.Col)
 		})
 	}
 }
 
 func TestDeleteBackwardJoinsLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\ncd\n"))
-	buf.cursor.line = 1
-	buf.cursor.col = 0
+	buf.cursor.Line = 1
+	buf.cursor.Col = 0
 
 	buf.deleteBackward(wide)
 
 	assert.Equal(t, []string{"abcd"}, linesOf(buf))
-	assert.Equal(t, 0, buf.cursor.line)
-	assert.Equal(t, 2, buf.cursor.col, "합쳐진 지점")
+	assert.Equal(t, 0, buf.cursor.Line)
+	assert.Equal(t, 2, buf.cursor.Col, "합쳐진 지점")
 }
 
 func TestDeleteBackwardAtStartOfFileDoesNothing(t *testing.T) {
@@ -131,7 +131,7 @@ func TestDeleteBackwardAtStartOfFileDoesNothing(t *testing.T) {
 	buf.deleteBackward(wide)
 
 	assert.Equal(t, []string{"ab"}, linesOf(buf))
-	assert.Equal(t, 0, buf.cursor.col)
+	assert.Equal(t, 0, buf.cursor.Col)
 	assert.Empty(t, buf.undo, "바뀐 것이 없으면 undo 기록도 없다")
 }
 
@@ -139,7 +139,7 @@ func TestDeleteBackwardAtStartOfFileDoesNothing(t *testing.T) {
 func TestEditKeepsBackingBuffer(t *testing.T) {
 	data := []byte("abc\ndef\n")
 	buf := newBuffer("test.txt", data)
-	buf.cursor.col = 1
+	buf.cursor.Col = 1
 
 	buf.insert([]byte("XYZ"), wide)
 
@@ -150,7 +150,7 @@ func TestEditKeepsBackingBuffer(t *testing.T) {
 // 안 건드린 줄은 여전히 data 를 가리켜야 한다. 복사하면 큰 파일에서 메모리가 뛴다.
 func TestEditKeepsUntouchedLinesAliased(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\ndef\n"))
-	buf.cursor.col = 1
+	buf.cursor.Col = 1
 	buf.insert([]byte("X"), wide)
 
 	buf.data[4] = 'D'
@@ -160,7 +160,7 @@ func TestEditKeepsUntouchedLinesAliased(t *testing.T) {
 // 이어지는 타이핑은 u 한 번에 되돌아간다.
 func TestUndoTypingRun(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
-	buf.cursor.col = 3
+	buf.cursor.Col = 3
 
 	for _, c := range []string{"d", "e", "f"} {
 		buf.insert([]byte(c), wide)
@@ -169,7 +169,7 @@ func TestUndoTypingRun(t *testing.T) {
 
 	assert.True(t, buf.applyUndo(wide))
 	assert.Equal(t, "abc", string(buf.lines[0]), "타이핑 구간 전체가 한 번에")
-	assert.Equal(t, 3, buf.cursor.col, "커서가 구간 시작 자리로")
+	assert.Equal(t, 3, buf.cursor.Col, "커서가 구간 시작 자리로")
 
 	assert.False(t, buf.applyUndo(wide), "더 되돌릴 것이 없다")
 }
@@ -177,7 +177,7 @@ func TestUndoTypingRun(t *testing.T) {
 // 커서를 옮기면 구간이 끊긴다. vim 과 같다.
 func TestCursorMoveBreaksUndoRun(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
-	buf.cursor.col = 3
+	buf.cursor.Col = 3
 
 	buf.insert([]byte("d"), wide)
 	buf.endEdit() // 화살표 이동이 하는 일
@@ -193,24 +193,24 @@ func TestCursorMoveBreaksUndoRun(t *testing.T) {
 
 func TestUndoNewline(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abcd\n"))
-	buf.cursor.col = 2
+	buf.cursor.Col = 2
 
 	buf.insert([]byte("\n"), wide)
 	require.Equal(t, []string{"ab", "cd"}, linesOf(buf))
 
 	require.True(t, buf.applyUndo(wide))
 	assert.Equal(t, []string{"abcd"}, linesOf(buf))
-	assert.Equal(t, 0, buf.cursor.line)
+	assert.Equal(t, 0, buf.cursor.Line)
 }
 
 // 줄 합치기는 열린 구간의 범위 밖을 건드린다. 구간이 넓어져야 한 번에 되돌아간다.
 func TestUndoLineJoinWithinRun(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\ncd\n"))
-	buf.cursor.line = 1
-	buf.cursor.col = 0
+	buf.cursor.Line = 1
+	buf.cursor.Col = 0
 
 	buf.insert([]byte("X"), wide) // "ab", "Xcd"
-	buf.cursor.col = 0            // 줄 시작으로
+	buf.cursor.Col = 0            // 줄 시작으로
 	buf.deleteBackward(wide)      // 앞 줄과 합침 → "abXcd"
 	buf.insert([]byte("Y"), wide) // "abYXcd"
 	require.Equal(t, []string{"abYXcd"}, linesOf(buf))
@@ -222,7 +222,7 @@ func TestUndoLineJoinWithinRun(t *testing.T) {
 
 func TestRedo(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
-	buf.cursor.col = 3
+	buf.cursor.Col = 3
 
 	buf.insert([]byte("d"), wide)
 	require.True(t, buf.applyUndo(wide))
@@ -236,7 +236,7 @@ func TestRedo(t *testing.T) {
 
 func TestRedoClearedByNewEdit(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\n"))
-	buf.cursor.col = 3
+	buf.cursor.Col = 3
 
 	buf.insert([]byte("d"), wide)
 	require.True(t, buf.applyUndo(wide))
@@ -251,7 +251,7 @@ func TestRedoClearedByNewEdit(t *testing.T) {
 // undo 기록은 옛 줄을 참조로만 담는다. 되돌린 내용이 원본 data 를 그대로 가리켜야 한다.
 func TestUndoRestoresAliasedLine(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abc\ndef\n"))
-	buf.cursor.col = 1
+	buf.cursor.Col = 1
 
 	buf.insert([]byte("X"), wide)
 	require.True(t, buf.applyUndo(wide))
@@ -280,7 +280,7 @@ func TestSaveAfterEdit(t *testing.T) {
 			buf, err := OpenBuffer(path)
 			require.NoError(t, err)
 
-			buf.cursor.col = 2
+			buf.cursor.Col = 2
 			buf.insert([]byte("X"), wide)
 			require.NoError(t, saveBuffer(t, &buf))
 
@@ -299,7 +299,7 @@ func TestSaveAfterNewline(t *testing.T) {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	buf.cursor.col = 2
+	buf.cursor.Col = 2
 	buf.insert([]byte("\n"), wide)
 	require.NoError(t, saveBuffer(t, &buf))
 
@@ -311,12 +311,12 @@ func TestSaveAfterNewline(t *testing.T) {
 // 화면보다 많은 줄을 넣어도 커서가 따라가고 화면이 스크롤되어야 한다.
 func TestInsertManyLinesScrolls(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("start\n"))
-	buf.cursor.col = 5
+	buf.cursor.Col = 5
 
 	buf.insert([]byte(strings.Repeat("\nx", 20)), wide)
 	buf.scrollTo(wide, 10)
 
-	assert.Equal(t, 20, buf.cursor.line)
+	assert.Equal(t, 20, buf.cursor.Line)
 	assert.Positive(t, buf.top.line, "커서가 화면 아래로 나가면 스크롤된다")
 }
 
@@ -421,7 +421,7 @@ func TestUndoClampsCursorInNormalMode(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, "ab", string(buf.lines[0]))
-	assert.Less(t, buf.cursor.col, len(buf.lines[0])+1)
+	assert.Less(t, buf.cursor.Col, len(buf.lines[0])+1)
 }
 
 // 줄 끝 공백 지우기는 사이에 안 바뀐 줄이 껴 있어도 한 번에 끝난다.
@@ -480,13 +480,13 @@ func TestTrimTrailingSpaceEmptiesBlankLine(t *testing.T) {
 // 커서가 잘려나간 자리에 있었으면 당겨지고, `u` 로 원래 칸에 돌아온다.
 func TestTrimTrailingSpaceMovesCursor(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab    \n"))
-	buf.cursor.col = 5
+	buf.cursor.Col = 5
 
 	buf.trimTrailingSpace(0, len(buf.lines), 40)
-	assert.Equal(t, 2, buf.cursor.col)
+	assert.Equal(t, 2, buf.cursor.Col)
 
 	buf.applyUndo(40)
-	assert.Equal(t, 5, buf.cursor.col)
+	assert.Equal(t, 5, buf.cursor.Col)
 }
 
 // 줄 가운데의 이어진 공백만 한 칸으로 줄인다.

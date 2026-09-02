@@ -52,20 +52,20 @@ func TestDiagnosticLinesAreNotGrouped(t *testing.T) {
 // `]c` 는 다음 자리의 첫 줄로 가고 `[c` 는 앞 자리로 간다.
 func TestJumpBetweenChanges(t *testing.T) {
 	m := send(markerFixture(t), "]", "c")
-	assert.Equal(t, 1, m.(viewEditorNormal).activeBuffer().cursor.line, "첫 덩이의 첫 줄")
+	assert.Equal(t, 1, m.(viewEditorNormal).activeBuffer().cursor.Line, "첫 덩이의 첫 줄")
 
 	m = send(m, "]", "c")
-	assert.Equal(t, 7, m.(viewEditorNormal).activeBuffer().cursor.line, "덩이 안을 짚지 않고 다음 덩이로")
+	assert.Equal(t, 7, m.(viewEditorNormal).activeBuffer().cursor.Line, "덩이 안을 짚지 않고 다음 덩이로")
 
 	m = send(m, "[", "c")
-	assert.Equal(t, 1, m.(viewEditorNormal).activeBuffer().cursor.line)
+	assert.Equal(t, 1, m.(viewEditorNormal).activeBuffer().cursor.Line)
 }
 
 // 숫자 접두를 받는다. `2]c` 는 둘을 건너뛴다.
 func TestJumpBetweenChangesTakesCount(t *testing.T) {
 	m := send(markerFixture(t), "2", "]", "c")
 
-	assert.Equal(t, 7, m.(viewEditorNormal).activeBuffer().cursor.line)
+	assert.Equal(t, 7, m.(viewEditorNormal).activeBuffer().cursor.Line)
 }
 
 // 끝에서 감아 돈다. 검색과 같고, 감았으면 아래 줄에 알린다.
@@ -74,32 +74,32 @@ func TestJumpBetweenChangesWraps(t *testing.T) {
 
 	next := m.(viewEditorNormal)
 
-	assert.Equal(t, 1, next.activeBuffer().cursor.line, "마지막 다음은 처음이다")
+	assert.Equal(t, 1, next.activeBuffer().cursor.Line, "마지막 다음은 처음이다")
 	assert.Equal(t, "아래에서 처음으로 돌아옴", next.notice)
 }
 
 // `]d` 는 진단을 한 줄씩 짚는다.
 func TestJumpBetweenDiagnostics(t *testing.T) {
 	m := send(markerFixture(t), "]", "d")
-	assert.Equal(t, 2, m.(viewEditorNormal).activeBuffer().cursor.line)
+	assert.Equal(t, 2, m.(viewEditorNormal).activeBuffer().cursor.Line)
 
 	m = send(m, "]", "d")
-	assert.Equal(t, 3, m.(viewEditorNormal).activeBuffer().cursor.line, "잇달아 선 것도 따로 짚는다")
+	assert.Equal(t, 3, m.(viewEditorNormal).activeBuffer().cursor.Line, "잇달아 선 것도 따로 짚는다")
 
 	m = send(m, "[", "d")
-	assert.Equal(t, 2, m.(viewEditorNormal).activeBuffer().cursor.line)
+	assert.Equal(t, 2, m.(viewEditorNormal).activeBuffer().cursor.Line)
 }
 
 // 뛰기 전 자리는 이력에 담긴다. `ctrl+o` 로 돌아온다(ADR-0070).
 func TestJumpBetweenChangesRecordsJump(t *testing.T) {
 	m := send(markerFixture(t), "5", "G")
-	require.Equal(t, 4, m.(viewEditorNormal).activeBuffer().cursor.line)
+	require.Equal(t, 4, m.(viewEditorNormal).activeBuffer().cursor.Line)
 
 	m = send(m, "]", "c")
-	require.Equal(t, 7, m.(viewEditorNormal).activeBuffer().cursor.line)
+	require.Equal(t, 7, m.(viewEditorNormal).activeBuffer().cursor.Line)
 
 	m = send(m, "ctrl+o")
-	assert.Equal(t, 4, m.(viewEditorNormal).activeBuffer().cursor.line)
+	assert.Equal(t, 4, m.(viewEditorNormal).activeBuffer().cursor.Line)
 }
 
 // 하나도 없으면 커서를 두고 알리기만 한다. 아무 일도 안 나면 키가 안 먹은 것으로 읽힌다.
@@ -109,7 +109,7 @@ func TestJumpWithoutMarkersNotifies(t *testing.T) {
 	m = send(m, "j", "]", "c")
 	next := m.(viewEditorNormal)
 
-	assert.Equal(t, 1, next.activeBuffer().cursor.line, "커서는 그대로다")
+	assert.Equal(t, 1, next.activeBuffer().cursor.Line, "커서는 그대로다")
 	assert.Equal(t, "바뀐 자리가 없습니다", next.notice)
 
 	m = send(m, "]", "d")
@@ -123,7 +123,7 @@ func TestBracketKeysAreNotMotions(t *testing.T) {
 	next := m.(viewEditorNormal)
 
 	assert.Len(t, next.activeBuffer().lines, 10, "줄이 지워지지 않았다")
-	assert.Zero(t, next.activeBuffer().cursor.line, "커서도 그대로다")
+	assert.Zero(t, next.activeBuffer().cursor.Line, "커서도 그대로다")
 }
 
 // 접두 키를 먹는 동안 showcmd 에 그 키가 보인다.

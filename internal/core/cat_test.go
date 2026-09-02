@@ -5,12 +5,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bluemir/zn/internal/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // catOf 는 범위를 내보내고 터미널에 찍힌 것을 준다. shellRun 을 보는 손과 같다.
-func catOf(t *testing.T, buf viewport, area MotionRange) string {
+func catOf(t *testing.T, buf viewport, area scheme.MotionRange) string {
 	t.Helper()
 
 	out := &bytes.Buffer{}
@@ -28,7 +29,7 @@ func catOf(t *testing.T, buf viewport, area MotionRange) string {
 func TestCatRunPrintsFileBytes(t *testing.T) {
 	buf := newBuffer("a.go", []byte("package main\n\tif x {\n"))
 
-	text := catOf(t, buf, MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
+	text := catOf(t, buf, scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
 	assert.Contains(t, text, "package main\n")
 	assert.Contains(t, text, "\tif x {\n", "tab 이 칸으로 펼쳐지지 않는다")
@@ -42,7 +43,7 @@ func TestCatRunPrintsFileBytes(t *testing.T) {
 func TestCatRunEndsBodyLinesWithLF(t *testing.T) {
 	buf := newBuffer("a.go", []byte("aaa\nbbb\n"))
 
-	text := catOf(t, buf, MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
+	text := catOf(t, buf, scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
 	assert.Contains(t, text, "aaa\nbbb\n", "본문 줄 사이에 `\\r` 이 없다")
 	assert.True(t, strings.HasPrefix(text, "\r\n"), "머리말은 `\\r\\n` 으로 두른다")
@@ -53,7 +54,7 @@ func TestCatRunEndsBodyLinesWithLF(t *testing.T) {
 func TestCatRunEchoesHeaderAndWaitsForEnter(t *testing.T) {
 	buf := newBuffer("a.go", []byte("aaa\nbbb\n"))
 
-	text := catOf(t, buf, MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
+	text := catOf(t, buf, scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
 	assert.Less(t, strings.Index(text, ":cat"), strings.Index(text, "aaa"), "머리말이 본문보다 먼저다")
 	assert.Less(t, strings.Index(text, "bbb"), strings.Index(text, "계속하려면 Enter"), "묻는 것은 맨 나중이다")
@@ -64,15 +65,15 @@ func TestCatHeader(t *testing.T) {
 	tests := []struct {
 		name string
 		path string
-		area MotionRange
+		area scheme.MotionRange
 		want string
 	}{
 		{name: "줄 범위는 1 부터다", path: "a.go",
-			area: MotionRange{start: Cursor{line: 0}, end: Cursor{line: 6}, linewise: true}, want: ":cat a.go 1-7"},
+			area: scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 6}, Linewise: true}, want: ":cat a.go 1-7"},
 		{name: "한 줄", path: "a.go",
-			area: MotionRange{start: Cursor{line: 2}, end: Cursor{line: 2}, linewise: true}, want: ":cat a.go 3-3"},
+			area: scheme.MotionRange{Start: scheme.Cursor{Line: 2}, End: scheme.Cursor{Line: 2}, Linewise: true}, want: ":cat a.go 3-3"},
 		{name: "이름 없는 buffer", path: "",
-			area: MotionRange{start: Cursor{line: 0}, end: Cursor{line: 0}, linewise: true}, want: ":cat [No Name] 1-1"},
+			area: scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 0}, Linewise: true}, want: ":cat [No Name] 1-1"},
 	}
 
 	for _, test := range tests {
@@ -90,16 +91,16 @@ func TestCatLines(t *testing.T) {
 
 	tests := []struct {
 		name string
-		area MotionRange
+		area scheme.MotionRange
 		want []string
 	}{
-		{name: "줄 단위", area: MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true},
+		{name: "줄 단위", area: scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true},
 			want: []string{"abcdef", "ghijkl"}},
-		{name: "줄 하나", area: MotionRange{start: Cursor{line: 2}, end: Cursor{line: 2}, linewise: true},
+		{name: "줄 하나", area: scheme.MotionRange{Start: scheme.Cursor{Line: 2}, End: scheme.Cursor{Line: 2}, Linewise: true},
 			want: []string{"mnopqr"}},
-		{name: "한 줄 안의 글자", area: MotionRange{start: Cursor{line: 0, col: 1}, end: Cursor{line: 0, col: 4}},
+		{name: "한 줄 안의 글자", area: scheme.MotionRange{Start: scheme.Cursor{Line: 0, Col: 1}, End: scheme.Cursor{Line: 0, Col: 4}},
 			want: []string{"bcd"}},
-		{name: "여러 줄에 걸친 글자", area: MotionRange{start: Cursor{line: 0, col: 4}, end: Cursor{line: 1, col: 2}},
+		{name: "여러 줄에 걸친 글자", area: scheme.MotionRange{Start: scheme.Cursor{Line: 0, Col: 4}, End: scheme.Cursor{Line: 1, Col: 2}},
 			want: []string{"ef", "gh"}},
 	}
 
@@ -118,13 +119,13 @@ func TestCatLines(t *testing.T) {
 // 파일도 커서도 건드리지 않는다.
 func TestCatLinesTouchesNothing(t *testing.T) {
 	buf := newBuffer("a.go", []byte("abc\ndef\n"))
-	buf.cursor.line, buf.cursor.col = 1, 2
+	buf.cursor.Line, buf.cursor.Col = 1, 2
 
-	buf.catLines(MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
+	buf.catLines(scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
 	assert.Equal(t, []string{"abc", "def"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.line)
-	assert.Equal(t, 2, buf.cursor.col)
+	assert.Equal(t, 1, buf.cursor.Line)
+	assert.Equal(t, 2, buf.cursor.Col)
 	assert.False(t, buf.dirty)
 }
 
@@ -135,9 +136,9 @@ func TestVisibleRange(t *testing.T) {
 
 	area := m.visibleRange()
 
-	assert.True(t, area.linewise)
-	assert.Equal(t, 0, area.start.line)
-	assert.Equal(t, 3, area.end.line, "화면 높이만큼이다")
+	assert.True(t, area.Linewise)
+	assert.Equal(t, 0, area.Start.Line)
+	assert.Equal(t, 3, area.End.Line, "화면 높이만큼이다")
 }
 
 // 굴려 놓은 자리를 따라간다. 화면 첫 줄이 파일 첫 줄이 아니어도 된다.
@@ -147,8 +148,8 @@ func TestVisibleRangeFollowsScroll(t *testing.T) {
 
 	area := m.visibleRange()
 
-	assert.Equal(t, 5, area.start.line)
-	assert.Equal(t, 8, area.end.line)
+	assert.Equal(t, 5, area.Start.Line)
+	assert.Equal(t, 8, area.End.Line)
 }
 
 // 긴 줄은 화면 행 여럿을 먹는다. 세는 것은 줄이라 든 줄 수가 화면 높이보다 적어진다.
@@ -157,8 +158,8 @@ func TestVisibleRangeCountsLinesNotRows(t *testing.T) {
 
 	area := m.visibleRange()
 
-	assert.Equal(t, 0, area.start.line)
-	assert.Equal(t, 1, area.end.line, "긴 줄이 행 일곱을 먹어서 여덟 행에 줄 둘만 든다")
+	assert.Equal(t, 0, area.Start.Line)
+	assert.Equal(t, 1, area.End.Line, "긴 줄이 행 일곱을 먹어서 여덟 행에 줄 둘만 든다")
 }
 
 // 파일 끝에서는 있는 만큼이다.
@@ -167,8 +168,8 @@ func TestVisibleRangeStopsAtLastLine(t *testing.T) {
 
 	area := m.visibleRange()
 
-	assert.Equal(t, 0, area.start.line)
-	assert.Equal(t, 1, area.end.line)
+	assert.Equal(t, 0, area.Start.Line)
+	assert.Equal(t, 1, area.End.Line)
 }
 
 // `\c` 는 두 키짜리 leader 조합이다. 나머지 셋(`\gd` `\gr` `\rn`) 은 세 키다.
@@ -254,7 +255,7 @@ func TestCatFromVisualLeavesToNormalAtRangeStart(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 1, buf.cursor.Line)
 	assert.False(t, buf.selection.active, "고른 것은 놓는다")
 	assert.Equal(t, []string{"aaa", "bbb", "ccc", "ddd"}, linesOf(buf))
 }
@@ -266,7 +267,7 @@ func TestCatFromNormalTouchesNothing(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 1, buf.cursor.Line)
 	assert.False(t, buf.dirty)
 }
 
@@ -321,6 +322,6 @@ func TestVisibleRangeIncludesLinesUnderSticky(t *testing.T) {
 
 	area := m.visibleRange()
 
-	assert.Equal(t, 3, area.start.line, "머리줄이 덮은 줄이 그대로 시작이다")
-	assert.Equal(t, 6, area.end.line)
+	assert.Equal(t, 3, area.Start.Line, "머리줄이 덮은 줄이 그대로 시작이다")
+	assert.Equal(t, 6, area.End.Line)
 }

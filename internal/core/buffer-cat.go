@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // `\c`·`:cat` 이 내보낼 글을 뜨는 자리다. 무엇을 낼지는 cat.go 가 정하고 여기는 뜨기만 한다
 // (ADR-0085).
 
@@ -10,10 +12,10 @@ package core
 //
 // 커서도 파일도 건드리지 않는다. 그래서 값 receiver 다 — yankRange 가 포인터인 것은
 // moveToRangeStart 때문인데, 커서를 옮길지는 부르는 쪽마다 다르다(visual 만 옮긴다).
-func (buf Buffer) catLines(area MotionRange) [][]byte {
-	if area.linewise {
-		return buf.lines[area.start.line : area.end.line+1]
+func (buf Buffer) catLines(area scheme.MotionRange) [][]byte {
+	if area.Linewise {
+		return buf.lines[area.Start.Line : area.End.Line+1]
 	}
 
-	return buf.textBetween(area.start, area.end)
+	return buf.textBetween(area.Start, area.End)
 }

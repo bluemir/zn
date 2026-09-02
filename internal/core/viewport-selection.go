@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // visual mode 가 고른 범위다. anchor 는 Buffer 가 들고 반대쪽 끝은 커서다 (ADR-0037).
 //
 // **여기 있는 것은 커서나 화면 자리를 만진다.** 글만 다루는 것은
@@ -12,13 +14,13 @@ package core
 //
 // **커서가 선 글자를 범위에 넣는다.** vim 의 visual 은 inclusive 라 `vd` 가 `x` 와 같다.
 // `e` 가 span 에서 includeCursorCluster 를 부르는 것과 같은 자리다(ADR-0013).
-func (buf viewport) selectionRange() (MotionRange, bool) {
+func (buf viewport) selectionRange() (scheme.MotionRange, bool) {
 	if !buf.selection.active {
-		return MotionRange{}, false
+		return scheme.MotionRange{}, false
 	}
 
 	startLine, startCol := buf.selection.line, buf.selection.col
-	endLine, endCol := buf.cursor.line, buf.cursor.col
+	endLine, endCol := buf.cursor.Line, buf.cursor.Col
 
 	if endLine < startLine || (endLine == startLine && endCol < startCol) {
 		startLine, startCol, endLine, endCol = endLine, endCol, startLine, startCol
@@ -28,7 +30,7 @@ func (buf viewport) selectionRange() (MotionRange, bool) {
 	// 범위의 시작으로 옮길 때 그 칸이 필요하다 — 어느 쪽 끝에서 골랐든 처음 짚은 자리로
 	// 돌아가는 것이 vim 의 visual `y` 다(buffer-yank.go 의 moveToRangeStart, ADR-0100).
 	if buf.selection.linewise {
-		return MotionRange{start: Cursor{line: startLine, col: startCol}, end: Cursor{line: endLine, col: endCol}, linewise: true}, true
+		return scheme.MotionRange{Start: scheme.Cursor{Line: startLine, Col: startCol}, End: scheme.Cursor{Line: endLine, Col: endCol}, Linewise: true}, true
 	}
 
 	// 줄 끝에서는 밀 글자가 없다. 빈 줄을 고른 것이라 범위가 비어 있는 그대로다.
@@ -36,7 +38,7 @@ func (buf viewport) selectionRange() (MotionRange, bool) {
 		endCol += glyphSize(line, endCol)
 	}
 
-	return MotionRange{start: Cursor{line: startLine, col: startCol}, end: Cursor{line: endLine, col: endCol}}, true
+	return scheme.MotionRange{Start: scheme.Cursor{Line: startLine, Col: startCol}, End: scheme.Cursor{Line: endLine, Col: endCol}}, true
 }
 
 // startSelection 은 커서 자리를 anchor 로 삼아 범위를 연다. `v`·`V` 와 드래그가 여기로 온다.
@@ -44,8 +46,8 @@ func (buf *viewport) startSelection(linewise bool) {
 	buf.selection = selection{
 		active:   true,
 		linewise: linewise,
-		line:     buf.cursor.line,
-		col:      buf.cursor.col,
+		line:     buf.cursor.Line,
+		col:      buf.cursor.Col,
 	}
 }
 

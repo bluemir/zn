@@ -1,5 +1,7 @@
 package core
 
+import "github.com/bluemir/zn/internal/scheme"
+
 // motion 은 커서가 갈 자리를 정하는 것이다.
 //
 // 이동 키로 그냥 칠 수도 있고(`w`) operator 뒤에 붙어 범위를 정할 수도 있다(`dw`).
@@ -13,7 +15,7 @@ type motion interface {
 	//
 	// count 를 그대로 받는다. 0 이 "숫자 없음" 이고 그것을 어떻게 읽을지는 motion 마다 다르다 —
 	// `3w` 는 되풀이이고 `3G` 는 줄 번호다.
-	span(buf viewport, count, width int) (MotionRange, bool)
+	span(buf viewport, count, width int) (scheme.MotionRange, bool)
 }
 
 // moveMotion 은 이동 키로도 칠 수 있는 motion 이다. 거의 다 여기 든다.
@@ -31,15 +33,15 @@ type moveMotion interface {
 // 이동을 복사본 위에서 실제로 실행해서 얻는다. 이동 코드가 하나뿐이라 `w` 가 가는 자리와
 // `dw` 가 지우는 끝이 어긋날 수 없다. Buffer 는 slice header 뭉치라 복사가 싸고
 // 이동은 lines 를 건드리지 않는다(ADR-0013).
-func charSpan(buf viewport, moved viewport) (MotionRange, bool) {
-	line, col := moved.cursor.line, moved.cursor.col
+func charSpan(buf viewport, moved viewport) (scheme.MotionRange, bool) {
+	line, col := moved.cursor.Line, moved.cursor.Col
 
 	// 뒤로 가는 motion 은 커서가 범위의 끝이다.
-	if line < buf.cursor.line || (line == buf.cursor.line && col < buf.cursor.col) {
-		return MotionRange{start: Cursor{line: line, col: col}, end: Cursor{line: buf.cursor.line, col: buf.cursor.col}}, true
+	if line < buf.cursor.Line || (line == buf.cursor.Line && col < buf.cursor.Col) {
+		return scheme.MotionRange{Start: scheme.Cursor{Line: line, Col: col}, End: scheme.Cursor{Line: buf.cursor.Line, Col: buf.cursor.Col}}, true
 	}
 
-	return MotionRange{start: Cursor{line: buf.cursor.line, col: buf.cursor.col}, end: Cursor{line: line, col: col}}, true
+	return scheme.MotionRange{Start: scheme.Cursor{Line: buf.cursor.Line, Col: buf.cursor.Col}, End: scheme.Cursor{Line: line, Col: col}}, true
 }
 
 // lineSpan 은 줄 단위 범위다. 커서 줄과 닿은 줄 사이의 줄 전체를 뜻한다.
@@ -48,13 +50,13 @@ func charSpan(buf viewport, moved viewport) (MotionRange, bool) {
 // 줄 전체를 쓰므로(`deleteLines`·`changeCaseRange`·`selectionOn`) 이 칸은 그쪽에 닿지 않는다.
 // 담는 까닭은 **복사가 커서를 그 자리로 옮기기 때문**이다 — `yk` 는 칸을 지키고 `ygg` 는 첫
 // 비공백으로 가는데, 그 칸이 범위에 없으면 어디서도 만들어 낼 수 없다(ADR-0017, ADR-0100).
-func lineSpan(buf viewport, moved viewport) (MotionRange, bool) {
+func lineSpan(buf viewport, moved viewport) (scheme.MotionRange, bool) {
 	start, end := buf, moved
-	if moved.cursor.line < buf.cursor.line {
+	if moved.cursor.Line < buf.cursor.Line {
 		start, end = moved, buf
 	}
 
-	return MotionRange{start: Cursor{line: start.cursor.line, col: start.cursor.col}, end: Cursor{line: end.cursor.line, col: end.cursor.col}, linewise: true}, true
+	return scheme.MotionRange{Start: scheme.Cursor{Line: start.cursor.Line, Col: start.cursor.Col}, End: scheme.Cursor{Line: end.cursor.Line, Col: end.cursor.Col}, Linewise: true}, true
 }
 
 // moveOn 은 복사본 위에서 이동을 실행한 결과다. span 을 구하는 자리가 모두 이것으로 시작한다.
@@ -71,7 +73,7 @@ type motionLeft struct{}
 
 func (motionLeft) move(buf *viewport, count, width int) { buf.moveLeft(max(count, 1), width) }
 
-func (m motionLeft) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionLeft) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -80,7 +82,7 @@ type motionRight struct{}
 
 func (motionRight) move(buf *viewport, count, width int) { buf.moveRight(max(count, 1), width) }
 
-func (m motionRight) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionRight) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -89,7 +91,7 @@ type motionLineStart struct{}
 
 func (motionLineStart) move(buf *viewport, count, width int) { buf.moveLineStart(width) }
 
-func (m motionLineStart) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionLineStart) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -98,7 +100,7 @@ type motionFirstNonBlank struct{}
 
 func (motionFirstNonBlank) move(buf *viewport, count, width int) { buf.moveLineFirstNonBlank(width) }
 
-func (m motionFirstNonBlank) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionFirstNonBlank) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -107,7 +109,7 @@ type motionLineEnd struct{}
 
 func (motionLineEnd) move(buf *viewport, count, width int) { buf.moveLineEnd(max(count, 1), width) }
 
-func (m motionLineEnd) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionLineEnd) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -118,7 +120,7 @@ func (m motionWordBack) move(buf *viewport, count, width int) {
 	buf.moveWordBackward(max(count, 1), m.kind, width)
 }
 
-func (m motionWordBack) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionWordBack) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -132,7 +134,7 @@ func (m motionWordEnd) move(buf *viewport, count, width int) {
 	buf.moveWordEnd(max(count, 1), m.kind, width)
 }
 
-func (m motionWordEnd) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionWordEnd) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	moved := moveOn(m, buf, count, width)
 	moved.includeCursorCluster()
 
@@ -150,13 +152,13 @@ func (m motionWordForward) move(buf *viewport, count, width int) {
 	buf.moveWordForward(max(count, 1), m.kind, width)
 }
 
-func (m motionWordForward) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionWordForward) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	moved := buf
 
 	// 중간 걸음은 줄을 넘어도 된다 — `2dw` 는 다음 줄의 단어까지 지운다.
 	moved.moveWordForward(max(count, 1)-1, m.kind, width)
 
-	line := moved.cursor.line
+	line := moved.cursor.Line
 
 	// 빈 줄에서는 그 줄 자체가 지울 것이라 다음 줄 시작까지 간다. 파일 끝이면 갈 곳이 없다.
 	if len(moved.lines[line]) == 0 {
@@ -169,7 +171,7 @@ func (m motionWordForward) span(buf viewport, count, width int) (MotionRange, bo
 
 	// 마지막 한 걸음만 줄에서 멈춘다. 넘었으면 줄끝으로 되돌린다.
 	moved.wordForward(m.kind)
-	if moved.cursor.line != line {
+	if moved.cursor.Line != line {
 		moved.moveTo(line, len(moved.lines[line]), width)
 	}
 
@@ -183,11 +185,11 @@ type motionLineDown struct{}
 
 func (motionLineDown) move(buf *viewport, count, width int) { buf.moveDownLine(max(count, 1)) }
 
-func (m motionLineDown) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionLineDown) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	// 이미 마지막 줄이면 갈 곳이 없어서 아무 일도 하지 않는다.
 	// 줄이 모자라기만 한 것은 파일 끝까지다. vim 과 같다.
-	if buf.cursor.line == len(buf.lines)-1 {
-		return MotionRange{}, false
+	if buf.cursor.Line == len(buf.lines)-1 {
+		return scheme.MotionRange{}, false
 	}
 
 	return lineSpan(buf, moveOn(m, buf, count, width))
@@ -198,9 +200,9 @@ type motionLineUp struct{}
 
 func (motionLineUp) move(buf *viewport, count, width int) { buf.moveUpLine(max(count, 1)) }
 
-func (m motionLineUp) span(buf viewport, count, width int) (MotionRange, bool) {
-	if buf.cursor.line == 0 {
-		return MotionRange{}, false
+func (m motionLineUp) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
+	if buf.cursor.Line == 0 {
+		return scheme.MotionRange{}, false
 	}
 
 	return lineSpan(buf, moveOn(m, buf, count, width))
@@ -220,7 +222,7 @@ func (motionToLastLine) move(buf *viewport, count, width int) {
 	buf.moveToLine(line, width)
 }
 
-func (m motionToLastLine) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionToLastLine) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return lineSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -231,7 +233,7 @@ func (motionToFirstLine) move(buf *viewport, count, width int) {
 	buf.moveToLine(max(count, 1)-1, width)
 }
 
-func (m motionToFirstLine) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionToFirstLine) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	return lineSpan(buf, moveOn(m, buf, count, width))
 }
 
@@ -246,16 +248,16 @@ type motionRowUp struct{}
 
 func (motionRowUp) move(buf *viewport, count, width int) { buf.moveUpRow(max(count, 1), width) }
 
-func (motionRowUp) span(viewport, int, int) (MotionRange, bool) {
-	return MotionRange{}, false
+func (motionRowUp) span(viewport, int, int) (scheme.MotionRange, bool) {
+	return scheme.MotionRange{}, false
 }
 
 type motionRowDown struct{}
 
 func (motionRowDown) move(buf *viewport, count, width int) { buf.moveDownRow(max(count, 1), width) }
 
-func (motionRowDown) span(viewport, int, int) (MotionRange, bool) {
-	return MotionRange{}, false
+func (motionRowDown) span(viewport, int, int) (scheme.MotionRange, bool) {
+	return scheme.MotionRange{}, false
 }
 
 // motionRowStart, motionRowEnd 는 `home` 과 `end` 다. 화면 행의 양끝이라 `0`·`$` 와 갈린다
@@ -267,16 +269,16 @@ type motionRowStart struct{}
 
 func (motionRowStart) move(buf *viewport, count, width int) { buf.moveRowStart(width) }
 
-func (motionRowStart) span(viewport, int, int) (MotionRange, bool) {
-	return MotionRange{}, false
+func (motionRowStart) span(viewport, int, int) (scheme.MotionRange, bool) {
+	return scheme.MotionRange{}, false
 }
 
 type motionRowEnd struct{}
 
 func (motionRowEnd) move(buf *viewport, count, width int) { buf.moveRowEnd(width) }
 
-func (motionRowEnd) span(viewport, int, int) (MotionRange, bool) {
-	return MotionRange{}, false
+func (motionRowEnd) span(viewport, int, int) (scheme.MotionRange, bool) {
+	return scheme.MotionRange{}, false
 }
 
 // motionChangeWord 는 `c` 뒤에 온 `w`·`W` 다. **`cw` 는 `ce` 다.**
@@ -293,16 +295,16 @@ func (m motionChangeWord) move(buf *viewport, count, width int) {
 	buf.moveWordForward(max(count, 1), m.kind, width)
 }
 
-func (m motionChangeWord) span(buf viewport, count, width int) (MotionRange, bool) {
+func (m motionChangeWord) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
 	// 빈 줄에서는 바꿀 것이 없다. `dw` 는 그 줄을 지우고 다음 줄을 끌어올리지만(ADR-0013),
 	// 빈 줄에 글을 쓰려고 `cw` 를 친 손에는 다음 줄이 딸려 올라오는 것이 사고다.
 	// vim 도 여기서는 줄을 합치지 않는다 — exclusive 보정 규칙이 이 자리를 줄 단위로 돌린다.
-	if len(buf.lines[buf.cursor.line]) == 0 {
-		return MotionRange{start: Cursor{line: buf.cursor.line}, end: Cursor{line: buf.cursor.line}}, true
+	if len(buf.lines[buf.cursor.Line]) == 0 {
+		return scheme.MotionRange{Start: scheme.Cursor{Line: buf.cursor.Line}, End: scheme.Cursor{Line: buf.cursor.Line}}, true
 	}
 
 	// 공백 위면 예외가 아니다. 바꿀 것이 그 공백이라 `dw` 와 같이 건너뛴다.
-	if buf.classAt(buf.cursor.line, buf.cursor.col, m.kind) == classBlank {
+	if buf.classAt(buf.cursor.Line, buf.cursor.Col, m.kind) == classBlank {
 		return motionWordForward{kind: m.kind}.span(buf, count, width)
 	}
 
@@ -326,12 +328,12 @@ func (m motionChangeWord) span(buf viewport, count, width int) (MotionRange, boo
 // 줄이 모자라면 있는 만큼이다. 커서는 움직이지 않는다.
 type motionWholeLines struct{}
 
-func (motionWholeLines) span(buf viewport, count, width int) (MotionRange, bool) {
-	end := min(buf.cursor.line+max(count, 1)-1, len(buf.lines)-1)
+func (motionWholeLines) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
+	end := min(buf.cursor.Line+max(count, 1)-1, len(buf.lines)-1)
 
 	// 칸은 커서 그대로다. `yy` 가 커서를 옮기지 않는 것이 이 값으로 표현된다 — 범위의 시작이
 	// 곧 지금 자리라 「뒤로 갔나」가 거짓이 된다(buffer-yank.go 의 moveToRangeStart).
-	return MotionRange{start: Cursor{line: buf.cursor.line, col: buf.cursor.col}, end: Cursor{line: end, col: buf.cursor.col}, linewise: true}, true
+	return scheme.MotionRange{Start: scheme.Cursor{Line: buf.cursor.Line, Col: buf.cursor.Col}, End: scheme.Cursor{Line: end, Col: buf.cursor.Col}, Linewise: true}, true
 }
 
 // motionWordObject 는 커서가 든 단어다. vim 의 `iw`·`aw`·`iW`·`aW` 다(ADR-0091).
@@ -345,22 +347,22 @@ type motionWordObject struct {
 	around bool // `aw` 인가. 단어 둘레의 공백까지 먹는다
 }
 
-func (m motionWordObject) span(buf viewport, count, width int) (MotionRange, bool) {
-	line := buf.cursor.line
+func (m motionWordObject) span(buf viewport, count, width int) (scheme.MotionRange, bool) {
+	line := buf.cursor.Line
 	text := buf.lines[line]
 
 	// **공백 위에서는 잡지 않는다.** vim 은 공백 덩어리를 잡는데, 같은 키가 커서 한 칸에 따라
 	// 「단어를 바꾼다」와 「공백을 지운다」로 갈리면 눌러 보고 아는 키가 된다(ADR-0091 §2).
 	//
 	// 빈 줄과 줄 끝도 여기서 같이 걸린다. classAt 이 줄 끝을 공백으로 보기 때문이다.
-	class := buf.classAt(line, buf.cursor.col, m.kind)
+	class := buf.classAt(line, buf.cursor.Col, m.kind)
 	if class == classBlank {
-		return MotionRange{}, false
+		return scheme.MotionRange{}, false
 	}
 
 	// 같은 부류가 이어지는 데까지 좌우로 넓힌다. **줄을 넘지 않는다** — 단어는 줄 안의 것이고
 	// 줄 끝이 공백이라 저절로 멈춘다.
-	start := buf.cursor.col
+	start := buf.cursor.Col
 	for start > 0 {
 		prev := prevGlyphStart(text, 0, start)
 		if buf.classAt(line, prev, m.kind) != class {
@@ -370,7 +372,7 @@ func (m motionWordObject) span(buf viewport, count, width int) (MotionRange, boo
 		start = prev
 	}
 
-	end := buf.cursor.col
+	end := buf.cursor.Col
 	for end < len(text) && buf.classAt(line, end, m.kind) == class {
 		end += glyphSize(text, end)
 	}
@@ -379,7 +381,7 @@ func (m motionWordObject) span(buf viewport, count, width int) (MotionRange, boo
 		start, end = buf.aroundWord(line, start, end, m.kind)
 	}
 
-	return MotionRange{start: Cursor{line: line, col: start}, end: Cursor{line: line, col: end}}, true
+	return scheme.MotionRange{Start: scheme.Cursor{Line: line, Col: start}, End: scheme.Cursor{Line: line, Col: end}}, true
 }
 
 // aroundWord 는 `aw` 가 단어에 더 먹는 공백까지 넓힌 범위다.
@@ -410,5 +412,5 @@ func (buf Buffer) aroundWord(line, start, end int, kind wordKind) (int, int) {
 	return start, end
 }
 
-// MotionRange 는 range.go 에 있다. 만드는 곳이 넷이고 받는 곳이 `Buffer` 라 어느 한쪽에
-// 세 들어 살 자료가 아니다 (ADR-0100).
+// scheme.MotionRange 는 `internal/scheme` 에 있다. 만드는 곳이 넷이고 받는 곳이 글과 창이라
+// 어느 한쪽에 세 들어 살 자료가 아니다 (ADR-0100, ADR-0122).

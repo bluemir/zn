@@ -26,11 +26,11 @@ func TestNormalHomeEndMoveWithinScreenRow(t *testing.T) {
 	// 앞 검사가 옮긴 커서에서 다음 검사가 출발한다.
 	m.activeBuffer().moveTo(0, width+3, width)
 	end := bufferOf(t, send(m, "end"))
-	assert.Equal(t, 2*width, end.cursor.col, "지금 행의 끝이다. 줄 끝(60) 이 아니다")
+	assert.Equal(t, 2*width, end.cursor.Col, "지금 행의 끝이다. 줄 끝(60) 이 아니다")
 
 	m.activeBuffer().moveTo(0, width+3, width)
 	home := bufferOf(t, send(m, "home"))
-	assert.Equal(t, width, home.cursor.col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
+	assert.Equal(t, width, home.cursor.Col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
 }
 
 // 접히지 않은 줄에서는 `0`·`$` 와 같은 자리다.
@@ -38,11 +38,11 @@ func TestNormalHomeEndOnUnwrappedLine(t *testing.T) {
 	m := newTestEditor("hello world\nsecond\n", wide, 8)
 
 	m.activeBuffer().moveTo(0, 4, m.contentWidth())
-	assert.Zero(t, bufferOf(t, send(m, "home")).cursor.col)
+	assert.Zero(t, bufferOf(t, send(m, "home")).cursor.Col)
 
 	// normal 은 마지막 글자 위에 선다(clampToNormal). `$` 와 같다.
 	m.activeBuffer().moveTo(0, 4, m.contentWidth())
-	assert.Equal(t, len("hello world")-1, bufferOf(t, send(m, "end")).cursor.col)
+	assert.Equal(t, len("hello world")-1, bufferOf(t, send(m, "end")).cursor.Col)
 }
 
 // `pgdown`·`pgup` 은 `ctrl+f`·`ctrl+b` 와 같은 한 화면이다. 숫자도 그대로 받는다.
@@ -51,14 +51,14 @@ func TestNormalPageKeysMatchCtrlFB(t *testing.T) {
 
 	pgdown := bufferOf(t, send(newTestEditor(data, wide, 10), "pgdown"))
 	ctrlF := bufferOf(t, send(newTestEditor(data, wide, 10), "ctrl+f"))
-	assert.Equal(t, ctrlF.cursor.line, pgdown.cursor.line)
+	assert.Equal(t, ctrlF.cursor.Line, pgdown.cursor.Line)
 	assert.Equal(t, ctrlF.top, pgdown.top)
 
 	thrice := bufferOf(t, send(newTestEditor(data, wide, 10), "3", "pgdown"))
-	assert.Greater(t, thrice.cursor.line, pgdown.cursor.line, "숫자는 되풀이다")
+	assert.Greater(t, thrice.cursor.Line, pgdown.cursor.Line, "숫자는 되풀이다")
 
 	back := bufferOf(t, send(send(newTestEditor(data, wide, 10), "pgdown"), "pgup"))
-	assert.Zero(t, back.cursor.line, "되돌아온다")
+	assert.Zero(t, back.cursor.Line, "되돌아온다")
 }
 
 // normal 의 `delete` 는 아무 일도 하지 않는다. 그 자리에는 `x` 가 이미 있다.
@@ -83,17 +83,17 @@ func TestInsertHomeEndMoveAndBreakUndo(t *testing.T) {
 	m := send(newTestEditor("abc\n", wide, 8), "i", "x", "end")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, len("xabc"), buf.cursor.col)
+	assert.Equal(t, len("xabc"), buf.cursor.Col)
 	assert.False(t, buf.editing, "커서를 옮기면 undo 구간이 끊긴다")
 
-	assert.Zero(t, bufferOf(t, send(m, "home")).cursor.col)
+	assert.Zero(t, bufferOf(t, send(m, "home")).cursor.Col)
 }
 
 // insert 의 `pgdown`·`pgup` 도 한 화면이다.
 func TestInsertPageKeysMovePage(t *testing.T) {
 	m := send(newTestEditor(strings.Repeat("line\n", 200), wide, 10), "i", "pgdown")
 
-	assert.Greater(t, bufferOf(t, m).cursor.line, 0)
+	assert.Greater(t, bufferOf(t, m).cursor.Line, 0)
 }
 
 // 목록 판에서 `home`·`end` 는 `g`·`G` 와 같은 자리로 간다. `pgup`·`pgdown` 은 한 화면이다.

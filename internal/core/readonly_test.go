@@ -112,7 +112,7 @@ func TestReadOnlyAllowsMovingAndYanking(t *testing.T) {
 	m := viewEditorNormal{editor: e}
 
 	send(m, "j", "j")
-	assert.Equal(t, 2, e.activeBuffer().cursor.line)
+	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
 	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 
 	send(m, "y", "y")

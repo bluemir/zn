@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bluemir/zn/internal/scheme"
 	"github.com/cockroachdb/errors"
 )
 
@@ -165,17 +166,17 @@ func (r lineRange) resolve(buf viewport) (from, to int, err error) {
 	return from, to, nil
 }
 
-// area 는 명령이 일할 자리다. 줄 범위를 `MotionRange` 로 바꿔 준다.
+// area 는 명령이 일할 자리다. 줄 범위를 `scheme.MotionRange` 로 바꿔 준다.
 //
 // **`'<,'>` 를 그대로 친 것이면 고른 범위를 그대로 준다.** 글자로 골랐으면 글자 구간까지
 // 담겨서, `:s` 와 `:d` 가 고른 밖을 건드리지 않는다(ADR-0089).
 //
 // 그 밖의 범위는 줄 단위다. 한쪽만 `'<` 인 것(`:'<,5d`)·자리를 옮긴 것(`:'<,'>+3`) 도 여기다 —
 // 사람이 줄 번호를 섞어 넣은 것이라 글자 구간을 지킬 뜻이 없어졌다.
-func (r lineRange) area(buf viewport) (MotionRange, error) {
+func (r lineRange) area(buf viewport) (scheme.MotionRange, error) {
 	from, to, err := r.resolve(buf)
 	if err != nil {
-		return MotionRange{}, err
+		return scheme.MotionRange{}, err
 	}
 
 	if r.isSelection() {
@@ -187,8 +188,8 @@ func (r lineRange) area(buf viewport) (MotionRange, error) {
 	// **손으로 친 범위에는 따라갈 이동이 없다.** 그래서 커서를 옮길지도 여기서 정하지 않는다 —
 	// `:y` 가 `isSelection()` 을 보고 가른다. `:1,5y` 는 커서를 1 줄로 끌어가지 않고
 	// `:'<,'>y` 만 visual 의 `y` 처럼 범위 시작으로 간다(view-editor-command.go, ADR-0100).
-	return MotionRange{start: Cursor{line: from}, end: Cursor{line: to},
-		linewise: true}, nil
+	return scheme.MotionRange{Start: scheme.Cursor{Line: from}, End: scheme.Cursor{Line: to},
+		Linewise: true}, nil
 }
 
 // isSelection 은 범위가 `'<,'>` 그 자체인지다. 자리 옮김이 붙으면 아니다.
@@ -202,7 +203,7 @@ func (r lineRange) isSelection() bool {
 // 없는 줄을 가리키면 오류다. 끝으로 잘라 주지 않는다 — `:1,500d` 를 조용히 파일 전체로 읽으면
 // 손이 미끄러진 것과 시킨 것을 가를 수 없다. vim 도 여기서 거절한다.
 func (a lineAddress) resolve(buf viewport) (int, error) {
-	base := buf.cursor.line
+	base := buf.cursor.Line
 
 	switch a.base {
 	case addressNumber:
@@ -217,9 +218,9 @@ func (a lineAddress) resolve(buf viewport) (int, error) {
 			return 0, errors.New("고른 범위가 없습니다")
 		}
 
-		base = area.start.line
+		base = area.Start.Line
 		if a.base == addressSelectEnd {
-			base = area.end.line
+			base = area.End.Line
 		}
 	}
 

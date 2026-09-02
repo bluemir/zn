@@ -76,7 +76,7 @@ func TestReplaceCharCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, test.line, test.col, test.keys...)
 
-			assert.Equal(t, test.want, [2]int{buf.cursor.line, buf.cursor.col})
+			assert.Equal(t, test.want, [2]int{buf.cursor.Line, buf.cursor.Col})
 		})
 	}
 }

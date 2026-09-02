@@ -99,7 +99,7 @@ func TestTextObjectAcrossOperators(t *testing.T) {
 
 		require.IsType(t, viewEditorInsert{}, m, "insert 로 들어간다")
 		assert.Equal(t, []string{"foo  baz"}, linesOf(bufferOf(t, m)))
-		assert.Equal(t, 4, bufferOf(t, m).cursor.col, "지운 자리에서 이어 친다")
+		assert.Equal(t, 4, bufferOf(t, m).cursor.Col, "지운 자리에서 이어 친다")
 
 		m = send(m, "x")
 		assert.Equal(t, []string{"foo x baz"}, linesOf(bufferOf(t, m)))

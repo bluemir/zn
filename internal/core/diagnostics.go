@@ -153,7 +153,7 @@ func renderDiagnosticMarker(list []lsp.Diagnostic) string {
 func (e editor) renderDiagnostic() string {
 	buf := e.buffers[e.active]
 
-	list := buf.diagnosticAt(buf.cursor.line)
+	list := buf.diagnosticAt(buf.cursor.Line)
 	if len(list) == 0 {
 		return ""
 	}
