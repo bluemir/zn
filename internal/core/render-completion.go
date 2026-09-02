@@ -29,7 +29,7 @@ func (m viewEditorInsert) overlayCompletion(view tea.View) tea.View {
 
 	buf := m.activeBuffer()
 
-	x, y, ok := buf.cursorScreenPos(m.textHeight())
+	x, y, ok := buf.CursorScreenPos(m.textHeight())
 	if !ok {
 		return view
 	}

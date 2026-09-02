@@ -69,8 +69,8 @@ func TestShiftPutsCursorOnFirstNonBlank(t *testing.T) {
 	m = send(m, ">", ">")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 0, buf.cursor.Line)
-	assert.Equal(t, 1, buf.cursor.Col, "들여쓰기 다음")
+	assert.Equal(t, 0, buf.Cursor.Line)
+	assert.Equal(t, 1, buf.Cursor.Col, "들여쓰기 다음")
 }
 
 func TestShiftIsOneUndo(t *testing.T) {
@@ -241,11 +241,11 @@ func TestReindentIsOneUndo(t *testing.T) {
 
 func TestReindentDoesNotDirtyWhenNothingChanges(t *testing.T) {
 	m := newIndentEditor(t, "a.go", "indent_style = tab", "func f() {\n\tfoo()\n}\n")
-	require.False(t, bufferOf(t, m).dirty)
+	require.False(t, bufferOf(t, m).Dirty)
 
 	m = send(m, "=", "G")
 
-	assert.False(t, bufferOf(t, m).dirty, "이미 맞는 파일에 `=` 를 쳐도 고친 것이 아니다")
+	assert.False(t, bufferOf(t, m).Dirty, "이미 맞는 파일에 `=` 를 쳐도 고친 것이 아니다")
 }
 
 func TestVisualIndentLeavesVisualMode(t *testing.T) {
@@ -297,7 +297,7 @@ func TestIndentNeverCutsAMultibyteCharacter(t *testing.T) {
 
 			buf := bufferOf(t, m)
 			assert.Equal(t, test.want, linesOf(buf))
-			for _, line := range buf.lines {
+			for _, line := range buf.Lines {
 				assert.True(t, utf8.Valid(line), "%q 가 깨졌다", line)
 			}
 		})

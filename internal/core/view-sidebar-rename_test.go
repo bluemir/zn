@@ -133,7 +133,7 @@ func TestSidebarRenameFollowsOpenTab(t *testing.T) {
 	require.IsType(t, viewSidebar{}, model)
 
 	v := model.(viewSidebar)
-	assert.Equal(t, filepath.Join(root, "docs", "README.md"), v.buffers[v.active].path,
+	assert.Equal(t, filepath.Join(root, "docs", "README.md"), v.buffers[v.active].Path,
 		"보고 있는 buffer 의 경로가 새 이름이다")
 	assert.Len(t, v.buffers, 2, "tab 수는 그대로다")
 }
@@ -158,7 +158,7 @@ func TestSidebarRenameFollowsOpenTabUnderDir(t *testing.T) {
 
 	v, ok := model.(viewSidebar)
 	require.True(t, ok)
-	assert.Equal(t, filepath.Join(root, "documents", "spec.md"), v.buffers[v.active].path,
+	assert.Equal(t, filepath.Join(root, "documents", "spec.md"), v.buffers[v.active].Path,
 		"디렉터리를 옮기면 안의 파일을 보던 tab 도 따라간다")
 }
 

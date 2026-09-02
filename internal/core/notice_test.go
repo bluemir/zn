@@ -167,7 +167,7 @@ func TestEveryNoticePathRecords(t *testing.T) {
 
 	t.Run("refuseReadOnly", func(t *testing.T) {
 		buf := newEmptyBuffer("a.txt")
-		buf.readOnly = true
+		buf.ReadOnly = true
 
 		e := &editor{buffers: []viewport{buf}}
 

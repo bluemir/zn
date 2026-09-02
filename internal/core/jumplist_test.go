@@ -41,7 +41,7 @@ func jumpEditor(t *testing.T) (*editor, []string) {
 
 // at 은 지금 활성 파일과 커서 줄이다. 시험이 자리를 견주는 방법이다.
 func at(e *editor) (string, int) {
-	return e.activeBuffer().path, e.activeBuffer().cursor.Line
+	return e.activeBuffer().Path, e.activeBuffer().Cursor.Line
 }
 
 // 뛰기 전 자리를 담고, `ctrl+o` 가 그리로 되돌아간다.
@@ -50,7 +50,7 @@ func TestJumpBackReturnsToRecordedPlace(t *testing.T) {
 
 	// first.go 의 2 번째 줄에서 second.go 로 뛴다.
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
@@ -72,7 +72,7 @@ func TestJumpForwardRetracesBack(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -105,7 +105,7 @@ func TestNewJumpDropsForwardHistory(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -132,7 +132,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 	e, _ := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 
 	e.recordJump()
 	e.recordJump()
@@ -141,7 +141,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 	assert.Len(t, e.jumps.places, 1)
 
 	// 줄이 달라지면 담는다.
-	e.activeBuffer().moveTo(4, 0)
+	e.activeBuffer().MoveTo(4, 0)
 	e.recordJump()
 
 	assert.Len(t, e.jumps.places, 2)
@@ -163,7 +163,7 @@ func TestJumpListDropsOldest(t *testing.T) {
 	e.active = 0
 	for i := range jumpListMax + 20 {
 		// 줄을 번갈아 바꾸어 같은 줄 거르기에 걸리지 않게 한다.
-		e.activeBuffer().moveTo(i%6, 0)
+		e.activeBuffer().MoveTo(i%6, 0)
 		e.recordJump()
 	}
 
@@ -176,7 +176,7 @@ func TestGoToPlaceDoesNotRecord(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -196,7 +196,7 @@ func gotoFile(e *editor, path string, line int) error {
 		return err
 	}
 
-	e.activeBuffer().moveTo(line, 0)
+	e.activeBuffer().MoveTo(line, 0)
 
 	return nil
 }
@@ -213,21 +213,21 @@ func TestSearchRecordsJump(t *testing.T) {
 
 	require.Len(t, e.jumps.places, 1, "뛰기 전 자리가 담긴다")
 	assert.Equal(t, 0, e.jumps.places[0].line)
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line, "alpha 를 찾았다")
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line, "alpha 를 찾았다")
 
 	// `n` 으로 다음 것을 찾으면 또 담긴다.
 	send(next, "n")
 
 	require.Len(t, e.jumps.places, 2)
 	assert.Equal(t, 2, e.jumps.places[1].line, "직전에 서 있던 줄이다")
-	assert.Equal(t, 6, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 6, e.activeBuffer().Cursor.Line)
 
 	// `ctrl+o` 로 처음 자리까지 되짚어 간다.
 	e.jumpBack()
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line)
 
 	e.jumpBack()
-	assert.Equal(t, 0, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 0, e.activeBuffer().Cursor.Line)
 }
 
 // 못 찾으면 담지 않는다. 커서가 그대로라 담을 것도 없다.
@@ -258,25 +258,25 @@ func TestGotoLineMotionsRecordJump(t *testing.T) {
 
 	// 5 번째 줄에서 `G` 로 끝까지 뛴다.
 	next := send(m, "5", "j")
-	require.Equal(t, 5, e.activeBuffer().cursor.Line)
+	require.Equal(t, 5, e.activeBuffer().Cursor.Line)
 
 	next = send(next, "G")
-	require.Equal(t, 19, e.activeBuffer().cursor.Line, "마지막 줄이다")
+	require.Equal(t, 19, e.activeBuffer().Cursor.Line, "마지막 줄이다")
 	require.Len(t, e.jumps.places, 1)
 	assert.Equal(t, 5, e.jumps.places[0].line, "뛰기 전 자리가 담긴다")
 
 	// `gg` 로 첫 줄까지 뛰면 또 담긴다.
 	next = send(next, "g", "g")
-	require.Equal(t, 0, e.activeBuffer().cursor.Line)
+	require.Equal(t, 0, e.activeBuffer().Cursor.Line)
 	require.Len(t, e.jumps.places, 2)
 	assert.Equal(t, 19, e.jumps.places[1].line)
 
 	// `ctrl+o` 두 번이면 처음 자리다.
 	next = send(next, "ctrl+o")
-	assert.Equal(t, 19, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 19, e.activeBuffer().Cursor.Line)
 
 	send(next, "ctrl+o")
-	assert.Equal(t, 5, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 5, e.activeBuffer().Cursor.Line)
 }
 
 // 줄 번호를 준 `10gg`·`3G` 도 담는다. 숫자가 붙어도 멀리 뛰는 것은 같다.
@@ -285,12 +285,12 @@ func TestGotoLineWithCountRecordsJump(t *testing.T) {
 	e := m.editor
 
 	next := send(m, "1", "0", "g", "g")
-	require.Equal(t, 9, e.activeBuffer().cursor.Line, "10 번째 줄이다")
+	require.Equal(t, 9, e.activeBuffer().Cursor.Line, "10 번째 줄이다")
 	require.Len(t, e.jumps.places, 1)
 	assert.Equal(t, 0, e.jumps.places[0].line)
 
 	send(next, "3", "G")
-	require.Equal(t, 2, e.activeBuffer().cursor.Line)
+	require.Equal(t, 2, e.activeBuffer().Cursor.Line)
 	require.Len(t, e.jumps.places, 2)
 	assert.Equal(t, 9, e.jumps.places[1].line)
 }
@@ -309,7 +309,7 @@ func TestGotoLineInPlaceDoesNotRecord(t *testing.T) {
 
 	// 이력이 하나뿐이라 `ctrl+o` 한 번이 처음 자리로 간다.
 	send(next, "ctrl+o")
-	assert.Equal(t, 0, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 0, e.activeBuffer().Cursor.Line)
 }
 
 // 고르는 중의 `G` 는 담지 않는다. 뛰는 것이 아니라 범위를 늘리는 것이다.
@@ -319,7 +319,7 @@ func TestVisualGotoLineDoesNotRecordJump(t *testing.T) {
 
 	next := send(m, "5", "j", "v", "G")
 	require.IsType(t, viewEditorVisual{}, next)
-	require.Equal(t, 19, e.activeBuffer().cursor.Line, "범위가 끝까지 늘었다")
+	require.Equal(t, 19, e.activeBuffer().Cursor.Line, "범위가 끝까지 늘었다")
 
 	assert.Empty(t, e.jumps.places)
 }
@@ -330,17 +330,17 @@ func TestGoToLineCommandRecordsJump(t *testing.T) {
 	e := m.editor
 
 	next := send(m, "G")
-	require.Equal(t, 19, e.activeBuffer().cursor.Line)
+	require.Equal(t, 19, e.activeBuffer().Cursor.Line)
 
 	next = send(next, ":", "5", "enter")
 	require.IsType(t, viewEditorNormal{}, next)
-	require.Equal(t, 4, e.activeBuffer().cursor.Line, "5 번째 줄이다")
+	require.Equal(t, 4, e.activeBuffer().Cursor.Line, "5 번째 줄이다")
 
 	require.Len(t, e.jumps.places, 2)
 	assert.Equal(t, 19, e.jumps.places[1].line)
 
 	send(next, "ctrl+o")
-	assert.Equal(t, 19, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 19, e.activeBuffer().Cursor.Line)
 }
 
 // 떠난 자리와 닿은 자리가 둘 다 방문 기록에 남는다. 최근이 위다(ADR-0074).

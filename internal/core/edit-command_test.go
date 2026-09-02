@@ -57,7 +57,7 @@ func TestEditReplacesActiveTab(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1, "tab 은 늘지 않는다")
-	assert.Equal(t, "bbb", string(bufferOf(t, m).lines[0]))
+	assert.Equal(t, "bbb", string(bufferOf(t, m).Lines[0]))
 }
 
 // 없는 파일도 연다. 그 이름의 빈 buffer 가 된다. CLI 인자와 같다.
@@ -68,8 +68,8 @@ func TestEditOpensMissingFileAsEmpty(t *testing.T) {
 	m := runCommand(start, "e "+path)
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, path, bufferOf(t, m).path)
-	assert.Equal(t, [][]byte{{}}, bufferOf(t, m).lines)
+	assert.Equal(t, path, bufferOf(t, m).Path)
+	assert.Equal(t, [][]byte{{}}, bufferOf(t, m).Lines)
 }
 
 // 이미 다른 tab 에 열려 있으면 갈아끼우지 않고 그 tab 으로 옮겨간다.
@@ -82,20 +82,20 @@ func TestEditMovesToTabAlreadyOpen(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 2, "tab 은 늘지도 줄지도 않는다")
 	assert.Equal(t, 1, activeOf(t, m))
-	assert.Equal(t, filepath.Join(dir, "a.txt"), m.(viewEditorNormal).buffers[0].path,
+	assert.Equal(t, filepath.Join(dir, "a.txt"), m.(viewEditorNormal).buffers[0].Path,
 		"떠나온 tab 은 그대로다")
 }
 
 // 옮겨가기만 할 때는 잃을 것이 없으므로 지금 tab 이 dirty 여도 묻지 않는다.
 func TestEditDoesNotAskWhenMovingToOpenTab(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt", "b.txt")
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 
 	m := runCommand(start, "e "+filepath.Join(dir, "b.txt"))
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Equal(t, 1, activeOf(t, m))
-	assert.Equal(t, "Xa.txt", string(m.(viewEditorNormal).buffers[0].lines[0]),
+	assert.Equal(t, "Xa.txt", string(m.(viewEditorNormal).buffers[0].Lines[0]),
 		"떠나온 tab 의 편집이 남는다")
 }
 
@@ -103,7 +103,7 @@ func TestEditDoesNotAskWhenMovingToOpenTab(t *testing.T) {
 func TestEditAsksWhenDirty(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("bbb\n"), 0644))
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 
 	confirm := runCommand(start, "e "+filepath.Join(dir, "b.txt"))
 	require.IsType(t, viewConfirmDiscard{}, confirm)
@@ -111,23 +111,23 @@ func TestEditAsksWhenDirty(t *testing.T) {
 	// No 로 취소하면 편집이 그대로 남고 명령줄이 아니라 normal 로 돌아간다.
 	cancelled := send(confirm, "n", "enter")
 	require.IsType(t, viewEditorNormal{}, cancelled)
-	assert.Equal(t, "Xa.txt", string(bufferOf(t, cancelled).lines[0]))
+	assert.Equal(t, "Xa.txt", string(bufferOf(t, cancelled).Lines[0]))
 
 	opened := send(confirm, "y", "enter")
 	require.IsType(t, viewEditorNormal{}, opened)
-	assert.Equal(t, "bbb", string(bufferOf(t, opened).lines[0]))
+	assert.Equal(t, "bbb", string(bufferOf(t, opened).Lines[0]))
 }
 
 // `!` 는 묻지 말라는 뜻이다. 저장하지 않은 변경을 버리고 연다.
 func TestEditForceDoesNotAsk(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("bbb\n"), 0644))
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 
 	m := runCommand(start, "e! "+filepath.Join(dir, "b.txt"))
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, "bbb", string(bufferOf(t, m).lines[0]))
+	assert.Equal(t, "bbb", string(bufferOf(t, m).Lines[0]))
 }
 
 // 인자가 없는 `:e` 는 다시 읽기다. 팔레트의 「파일 다시 읽기」와 같은 길이다 (ADR-0016).
@@ -138,14 +138,14 @@ func TestEditWithoutArgReloads(t *testing.T) {
 	m := runCommand(start, "e")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, m).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, m).Lines[0]))
 	assert.Contains(t, barOf(t, m)[1], "다시 읽음")
 }
 
 // 저장하지 않은 변경이 있으면 다시 읽기도 묻는다. `:e!` 는 묻지 않는다.
 func TestEditWithoutArgAsksWhenDirty(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("남이 쓴 것\n"), 0644))
 
 	confirm := runCommand(start, "e")
@@ -153,7 +153,7 @@ func TestEditWithoutArgAsksWhenDirty(t *testing.T) {
 
 	forced := runCommand(start, "e!")
 	require.IsType(t, viewEditorNormal{}, forced)
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, forced).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, forced).Lines[0]))
 }
 
 // `:tabnew <파일>` 은 보고 있던 tab 바로 뒤에 그 파일로 새 tab 을 연다.
@@ -166,7 +166,7 @@ func TestTabNewWithFileOpensTab(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	require.Len(t, m.(viewEditorNormal).buffers, 2)
 	assert.Equal(t, 1, activeOf(t, m))
-	assert.Equal(t, "bbb", string(bufferOf(t, m).lines[0]))
+	assert.Equal(t, "bbb", string(bufferOf(t, m).Lines[0]))
 }
 
 // 이미 열려 있으면 새 tab 을 만들지 않고 그 tab 으로 옮겨간다.

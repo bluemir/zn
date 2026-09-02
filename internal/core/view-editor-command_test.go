@@ -97,7 +97,7 @@ func TestCommandWriteSavesFile(t *testing.T) {
 
 	assert.IsType(t, viewEditorNormal{}, model)
 	assert.Contains(t, barOf(t, model)[1], "저장함")
-	assert.False(t, bufferOf(t, model).dirty, "저장하면 변경 표시가 사라진다")
+	assert.False(t, bufferOf(t, model).Dirty, "저장하면 변경 표시가 사라진다")
 }
 
 // 읽은 뒤 밖에서 바뀐 파일은 `:w` 로 덮어쓰이지 않고 알림만 뜬다.
@@ -112,7 +112,7 @@ func TestCommandWriteRefusesChangedFile(t *testing.T) {
 
 	assert.IsType(t, viewEditorNormal{}, model)
 	assert.Contains(t, barOf(t, model)[1], "바뀌었습니다")
-	assert.True(t, bufferOf(t, model).dirty, "저장되지 않았다")
+	assert.True(t, bufferOf(t, model).Dirty, "저장되지 않았다")
 
 	saved, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestCommandRejectsUnexpectedArgument(t *testing.T) {
 
 	assert.IsType(t, viewEditorNormal{}, model)
 	assert.Contains(t, barOf(t, model)[1], "알 수 없는 명령")
-	assert.True(t, bufferOf(t, model).dirty, "저장하지 않는다")
+	assert.True(t, bufferOf(t, model).Dirty, "저장하지 않는다")
 
 	saved, err := os.ReadFile(path)
 	require.NoError(t, err)

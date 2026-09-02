@@ -81,7 +81,7 @@ func TestSidebarCreateMakesFileAndOpensTab(t *testing.T) {
 	assert.Empty(t, data, "빈 파일이다")
 
 	v := model.(viewEditorNormal)
-	assert.Equal(t, path, v.buffers[v.active].path, "그 파일을 보고 있다")
+	assert.Equal(t, path, v.buffers[v.active].Path, "그 파일을 보고 있다")
 	assert.Contains(t, names(v.sidebar.rows()), "2:guide.md", "트리도 다시 읽어서 그 이름이 선다")
 	assert.Equal(t, path, v.sidebar.selectedNode().path, "고른 자리도 만든 파일이다")
 }

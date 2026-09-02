@@ -8,15 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-// reverse 는 반대 방향이다. `N` 이 마지막 검색을 거꾸로 되풀이할 때 쓴다.
-func (d searchDirection) reverse() searchDirection {
-	if d == searchBackward {
-		return searchForward
-	}
-
-	return searchBackward
-}
-
 // searchState 는 마지막 검색이다.
 //
 // mode 와 tab 을 넘어 남는다. `n` 은 검색을 끝내고 한참 뒤에 눌리고, 다른 tab 으로 옮겨서도

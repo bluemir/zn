@@ -81,11 +81,11 @@ func TestTabnewExpandsHome(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 2, "새 tab 이 하나 늘어난다")
-	assert.Equal(t, filepath.Join(home, "b.txt"), bufferOf(t, m).path)
-	assert.Equal(t, "bbb", string(bufferOf(t, m).lines[0]))
+	assert.Equal(t, filepath.Join(home, "b.txt"), bufferOf(t, m).Path)
+	assert.Equal(t, "bbb", string(bufferOf(t, m).Lines[0]))
 
 	// 열려 있던 tab 은 그대로다.
-	assert.Equal(t, filepath.Join(dir, "a.txt"), m.(viewEditorNormal).buffers[0].path)
+	assert.Equal(t, filepath.Join(dir, "a.txt"), m.(viewEditorNormal).buffers[0].Path)
 }
 
 // `:e ~/<파일>` 도 같은 자리를 지난다. tab 수는 그대로다.
@@ -100,7 +100,7 @@ func TestEditExpandsHome(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1, "tab 은 늘지 않는다")
-	assert.Equal(t, filepath.Join(home, "b.txt"), bufferOf(t, m).path)
+	assert.Equal(t, filepath.Join(home, "b.txt"), bufferOf(t, m).Path)
 }
 
 // `:w ~/<파일>` 은 홈 아래에 사본을 쓴다. 보고 있는 파일과 tab 은 그대로다.
@@ -113,7 +113,7 @@ func TestWriteExpandsHome(t *testing.T) {
 	m := runCommand(start, "w ~/copy.txt")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, filepath.Join(dir, "a.txt"), bufferOf(t, m).path, "보고 있는 파일은 그대로다")
+	assert.Equal(t, filepath.Join(dir, "a.txt"), bufferOf(t, m).Path, "보고 있는 파일은 그대로다")
 
 	content, err := os.ReadFile(filepath.Join(home, "copy.txt"))
 	require.NoError(t, err)

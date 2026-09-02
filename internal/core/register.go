@@ -118,24 +118,24 @@ func (regs *registerSet) storeNamed(block textBlock, name string) {
 // **줄을 제자리에서 늘리지 않는다.** register 가 가리키는 것은 buffer 의 줄 그대로라
 // (ADR-0017) `append` 가 그 backing array 에 닿으면 파일이 조용히 바뀐다.
 func appendRegister(base, extra register) register {
-	if !base.filled() {
+	if !base.Filled() {
 		return extra
 	}
-	if !extra.filled() {
+	if !extra.Filled() {
 		return base
 	}
 
-	lines := make([][]byte, 0, len(base.lines)+len(extra.lines))
-	lines = append(lines, base.lines...)
+	lines := make([][]byte, 0, len(base.Lines)+len(extra.Lines))
+	lines = append(lines, base.Lines...)
 
-	if base.linewise || extra.linewise {
-		return register{textBlock{lines: append(lines, extra.lines...), linewise: true}}
+	if base.Linewise || extra.Linewise {
+		return register{textBlock{Lines: append(lines, extra.Lines...), Linewise: true}}
 	}
 
 	last := len(lines) - 1
-	lines[last] = append(append([]byte{}, lines[last]...), extra.lines[0]...)
+	lines[last] = append(append([]byte{}, lines[last]...), extra.Lines[0]...)
 
-	return register{textBlock{lines: append(lines, extra.lines[1:]...)}}
+	return register{textBlock{Lines: append(lines, extra.Lines[1:]...)}}
 }
 
 // byName 은 이름으로 고른 register 다. 이름이 비어 있으면 무명이다.
@@ -174,7 +174,7 @@ func registerWritable(name string) bool {
 //
 // **떼어 낸 자료(textBlock) 에 말을 얹은 것이다.** 담긴 것 자체는 글에서 떼어 낸 덩이라
 // 글을 다루는 겹의 것이고, 「몇 자인가」·「무엇을 알릴까」는 editor 가 하는 말이다.
-// embed 라 `reg.lines`·`reg.filled()` 가 그대로 서고, 붙여넣기에 넘길 때는 `reg.textBlock`
+// embed 라 `reg.Lines`·`reg.filled()` 가 그대로 서고, 붙여넣기에 넘길 때는 `reg.textBlock`
 // 으로 자료만 준다 — 그쪽이 필요한 것은 자리와 글과 줄 단위인지뿐이다(text-block.go).
 type register struct {
 	textBlock
@@ -189,8 +189,8 @@ type register struct {
 // 줄 단위면 줄 수, 글자 단위면 글자 수다. 붙여넣기가 줄로 들어갈지 글자로 들어갈지가 곧
 // 이 갈래라, 알림이 그것을 같이 보여 준다.
 func (reg register) copiedMessage() string {
-	if reg.linewise {
-		return fmt.Sprintf("%d 줄 복사되었습니다", len(reg.lines))
+	if reg.Linewise {
+		return fmt.Sprintf("%d 줄 복사되었습니다", len(reg.Lines))
 	}
 
 	return fmt.Sprintf("%d 글자 복사되었습니다", reg.charCount())
@@ -204,8 +204,8 @@ func (reg register) copiedMessage() string {
 // 키로 치는 `dd`·visual 의 `d` 는 알리지 않는다. 글자가 사라지는 것이 화면에 보여서다
 // (ADR-0017). 손으로 친 범위는 화면 밖일 수 있어서 여기만 알린다.
 func (reg register) deletedMessage() string {
-	if reg.linewise {
-		return fmt.Sprintf("%d 줄 지웠습니다", len(reg.lines))
+	if reg.Linewise {
+		return fmt.Sprintf("%d 줄 지웠습니다", len(reg.Lines))
 	}
 
 	return fmt.Sprintf("%d 글자 지웠습니다", reg.charCount())
@@ -216,8 +216,8 @@ func (reg register) deletedMessage() string {
 //
 // 여러 줄에 걸친 것이면 사이의 줄바꿈도 한 글자다. 담긴 그대로가 붙여넣기로 나가는 글자다.
 func (reg register) charCount() int {
-	count := max(len(reg.lines)-1, 0)
-	for _, line := range reg.lines {
+	count := max(len(reg.Lines)-1, 0)
+	for _, line := range reg.Lines {
 		count += utf8.RuneCount(line)
 	}
 

@@ -19,7 +19,7 @@ func renderDiagnosticMarker(list []diagnostic) string {
 		return " "
 	}
 
-	switch list[0].severity {
+	switch list[0].Severity {
 	case severityError:
 		return styleDiagnosticError.Render(markerDiagnosticError)
 	case severityWarning:

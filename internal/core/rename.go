@@ -37,14 +37,14 @@ func (e *editor) startRename(newName string) tea.Cmd {
 
 	buf := e.activeBuffer()
 
-	server, path, ok := serverPath(buf.path)
+	server, path, ok := serverPath(buf.Path)
 	if !ok {
 		e.notify("언어 서버가 붙는 파일에서만 이름을 바꿉니다")
 
 		return nil
 	}
 
-	if buf.readOnly {
+	if buf.ReadOnly {
 		e.notify("읽기 전용 파일입니다")
 
 		return nil
@@ -73,10 +73,10 @@ func (e *editor) startRename(newName string) tea.Cmd {
 		return e.startServer(server)
 	}
 
-	lines := buf.lines
+	lines := buf.Lines
 	position := lsp.Position{
-		Line:      buf.cursor.Line,
-		Character: lsp.UTF16Column(buf.lines[buf.cursor.Line], buf.cursor.Col),
+		Line:      buf.Cursor.Line,
+		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
 	}
 
 	e.notify("이름을 바꾸는 중입니다")
@@ -165,12 +165,12 @@ func (e *editor) applyRenameTo(file lsp.FileEdits) (int, error) {
 	if index, ok := e.tabOf(file.Path); ok {
 		buf := &e.buffers[index]
 
-		next, done := applyEdits(buf.lines, file.Edits)
+		next, done := applyEdits(buf.Lines, file.Edits)
 		if done == 0 {
 			return 0, nil
 		}
 
-		buf.replaceAll(next)
+		buf.ReplaceAll(next)
 
 		// 포매터는 걸지 않는다(hook 이 nil 이다). 이름을 바꾸다가 남의 파일이 통째로
 		// 다시 포맷되면 그 diff 가 무엇 때문인지 알 수 없다(ADR-0065).
@@ -186,18 +186,18 @@ func (e *editor) applyRenameTo(file lsp.FileEdits) (int, error) {
 		return 0, err
 	}
 
-	if buf.readOnly {
+	if buf.ReadOnly {
 		return 0, errors.New("읽기 전용입니다")
 	}
 
-	next, done := applyEdits(buf.lines, file.Edits)
+	next, done := applyEdits(buf.Lines, file.Edits)
 	if done == 0 {
 		return 0, nil
 	}
 
-	buf.lines = next
+	buf.Lines = next
 
-	return done, buf.write()
+	return done, buf.Write()
 }
 
 // applyEdits 는 줄 묶음에 편집을 적용한 새 줄 묶음과 고친 자리 수다.

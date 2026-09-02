@@ -51,7 +51,7 @@ func TestFocusReloadsOutsideChange(t *testing.T) {
 
 	model := afterFocus(t, m)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]))
 	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
 	assert.NotContains(t, barOf(t, model)[0], "[!]", "어긋난 것이 없어서 마커도 없다")
 }
@@ -63,7 +63,7 @@ func TestTickReloadsOutsideChange(t *testing.T) {
 
 	model := afterFileTick(t, m)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]))
 	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
 }
 
@@ -132,12 +132,12 @@ func TestTickReadsInInsertModeWhenClean(t *testing.T) {
 
 	var model tea.Model = send(m, "i")
 	require.IsType(t, viewEditorInsert{}, model)
-	require.False(t, bufferOf(t, model).dirty, "아직 아무것도 치지 않았다")
+	require.False(t, bufferOf(t, model).Dirty, "아직 아무것도 치지 않았다")
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	model = afterFileTick(t, model)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]))
 }
 
 // 치기 시작했으면 갈아끼우지 않는다. 손에 든 것을 버리는 일은 사람이 정한다.
@@ -146,12 +146,12 @@ func TestTickKeepsBufferInInsertModeWhenDirty(t *testing.T) {
 
 	var model tea.Model = send(m, "i", "z")
 	require.IsType(t, viewEditorInsert{}, model)
-	require.True(t, bufferOf(t, model).dirty)
+	require.True(t, bufferOf(t, model).Dirty)
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	model = afterFileTick(t, model)
 
-	assert.Equal(t, "zabc", string(bufferOf(t, model).lines[0]), "치는 중에는 갈아끼우지 않는다")
+	assert.Equal(t, "zabc", string(bufferOf(t, model).Lines[0]), "치는 중에는 갈아끼우지 않는다")
 	assert.Contains(t, barOf(t, model)[0], "[!]", "마커는 붙는다")
 }
 
@@ -160,12 +160,12 @@ func TestAutoReloadKeepsCursorLine(t *testing.T) {
 	m, path := newWideFileEditor(t, "a\nb\nc\n")
 
 	model := send(m, "j", "j")
-	require.Equal(t, 2, bufferOf(t, model).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, model).Cursor.Line)
 
 	require.NoError(t, os.WriteFile(path, []byte("a\nb\nc\nd\n"), 0644))
 	model = afterFocus(t, model)
 
-	assert.Equal(t, 2, bufferOf(t, model).cursor.Line)
+	assert.Equal(t, 2, bufferOf(t, model).Cursor.Line)
 }
 
 // 자동으로 읽으면 undo 이력이 사라진다. 저장한 뒤에도 `u` 로 돌아갈 것이 없다 —
@@ -174,14 +174,14 @@ func TestAutoReloadDropsUndoHistory(t *testing.T) {
 	m, path := newWideFileEditor(t, "abc\n")
 
 	model := send(m, "x", ":", "w", "enter")
-	require.Equal(t, "bc", string(bufferOf(t, model).lines[0]))
+	require.Equal(t, "bc", string(bufferOf(t, model).Lines[0]))
 
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 	model = afterFocus(t, model)
 
 	model = send(model, "u")
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]), "`u` 로 돌아갈 것이 없다")
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]), "`u` 로 돌아갈 것이 없다")
 }
 
 // 저장하지 않은 변경이 있으면 읽지 않는다. 무엇을 남길지는 `:e` 의 확인창이 묻는다.
@@ -189,12 +189,12 @@ func TestFocusMarksOutsideChangeWhenDirty(t *testing.T) {
 	m, path := newWideFileEditor(t, "abc\n")
 
 	model := send(m, "x")
-	require.True(t, bufferOf(t, model).dirty)
+	require.True(t, bufferOf(t, model).Dirty)
 
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 	model = afterFocus(t, model)
 
-	assert.Equal(t, "bc", string(bufferOf(t, model).lines[0]), "손에 든 것을 버리지 않는다")
+	assert.Equal(t, "bc", string(bufferOf(t, model).Lines[0]), "손에 든 것을 버리지 않는다")
 	assert.Contains(t, barOf(t, model)[1], "바뀌었습니다")
 	assert.Contains(t, barOf(t, model)[0], "[!]", "마커가 붙는다")
 }
@@ -215,7 +215,7 @@ func TestOutsideCreatedIsNotReadAutomatically(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 	model := afterFocus(t, m)
 
-	assert.Equal(t, "", string(bufferOf(t, model).lines[0]), "빈 buffer 가 조용히 채워지지 않는다")
+	assert.Equal(t, "", string(bufferOf(t, model).Lines[0]), "빈 buffer 가 조용히 채워지지 않는다")
 	assert.Contains(t, barOf(t, model)[1], "새로 생겼습니다")
 	assert.Contains(t, barOf(t, model)[0], "[!]")
 }
@@ -294,12 +294,12 @@ func TestFocusMarksOutsideChangeInInsertMode(t *testing.T) {
 
 	var model tea.Model = send(m, "i", "z")
 	require.IsType(t, viewEditorInsert{}, model)
-	require.True(t, bufferOf(t, model).dirty)
+	require.True(t, bufferOf(t, model).Dirty)
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	model = afterFocus(t, model)
 
-	assert.Equal(t, "zabc", string(bufferOf(t, model).lines[0]), "치는 중에는 갈아끼우지 않는다")
+	assert.Equal(t, "zabc", string(bufferOf(t, model).Lines[0]), "치는 중에는 갈아끼우지 않는다")
 	assert.Contains(t, barOf(t, model)[1], "바뀌었습니다")
 	assert.Contains(t, barOf(t, model)[0], "[!]")
 }
@@ -315,7 +315,7 @@ func TestFocusReloadsOutsideChangeInSidebar(t *testing.T) {
 
 	model = afterFocus(t, model)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]))
 	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
 }
 
@@ -361,7 +361,7 @@ func TestOutsideCheckReadsWhenStatDiffers(t *testing.T) {
 
 	assert.Equal(t, outsideModified, result.change)
 	require.NotNil(t, result.next, "갈아끼울 내용을 백그라운드에서 만들어 와야 한다")
-	assert.Equal(t, "abc", string(result.next.lines[0]))
+	assert.Equal(t, "abc", string(result.next.Lines[0]))
 }
 
 // 열 때 없던 파일에는 앞잡이를 쓰지 않는다.
@@ -383,11 +383,11 @@ func TestOutsideCheckDoesNotTrustStatWithoutBaseline(t *testing.T) {
 // 검사가 본 stat 은 buffer 에 남는다. 남지 않으면 다음 검사가 또 파일 전체를 읽는다.
 func TestOutsideCheckRecordsStat(t *testing.T) {
 	m, _ := newWideFileEditor(t, "abc\n")
-	require.True(t, m.activeBuffer().disk.mtime.IsZero(), "아직 앞잡이가 없다")
+	require.True(t, diskMtimeOf(*m.activeBuffer()).IsZero(), "아직 앞잡이가 없다")
 
 	model := afterFileTick(t, m)
 
-	assert.False(t, bufferOf(t, model).disk.mtime.IsZero(), "앞잡이가 남지 않으면 매번 읽는다")
+	assert.False(t, diskMtimeOf(bufferOf(t, model)).IsZero(), "앞잡이가 남지 않으면 매번 읽는다")
 }
 
 // 검사하는 동안 기준이 달라졌으면 그 결과는 낡은 것이다. 넣지 않고 물러난다.
@@ -403,8 +403,8 @@ func TestOutsideResultDroppedWhenBaselineMoved(t *testing.T) {
 		next:   &next,
 	})
 
-	assert.Equal(t, "abc", string(m.activeBuffer().lines[0]), "낡은 결과를 넣었다")
-	assert.Equal(t, outsideSame, m.activeBuffer().disk.outside, "마커도 붙이지 않는다")
+	assert.Equal(t, "abc", string(m.activeBuffer().Lines[0]), "낡은 결과를 넣었다")
+	assert.Equal(t, outsideSame, m.activeBuffer().OutsideState(), "마커도 붙이지 않는다")
 }
 
 // tab 이 없어도 검사 작업은 시작한다. 시작하지 않으면 끝나지도 않아서 cooldown 고리가
@@ -440,8 +440,8 @@ func TestTickChecksEveryOpenTab(t *testing.T) {
 	editor := model.(viewEditorNormal).editor
 	require.Equal(t, 0, editor.active, "활성 tab 이 옮겨졌다")
 
-	assert.Equal(t, "첫째", string(editor.buffers[0].lines[0]), "보고 있는 tab 이 건드려졌다")
-	assert.Equal(t, "남이 쓴 것", string(editor.buffers[1].lines[0]), "보고 있지 않은 tab 을 다시 읽지 않았다")
+	assert.Equal(t, "첫째", string(editor.buffers[0].Lines[0]), "보고 있는 tab 이 건드려졌다")
+	assert.Equal(t, "남이 쓴 것", string(editor.buffers[1].Lines[0]), "보고 있지 않은 tab 을 다시 읽지 않았다")
 }
 
 // tab 이 하나도 없어도 검사 작업은 돌고 끝난다.
@@ -456,4 +456,11 @@ func TestTickRunsWithoutTabs(t *testing.T) {
 	_, cmd := m.Update(fileTickMsg{})
 
 	assert.NotNil(t, cmd, "tab 이 없다고 고리가 끊긴다")
+}
+
+// diskMtimeOf 는 그 창이 마지막으로 본 파일 시각이다. 앞잡이가 남았는지만 볼 때 쓴다.
+func diskMtimeOf(buf viewport) time.Time {
+	_, _, mtime := buf.DiskSeenAt()
+
+	return mtime
 }

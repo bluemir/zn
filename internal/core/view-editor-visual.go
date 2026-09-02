@@ -103,7 +103,7 @@ func (m viewEditorVisual) press(key string) (tea.Model, tea.Cmd) {
 
 // modeName 은 statusBar 에 찍히는 이름이다. 갈래가 둘이라 줄 단위만 뒤에 붙인다.
 func (m viewEditorVisual) modeName() string {
-	if m.activeBuffer().selection.linewise {
+	if m.activeBuffer().Selection.Linewise {
 		return "VISUAL LINE"
 	}
 

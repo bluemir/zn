@@ -121,15 +121,15 @@ func TestJumplogsPreviewsWhileMoving(t *testing.T) {
 	m = next.(viewJumplogs)
 
 	assert.Equal(t, 1, m.selected)
-	assert.Equal(t, path, m.activeBuffer().path)
-	assert.Equal(t, m.logs.places[1].line, m.activeBuffer().cursor.Line, "그 자리를 보여준다")
+	assert.Equal(t, path, m.activeBuffer().Path)
+	assert.Equal(t, m.logs.places[1].line, m.activeBuffer().Cursor.Line, "그 자리를 보여준다")
 }
 
 // enter 는 판을 닫으며 확정한다. 떠난 자리는 되돌아오기 이력에 담긴다.
 func TestJumplogsConfirmsAndCloses(t *testing.T) {
 	m, path := newJumplogsView(t, 6)
 
-	origin := m.activeBuffer().cursor.Line
+	origin := m.activeBuffer().Cursor.Line
 
 	next, _ := m.press("j")
 	m = next.(viewJumplogs)
@@ -142,12 +142,12 @@ func TestJumplogsConfirmsAndCloses(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, model, "판이 닫혀야 한다")
 	assert.Zero(t, model.(viewEditorNormal).drawerHeight)
-	assert.Equal(t, path, m.activeBuffer().path)
-	assert.Equal(t, target, m.activeBuffer().cursor.Line)
+	assert.Equal(t, path, m.activeBuffer().Path)
+	assert.Equal(t, target, m.activeBuffer().Cursor.Line)
 
 	// `ctrl+o` 로 판을 열기 전 자리로 돌아온다.
 	m.jumpBack()
-	assert.Equal(t, origin, m.activeBuffer().cursor.Line)
+	assert.Equal(t, origin, m.activeBuffer().Cursor.Line)
 }
 
 // **q 와 esc 는 취소다.** 판을 열기 전 자리로 돌아가고 이력도 늘지 않는다(ADR-0073).
@@ -157,20 +157,20 @@ func TestJumplogsCancelRestoresOrigin(t *testing.T) {
 			m, _ := newJumplogsView(t, 6)
 
 			room := m.textAndDrawerHeight()
-			originLine := m.activeBuffer().cursor.Line
+			originLine := m.activeBuffer().Cursor.Line
 
 			next, _ := m.press("j")
 			m = next.(viewJumplogs)
 			next, _ = m.press("j")
 			m = next.(viewJumplogs)
-			require.NotEqual(t, originLine, m.activeBuffer().cursor.Line)
+			require.NotEqual(t, originLine, m.activeBuffer().Cursor.Line)
 
 			model, _ := m.press(key)
 
 			require.IsType(t, viewEditorNormal{}, model)
 			assert.Zero(t, model.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
 			assert.Equal(t, room, model.(viewEditorNormal).textHeight())
-			assert.Equal(t, originLine, m.activeBuffer().cursor.Line, "열기 전 줄로 돌아온다")
+			assert.Equal(t, originLine, m.activeBuffer().Cursor.Line, "열기 전 줄로 돌아온다")
 			assert.Empty(t, m.jumps.places, "아무 데도 안 갔으니 되돌아오기 이력도 비어 있다")
 		})
 	}

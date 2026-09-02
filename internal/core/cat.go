@@ -83,7 +83,7 @@ func (c *catRun) Run() error {
 func runCat(e *editor, area scheme.MotionRange) (tea.Model, tea.Cmd) {
 	buf := *e.activeBuffer()
 
-	run := tea.Exec(&catRun{header: catHeader(buf, area), lines: buf.catLines(area)}, nil)
+	run := tea.Exec(&catRun{header: catHeader(buf, area), lines: buf.CatLines(area)}, nil)
 
 	model, next := normalMode(e)
 
@@ -96,10 +96,10 @@ func runCat(e *editor, area scheme.MotionRange) (tea.Model, tea.Cmd) {
 // 머리말이 없으면 어느 것의 글인지 갈리지 않는다. 줄 번호는 사람이 세는 대로 1 부터다.
 func catHeader(buf viewport, area scheme.MotionRange) string {
 	path := "[No Name]"
-	if buf.path != "" {
+	if buf.Path != "" {
 		// 트리나 팔레트로 연 파일은 절대 경로라 그대로 두면 한 줄을 다 먹는다.
 		// 줄이는 법은 저장 문구·목록들과 같다(view-locations.go).
-		path = shortenPath(buf.path)
+		path = shortenPath(buf.Path)
 	}
 
 	return fmt.Sprintf(":cat %s %d-%d", path, area.Start.Line+1, area.End.Line+1)
@@ -115,13 +115,13 @@ func catHeader(buf viewport, area scheme.MotionRange) string {
 func (e *editor) visibleRange() scheme.MotionRange {
 	buf := e.activeBuffer()
 
-	rows := buf.visibleRows(e.textHeight())
+	rows := buf.VisibleRows(e.textHeight())
 	if len(rows) == 0 {
 		// 그릴 행이 없을 만큼 좁은 화면이다. 커서 줄 하나를 낸다.
-		return scheme.MotionRange{Start: scheme.Cursor{Line: buf.cursor.Line}, End: scheme.Cursor{Line: buf.cursor.Line}, Linewise: true}
+		return scheme.MotionRange{Start: scheme.Cursor{Line: buf.Cursor.Line}, End: scheme.Cursor{Line: buf.Cursor.Line}, Linewise: true}
 	}
 
-	first, last := rows[0].line, rows[len(rows)-1].line
+	first, last := rows[0].Line, rows[len(rows)-1].Line
 
 	return scheme.MotionRange{Start: scheme.Cursor{Line: first}, End: scheme.Cursor{Line: last}, Linewise: true}
 }

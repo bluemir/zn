@@ -30,7 +30,7 @@ func registersOf(t *testing.T, m tea.Model) map[string]string {
 
 	out := map[string]string{}
 	for _, name := range registerNames {
-		if reg := here.registers.byName(name); reg.filled() {
+		if reg := here.registers.byName(name); reg.Filled() {
 			out[registerLabel(name)] = previewOf(reg)
 		}
 	}
@@ -156,8 +156,8 @@ func TestRingKeepsLinewise(t *testing.T) {
 	here, ok := after.(viewEditorNormal)
 	require.True(t, ok)
 
-	assert.False(t, here.registers.byName("1").linewise, "`dw` 는 글자 단위다")
-	assert.True(t, here.registers.byName("0").linewise, "`yy` 는 줄 단위다")
+	assert.False(t, here.registers.byName("1").Linewise, "`dw` 는 글자 단위다")
+	assert.True(t, here.registers.byName("0").Linewise, "`yy` 는 줄 단위다")
 }
 
 // 이름을 대면 그 자리에 담는다. `"ayy` `"add` 가 문자 register 의 본체다(ADR-0058).
@@ -246,7 +246,7 @@ func TestUppercaseRegisterAppends(t *testing.T) {
 			require.True(t, ok)
 
 			assert.Equal(t, test.want, previewOf(here.registers.byName("a")))
-			assert.Equal(t, test.linewise, here.registers.byName("a").linewise)
+			assert.Equal(t, test.linewise, here.registers.byName("a").Linewise)
 		})
 	}
 }

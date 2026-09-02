@@ -56,7 +56,7 @@ func nextMarkerLine(lines []int, from int, direction markerDirection) (int, bool
 func (e *editor) jumpToMarkerLines(lines []int, direction markerDirection, count int, empty string) {
 	buf := e.activeBuffer()
 
-	line, wrapped := buf.cursor.Line, false
+	line, wrapped := buf.Cursor.Line, false
 
 	for range count {
 		next, turned, ok := nextMarkerLine(lines, line, direction)
@@ -74,8 +74,8 @@ func (e *editor) jumpToMarkerLines(lines []int, direction markerDirection, count
 
 	// 줄의 첫 글자로 간다. 마커가 가리키는 것이 줄이라 칸에는 뜻이 없고, `gg`·`G` 가 줄 앞으로
 	// 가는 것과 같은 손이다.
-	buf.moveTo(line, 0)
-	buf.clampToNormal()
+	buf.MoveTo(line, 0)
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
 	e.arrive()

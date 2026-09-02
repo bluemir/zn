@@ -101,7 +101,7 @@ func TestGrepSkipsBinaryFiles(t *testing.T) {
 
 // flag 는 `/` 검색과 같은 문법이다. `/i` 는 대소문자를 무시한다.
 func TestGrepSharesSearchPatternSyntax(t *testing.T) {
-	root := writeTree(t, map[string]string{"a.go": "NewBuffer\n"})
+	root := writeTree(t, map[string]string{"a.go": "newBuffer\n"})
 
 	assert.Len(t, grepIn(t, root, "newbuffer/i", nil).hits, 1)
 	assert.Empty(t, grepIn(t, root, "newbuffer", nil).hits)
@@ -229,7 +229,7 @@ func TestGrepStopsWhenCancelled(t *testing.T) {
 
 // dirtyOverlay 는 고치던 buffer 만 담고, 경로를 뿌리 기준 상대로 맞춘다.
 //
-// **buf.path 가 상대여도 맞춰야 한다.** CLI 인자로 열면 상대 경로가 그대로 담기는데,
+// **buf.Path 가 상대여도 맞춰야 한다.** CLI 인자로 열면 상대 경로가 그대로 담기는데,
 // 그때 Rel 이 실패하면 overlay 가 조용히 비어서 고치던 글이 검색에서 빠진다.
 func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	root := t.TempDir()
@@ -237,7 +237,7 @@ func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	clean := newBuffer(filepath.Join(root, "clean.go"), []byte("깨끗\n"))
 
 	absolute := newBuffer(filepath.Join(root, "abs.go"), []byte("절대\n"))
-	absolute.dirty = true
+	absolute.Dirty = true
 
 	e := editor{buffers: []viewport{clean, absolute}}
 	open, overlay := e.dirtyOverlay(root)
@@ -264,7 +264,7 @@ func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	require.NoError(t, err)
 
 	relative := newBuffer(filepath.Join("sub", "rel.go"), []byte("상대\n"))
-	relative.dirty = true
+	relative.Dirty = true
 
 	e = editor{buffers: []viewport{relative}}
 
@@ -284,7 +284,7 @@ func TestDirtyOverlayKeepsOutsideRoot(t *testing.T) {
 	full := filepath.Join(outside, "far.go")
 
 	buf := newBuffer(full, []byte("멀다\n"))
-	buf.dirty = true
+	buf.Dirty = true
 
 	e := editor{buffers: []viewport{buf}}
 

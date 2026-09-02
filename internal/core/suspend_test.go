@@ -14,14 +14,14 @@ func TestSuspendFromNormalMode(t *testing.T) {
 	m, _ := newFileEditor(t, "abc\n")
 
 	var model tea.Model = send(m, "i", "X", "esc")
-	require.True(t, bufferOf(t, model).dirty)
+	require.True(t, bufferOf(t, model).Dirty)
 
 	next, cmd := model.Update(key("ctrl+z"))
 
 	require.NotNil(t, cmd, "ctrl+z 는 멈추라는 cmd 를 낸다")
 	assert.IsType(t, tea.SuspendMsg{}, cmd())
 	assert.IsType(t, viewEditorNormal{}, next, "mode 는 그대로다")
-	assert.True(t, bufferOf(t, next).dirty, "변경은 그대로 남는다")
+	assert.True(t, bufferOf(t, next).Dirty, "변경은 그대로 남는다")
 }
 
 // 트리에 포커스가 있을 때도 내려간다. 올라오면 포커스가 트리에 그대로 있다.
@@ -47,7 +47,7 @@ func TestSuspendFromVisualMode(t *testing.T) {
 	require.NotNil(t, cmd, "ctrl+z 는 멈추라는 cmd 를 낸다")
 	assert.IsType(t, tea.SuspendMsg{}, cmd())
 	assert.IsType(t, viewEditorVisual{}, next, "mode 는 그대로다")
-	assert.True(t, bufferOf(t, next).selection.active, "고른 것도 그대로다")
+	assert.True(t, bufferOf(t, next).Selection.Active, "고른 것도 그대로다")
 }
 
 // insert mode 에서는 내려가지 않는다. 글자로 들어가지도 않는다.
@@ -58,7 +58,7 @@ func TestSuspendIgnoredInInsertMode(t *testing.T) {
 	next, cmd := model.Update(key("ctrl+z"))
 
 	assert.Nil(t, cmd)
-	assert.Equal(t, "abc", string(bufferOf(t, next).lines[0]))
+	assert.Equal(t, "abc", string(bufferOf(t, next).Lines[0]))
 }
 
 // `fg` 로 올라오면 보고 있는 파일이 밖에서 바뀌었는지 본다. 잃을 것이 없으면 가져온다(ADR-0038).
@@ -68,7 +68,7 @@ func TestResumeReloadsOutsideChange(t *testing.T) {
 
 	model := afterResume(t, m)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]))
 	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
 }
 

@@ -40,14 +40,14 @@ func TestOpenBufferMarksReadOnly(t *testing.T) {
 
 	buf, err := OpenBuffer(locked)
 	require.NoError(t, err)
-	assert.True(t, buf.readOnly)
+	assert.True(t, buf.ReadOnly)
 
 	writable := filepath.Join(dir, "writable.go")
 	require.NoError(t, os.WriteFile(writable, []byte("package main\n"), 0644))
 
 	buf, err = OpenBuffer(writable)
 	require.NoError(t, err)
-	assert.False(t, buf.readOnly)
+	assert.False(t, buf.ReadOnly)
 }
 
 // 읽기 전용 파일에서는 고치는 키가 듣지 않고 그 까닭이 아래 줄에 뜬다.
@@ -82,16 +82,16 @@ func TestReadOnlyRefusesEditingKeys(t *testing.T) {
 			buf, err := OpenBuffer(path)
 			require.NoError(t, err)
 
-			before := string(buf.contents())
+			before := string(buf.Contents())
 
 			e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
 			m := viewEditorNormal{editor: e}
 
 			model := send(m, pressed...)
 
-			assert.Equal(t, before, string(e.activeBuffer().contents()), "파일이 바뀌었다")
+			assert.Equal(t, before, string(e.activeBuffer().Contents()), "파일이 바뀌었다")
 			assert.Equal(t, "읽기 전용 파일입니다", e.notice)
-			assert.False(t, e.activeBuffer().dirty)
+			assert.False(t, e.activeBuffer().Dirty)
 
 			// mode 도 바뀌지 않는다. `i` 가 insert 로 들어가면 다음 글자가 파일로 간다.
 			assert.IsType(t, viewEditorNormal{}, model)
@@ -112,11 +112,11 @@ func TestReadOnlyAllowsMovingAndYanking(t *testing.T) {
 	m := viewEditorNormal{editor: e}
 
 	send(m, "j", "j")
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line)
 	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 
 	send(m, "y", "y")
-	assert.Len(t, e.registers.unnamed.lines, 1)
+	assert.Len(t, e.registers.unnamed.Lines, 1)
 	assert.NotEqual(t, "읽기 전용 파일입니다", e.notice)
 }
 

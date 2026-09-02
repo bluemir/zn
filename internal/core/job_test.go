@@ -117,7 +117,7 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 		{name: "palette", open: func(t *testing.T) tea.Model { return newPaletteView(t, 80, 20, "a.txt") }},
 		{name: "확인창", open: func(t *testing.T) tea.Model {
 			e := newTestEditor("abc\n", 80, 5)
-			e.activeBuffer().insert([]byte("X"))
+			e.activeBuffer().Insert([]byte("X"))
 
 			return ConfirmDiscard(e, e.editor, "정말 종료 하시겠습니까?", Exit)
 		}},
@@ -138,7 +138,7 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 // editor 는 하나뿐이라, No 로 부모에 돌아가면 그동안의 진행이 보인다 (ADR-0026).
 func TestJobSurvivesConfirmDialog(t *testing.T) {
 	parent := newTestEditor("abc\n", 80, 5)
-	parent.activeBuffer().insert([]byte("X"))
+	parent.activeBuffer().Insert([]byte("X"))
 
 	var confirm tea.Model = ConfirmDiscard(parent, parent.editor, "이 tab 을 닫으시겠습니까?", Exit)
 

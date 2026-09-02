@@ -352,8 +352,8 @@ func (e *editor) startGitRefresh() tea.Cmd {
 	// 그것이 지금 HEAD 와 같으면 작업이 blob 을 다시 풀지 않는다(gitReadBases).
 	wanted := make(map[string]string, len(e.buffers))
 	for i := range e.buffers {
-		if e.buffers[i].path != "" {
-			wanted[e.buffers[i].path] = e.buffers[i].gitHead()
+		if e.buffers[i].Path != "" {
+			wanted[e.buffers[i].Path] = e.buffers[i].GitHead()
 		}
 	}
 
@@ -414,17 +414,17 @@ func (e *editor) applyGitSnapshot(snapshot gitSnapshot) {
 		buf := &e.buffers[i]
 
 		if snapshot.status.head == "" {
-			buf.clearGitBase()
+			buf.ClearGitBase()
 
 			continue
 		}
 
-		if base, ok := snapshot.bases[buf.path]; ok {
-			buf.setGitBase(base, snapshot.status.head)
+		if base, ok := snapshot.bases[buf.Path]; ok {
+			buf.SetGitBase(base, snapshot.status.head)
 
 			continue
 		}
 
-		buf.refreshGitLines()
+		buf.RefreshGitLines()
 	}
 }

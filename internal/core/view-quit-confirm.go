@@ -221,7 +221,7 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return quitAll(parent, e)
 	}
 
-	if e.activeBuffer().dirty {
+	if e.activeBuffer().Dirty {
 		return ConfirmDiscard(parent, e, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return forceCloseTab(e)
 		}), nil
@@ -247,7 +247,7 @@ func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 	// 되돌리지도 않는다 — tab 을 닫은 사람은 대개 그 옆의 것을 열려는 참이다(ADR-0064).
 	var reveal tea.Cmd
 	if e.hasTab() {
-		reveal = e.revealInSidebar(e.activeBuffer().path)
+		reveal = e.revealInSidebar(e.activeBuffer().Path)
 	}
 
 	model, cmd := normalMode(e)
@@ -270,7 +270,7 @@ func closeTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd) {
 		return parent, nil
 	}
 
-	if e.buffers[index].dirty {
+	if e.buffers[index].Dirty {
 		question := fmt.Sprintf("%s tab 을 닫으시겠습니까?", e.tabName(index))
 
 		return ConfirmDiscard(parent, e, question, func() (tea.Model, tea.Cmd) {
@@ -304,7 +304,7 @@ func forceCloseTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd
 	// 없어서 트리를 그대로 둔다(ADR-0064).
 	var reveal tea.Cmd
 	if e.hasTab() {
-		reveal = e.revealInSidebar(e.activeBuffer().path)
+		reveal = e.revealInSidebar(e.activeBuffer().Path)
 	}
 
 	model, cmd := normalMode(e)

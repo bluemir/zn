@@ -17,7 +17,7 @@ func newJumpsView(t *testing.T) (viewJumps, []string) {
 
 	e.active = 0
 	for i, path := range paths {
-		e.activeBuffer().moveTo(i*2, 0)
+		e.activeBuffer().MoveTo(i*2, 0)
 		e.recordJump()
 		require.NoError(t, gotoFile(e, path, i*2+1))
 	}
@@ -99,21 +99,21 @@ func TestJumpsPreviewsWhileMoving(t *testing.T) {
 	m = next.(viewJumps)
 
 	assert.Equal(t, 1, m.selected)
-	assert.Equal(t, m.jumps.places[1].line, m.activeBuffer().cursor.Line, "그 자리를 보여준다")
-	assert.Equal(t, m.jumps.places[1].path, m.activeBuffer().path)
+	assert.Equal(t, m.jumps.places[1].line, m.activeBuffer().Cursor.Line, "그 자리를 보여준다")
+	assert.Equal(t, m.jumps.places[1].path, m.activeBuffer().Path)
 	assert.Equal(t, at, m.jumps.at, "확정 전이라 지금 자리는 그대로다")
 
 	// 맨 위까지 둘러본다.
 	next, _ = m.press("g")
 	m = next.(viewJumps)
 	assert.Equal(t, 0, m.selected)
-	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.Line)
+	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().Cursor.Line)
 
 	// 위 끝에서 멈추면 커서도 그대로다.
 	next, _ = m.press("k")
 	m = next.(viewJumps)
 	assert.Equal(t, 0, m.selected)
-	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.Line)
+	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().Cursor.Line)
 	assert.Equal(t, at, m.jumps.at, "끝까지 둘러봐도 지금 자리는 그대로다")
 }
 
@@ -130,8 +130,8 @@ func TestJumpsConfirmsAndCloses(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, model, "판이 닫혀야 한다")
 	assert.Zero(t, model.(viewEditorNormal).drawerHeight)
 
-	assert.Equal(t, paths[0], m.activeBuffer().path)
-	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[0], m.activeBuffer().Path)
+	assert.Equal(t, m.jumps.places[0].line, m.activeBuffer().Cursor.Line)
 	assert.Equal(t, 0, m.jumps.at, "지금 자리가 고른 자리로 옮겨간다")
 	assert.Equal(t, before, len(m.jumps.places), "되짚는 이동은 이력에 담기지 않는다")
 
@@ -148,7 +148,7 @@ func TestJumpsConfirmsWithoutBrowsing(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, model)
 
 	assert.Equal(t, 2, m.jumps.at)
-	assert.Equal(t, m.jumps.places[2].line, m.activeBuffer().cursor.Line)
+	assert.Equal(t, m.jumps.places[2].line, m.activeBuffer().Cursor.Line)
 }
 
 // **q 와 esc 는 취소다.** 둘러본 것이 없던 일이 되어 판을 열기 전 자리로 되돌아간다(ADR-0071).
@@ -158,14 +158,14 @@ func TestJumpsCancelRestoresOrigin(t *testing.T) {
 			m, _ := newJumpsView(t)
 
 			room := m.textAndDrawerHeight()
-			originPath := m.activeBuffer().path
-			originLine := m.activeBuffer().cursor.Line
+			originPath := m.activeBuffer().Path
+			originLine := m.activeBuffer().Cursor.Line
 			at := m.jumps.at
 
 			// 둘러본다. 커서가 실제로 움직인다.
 			next, _ := m.press("g")
 			m = next.(viewJumps)
-			require.NotEqual(t, originLine, m.activeBuffer().cursor.Line)
+			require.NotEqual(t, originLine, m.activeBuffer().Cursor.Line)
 
 			model, _ := m.press(key)
 
@@ -173,8 +173,8 @@ func TestJumpsCancelRestoresOrigin(t *testing.T) {
 			assert.Zero(t, model.(viewEditorNormal).drawerHeight)
 			assert.Equal(t, room, model.(viewEditorNormal).textHeight())
 
-			assert.Equal(t, originPath, m.activeBuffer().path, "열기 전 파일로 돌아온다")
-			assert.Equal(t, originLine, m.activeBuffer().cursor.Line, "열기 전 줄로 돌아온다")
+			assert.Equal(t, originPath, m.activeBuffer().Path, "열기 전 파일로 돌아온다")
+			assert.Equal(t, originLine, m.activeBuffer().Cursor.Line, "열기 전 줄로 돌아온다")
 			assert.Equal(t, at, m.jumps.at, "확정한 것이 없으니 이력도 그대로다")
 		})
 	}
@@ -194,7 +194,7 @@ func TestJumpsClosesPreviewTabs(t *testing.T) {
 		m.press("esc")
 
 		require.Len(t, m.buffers, 1, "둘러보며 연 tab 이 닫혔다")
-		assert.Equal(t, paths[2], m.activeBuffer().path)
+		assert.Equal(t, paths[2], m.activeBuffer().Path)
 	})
 
 	t.Run("확정한 것만 남는다", func(t *testing.T) {
@@ -214,7 +214,7 @@ func TestJumpsClosesPreviewTabs(t *testing.T) {
 		m.press("enter")
 
 		require.Len(t, m.buffers, 2, "확정한 것과 원래 열려 있던 것만 남는다")
-		assert.Equal(t, paths[1], m.activeBuffer().path, "확정한 파일에 서 있다")
+		assert.Equal(t, paths[1], m.activeBuffer().Path, "확정한 파일에 서 있다")
 	})
 }
 
@@ -227,14 +227,14 @@ func jumpsViewWithClosedTabs(t *testing.T) (viewJumps, []string) {
 
 	e.active = 0
 	for i, path := range paths {
-		e.activeBuffer().moveTo(i*2, 0)
+		e.activeBuffer().MoveTo(i*2, 0)
 		e.recordJump()
 		require.NoError(t, gotoFile(e, path, i*2+1))
 	}
 
 	// 마지막 파일만 남기고 닫는다.
 	for len(e.buffers) > 1 {
-		if e.buffers[0].path == paths[2] {
+		if e.buffers[0].Path == paths[2] {
 			e.closeTabAt(1)
 
 			continue
@@ -242,7 +242,7 @@ func jumpsViewWithClosedTabs(t *testing.T) (viewJumps, []string) {
 
 		e.closeTabAt(0)
 	}
-	require.Equal(t, paths[2], e.activeBuffer().path)
+	require.Equal(t, paths[2], e.activeBuffer().Path)
 
 	model, _ := jumpsMode(e)
 

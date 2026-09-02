@@ -24,25 +24,25 @@ func TestNormalHomeEndMoveWithinScreenRow(t *testing.T) {
 
 	// 자리를 매번 다시 잡는다. `m` 은 값이지만 buffer 는 같은 editor 를 가리켜서,
 	// 앞 검사가 옮긴 커서에서 다음 검사가 출발한다.
-	m.activeBuffer().moveTo(0, width+3)
+	m.activeBuffer().MoveTo(0, width+3)
 	end := bufferOf(t, send(m, "end"))
-	assert.Equal(t, 2*width, end.cursor.Col, "지금 행의 끝이다. 줄 끝(60) 이 아니다")
+	assert.Equal(t, 2*width, end.Cursor.Col, "지금 행의 끝이다. 줄 끝(60) 이 아니다")
 
-	m.activeBuffer().moveTo(0, width+3)
+	m.activeBuffer().MoveTo(0, width+3)
 	home := bufferOf(t, send(m, "home"))
-	assert.Equal(t, width, home.cursor.Col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
+	assert.Equal(t, width, home.Cursor.Col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
 }
 
 // 접히지 않은 줄에서는 `0`·`$` 와 같은 자리다.
 func TestNormalHomeEndOnUnwrappedLine(t *testing.T) {
 	m := newTestEditor("hello world\nsecond\n", wide, 8)
 
-	m.activeBuffer().moveTo(0, 4)
-	assert.Zero(t, bufferOf(t, send(m, "home")).cursor.Col)
+	m.activeBuffer().MoveTo(0, 4)
+	assert.Zero(t, bufferOf(t, send(m, "home")).Cursor.Col)
 
 	// normal 은 마지막 글자 위에 선다(clampToNormal). `$` 와 같다.
-	m.activeBuffer().moveTo(0, 4)
-	assert.Equal(t, len("hello world")-1, bufferOf(t, send(m, "end")).cursor.Col)
+	m.activeBuffer().MoveTo(0, 4)
+	assert.Equal(t, len("hello world")-1, bufferOf(t, send(m, "end")).Cursor.Col)
 }
 
 // `pgdown`·`pgup` 은 `ctrl+f`·`ctrl+b` 와 같은 한 화면이다. 숫자도 그대로 받는다.
@@ -51,14 +51,14 @@ func TestNormalPageKeysMatchCtrlFB(t *testing.T) {
 
 	pgdown := bufferOf(t, send(newTestEditor(data, wide, 10), "pgdown"))
 	ctrlF := bufferOf(t, send(newTestEditor(data, wide, 10), "ctrl+f"))
-	assert.Equal(t, ctrlF.cursor.Line, pgdown.cursor.Line)
-	assert.Equal(t, ctrlF.top, pgdown.top)
+	assert.Equal(t, ctrlF.Cursor.Line, pgdown.Cursor.Line)
+	assert.Equal(t, ctrlF.Top, pgdown.Top)
 
 	thrice := bufferOf(t, send(newTestEditor(data, wide, 10), "3", "pgdown"))
-	assert.Greater(t, thrice.cursor.Line, pgdown.cursor.Line, "숫자는 되풀이다")
+	assert.Greater(t, thrice.Cursor.Line, pgdown.Cursor.Line, "숫자는 되풀이다")
 
 	back := bufferOf(t, send(send(newTestEditor(data, wide, 10), "pgdown"), "pgup"))
-	assert.Zero(t, back.cursor.Line, "되돌아온다")
+	assert.Zero(t, back.Cursor.Line, "되돌아온다")
 }
 
 // normal 의 `delete` 는 아무 일도 하지 않는다. 그 자리에는 `x` 가 이미 있다.
@@ -67,15 +67,15 @@ func TestNormalDeleteDoesNothing(t *testing.T) {
 
 	after := bufferOf(t, send(m, "delete"))
 
-	assert.Equal(t, "abc", string(after.lines[0]))
-	assert.False(t, after.dirty)
+	assert.Equal(t, "abc", string(after.Lines[0]))
+	assert.False(t, after.Dirty)
 }
 
 // insert 의 `delete` 는 커서 자리 글자를 지운다.
 func TestInsertDeleteRemovesCharAtCursor(t *testing.T) {
 	m := send(newTestEditor("abc\n", wide, 8), "i", "delete")
 
-	assert.Equal(t, "bc", string(bufferOf(t, m).lines[0]))
+	assert.Equal(t, "bc", string(bufferOf(t, m).Lines[0]))
 }
 
 // insert 의 `home`·`end` 도 화면 행의 양끝이고, 커서를 옮기므로 undo 구간이 끊긴다.
@@ -83,17 +83,22 @@ func TestInsertHomeEndMoveAndBreakUndo(t *testing.T) {
 	m := send(newTestEditor("abc\n", wide, 8), "i", "x", "end")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, len("xabc"), buf.cursor.Col)
-	assert.False(t, buf.editing, "커서를 옮기면 undo 구간이 끊긴다")
+	assert.Equal(t, len("xabc"), buf.Cursor.Col)
 
-	assert.Zero(t, bufferOf(t, send(m, "home")).cursor.Col)
+	// **커서를 옮기면 undo 구간이 끊긴다.** 담아둔 상태를 보지 않고 무른 결과로 본다 —
+	// `end` 뒤에 친 `y` 와 그 앞에 친 `x` 가 따로 돌아와야 한다(ADR-0033, ADR-0129).
+	broke := send(m, "y", "esc", "u")
+	assert.Equal(t, []string{"xabc"}, linesOf(bufferOf(t, broke)),
+		"한 번의 u 가 `y` 만 물러야 한다 — 둘 다 물면 구간이 안 끊긴 것이다")
+
+	assert.Zero(t, bufferOf(t, send(m, "home")).Cursor.Col)
 }
 
 // insert 의 `pgdown`·`pgup` 도 한 화면이다.
 func TestInsertPageKeysMovePage(t *testing.T) {
 	m := send(newTestEditor(strings.Repeat("line\n", 200), wide, 10), "i", "pgdown")
 
-	assert.Greater(t, bufferOf(t, m).cursor.Line, 0)
+	assert.Greater(t, bufferOf(t, m).Cursor.Line, 0)
 }
 
 // 목록 판에서 `home`·`end` 는 `g`·`G` 와 같은 자리로 간다. `pgup`·`pgdown` 은 한 화면이다.

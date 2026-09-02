@@ -169,7 +169,7 @@ func TestWindowTitle(t *testing.T) {
 		require.NoError(t, err)
 
 		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
-		e.activeBuffer().insert([]byte("X"))
+		e.activeBuffer().Insert([]byte("X"))
 
 		assert.Equal(t, "zn editor.go + (internal/core)", e.renderWindowTitle())
 	})
@@ -196,7 +196,7 @@ func TestWindowTitle(t *testing.T) {
 // 제목이 view 에 실려 나간다. bubbletea 가 이 칸을 보고 OSC 2 를 쓴다.
 func TestWindowTitleReachesView(t *testing.T) {
 	m := newTestEditor("a\n", 80, 6)
-	m.editor.buffers[0].path = "main.go"
+	m.editor.buffers[0].Path = "main.go"
 
 	assert.Equal(t, "zn main.go", m.View().WindowTitle)
 }
@@ -205,7 +205,7 @@ func TestWindowTitleReachesView(t *testing.T) {
 // 새 view 를 만들어 칸을 베끼던 손이면 창이 열릴 때마다 제목이 사라진다.
 func TestWindowTitleSurvivesOverlays(t *testing.T) {
 	m := newTestEditor("a\n", 80, 12)
-	m.editor.buffers[0].path = "main.go"
+	m.editor.buffers[0].Path = "main.go"
 
 	want := m.View().WindowTitle
 	require.Equal(t, "zn main.go", want)
@@ -245,10 +245,10 @@ func TestViewEditorCursorPosition(t *testing.T) {
 	assert.Equal(t, tea.Position{X: left, Y: 1}, m.View().Cursor.Position)
 
 	// 한글 한 글자 = 두 칸
-	buf.moveRight(1)
+	buf.MoveRight(1)
 	assert.Equal(t, tea.Position{X: left + 2, Y: 1}, m.View().Cursor.Position)
 
-	buf.moveDownRow(1)
+	buf.MoveDownRow(1)
 	assert.Equal(t, tea.Position{X: left + 2, Y: 2}, m.View().Cursor.Position)
 }
 
@@ -257,10 +257,10 @@ func TestViewEditorCursorAfterScroll(t *testing.T) {
 	m := newTestEditor(strings.Repeat("line\n", 100), 80, 10)
 	buf := &m.buffers[0]
 
-	buf.moveDownRow(20)
-	buf.scrollTo(m.textHeight())
+	buf.MoveDownRow(20)
+	buf.ScrollTo(m.textHeight())
 
-	require.Equal(t, 11, buf.top.line)
+	require.Equal(t, 11, buf.Top.Line)
 	assert.Equal(t, 10, m.View().Cursor.Position.Y, "커서는 편집 영역 맨 아래 줄")
 }
 
@@ -269,10 +269,10 @@ func TestViewEditorCursorInWrappedLine(t *testing.T) {
 	m := newTestEditor("0123456789\n", 4, 4)
 	buf := &m.buffers[0]
 
-	buf.moveRight(1)
+	buf.MoveRight(1)
 	assert.Equal(t, tea.Position{X: 1, Y: 1}, m.View().Cursor.Position)
 
-	buf.moveDownRow(1)
+	buf.MoveDownRow(1)
 	assert.Equal(t, tea.Position{X: 1, Y: 2}, m.View().Cursor.Position, "같은 줄의 두 번째 행")
 }
 
@@ -300,11 +300,11 @@ func TestViewEditorArrowKeysMoveCursor(t *testing.T) {
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	moved := updated.(viewEditorNormal)
-	assert.Equal(t, 1, moved.buffers[0].cursor.Col)
+	assert.Equal(t, 1, moved.buffers[0].Cursor.Col)
 
 	updated, _ = moved.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	moved = updated.(viewEditorNormal)
-	assert.Equal(t, 1, moved.buffers[0].cursor.Line)
+	assert.Equal(t, 1, moved.buffers[0].Cursor.Line)
 }
 
 // expandedRow 는 줄 하나를 화면 글자로 펼친 것이다. 색은 빼고 글자만 본다.
@@ -516,7 +516,7 @@ func TestLineNumbersNarrowContentWrapsEarlier(t *testing.T) {
 // 두 번 재는 것은 앞 칸의 폭이 자리에 따라 달라지기 때문이다 — 좁으면 0 이고 넓으면 아홉
 // 칸이라, 얹고 나서 넓어지면 답이 달라진다(ADR-0086, ADR-0123).
 func setContentWidth(buf *viewport, want, height int) {
-	buf.size = viewSize{width: want, height: height}
-	buf.size.width = want + buf.gutterWidth()
-	buf.size.width = want + buf.gutterWidth()
+	buf.Size = viewSize{Width: want, Height: height}
+	buf.Size.Width = want + buf.GutterWidth()
+	buf.Size.Width = want + buf.GutterWidth()
 }

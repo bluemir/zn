@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTabFillsToTheNextUnitBoundary(t *testing.T) {
@@ -49,7 +50,7 @@ func TestShiftTabOutdentsTheLine(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"  foo"}, linesOf(buf))
-	assert.Equal(t, 5, buf.cursor.Col, "치던 자리가 두 칸 왼쪽으로 따라온다")
+	assert.Equal(t, 5, buf.Cursor.Col, "치던 자리가 두 칸 왼쪽으로 따라온다")
 }
 
 func TestShiftTabStopsAtTheLeftEdge(t *testing.T) {
@@ -142,4 +143,19 @@ func TestShiftKeepsTheCharacterKindOfTheLine(t *testing.T) {
 	m = send(m, "V", "j", ">")
 
 	assert.Equal(t, []string{"        foo", "\t\tbar"}, linesOf(bufferOf(t, m)))
+}
+
+// tab 폭이 파일마다 갈리는지 본다. 재는 자리와 그리는 자리가 같은 답을 써야 한다(ADR-0096).
+func TestTabWidthFollowsEditorconfig(t *testing.T) {
+	Path := writeEditorconfig(t, "[*]\nindent_style = tab\ntab_width = 8\n", "a.go")
+	buf := newBuffer(Path, []byte("\tab\n"))
+
+	require.Equal(t, 8, buf.TabWidth())
+
+	assert.Equal(t, 8, screenColAt(buf.Lines[0], 1, buf.TabWidth()), "tab 하나가 8 칸이다")
+	assert.Equal(t, []int{0, 1}, wrapOffsets(buf.Lines[0], 6, buf.TabWidth()),
+		"8 칸짜리 tab 은 너비 6 을 넘어 그 뒤가 다음 행으로 간다")
+
+	_, Col := expandRow(buf.Lines[0], 0, len(buf.Lines[0]), 0, markWhitespace(buf.Lines[0]), buf.TabWidth())
+	assert.Equal(t, 10, Col, "그린 뒤의 칸도 8 + `ab` 다")
 }

@@ -222,16 +222,16 @@ func (e *editor) applyReplace(root string, paths []string, lines map[string][]in
 func (e *editor) replaceFile(full string, at []int, sub substitution) (changed, missed int, err error) {
 	if index, ok := e.tabOf(full); ok {
 		buf := &e.buffers[index]
-		if buf.readOnly {
+		if buf.ReadOnly {
 			return 0, 0, errors.New("읽기 전용입니다")
 		}
 
-		next, changed, missed := replaceLinesIn(buf.lines, at, sub)
+		next, changed, missed := replaceLinesIn(buf.Lines, at, sub)
 		if changed == 0 {
 			return 0, missed, nil
 		}
 
-		buf.replaceAll(next)
+		buf.ReplaceAll(next)
 
 		if _, err := buf.Save(nil); err != nil {
 			return 0, missed, err
@@ -245,18 +245,18 @@ func (e *editor) replaceFile(full string, at []int, sub substitution) (changed, 
 		return 0, 0, err
 	}
 
-	if buf.readOnly {
+	if buf.ReadOnly {
 		return 0, 0, errors.New("읽기 전용입니다")
 	}
 
-	next, changed, missed := replaceLinesIn(buf.lines, at, sub)
+	next, changed, missed := replaceLinesIn(buf.Lines, at, sub)
 	if changed == 0 {
 		return 0, missed, nil
 	}
 
-	buf.lines = next
+	buf.Lines = next
 
-	return changed, missed, buf.write()
+	return changed, missed, buf.Write()
 }
 
 // replaceMessage 는 무엇을 바꿨는지 한 줄로 적은 것이다.

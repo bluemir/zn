@@ -46,7 +46,7 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 
 	buf := e.activeBuffer()
 
-	server, path, ok := serverPath(buf.path)
+	server, path, ok := serverPath(buf.Path)
 	if !ok {
 		return nil
 	}
@@ -56,15 +56,15 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 		return nil
 	}
 
-	rows := buf.visibleRows(e.textHeight())
+	rows := buf.VisibleRows(e.textHeight())
 	if len(rows) < 1 {
 		return nil
 	}
 
-	from := max(0, rows[0].line-semanticMargin)
-	to := min(len(buf.lines), rows[len(rows)-1].line+1+semanticMargin)
-	revision := buf.syntaxRevision()
-	lines := buf.lines
+	from := max(0, rows[0].Line-semanticMargin)
+	to := min(len(buf.Lines), rows[len(rows)-1].Line+1+semanticMargin)
+	revision := buf.SyntaxRevision()
+	lines := buf.Lines
 
 	return func() tea.Msg {
 		// 서버가 아직 이 파일을 모르면 묻지 않는다. 여는 것은 맞추는 자리의 몫이고
@@ -90,16 +90,6 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 	}
 }
 
-// semanticToken 은 서버가 말한 색 한 조각이다. **열이 이미 byte 로 옮겨져 있다.**
-//
-// 창이 드는 자료라 `lsp.SemanticToken` 을 그대로 쓰지 않는다. 창은 어느 줄 어디에 무슨 색이
-// 붙는지만 알면 되고, 그것을 언어 서버가 말했다는 것도 그 열이 UTF-16 이었다는 것도 알
-// 필요가 없다 (ADR-0125).
-type semanticToken struct {
-	line  int
-	token syntax.Token
-}
-
 // applySemanticTokens 는 받은 답을 그 파일의 줄들에 얹는다.
 //
 // **여기서 창의 말로 옮긴다.** 서버의 열은 UTF-16 이라 byte 로 바꿔야 하는데(lsp/position.go)
@@ -107,7 +97,7 @@ type semanticToken struct {
 // 옮기기에 맞다 — 창 안에서 하면 창이 lsp 를 알게 된다 (ADR-0125).
 func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 	for i := range e.buffers {
-		_, path, ok := serverPath(e.buffers[i].path)
+		_, path, ok := serverPath(e.buffers[i].Path)
 		if !ok || path != msg.path {
 			continue
 		}
@@ -117,13 +107,13 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 		// **물을 때와 글이 달라졌으면 버린다.** 답은 뒤늦게 오고 그 사이의 한 글자가 줄 자리를
 		// 밀어 두었을 수 있다. 그때 얹으면 엉뚱한 줄에 색이 붙는다 — 버리면 lexer 의 답으로 한
 		// 박자 남았다가 다음 tick 이 다시 묻는다(syntaxCache.revision).
-		if buf.syntaxRevision() != msg.revision {
+		if buf.SyntaxRevision() != msg.revision {
 			return
 		}
 
 		tokens := make([]semanticToken, 0, len(msg.tokens))
 		for _, token := range msg.tokens {
-			if token.Line < 0 || token.Line >= len(buf.lines) {
+			if token.Line < 0 || token.Line >= len(buf.Lines) {
 				continue
 			}
 
@@ -135,7 +125,7 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 			}
 
 			// 서버의 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go).
-			line := buf.lines[token.Line]
+			line := buf.Lines[token.Line]
 			start := lsp.ByteColumn(line, token.Start)
 			end := lsp.ByteColumn(line, token.Start+token.Length)
 
@@ -144,12 +134,12 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 			}
 
 			tokens = append(tokens, semanticToken{
-				line:  token.Line,
-				token: syntax.Token{Start: start, End: end, Kind: kind},
+				Line:  token.Line,
+				Token: syntax.Token{Start: start, End: end, Kind: kind},
 			})
 		}
 
-		buf.setSemanticTokens(msg.from, msg.to, tokens)
+		buf.SetSemanticTokens(msg.from, msg.to, tokens)
 
 		return
 	}

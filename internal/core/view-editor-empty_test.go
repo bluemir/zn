@@ -206,7 +206,7 @@ func TestEmptyScreenEditDoesNotConfirm(t *testing.T) {
 	m = send(m, ":", "e", " ", "a", ".", "t", "x", "t", "enter")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, "a.txt", m.(viewEditorNormal).activeBuffer().path)
+	assert.Equal(t, "a.txt", m.(viewEditorNormal).activeBuffer().Path)
 }
 
 // buffer 가 있어야 하는 명령은 알리고 물러난다. 이름을 대고 친 것이라 조용하면 안 된다.

@@ -153,7 +153,7 @@ func (e *editor) startServersForOpenBuffers() tea.Cmd {
 	started := map[string]bool{}
 
 	for i := range e.buffers {
-		server, _, ok := serverPath(e.buffers[i].path)
+		server, _, ok := serverPath(e.buffers[i].Path)
 		if !ok || started[server.Name] {
 			continue
 		}
@@ -220,12 +220,12 @@ func (e *editor) syncServers() tea.Cmd {
 
 	open := map[string][]snapshot{}
 	for i := range e.buffers {
-		server, path, ok := serverPath(e.buffers[i].path)
+		server, path, ok := serverPath(e.buffers[i].Path)
 		if !ok {
 			continue
 		}
 
-		open[server.Name] = append(open[server.Name], snapshot{path: path, lines: e.buffers[i].lines})
+		open[server.Name] = append(open[server.Name], snapshot{path: path, lines: e.buffers[i].Lines})
 	}
 
 	cmds := []tea.Cmd{}
@@ -311,7 +311,7 @@ func gotoDefinition(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	server, _, ok := serverPath(e.activeBuffer().path)
+	server, _, ok := serverPath(e.activeBuffer().Path)
 	if !ok {
 		e.notify("언어 서버가 붙는 파일에서만 정의를 찾습니다")
 
@@ -405,7 +405,7 @@ func (e *editor) installServer(server *lsp.Server) tea.Cmd {
 func (e *editor) startDefinition() tea.Cmd {
 	buf := e.activeBuffer()
 
-	server, path, ok := serverPath(buf.path)
+	server, path, ok := serverPath(buf.Path)
 	if !ok {
 		e.notify("언어 서버가 붙는 파일에서만 정의를 찾습니다")
 
@@ -425,10 +425,10 @@ func (e *editor) startDefinition() tea.Cmd {
 		return e.startServer(server)
 	}
 
-	lines := buf.lines
+	lines := buf.Lines
 	position := lsp.Position{
-		Line:      buf.cursor.Line,
-		Character: lsp.UTF16Column(buf.lines[buf.cursor.Line], buf.cursor.Col),
+		Line:      buf.Cursor.Line,
+		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
 	}
 
 	e.notify("정의를 찾는 중입니다")
@@ -505,12 +505,12 @@ func (e *editor) moveToLocation(target lsp.Location) {
 
 	line := target.Range.Start.Line
 	column := 0
-	if line >= 0 && line < len(buf.lines) {
-		column = lsp.ByteColumn(buf.lines[line], target.Range.Start.Character)
+	if line >= 0 && line < len(buf.Lines) {
+		column = lsp.ByteColumn(buf.Lines[line], target.Range.Start.Character)
 	}
 
-	buf.moveTo(line, column)
-	buf.clampToNormal()
+	buf.MoveTo(line, column)
+	buf.ClampToNormal()
 	e.scrollToCursor()
 }
 

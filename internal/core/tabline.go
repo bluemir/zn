@@ -40,7 +40,7 @@ func (row tablineRow) tabAt(col int) int {
 // tabName 은 tab 이 가리키는 파일 이름이다. 경로는 쓰지 않고 이름이 없으면 `[No Name]` 이다.
 // 확인창의 물음도 이것을 쓴다 — 보고 있지 않은 tab 을 닫을 때 어느 파일인지 적어야 한다.
 func (e editor) tabName(index int) string {
-	path := e.buffers[index].path
+	path := e.buffers[index].Path
 	if path == "" {
 		return "[No Name]"
 	}
@@ -51,7 +51,7 @@ func (e editor) tabName(index int) string {
 // tabLabel 은 tabline 에 그리는 tab 한 칸의 글자다. `번호 파일이름` 이고 경로는 쓰지 않는다.
 func (e editor) tabLabel(index int) string {
 	name := e.tabName(index)
-	if e.buffers[index].dirty {
+	if e.buffers[index].Dirty {
 		name += "+"
 	}
 

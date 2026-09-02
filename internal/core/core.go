@@ -70,7 +70,7 @@ func Run(ctx context.Context, files []string) error {
 		// 첫 읽기는 첫 model 의 Init 이 startTree 로 시작하고, 트리는 그때부터
 		// 이 자리를 향해 한 층씩 내려간다(ADR-0032).
 		if editor.hasTab() {
-			editor.sidebar.setRevealTarget(editor.activeBuffer().path)
+			editor.sidebar.setRevealTarget(editor.activeBuffer().Path)
 		}
 	}
 

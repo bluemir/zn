@@ -80,7 +80,7 @@ func (e editor) contentWidth() int {
 		return e.textWidth()
 	}
 
-	return e.buffers[e.active].contentWidth()
+	return e.buffers[e.active].ContentWidth()
 }
 
 // contentLeft 는 파일 내용이 시작하는 화면 칸이다. 커서 좌표를 옮길 때 쓴다.
@@ -100,8 +100,8 @@ func (e editor) gutterWidth() int {
 		return 0
 	}
 
-	// **재는 것은 창이 한다**(viewport.gutterWidth). 창은 자기가 받은 크기를 이미 알고 있다.
-	return e.buffers[e.active].gutterWidth()
+	// **재는 것은 창이 한다**(viewport.GutterWidth). 창은 자기가 받은 크기를 이미 알고 있다.
+	return e.buffers[e.active].GutterWidth()
 }
 
 // layoutViews 는 지금 화면에서 창들이 받는 크기를 다시 배정한다.
@@ -121,10 +121,10 @@ func (e editor) gutterWidth() int {
 // **줄 수는 여기서 안 본다.** 자릿수가 늘어 본문이 좁아지는 것은 창이 스스로 재므로
 // (viewport.contentWidth) 편집할 때마다 다시 부를 일이 없다.
 func (e *editor) layoutViews() {
-	size := viewSize{width: e.textWidth(), height: e.textHeight()}
+	size := viewSize{Width: e.textWidth(), Height: e.textHeight()}
 
 	for i := range e.buffers {
-		e.buffers[i].size = size
+		e.buffers[i].Size = size
 	}
 }
 
@@ -146,18 +146,18 @@ func (e *editor) setDrawerHeight(height int) {
 func (e editor) renderGutter(buf *viewport, row screenRow) string {
 	// **그리는 그 창에게 묻는다.** editor 를 거치면 활성 창의 값이 오는데, 그리는 것은 인자로
 	// 받은 창이다. 지금은 같지만 화면 분할이 오면 갈린다(ADR-0123).
-	width := buf.gutterWidth()
+	width := buf.GutterWidth()
 	if width == 0 {
 		return ""
 	}
-	if row.start != 0 {
+	if row.Start != 0 {
 		return strings.Repeat(" ", width)
 	}
 
-	absolute, relative := buf.lineNumberDigits()
+	absolute, relative := buf.LineNumberDigits()
 
 	// 커서 줄은 0 이다. 절대번호가 바로 옆에 있어서 거기에 또 찍을 이유가 없다.
-	distance := row.line - buf.cursor.Line
+	distance := row.Line - buf.Cursor.Line
 	if distance < 0 {
 		distance = -distance
 	}
@@ -177,8 +177,8 @@ func (e editor) renderGutter(buf *viewport, row screenRow) string {
 
 	// 진단이 왼쪽 끝이고 git 이 번호 옆이다. 진단은 있다가 없어지는 것이고 git 표시는 commit
 	// 할 때까지 그 줄에 남아 있어서, 본문에 가까운 쪽을 오래 서 있는 것에 준다(ADR-0094 §3).
-	return renderDiagnosticMarker(buf.diagnosticAt(row.line)) +
-		renderGitMarker(buf.gitMarkAt(row.line)) +
-		styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.line+1)) + " " +
+	return renderDiagnosticMarker(buf.DiagnosticAt(row.Line)) +
+		renderGitMarker(buf.GitMarkAt(row.Line)) +
+		styleLineNumberAbsolute.Render(fmt.Sprintf("%*d", absolute, row.Line+1)) + " " +
 		styleLineNumberRelative.Render(relativeNumber) + " "
 }

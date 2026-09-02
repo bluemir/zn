@@ -52,15 +52,15 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\n한글\n\n"))
-			buf.selection = selection{
-				active:   true,
-				linewise: test.linewise,
-				line:     test.anchorLine,
-				col:      test.anchorCol,
+			buf.Selection = selection{
+				Active:   true,
+				Linewise: test.linewise,
+				Line:     test.anchorLine,
+				Col:      test.anchorCol,
 			}
-			buf.cursor = scheme.Cursor{Line: test.cursorLine, Col: test.cursorCol}
+			buf.Cursor = scheme.Cursor{Line: test.cursorLine, Col: test.cursorCol}
 
-			area, ok := buf.selectionRange()
+			area, ok := buf.SelectionRange()
 			require.True(t, ok)
 			assert.Equal(t, test.want, area)
 		})
@@ -70,7 +70,7 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 func TestSelectionRangeNeedsActiveSelection(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("foo\n"))
 
-	_, ok := buf.selectionRange()
+	_, ok := buf.SelectionRange()
 	assert.False(t, ok, "고른 것이 없으면 범위도 없다")
 }
 
@@ -79,7 +79,7 @@ func TestSelectionOn(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\nquux\n"))
 
 	t.Run("한 줄 안", func(t *testing.T) {
-		span, toEnd, ok := buf.selectionOn(scheme.MotionRange{Start: scheme.Cursor{Col: 1}, End: scheme.Cursor{Col: 4}}, 0)
+		span, toEnd, ok := buf.SelectionOn(scheme.MotionRange{Start: scheme.Cursor{Col: 1}, End: scheme.Cursor{Col: 4}}, 0)
 
 		require.True(t, ok)
 		assert.Equal(t, []int{1, 4}, span)
@@ -89,24 +89,24 @@ func TestSelectionOn(t *testing.T) {
 	t.Run("여러 줄", func(t *testing.T) {
 		area := scheme.MotionRange{Start: scheme.Cursor{Col: 4}, End: scheme.Cursor{Line: 2, Col: 2}}
 
-		span, toEnd, ok := buf.selectionOn(area, 0)
+		span, toEnd, ok := buf.SelectionOn(area, 0)
 		require.True(t, ok)
 		assert.Equal(t, []int{4, 7}, span)
 		assert.True(t, toEnd, "첫 줄은 개행까지다")
 
-		span, toEnd, ok = buf.selectionOn(area, 1)
+		span, toEnd, ok = buf.SelectionOn(area, 1)
 		require.True(t, ok)
 		assert.Equal(t, []int{0, 7}, span)
 		assert.True(t, toEnd, "가운데 줄은 통째로다")
 
-		span, toEnd, ok = buf.selectionOn(area, 2)
+		span, toEnd, ok = buf.SelectionOn(area, 2)
 		require.True(t, ok)
 		assert.Equal(t, []int{0, 2}, span)
 		assert.False(t, toEnd, "마지막 줄은 커서 자리까지다")
 	})
 
 	t.Run("줄 단위는 줄 전체", func(t *testing.T) {
-		span, toEnd, ok := buf.selectionOn(scheme.MotionRange{End: scheme.Cursor{Line: 1}, Linewise: true}, 1)
+		span, toEnd, ok := buf.SelectionOn(scheme.MotionRange{End: scheme.Cursor{Line: 1}, Linewise: true}, 1)
 
 		require.True(t, ok)
 		assert.Equal(t, []int{0, 7}, span)
@@ -114,7 +114,7 @@ func TestSelectionOn(t *testing.T) {
 	})
 
 	t.Run("범위 밖의 줄", func(t *testing.T) {
-		_, _, ok := buf.selectionOn(scheme.MotionRange{End: scheme.Cursor{Line: 1}}, 2)
+		_, _, ok := buf.SelectionOn(scheme.MotionRange{End: scheme.Cursor{Line: 1}}, 2)
 
 		assert.False(t, ok)
 	})

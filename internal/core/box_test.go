@@ -56,7 +56,7 @@ func TestASCIISidebarCells(t *testing.T) {
 // tabline 구분자도 같이 내려간다.
 func TestASCIITabline(t *testing.T) {
 	m := newTestEditor("a\n", 80, 20)
-	m.buffers = append(m.buffers, viewport{Buffer: Buffer{path: "b.txt"}})
+	m.buffers = append(m.buffers, viewport{Buffer: Buffer{Path: "b.txt"}})
 	m.boxChars = boxASCII
 
 	line := m.renderTabline(m.textWidth()).line

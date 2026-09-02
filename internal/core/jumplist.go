@@ -51,11 +51,11 @@ func (e *editor) here() (jumpPlace, bool) {
 	}
 
 	buf := e.activeBuffer()
-	if buf.path == "" {
+	if buf.Path == "" {
 		return jumpPlace{}, false
 	}
 
-	return jumpPlace{path: buf.path, line: buf.cursor.Line, col: buf.cursor.Col}, true
+	return jumpPlace{path: buf.Path, line: buf.Cursor.Line, col: buf.Cursor.Col}, true
 }
 
 // jumpMotion 은 되돌아오기 이력에 담는 이동인지다.
@@ -191,8 +191,8 @@ func (e *editor) goToPlace(place jumpPlace) tea.Cmd {
 	}
 
 	buf := e.activeBuffer()
-	buf.moveTo(place.line, place.col)
-	buf.clampToNormal()
+	buf.MoveTo(place.line, place.col)
+	buf.ClampToNormal()
 	e.scrollToCursor()
 	e.clearNotice()
 

@@ -513,3 +513,4 @@
 - [ ] tab에 열려있는 file 을 sidebar 에서 파일삭제하면 탭을 닫아 주기
 - [ ] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기
 - [ ] '%' 로 괄호 쌍으로 가기
+- [ ] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가

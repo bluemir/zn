@@ -13,8 +13,8 @@ func pressFrom(t *testing.T, data string, line, col int, keys ...string) viewpor
 	t.Helper()
 
 	m := newTestEditor(data, 80, 20)
-	m.buffers[0].cursor.Line = line
-	m.buffers[0].cursor.Col = col
+	m.buffers[0].Cursor.Line = line
+	m.buffers[0].Cursor.Col = col
 
 	return bufferOf(t, send(m, keys...))
 }
@@ -132,21 +132,21 @@ func TestDeleteCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, test.line, test.col, test.keys...)
 
-			assert.Equal(t, test.want, [2]int{buf.cursor.Line, buf.cursor.Col})
+			assert.Equal(t, test.want, [2]int{buf.Cursor.Line, buf.Cursor.Col})
 		})
 	}
 }
 
 func TestDeleteMarksDirty(t *testing.T) {
 	buf := pressFrom(t, "foo", 0, 0, "x")
-	assert.True(t, buf.dirty)
+	assert.True(t, buf.Dirty)
 
 	// 아무것도 지우지 않았으면 파일은 그대로다.
 	buf = pressFrom(t, "foo", 0, 0, "d", "i")
-	assert.False(t, buf.dirty, "모르는 motion 은 파일을 건드리지 않는다")
+	assert.False(t, buf.Dirty, "모르는 motion 은 파일을 건드리지 않는다")
 
 	buf = pressFrom(t, "", 0, 0, "x")
-	assert.False(t, buf.dirty, "빈 줄에서 x 는 지울 것이 없다")
+	assert.False(t, buf.Dirty, "빈 줄에서 x 는 지울 것이 없다")
 }
 
 // 여러 줄에 걸친 글자 단위 지우기는 줄이 합쳐진다.

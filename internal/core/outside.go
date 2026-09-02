@@ -88,10 +88,10 @@ func (e *editor) outsideTargets() []outsideTarget {
 
 // outsideTargetOf 는 buffer 하나에서 기준을 뜬다.
 func outsideTargetOf(buf *viewport) outsideTarget {
-	seen, size, mtime := buf.diskSeenAt()
+	seen, size, mtime := buf.DiskSeenAt()
 
 	return outsideTarget{
-		path:  buf.path,
+		path:  buf.Path,
 		seen:  seen,
 		size:  size,
 		mtime: mtime,
@@ -233,7 +233,7 @@ func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) out
 	// 갈아끼울 내용을 여기서 만들어 둔다. 줄 나누기와 해시가 파일 크기만큼 드는 일이라
 	// `Update` 로 넘기면 그만큼 화면이 멈춘다.
 	next := newBuffer(path, data)
-	next.markDiskStamp(result.size, result.mtime)
+	next.MarkDiskStamp(result.size, result.mtime)
 	result.next = &next
 
 	return result
@@ -262,14 +262,14 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 
 	// 검사하는 동안 그 tab 이 닫혔거나, 저장·다시 읽기로 기준이 달라졌다. 지금 넣으면
 	// 낡은 것을 넣는 셈이라 물러난다 — 다음 tick 이 새 기준으로 다시 본다.
-	if buf == nil || !bytes.Equal(buf.disk.hash, seen) {
+	if buf == nil || !bytes.Equal(buf.Disk.Hash, seen) {
 		return
 	}
 
 	// 앞잡이는 판정과 무관하게 갱신한다. 다음 검사가 읽지 않고 끝나는 것이 이 값이다.
-	buf.markDiskStamp(result.size, result.mtime)
+	buf.MarkDiskStamp(result.size, result.mtime)
 
-	if result.change != outsideModified || buf.dirty || result.next == nil {
+	if result.change != outsideModified || buf.Dirty || result.next == nil {
 		if message := markOutsideChange(buf, result.change); message != "" {
 			e.notify(message)
 		}
@@ -277,14 +277,14 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 		return
 	}
 
-	*buf = buf.adopt(*result.next)
+	*buf = buf.Adopt(*result.next)
 
 	// 커서 칸은 유지하지만 그 자리가 새 내용에서는 줄 끝 다음일 수 있다. 팔레트의
 	// 「파일 다시 읽기」와 같은 뒷마무리다(palette.go).
 	//
 	// 보고 있는 tab 이 아니면 화면을 건드릴 것이 없다. 그 tab 으로 옮겨갈 때 scrollToCursor 가 돈다.
 	if buf == e.activeBuffer() {
-		buf.clampToNormal()
+		buf.ClampToNormal()
 		e.scrollToCursor()
 	}
 
@@ -319,8 +319,8 @@ func outsideSummary(result outsideResult) string {
 // 활성 buffer 가 아니라 buffer 를 받는다. 검사가 백그라운드로 내려가서, 결과가 돌아올 때는
 // 보고 있는 tab 이 검사한 tab 이 아닐 수 있다(ADR-0044).
 func markOutsideChange(buf *viewport, change outsideChange) string {
-	was := buf.outsideState()
-	buf.setOutsideState(change)
+	was := buf.OutsideState()
+	buf.SetOutsideState(change)
 
 	if change == outsideSame || was != outsideSame {
 		return ""

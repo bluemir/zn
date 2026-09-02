@@ -13,9 +13,9 @@ import (
 // newDiagnostic 은 창이 드는 진단 하나를 짓는다. 서버를 지나지 않는다.
 func newDiagnostic(line int, severity diagnosticSeverity, message string) diagnostic {
 	return diagnostic{
-		line:     line,
-		severity: severity,
-		message:  message,
+		Line:     line,
+		Severity: severity,
+		Message:  message,
 	}
 }
 
@@ -23,7 +23,7 @@ func newDiagnostic(line int, severity diagnosticSeverity, message string) diagno
 func TestDiagnosticMarkerColumnAlwaysReserved(t *testing.T) {
 	clean := newTestEditor("one\ntwo\n", 40, 2)
 	dirty := newTestEditor("one\ntwo\n", 40, 2)
-	dirty.buffers[0].setDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
+	dirty.buffers[0].SetDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
 
 	assert.Equal(t, clean.gutterWidth(), dirty.gutterWidth(), "진단이 생겨도 칸 폭이 그대로다")
 	assert.Equal(t, clean.contentWidth(), dirty.contentWidth(), "본문 너비도 그대로다")
@@ -35,7 +35,7 @@ func TestDiagnosticMarkerColumnAlwaysReserved(t *testing.T) {
 // 오류와 경고는 글자가 다르다. 색만으로 가르지 않는다.
 func TestDiagnosticMarkerBySeverity(t *testing.T) {
 	m := newTestEditor("one\ntwo\nthree\nfour\n", 40, 4)
-	m.buffers[0].setDiagnostics([]diagnostic{
+	m.buffers[0].SetDiagnostics([]diagnostic{
 		newDiagnostic(0, severityError, "undefined: x"),
 		newDiagnostic(1, severityWarning, "형식이 맞지 않는다"),
 		newDiagnostic(2, severityHint, "곁말"),
@@ -52,7 +52,7 @@ func TestDiagnosticMarkerBySeverity(t *testing.T) {
 // 한 줄에 오류와 경고가 같이 있으면 마커는 오류다. 아래 줄의 문구도 같은 것을 가리킨다.
 func TestDiagnosticWorstFirstOnOneLine(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 60, 2)
-	m.buffers[0].setDiagnostics([]diagnostic{
+	m.buffers[0].SetDiagnostics([]diagnostic{
 		newDiagnostic(0, severityWarning, "형식이 맞지 않는다"),
 		newDiagnostic(0, severityError, "undefined: x"),
 	})
@@ -64,7 +64,7 @@ func TestDiagnosticWorstFirstOnOneLine(t *testing.T) {
 // 마커 색은 테마가 실패·주의라고 부르는 색이다(ANSI 1 과 11).
 func TestDiagnosticMarkerColors(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 40, 2)
-	m.buffers[0].setDiagnostics([]diagnostic{
+	m.buffers[0].SetDiagnostics([]diagnostic{
 		newDiagnostic(0, severityError, "undefined: x"),
 		newDiagnostic(1, severityWarning, "형식이 맞지 않는다"),
 	})
@@ -80,7 +80,7 @@ func TestDiagnosticMarkerBlankOnWrappedRows(t *testing.T) {
 	m := newTestEditor(strings.Repeat("a", 30)+"\nnext\n", 34, 3)
 	require.Positive(t, m.gutterWidth())
 
-	m.buffers[0].setDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
+	m.buffers[0].SetDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
 
 	assert.Equal(t, []string{"✖   1  0 ", "         ", "    2  1 "}, gutterOf(t, m))
 }
@@ -88,7 +88,7 @@ func TestDiagnosticMarkerBlankOnWrappedRows(t *testing.T) {
 // 커서가 진단 있는 줄에 서면 아래 줄에 문구가 커서 자리 뒤로 붙는다.
 func TestDiagnosticMessageFollowsCursor(t *testing.T) {
 	normal := newTestEditor("one\ntwo\n", 60, 2)
-	normal.buffers[0].setDiagnostics([]diagnostic{newDiagnostic(1, severityError, "undefined: x")})
+	normal.buffers[0].SetDiagnostics([]diagnostic{newDiagnostic(1, severityError, "undefined: x")})
 
 	var m tea.Model = normal
 
@@ -103,7 +103,7 @@ func TestDiagnosticMessageFollowsCursor(t *testing.T) {
 // 알림이 뜨면 그 줄은 알림 것이다. 진단은 다음 키에 알림이 걷히면 다시 보인다.
 func TestDiagnosticMessageYieldsToNotice(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 60, 2)
-	m.buffers[0].setDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
+	m.buffers[0].SetDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
 	m.notify("저장했습니다")
 
 	assert.Equal(t, "저장했습니다", strings.TrimSpace(barOf(t, m)[1]))
@@ -112,7 +112,7 @@ func TestDiagnosticMessageYieldsToNotice(t *testing.T) {
 // 좁은 화면에서는 줄번호와 함께 마커 칸도 사라진다. 본문이 편집 영역을 다 쓴다.
 func TestDiagnosticMarkerHiddenOnNarrowScreen(t *testing.T) {
 	m := newTestEditor("abc\n", 20, 3)
-	m.buffers[0].setDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
+	m.buffers[0].SetDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
 
 	assert.Zero(t, m.gutterWidth())
 	assert.Equal(t, m.textWidth(), m.contentWidth())
@@ -122,10 +122,10 @@ func TestDiagnosticMarkerHiddenOnNarrowScreen(t *testing.T) {
 // 빈 목록이 오면 마커가 사라진다. 고친 오류가 화면에 남아 있으면 안 된다.
 func TestDiagnosticClearedByEmptyList(t *testing.T) {
 	m := newTestEditor("one\ntwo\n", 40, 2)
-	m.buffers[0].setDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
+	m.buffers[0].SetDiagnostics([]diagnostic{newDiagnostic(0, severityError, "undefined: x")})
 	require.Equal(t, "✖   1  0 ", gutterOf(t, m)[0])
 
-	m.buffers[0].setDiagnostics(nil)
+	m.buffers[0].SetDiagnostics(nil)
 
 	assert.Equal(t, []string{"    1  0 ", "    2  1 "}, gutterOf(t, m))
 	assert.Empty(t, m.renderDiagnostic())

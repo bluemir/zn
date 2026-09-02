@@ -316,13 +316,13 @@ func (hl rowHighlight) appendSyntax(segments []rowSegment, from, to int) []rowSe
 // renderRow 는 화면 행 하나를 그린다. 강조가 걸쳐 있으면 그 구간만 색을 입힌다.
 //
 // width 는 편집 영역의 너비다. 줄 끝에 덧붙이는 선택 칸이 그 안에 드는지 보는 데 쓴다.
-// tab 은 이 파일의 tab 폭이다(`buf.tabWidth()`, ADR-0096).
+// tab 은 이 파일의 tab 폭이다(`buf.TabWidth()`, ADR-0096).
 func renderRow(line []byte, row screenRow, width int, hl rowHighlight, tab int) string {
 	mark := markWhitespace(line)
 
 	out := strings.Builder{}
 	col := 0
-	offset := row.start
+	offset := row.Start
 
 	// put 은 offset 부터 end 까지를 그 색으로 그린다.
 	put := func(end int, style lipgloss.Style) {
@@ -336,7 +336,7 @@ func renderRow(line []byte, row screenRow, width int, hl rowHighlight, tab int) 
 	}
 
 	// segments 가 행을 빈틈 없이 덮으므로 사이를 메울 자리가 없다.
-	for _, segment := range hl.segments(row.start, row.end) {
+	for _, segment := range hl.segments(row.Start, row.End) {
 		put(segment.end, segment.style)
 	}
 
@@ -345,7 +345,7 @@ func renderRow(line []byte, row screenRow, width int, hl rowHighlight, tab int) 
 	//
 	// 줄의 마지막 행에만 붙이고, 편집 영역을 넘으면 붙이지 않는다 — 한 칸이 넘치면 줄바꿈이
 	// 어긋난다.
-	if hl.toLineEnd && row.end == len(line) && col < width {
+	if hl.toLineEnd && row.End == len(line) && col < width {
 		out.WriteString(styleSelection.Render(" "))
 	}
 

@@ -58,9 +58,9 @@ func TestFinishReferencesJumpsWhenSingle(t *testing.T) {
 
 	assert.Nil(t, next, "하나면 mode 를 바꾸지 않는다")
 	require.Len(t, e.buffers, 2)
-	assert.Equal(t, there, e.activeBuffer().path)
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
-	assert.Equal(t, 12, e.activeBuffer().cursor.Col)
+	assert.Equal(t, there, e.activeBuffer().Path)
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line)
+	assert.Equal(t, 12, e.activeBuffer().Cursor.Col)
 }
 
 // 여럿이면 고르는 화면이 열린다. 정의와 같은 화면이고 제목만 다르다.
@@ -83,7 +83,7 @@ func TestFinishReferencesOpensList(t *testing.T) {
 	require.True(t, ok, "고르는 화면이 열려야 한다")
 	assert.Equal(t, "사용처", list.title)
 	assert.Len(t, list.locations, 2)
-	assert.Equal(t, 0, e.activeBuffer().cursor.Line, "고르기 전에는 커서가 움직이지 않는다")
+	assert.Equal(t, 0, e.activeBuffer().Cursor.Line, "고르기 전에는 커서가 움직이지 않는다")
 }
 
 // 아무도 쓰지 않는 이름이면 0 개로 온다. 선언 자리를 목록에서 뺐기 때문에 이 말이 맞다.
@@ -99,7 +99,7 @@ func TestFinishReferencesNothing(t *testing.T) {
 // 서버가 없으면 설치를 묻는다. 정의로 가기와 같은 확인창이다.
 func TestGotoReferencesPromptsInstallWhenMissing(t *testing.T) {
 	editor := newTestEditor("package main\nfunc main() {}\n", 80, 20)
-	editor.editor.buffers[0].path = "main.go"
+	editor.editor.buffers[0].Path = "main.go"
 	editor.editor.serverState(lsp.ServerFor("main.go")).failed = true
 
 	normal, _ := normalMode(editor.editor)
@@ -111,7 +111,7 @@ func TestGotoReferencesPromptsInstallWhenMissing(t *testing.T) {
 
 func TestGotoReferencesWithoutServerForFileNotifies(t *testing.T) {
 	editor := newTestEditor("# Hello\n", 80, 20)
-	editor.editor.buffers[0].path = "README.md"
+	editor.editor.buffers[0].Path = "README.md"
 
 	normal, _ := normalMode(editor.editor)
 	model, cmd := gotoReferences(normal, editor.editor)
@@ -123,7 +123,7 @@ func TestGotoReferencesWithoutServerForFileNotifies(t *testing.T) {
 
 func TestActionGotoReferencesPromptsConfirm(t *testing.T) {
 	editor := newTestEditor("package main\n", 80, 20)
-	editor.editor.buffers[0].path = "main.go"
+	editor.editor.buffers[0].Path = "main.go"
 	editor.editor.serverState(lsp.ServerFor("main.go")).failed = true
 
 	model, cmd := actionGotoReferences{}.run(editor.editor)

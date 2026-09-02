@@ -28,7 +28,7 @@ func newUnnamedEditor(t *testing.T) (viewEditorNormal, string) {
 // `:w <파일>` 은 사본을 쓴다. 보고 있는 파일도 tab 이름도 그대로다 (ADR-0024).
 func TestWriteToOtherFileWritesCopy(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 
 	copyPath := filepath.Join(dir, "copy.txt")
 	m := runCommand(start, "w "+copyPath)
@@ -41,8 +41,8 @@ func TestWriteToOtherFileWritesCopy(t *testing.T) {
 	assert.Equal(t, "Xa.txt\n", string(written))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, filepath.Join(dir, "a.txt"), buf.path, "보고 있는 파일은 그대로다")
-	assert.True(t, buf.dirty, "원래 파일에는 아직 쓰지 않았으므로 변경 표시가 남는다")
+	assert.Equal(t, filepath.Join(dir, "a.txt"), buf.Path, "보고 있는 파일은 그대로다")
+	assert.True(t, buf.Dirty, "원래 파일에는 아직 쓰지 않았으므로 변경 표시가 남는다")
 
 	origin, err := os.ReadFile(filepath.Join(dir, "a.txt"))
 	require.NoError(t, err)
@@ -52,13 +52,13 @@ func TestWriteToOtherFileWritesCopy(t *testing.T) {
 // 사본을 쓴 뒤 그냥 `:w` 를 치면 사본이 아니라 원래 파일에 쓴다. 이름이 옮겨가지 않았다.
 func TestWriteAfterCopyStillSavesOriginal(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 
 	m := runCommand(start, "w "+filepath.Join(dir, "copy.txt"))
 	m = runCommand(m, "w")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.False(t, bufferOf(t, m).dirty)
+	assert.False(t, bufferOf(t, m).Dirty)
 
 	origin, err := os.ReadFile(filepath.Join(dir, "a.txt"))
 	require.NoError(t, err)
@@ -113,8 +113,8 @@ func TestWriteNamesUnnamedBuffer(t *testing.T) {
 	assert.Equal(t, "메모\n", string(written))
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, path, buf.path, "이름이 붙는다")
-	assert.False(t, buf.dirty, "이제 이 파일의 buffer 라 변경 표시가 사라진다")
+	assert.Equal(t, path, buf.Path, "이름이 붙는다")
+	assert.False(t, buf.Dirty, "이제 이 파일의 buffer 라 변경 표시가 사라진다")
 
 	tabline := model.(viewEditorNormal).renderTabline(60).line
 	assert.Contains(t, tabline, "notes.txt", "tabline 도 [No Name] 이 아니라 새 이름이다")
@@ -144,13 +144,13 @@ func TestWriteAgainAfterNaming(t *testing.T) {
 func TestWriteRefusesNameOpenInAnotherTab(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
 	start.newTab()
-	require.Equal(t, "", start.activeBuffer().path, "이름 없는 tab 으로 옮겨왔다")
+	require.Equal(t, "", start.activeBuffer().Path, "이름 없는 tab 으로 옮겨왔다")
 
 	m := runCommand(start, "w! "+filepath.Join(dir, "a.txt"))
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Contains(t, barOf(t, m)[1], "다른 tab 에 열려 있습니다")
-	assert.Equal(t, "", bufferOf(t, m).path, "이름이 붙지 않는다")
+	assert.Equal(t, "", bufferOf(t, m).Path, "이름이 붙지 않는다")
 
 	kept, err := os.ReadFile(filepath.Join(dir, "a.txt"))
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestWriteCopyAllowsFileOpenInAnotherTab(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Contains(t, barOf(t, m)[1], "사본을 씀")
-	assert.Equal(t, "b.txt", string(m.(viewEditorNormal).buffers[1].lines[0]),
+	assert.Equal(t, "b.txt", string(m.(viewEditorNormal).buffers[1].Lines[0]),
 		"그 tab 의 buffer 는 그대로다. 다시 읽는 것은 `:e` 다")
 }
 
@@ -173,14 +173,14 @@ func TestWriteCopyAllowsFileOpenInAnotherTab(t *testing.T) {
 // 사본으로 보면 「이미 있습니다」로 막히고, `!` 를 붙여도 변경 표시가 남는다.
 func TestWriteToActiveFileIsPlainSave(t *testing.T) {
 	start, dir := newFilesEditor(t, "a.txt")
-	start.activeBuffer().insert([]byte("X"))
+	start.activeBuffer().Insert([]byte("X"))
 
 	// 표기가 달라도 같은 파일이면 제자리 저장이다. tabOf 와 같은 기준이다.
 	m := runCommand(start, "w "+dir+"/./a.txt")
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Contains(t, barOf(t, m)[1], "저장함")
-	assert.False(t, bufferOf(t, m).dirty)
+	assert.False(t, bufferOf(t, m).Dirty)
 
 	written, err := os.ReadFile(filepath.Join(dir, "a.txt"))
 	require.NoError(t, err)
@@ -206,7 +206,7 @@ func TestWriteToUnwritablePathKeepsBufferUnnamed(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.NotContains(t, barOf(t, m)[1], "저장함")
-	assert.Equal(t, "", bufferOf(t, m).path)
+	assert.Equal(t, "", bufferOf(t, m).Path)
 }
 
 // 공백이 든 파일 이름도 따옴표로 쓸 수 있다. tokenizer 가 이미 하는 일이다.
@@ -217,7 +217,7 @@ func TestWriteToQuotedPath(t *testing.T) {
 	m := runCommand(start, `w "`+path+`"`)
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, path, bufferOf(t, m).path)
+	assert.Equal(t, path, bufferOf(t, m).Path)
 
 	_, err := os.Stat(path)
 	assert.NoError(t, err)
@@ -284,7 +284,7 @@ func TestWriteCopyDoesNotFormat(t *testing.T) {
 	copyPath := filepath.Join(filepath.Dir(path), "copy.txt")
 	runCommand(m, "w "+copyPath)
 
-	assert.Equal(t, "가나다   ", string(e.activeBuffer().lines[0]), "보고 있는 파일은 그대로다")
+	assert.Equal(t, "가나다   ", string(e.activeBuffer().Lines[0]), "보고 있는 파일은 그대로다")
 
 	saved, err := os.ReadFile(copyPath)
 	require.NoError(t, err)

@@ -32,7 +32,7 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
-	at, next, found, changed := formattedTables(buf.lines, buf.language.State(), from, to)
+	at, next, found, changed := formattedTables(buf.Lines, buf.Language.State(), from, to)
 
 	switch {
 	case found == 0:
@@ -43,17 +43,17 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다(trimTrailingSpace 와 같은 손이다).
-	buf.endEdit()
-	buf.beginEdit(at, len(next))
-	buf.replaceLines(at, len(next), next)
+	buf.EndEdit()
+	buf.BeginEdit(at, len(next))
+	buf.ReplaceLines(at, len(next), next)
 
 	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
-	buf.cursor.Col = min(buf.cursor.Col, len(buf.lines[buf.cursor.Line]))
-	buf.updateDesiredCol()
+	buf.Cursor.Col = min(buf.Cursor.Col, len(buf.Lines[buf.Cursor.Line]))
+	buf.UpdateDesiredCol()
 
-	buf.endEdit()
+	buf.EndEdit()
 
-	buf.clampToNormal()
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("표 %s 개를 맞췄습니다", formatCount(changed)))

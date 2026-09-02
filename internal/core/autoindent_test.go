@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -27,7 +29,7 @@ func TestEnterIndentsAfterOpeningBrace(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\tx", "}"}, linesOf(buf))
-	assert.Equal(t, 2, buf.cursor.Col, "들여쓰기 다음에 글자가 하나")
+	assert.Equal(t, 2, buf.Cursor.Col, "들여쓰기 다음에 글자가 하나")
 }
 
 func TestEnterKeepsIndentOnPlainLine(t *testing.T) {
@@ -46,7 +48,7 @@ func TestTypingClosingBracePullsTheLineBack(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\ta()", "}"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.Col, "`}` 뒤")
+	assert.Equal(t, 1, buf.Cursor.Col, "`}` 뒤")
 }
 
 func TestTypingBraceMidLineDoesNotMove(t *testing.T) {
@@ -74,8 +76,8 @@ func TestOpenLineAboveTakesTheIndentFromTheLineAbove(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\tb", "\ta()", "}"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.Line)
-	assert.Equal(t, 2, buf.cursor.Col)
+	assert.Equal(t, 1, buf.Cursor.Line)
+	assert.Equal(t, 2, buf.Cursor.Col)
 }
 
 func TestOpenLineAboveAtFirstLineHasNoIndent(t *testing.T) {
@@ -94,7 +96,7 @@ func TestReplaceWithNewlineIndents(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"func f() {", "\t}"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.Col, "들여쓰기 다음")
+	assert.Equal(t, 1, buf.Cursor.Col, "들여쓰기 다음")
 }
 
 func TestPasteIsNotIndented(t *testing.T) {
@@ -222,4 +224,18 @@ func TestEnterMidLineSeesOnlyWhatStaysAbove(t *testing.T) {
 	m = send(m, "$", "i", "enter")
 
 	assert.Equal(t, []string{"func f() {", "\t}"}, linesOf(bufferOf(t, m)))
+}
+
+// writeEditorconfig 는 새 디렉터리에 `.editorconfig` 를 놓고 그 안의 파일 경로를 준다.
+//
+// `root = true` 를 언제나 붙인다. 붙이지 않으면 라이브러리가 상위로 계속 올라가서, 테스트를
+// 돌리는 사람의 홈에 있는 `.editorconfig` 가 답을 바꾼다.
+func writeEditorconfig(t *testing.T, body, name string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".editorconfig"),
+		[]byte("root = true\n\n"+body), 0o644))
+
+	return filepath.Join(dir, name)
 }

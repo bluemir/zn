@@ -58,7 +58,7 @@ func TestSubstitute(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			start := newTestEditor(test.data, 60, 8)
-			start.buffers[0].cursor.Line = test.line
+			start.buffers[0].Cursor.Line = test.line
 
 			m := runCommand(start, test.input)
 
@@ -96,8 +96,8 @@ func TestSubstituteCursor(t *testing.T) {
 	m := runCommand(newTestEditor("a\nb\n    a\nc\n", 60, 8), "%s/a/X/")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 2, buf.cursor.Line)
-	assert.Equal(t, 4, buf.cursor.Col)
+	assert.Equal(t, 2, buf.Cursor.Line)
+	assert.Equal(t, 4, buf.Cursor.Col)
 }
 
 // 되돌리기는 한 구간이다. 한 번의 `u` 로 범위 전체가 돌아온다.
@@ -125,7 +125,7 @@ func TestSubstituteWithoutMatchLeavesFileAlone(t *testing.T) {
 	m := runCommand(newTestEditor("a\n", 60, 8), "%s/zzz/X/")
 
 	assert.Equal(t, []string{"a"}, linesOf(bufferOf(t, m)))
-	assert.False(t, bufferOf(t, m).dirty)
+	assert.False(t, bufferOf(t, m).Dirty)
 }
 
 // 되돌아갈 앞날(redo) 도 그대로 있어야 한다. 구간을 열기만 해도 그것이 날아간다.

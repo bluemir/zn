@@ -59,23 +59,23 @@ func (e editor) renderStatusPath() string {
 
 	buf := e.buffers[e.active]
 
-	path := buf.path
+	path := buf.Path
 	if path == "" {
 		path = "[No Name]"
 	}
-	if buf.dirty {
+	if buf.Dirty {
 		path += " [+]"
 	}
 
 	// `[!]` 는 마지막으로 맞춰 봤을 때 바깥이 달라져 있었다는 것이다. `[+]` 가 내 손의 미저장
 	// 변경이고 이것은 남의 변경이라, 둘이 같이 붙으면 양쪽에 잃을 것이 있다는 뜻이다(ADR-0031).
-	if buf.outsideState() != outsideSame {
+	if buf.OutsideState() != outsideSame {
 		path += " [!]"
 	}
 
 	// 읽기 전용은 잃을 것이 있다는 표시가 아니라 애초에 고칠 수 없다는 것이다. 정의로 뛰어
 	// 열린 표준 라이브러리·의존 모듈의 파일이 이것이다(ADR-0051).
-	if buf.readOnly {
+	if buf.ReadOnly {
 		path += " [읽기 전용]"
 	}
 
@@ -141,9 +141,9 @@ func (e editor) noticeOr(fallback string) string {
 // (diagnostics.go 의 renderDiagnostic, tip.go 의 renderWithTip, ADR-0086).
 func (e editor) renderPosition() string {
 	buf := e.buffers[e.active]
-	col := screenColAt(buf.lines[buf.cursor.Line], buf.cursor.Col, buf.tabWidth())
+	col := screenColAt(buf.Lines[buf.Cursor.Line], buf.Cursor.Col, buf.TabWidth())
 
-	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.cursor.Line+1, col+1, len(buf.lines))
+	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.Cursor.Line+1, col+1, len(buf.Lines))
 
 	diagnostic := e.renderDiagnostic()
 	if diagnostic == "" {

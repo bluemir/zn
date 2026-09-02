@@ -132,7 +132,7 @@ func runGrep(e *editor, input string) (tea.Model, tea.Cmd) {
 
 // dirtyOverlay 는 열려 있는 파일들과, 그중 고치던 것의 글이다. 둘 다 뿌리 기준 상대 경로다.
 //
-// **한 자리에서 둘을 낸다.** buf.path 를 뿌리 기준으로 맞추는 셈이 하나뿐이어야 두 답이
+// **한 자리에서 둘을 낸다.** buf.Path 를 뿌리 기준으로 맞추는 셈이 하나뿐이어야 두 답이
 // 같은 자를 쓴다. 갈라 두면 목록에는 든 파일이 overlay 에서는 빠지는 자리가 생긴다.
 //
 // open 은 고치지 않은 것도 담는다. 훑는 목록에 없는 파일을 검색에 넣는 데 쓰는데(grepFiles)
@@ -149,15 +149,15 @@ func (e editor) dirtyOverlay(root string) ([]string, map[string][]byte) {
 	overlay := map[string][]byte{}
 
 	for _, buf := range e.buffers {
-		if buf.path == "" {
+		if buf.Path == "" {
 			continue
 		}
 
-		// **buf.path 는 상대일 수도 절대일 수도 있다.** CLI 인자·트리·팔레트가 저마다
+		// **buf.Path 는 상대일 수도 절대일 수도 있다.** CLI 인자·트리·팔레트가 저마다
 		// 주는 대로 담긴다(newBuffer 가 받은 것을 그대로 든다). 훑는 목록의 자는 뿌리 기준
 		// 상대 경로라 거기에 맞춰야 얹을 자리를 찾는다 — 맞추지 않으면 Rel 이 실패해서
 		// overlay 가 조용히 비고, 고치던 글이 검색에서 빠진다.
-		full, err := filepath.Abs(buf.path)
+		full, err := filepath.Abs(buf.Path)
 		if err != nil {
 			continue
 		}
@@ -169,8 +169,8 @@ func (e editor) dirtyOverlay(root string) ([]string, map[string][]byte) {
 
 		open = append(open, rel)
 
-		if buf.dirty {
-			overlay[rel] = buf.contents()
+		if buf.Dirty {
+			overlay[rel] = buf.Contents()
 		}
 	}
 

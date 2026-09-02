@@ -180,7 +180,7 @@ func (r lineRange) area(buf viewport) (scheme.MotionRange, error) {
 	}
 
 	if r.isSelection() {
-		if area, ok := buf.selectionRange(); ok {
+		if area, ok := buf.SelectionRange(); ok {
 			return area, nil
 		}
 	}
@@ -203,17 +203,17 @@ func (r lineRange) isSelection() bool {
 // 없는 줄을 가리키면 오류다. 끝으로 잘라 주지 않는다 — `:1,500d` 를 조용히 파일 전체로 읽으면
 // 손이 미끄러진 것과 시킨 것을 가를 수 없다. vim 도 여기서 거절한다.
 func (a lineAddress) resolve(buf viewport) (int, error) {
-	base := buf.cursor.Line
+	base := buf.Cursor.Line
 
 	switch a.base {
 	case addressNumber:
 		// 사람이 치는 줄 번호는 1 부터고 buffer 는 0 부터다.
 		base = a.line - 1
 	case addressLast:
-		base = len(buf.lines) - 1
+		base = len(buf.Lines) - 1
 	case addressSelectStart, addressSelectEnd:
 		// 고른 범위는 Buffer 가 든다(ADR-0037). 그래서 서명이 그대로다.
-		area, ok := buf.selectionRange()
+		area, ok := buf.SelectionRange()
 		if !ok {
 			return 0, errors.New("고른 범위가 없습니다")
 		}
@@ -225,7 +225,7 @@ func (a lineAddress) resolve(buf viewport) (int, error) {
 	}
 
 	line := base + a.offset
-	if line < 0 || line >= len(buf.lines) {
+	if line < 0 || line >= len(buf.Lines) {
 		return 0, errors.Newf("그런 줄이 없습니다: %d", line+1)
 	}
 

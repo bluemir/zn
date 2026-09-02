@@ -178,7 +178,7 @@ func TestTraceLineRecordsBufferState(t *testing.T) {
 	buf := m.(viewEditorNormal).activeBuffer()
 
 	// `—` 다음 빈칸에 커서를 둔다
-	buf.cursor.Line, buf.cursor.Col = 0, 6
+	buf.Cursor.Line, buf.Cursor.Col = 0, 6
 
 	line := traceLine(m, tea.KeyPressMsg{Code: 'x', Text: "x"})
 
@@ -191,7 +191,7 @@ func TestTraceLineRecordsBufferState(t *testing.T) {
 func TestTraceBufferAtLineEnd(t *testing.T) {
 	var m tea.Model = newTestEditor("가\n", 60, 5)
 	buf := m.(viewEditorNormal).activeBuffer()
-	buf.cursor.Line, buf.cursor.Col = 0, 3
+	buf.Cursor.Line, buf.Cursor.Col = 0, 3
 
 	assert.NotPanics(t, func() {
 		assert.Contains(t, traceLine(m, tea.KeyPressMsg{Code: 'x', Text: "x"}), "가"+traceCursor)
@@ -205,7 +205,7 @@ func TestTraceBufferAtLineEnd(t *testing.T) {
 func TestTraceTickCarriesBufferState(t *testing.T) {
 	var m tea.Model = newTestEditor("\t- — 오른쪽\n", 60, 5)
 	buf := m.(viewEditorNormal).activeBuffer()
-	buf.cursor.Line, buf.cursor.Col = 0, 6
+	buf.Cursor.Line, buf.Cursor.Col = 0, 6
 
 	for _, msg := range []tea.Msg{gitTickMsg{}, fileTickMsg{}} {
 		line := traceLine(m, msg)

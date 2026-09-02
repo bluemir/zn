@@ -87,7 +87,7 @@ func (e *editor) startCompletion() tea.Cmd {
 
 	buf := e.activeBuffer()
 
-	server, path, ok := serverPath(buf.path)
+	server, path, ok := serverPath(buf.Path)
 	if !ok {
 		return nil
 	}
@@ -97,10 +97,10 @@ func (e *editor) startCompletion() tea.Cmd {
 		return nil
 	}
 
-	lines := buf.lines
+	lines := buf.Lines
 	position := lsp.Position{
-		Line:      buf.cursor.Line,
-		Character: lsp.UTF16Column(buf.lines[buf.cursor.Line], buf.cursor.Col),
+		Line:      buf.Cursor.Line,
+		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
 	}
 
 	e.completionSeq++
@@ -144,7 +144,7 @@ func (e *editor) finishCompletion(msg completionMsg) tea.Cmd {
 		return nil
 	}
 
-	e.completion = completion{items: msg.items, line: e.activeBuffer().cursor.Line}
+	e.completion = completion{items: msg.items, line: e.activeBuffer().Cursor.Line}
 
 	return nil
 }
@@ -183,16 +183,16 @@ func (e *editor) applyCompletion() {
 	// 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go). 그러려면 그 줄의 글자가 필요하고,
 	// 그 줄을 든 것이 창이다 — 창을 손에 쥔 이 자리가 옮기기에 맞다 (ADR-0125).
 	buf := e.activeBuffer()
-	line := buf.cursor.Line
-	start, end := buf.cursor.Col, buf.cursor.Col
+	line := buf.Cursor.Line
+	start, end := buf.Cursor.Col, buf.Cursor.Col
 
 	if edit := item.TextEdit; edit != nil &&
 		edit.Range.Start.Line == line && edit.Range.End.Line == line {
-		start = lsp.ByteColumn(buf.lines[line], edit.Range.Start.Character)
-		end = lsp.ByteColumn(buf.lines[line], edit.Range.End.Character)
+		start = lsp.ByteColumn(buf.Lines[line], edit.Range.Start.Character)
+		end = lsp.ByteColumn(buf.Lines[line], edit.Range.End.Character)
 	}
 
-	buf.insertCompletion(start, end, []byte(item.Text()))
+	buf.InsertCompletion(start, end, []byte(item.Text()))
 	e.closeCompletion()
 	e.scrollToCursor()
 }

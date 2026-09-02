@@ -93,17 +93,17 @@ func TestTabSwitchKeepsCursorPerFile(t *testing.T) {
 
 	// 첫 tab 에서 두 줄 내려간다.
 	m = send(m, "down", "down")
-	require.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "g", "t")
 	require.Equal(t, 1, activeOf(t, m))
-	assert.Equal(t, 0, bufferOf(t, m).cursor.Line, "새 tab 은 자기 자리에서 시작한다")
+	assert.Equal(t, 0, bufferOf(t, m).Cursor.Line, "새 tab 은 자기 자리에서 시작한다")
 
 	m = send(m, "down")
-	require.Equal(t, 1, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 1, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "g", "T")
-	assert.Equal(t, 2, bufferOf(t, m).cursor.Line, "돌아오면 보던 자리 그대로다")
+	assert.Equal(t, 2, bufferOf(t, m).Cursor.Line, "돌아오면 보던 자리 그대로다")
 }
 
 // 접두 키 뒤에 짝이 없는 키가 오면 아무 일도 없고 접두 키는 풀린다.
@@ -339,8 +339,8 @@ func TestNewTabOpensEmptyBuffer(t *testing.T) {
 	assert.Equal(t, " 1 a.txt │ 2 [No Name]", tablineOf(t, m.(viewEditorNormal).View()))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, [][]byte{{}}, buf.lines, "빈 줄 하나로 시작한다")
-	assert.False(t, buf.dirty, "만들기만 한 것은 변경이 아니다")
+	assert.Equal(t, [][]byte{{}}, buf.Lines, "빈 줄 하나로 시작한다")
+	assert.False(t, buf.Dirty, "만들기만 한 것은 변경이 아니다")
 }
 
 // 맨 뒤가 아니라 보고 있던 tab 바로 뒤에 생긴다. vim 과 같다.
@@ -363,11 +363,11 @@ func TestNewTabKeepsOtherCursors(t *testing.T) {
 
 	m = send(m, "down", "down")
 	m = send(m, ":", "t", "a", "b", "n", "e", "w", "enter")
-	require.Equal(t, 0, bufferOf(t, m).cursor.Line, "새 tab 은 맨 위에서 시작한다")
+	require.Equal(t, 0, bufferOf(t, m).Cursor.Line, "새 tab 은 맨 위에서 시작한다")
 
 	m = send(m, "g", "T")
 
-	assert.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 }
 
 // 이름이 없으면 쓸 곳이 없다. vim 의 E32 와 같다.
@@ -380,7 +380,7 @@ func TestWriteWithoutNameFails(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Contains(t, barOf(t, m)[1], "파일 이름이 없습니다")
-	assert.True(t, bufferOf(t, m).dirty, "저장되지 않았다")
+	assert.True(t, bufferOf(t, m).Dirty, "저장되지 않았다")
 }
 
 // :wq 도 같은 곳을 지나므로 저장에 실패하면 tab 을 닫지 않는다.
@@ -486,7 +486,7 @@ func TestCloseTabCancelKeepsTab(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 2)
-	assert.True(t, bufferOf(t, m).dirty)
+	assert.True(t, bufferOf(t, m).Dirty)
 }
 
 // 다른 tab 이 깨끗하면 :q 는 묻지 않고 닫는다.
@@ -555,7 +555,7 @@ func TestCloseRightTabsKeepsLeftAndActive(t *testing.T) {
 	v := m.(viewEditorNormal)
 	assert.Len(t, v.buffers, 2)
 	assert.Equal(t, 1, v.active, "활성 자리는 그대로다")
-	assert.Equal(t, "b.txt", bufferOf(t, m).path)
+	assert.Equal(t, "b.txt", bufferOf(t, m).Path)
 	assert.Equal(t, "오른쪽 tab 2 개를 닫았습니다", v.notice)
 }
 
@@ -577,7 +577,7 @@ func TestCloseRightTabsConfirmsWhenRightIsDirty(t *testing.T) {
 	m = send(m, "g", "t")        // b.txt
 	m = send(m, "i", "X", "esc") // 오른쪽 것을 더럽힌다
 	m = send(m, "g", "T")        // a.txt 로 돌아온다
-	require.False(t, bufferOf(t, m).dirty, "보고 있는 tab 은 깨끗하다")
+	require.False(t, bufferOf(t, m).Dirty, "보고 있는 tab 은 깨끗하다")
 
 	m = pickPaletteCommand(t, m, "> close tabs to the right", "오른쪽 tab 모두 닫기")
 
@@ -588,7 +588,7 @@ func TestCloseRightTabsConfirmsWhenRightIsDirty(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1)
-	assert.Equal(t, "a.txt", bufferOf(t, m).path)
+	assert.Equal(t, "a.txt", bufferOf(t, m).Path)
 }
 
 // 「모든 tab 닫기」는 빈 화면을 남긴다. **편집기를 끝내지 않는다**(ADR-0064).
@@ -630,7 +630,7 @@ func TestNewFileOpensEmptyTab(t *testing.T) {
 	v := m.(viewEditorNormal)
 	assert.Len(t, v.buffers, 3)
 	assert.Equal(t, 1, v.active, "보던 것 바로 뒤로 간다")
-	assert.Empty(t, bufferOf(t, m).path, "이름 없는 buffer 다")
+	assert.Empty(t, bufferOf(t, m).Path, "이름 없는 buffer 다")
 }
 
 // tab 이 없는 빈 화면에서도 「새 파일」이 뜬다. 거기서 편집을 시작하는 길이다.
@@ -674,7 +674,7 @@ func TestCloseOtherTabsConfirmsWhenAnotherTabIsDirty(t *testing.T) {
 
 	m = send(m, "i", "X", "esc")
 	m = send(m, "g", "t")
-	require.False(t, bufferOf(t, m).dirty, "지금 보고 있는 tab 은 깨끗하다")
+	require.False(t, bufferOf(t, m).Dirty, "지금 보고 있는 tab 은 깨끗하다")
 
 	m = pickCloseOtherTabs(t, m)
 
@@ -685,7 +685,7 @@ func TestCloseOtherTabsConfirmsWhenAnotherTabIsDirty(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1)
-	assert.Equal(t, "b.txt", bufferOf(t, m).path)
+	assert.Equal(t, "b.txt", bufferOf(t, m).Path)
 }
 
 // 확인창에서 취소하면 tab 이 그대로 남는다. 팔레트가 아니라 normal 로 돌아간다.
@@ -712,7 +712,7 @@ func TestCloseOtherTabsDoesNotConfirmForActiveDirty(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 1)
-	assert.True(t, bufferOf(t, m).dirty, "편집 중인 내용은 그대로다")
+	assert.True(t, bufferOf(t, m).Dirty, "편집 중인 내용은 그대로다")
 }
 
 // Ctrl+C 는 :qa 다. 보고 있지 않은 tab 의 변경도 같이 잃으므로 그것까지 봐야 한다.
@@ -721,7 +721,7 @@ func TestCtrlCConfirmsWhenAnotherTabIsDirty(t *testing.T) {
 
 	m = send(m, "i", "X", "esc")
 	m = send(m, "g", "t")
-	require.False(t, bufferOf(t, m).dirty, "지금 보고 있는 tab 은 깨끗하다")
+	require.False(t, bufferOf(t, m).Dirty, "지금 보고 있는 tab 은 깨끗하다")
 
 	m, _ = m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 
@@ -773,8 +773,8 @@ func TestQuitAllCancelKeepsAllBuffers(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	v := m.(viewEditorNormal)
 	require.Len(t, v.buffers, 2)
-	assert.True(t, v.buffers[0].dirty)
-	assert.Equal(t, "Xa", string(v.buffers[0].lines[0]))
+	assert.True(t, v.buffers[0].Dirty)
+	assert.Equal(t, "Xa", string(v.buffers[0].Lines[0]))
 }
 
 func TestCloseTabAfterWriteQuit(t *testing.T) {

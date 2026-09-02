@@ -7,6 +7,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/bluemir/zn/internal/scheme"
+	"github.com/bluemir/zn/internal/textarea"
 	"github.com/cockroachdb/errors"
 )
 
@@ -243,4 +245,45 @@ func (s substitution) applyRange(line []byte, from, to int) ([]byte, int) {
 // 하나여도 그대로 적는다. 복사 알림이 한 줄짜리도 알리는 것과 같은 손이다(ADR-0017).
 func substituteMessage(changes, lines int) string {
 	return fmt.Sprintf("%d 곳을 %d 줄에서 바꿨습니다", changes, lines)
+}
+
+// substituteIn 은 area 의 줄들을 바꾼 뒤 창에 얹는다. 바꾼 자리 수·줄 수와 마지막으로 바꾼
+// 줄을 준다.
+//
+// **줄마다 볼 구간을 SelectionOn 이 잘라 준다.** 줄 단위 범위에는 `[0, 줄끝]` 을 주고 글자로
+// 고른 범위에는 그 글자 구간을 주므로, 길이 갈리지 않는다. 그래서 `V` 로 고른 것은 줄 전체가
+// 바뀌고 `v` 로 고른 것은 고른 글자만 바뀐다(ADR-0089).
+//
+// **하나도 안 바뀌었으면 창을 건드리지 않는다.** 건드리면 dirty 가 서고 되돌아갈 앞날(redo)
+// 이 날아간다 — 못 찾은 `:s` 가 파일을 건드린 것이 된다(ADR-0083).
+//
+// **무엇으로 바꿀지는 여기가 안다.** 창은 갈아끼우기만 한다(Viewport.ReplaceRun, ADR-0128).
+func substituteIn(buf *textarea.Viewport, sub substitution, area scheme.MotionRange) (changes, lines, last int) {
+	from, to := area.Start.Line, area.End.Line
+
+	next := make([][]byte, 0, to-from+1)
+
+	for at := from; at <= to; at++ {
+		span, _, ok := buf.SelectionOn(area, at)
+		if !ok {
+			next = append(next, buf.Lines[at])
+
+			continue
+		}
+
+		line, found := sub.applyRange(buf.Lines[at], span[0], span[1])
+		next = append(next, line)
+
+		if found > 0 {
+			changes, lines, last = changes+found, lines+1, at
+		}
+	}
+
+	if changes == 0 {
+		return 0, 0, 0
+	}
+
+	buf.ReplaceRun(from, next)
+
+	return changes, lines, last
 }

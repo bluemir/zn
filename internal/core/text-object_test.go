@@ -72,7 +72,7 @@ func TestTextObjectOnBlankDoesNothing(t *testing.T) {
 			m = send(m, keys...)
 
 			assert.Equal(t, []string{"foo   bar"}, linesOf(bufferOf(t, m)), "파일이 그대로다")
-			assert.False(t, bufferOf(t, m).dirty, "dirty 도 세우지 않는다")
+			assert.False(t, bufferOf(t, m).Dirty, "dirty 도 세우지 않는다")
 			assert.IsType(t, viewEditorNormal{}, m, "insert 로도 들어가지 않는다")
 		})
 	}
@@ -86,7 +86,7 @@ func TestTextObjectOnEmptyLineDoesNothing(t *testing.T) {
 	m = send(m, "d", "i", "w")
 
 	assert.Equal(t, []string{"foo", "", "bar"}, linesOf(bufferOf(t, m)))
-	assert.False(t, bufferOf(t, m).dirty)
+	assert.False(t, bufferOf(t, m).Dirty)
 }
 
 // operator 여섯에 한꺼번에 붙는다. 범위 하나를 operate 가 갈라 준다.
@@ -99,7 +99,7 @@ func TestTextObjectAcrossOperators(t *testing.T) {
 
 		require.IsType(t, viewEditorInsert{}, m, "insert 로 들어간다")
 		assert.Equal(t, []string{"foo  baz"}, linesOf(bufferOf(t, m)))
-		assert.Equal(t, 4, bufferOf(t, m).cursor.Col, "지운 자리에서 이어 친다")
+		assert.Equal(t, 4, bufferOf(t, m).Cursor.Col, "지운 자리에서 이어 친다")
 
 		m = send(m, "x")
 		assert.Equal(t, []string{"foo x baz"}, linesOf(bufferOf(t, m)))

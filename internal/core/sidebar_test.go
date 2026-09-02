@@ -818,7 +818,7 @@ func TestSidebarCtrlCQuits(t *testing.T) {
 
 func TestSidebarCtrlCConfirmsAndReturns(t *testing.T) {
 	m := newTreeEditor(t, 80, 6)
-	m.buffers[0].dirty = true
+	m.buffers[0].Dirty = true
 
 	var model tea.Model = m
 	model = send(model, "ctrl+w", "ctrl+w")
@@ -876,7 +876,7 @@ func TestSidebarEnterOpensFileInNewTab(t *testing.T) {
 
 	v := model.(viewEditorNormal)
 	require.Len(t, v.buffers, 2)
-	assert.Equal(t, filepath.Join(root, "README.md"), v.buffers[v.active].path)
+	assert.Equal(t, filepath.Join(root, "README.md"), v.buffers[v.active].Path)
 	assert.True(t, v.sidebar.open, "sidebar 는 열린 채로 남는다")
 }
 
@@ -894,7 +894,7 @@ func TestSidebarEnterSwitchesToOpenTab(t *testing.T) {
 
 	v := model.(viewEditorNormal)
 	assert.Len(t, v.buffers, 2, "tab 이 늘지 않는다")
-	assert.Equal(t, "README.md", filepath.Base(v.buffers[v.active].path))
+	assert.Equal(t, "README.md", filepath.Base(v.buffers[v.active].Path))
 }
 
 // CLI 로 상대 경로로 연 파일과 트리의 절대 경로가 같은 파일임을 알아봐야 한다.
@@ -1084,7 +1084,7 @@ func TestTabSwitchRevealsInSidebar(t *testing.T) {
 	model := sendSync(t, tea.Model(m), "g", "t")
 
 	v := model.(viewEditorNormal)
-	require.Equal(t, "spec.md", filepath.Base(v.activeBuffer().path))
+	require.Equal(t, "spec.md", filepath.Base(v.activeBuffer().Path))
 	assert.Equal(t, "spec.md", v.sidebar.selectedNode().name)
 
 	model = sendSync(t, model, "g", "T")
@@ -1101,7 +1101,7 @@ func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
 		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
 		newEmptyBuffer(""),
 	}
-	revealSyncIn(t, m.editor, m.activeBuffer().path)
+	revealSyncIn(t, m.editor, m.activeBuffer().Path)
 
 	model := sendSync(t, tea.Model(m), "g", "t")
 
@@ -1143,13 +1143,13 @@ func TestCloseTabRevealsRemainingFile(t *testing.T) {
 		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 	m.active = 1
-	revealSyncIn(t, m.editor, m.activeBuffer().path)
+	revealSyncIn(t, m.editor, m.activeBuffer().Path)
 	require.Equal(t, "spec.md", m.sidebar.selectedNode().name)
 
 	model, _ := forceCloseTab(m.editor)
 	require.IsType(t, viewEditorNormal{}, model)
 
-	require.Equal(t, "main.go", filepath.Base(m.activeBuffer().path))
+	require.Equal(t, "main.go", filepath.Base(m.activeBuffer().Path))
 	assert.Equal(t, "main.go", m.sidebar.selectedNode().name, "닫은 파일이 아니라 남은 파일이다")
 }
 

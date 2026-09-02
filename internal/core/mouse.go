@@ -67,19 +67,19 @@ func (e *editor) clickText(x, y int) {
 	// 가려진 줄로 커서가 간다 — 눌러서 보이는 글자와 커서가 어긋난다.
 	//
 	// 여기서는 화면을 옮긴다. 가려는 곳이 화면 밖이라 위의 「이미 보이는 자리」가 아니다.
-	if sticky := buf.stickyAt(buf.top.line, e.textHeight()); row < len(sticky) {
-		buf.moveToLine(sticky[row])
+	if sticky := buf.StickyAt(buf.Top.Line, e.textHeight()); row < len(sticky) {
+		buf.MoveToLine(sticky[row])
 		e.scrollToCursor()
 
 		return
 	}
 
-	line, col, ok := buf.positionAt(x-e.contentLeft(), row, e.textHeight())
+	line, col, ok := buf.PositionAt(x-e.contentLeft(), row, e.textHeight())
 	if !ok {
 		return
 	}
 
-	buf.moveTo(line, col)
+	buf.MoveTo(line, col)
 }
 
 // clickSidebar 는 sidebar 좌표의 항목을 고르고 연다.
@@ -127,7 +127,7 @@ func (e *editor) clickTabline(x int) tea.Cmd {
 	// 그 buffer 는 이 창 크기를 본 적이 없을 수 있다. gt 와 같은 처리다.
 	e.scrollToCursor()
 
-	return e.revealInSidebar(e.activeBuffer().path)
+	return e.revealInSidebar(e.activeBuffer().Path)
 }
 
 // rightClick 은 오른쪽 버튼을 먹는다. tabline 의 tab 을 닫고 다른 영역에서는 아무 일도 없다(ADR-0060).
@@ -178,7 +178,7 @@ func (e *editor) wheel(mouse tea.Mouse) {
 	case regionSidebar:
 		e.sidebar.scrollBy(rows, e.sidebarHeight())
 	case regionText:
-		e.activeBuffer().scrollBy(rows, e.textHeight())
+		e.activeBuffer().ScrollBy(rows, e.textHeight())
 	}
 }
 
@@ -194,7 +194,7 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		m.clickText(mouse.X, mouse.Y)
 
 		// normal 의 커서는 글자 위에 있어서 줄 끝 다음 칸에 설 수 없다.
-		m.activeBuffer().clampToNormal()
+		m.activeBuffer().ClampToNormal()
 	}
 
 	return m, nil
@@ -207,12 +207,12 @@ func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
-		m.activeBuffer().endEdit()
+		m.activeBuffer().EndEdit()
 
 		return m, m.clickTabline(mouse.X)
 	case regionText:
 		// 커서를 옮기면 undo 구간이 끊긴다. 화살표 이동과 같다. vim 과 같다.
-		m.activeBuffer().endEdit()
+		m.activeBuffer().EndEdit()
 		m.clickText(mouse.X, mouse.Y)
 	}
 
@@ -233,7 +233,7 @@ func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmd, reveal)
 	case regionText:
 		m.clickText(mouse.X, mouse.Y)
-		m.activeBuffer().clampToNormal()
+		m.activeBuffer().ClampToNormal()
 
 		return normalMode(m.editor)
 	}
@@ -257,35 +257,35 @@ func (e *editor) dragTo(x, y int) {
 
 	// 머리줄이 덮은 자리는 편집 영역 위로 나간 것과 같이 다룬다 — 그리로 끌면 위로 굴려서
 	// 가려진 줄을 드러낸다. 머리줄이 없으면 sticky 가 0 이라 예전과 같다(ADR-0049).
-	sticky := len(buf.stickyAt(buf.top.line, height))
+	sticky := len(buf.StickyAt(buf.Top.Line, height))
 
 	row := y - tablineHeight
 	switch {
 	case row < sticky:
-		buf.scrollBy(-1, height)
+		buf.ScrollBy(-1, height)
 
-		row = len(buf.stickyAt(buf.top.line, height))
+		row = len(buf.StickyAt(buf.Top.Line, height))
 	case row >= height:
-		buf.scrollBy(1, height)
+		buf.ScrollBy(1, height)
 
 		row = height - 1
 	}
 
-	line, col, ok := buf.positionAt(x-e.contentLeft(), row, height)
+	line, col, ok := buf.PositionAt(x-e.contentLeft(), row, height)
 	if !ok {
 		// 마지막 줄 아래로 끌었다. 클릭은 그 자리에서 멈추지만(positionAt 주석) 끄는 중에는
 		// 있는 데까지 따라가야 한다 — 범위가 손을 놓치면 어디까지 골랐는지 알 수 없다.
-		rows := buf.visibleRows(height)
+		rows := buf.VisibleRows(height)
 		if len(rows) < 1 {
 			return
 		}
 
 		last := rows[len(rows)-1]
-		line, col = last.line, last.end
+		line, col = last.Line, last.End
 	}
 
-	buf.moveTo(line, col)
-	buf.clampToNormal()
+	buf.MoveTo(line, col)
+	buf.ClampToNormal()
 }
 
 // dragTab 은 끌린 자리로 활성 tab 을 옮긴다(ADR-0090).
@@ -324,7 +324,7 @@ func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 	// tab 을 옮기기 전에 놓아야 한다. 옮기고 나면 놓을 Buffer 가 바뀌어서 고른 범위가
 	// 보이지 않는 tab 에 남는다.
-	m.activeBuffer().clearSelection()
+	m.activeBuffer().ClearSelection()
 
 	switch region {
 	case regionSidebar:
@@ -338,7 +338,7 @@ func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 
 	m.clickText(mouse.X, mouse.Y)
-	m.activeBuffer().clampToNormal()
+	m.activeBuffer().ClampToNormal()
 
 	return normalMode(m.editor)
 }

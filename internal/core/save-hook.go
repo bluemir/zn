@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/bluemir/zn/internal/textarea"
 	"github.com/cockroachdb/errors"
 )
 
@@ -445,4 +446,16 @@ func (e *editor) installFormatter(spec *formatter) tea.Cmd {
 
 		return ch
 	})
+}
+
+// saveFormat 은 이 포매터를 창이 쓸 수 있는 꼴로 싼다.
+//
+// 창은 「이름이 무엇이고 byte 를 넣으면 byte 가 나온다」 둘만 안다. 명령을 찾고 깔고 돌리는
+// 것은 여기 일이라 그 앎이 그쪽으로 넘어가지 않는다(textarea.SaveFormat, ADR-0128).
+func (hook *saveHook) saveFormat() *textarea.SaveFormat {
+	if hook == nil {
+		return nil
+	}
+
+	return &textarea.SaveFormat{Name: hook.name, Run: hook.run}
 }

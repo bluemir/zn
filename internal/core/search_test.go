@@ -17,7 +17,7 @@ func cursorOf(t *testing.T, m tea.Model) (int, int) {
 
 	buf := bufferOf(t, m)
 
-	return buf.cursor.Line, buf.cursor.Col
+	return buf.Cursor.Line, buf.Cursor.Col
 }
 
 // typeInto 는 글자를 한 자씩 키로 넣는다. 검색은 치는 도중의 화면도 봐야 해서 통째로 넣지 않는다.
@@ -181,7 +181,7 @@ func TestSearchEscRestoresCursor(t *testing.T) {
 	m = send(m, "j") // 둘째 줄에서 시작한다
 
 	m = typeInto(m, "/ccc")
-	require.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "esc")
 
@@ -204,13 +204,13 @@ func TestSearchNextAndPrevious(t *testing.T) {
 
 	m = typeInto(m, "/foo")
 	m = send(m, "enter")
-	require.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "n")
-	assert.Equal(t, 4, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 4, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "N")
-	assert.Equal(t, 2, bufferOf(t, m).cursor.Line, "N 은 반대 방향이다")
+	assert.Equal(t, 2, bufferOf(t, m).Cursor.Line, "N 은 반대 방향이다")
 }
 
 // `?` 로 찾았으면 `n` 도 위로 간다.
@@ -220,10 +220,10 @@ func TestSearchNextFollowsDirection(t *testing.T) {
 
 	m = typeInto(m, "?foo")
 	m = send(m, "enter")
-	require.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "n")
-	assert.Equal(t, 0, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 0, bufferOf(t, m).Cursor.Line)
 }
 
 func TestSearchNextWithCount(t *testing.T) {
@@ -231,10 +231,10 @@ func TestSearchNextWithCount(t *testing.T) {
 
 	m = typeInto(m, "/foo")
 	m = send(m, "enter")
-	require.Equal(t, 1, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 1, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "2", "n")
-	assert.Equal(t, 3, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 3, bufferOf(t, m).Cursor.Line)
 }
 
 func TestSearchNextWithoutSearchTells(t *testing.T) {
@@ -257,7 +257,7 @@ func TestHangulSearchThenMoveRunsBoth(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m, "mode 는 그대로다")
 	assert.Contains(t, barOf(t, m)[1], "이전 검색이 없습니다")
-	assert.Equal(t, 1, bufferOf(t, m).cursor.Line, "뒤의 `j` 도 실행된다")
+	assert.Equal(t, 1, bufferOf(t, m).Cursor.Line, "뒤의 `j` 도 실행된다")
 }
 
 // 빈 채로 Enter 는 마지막 검색을 그 방향으로 되풀이한다.
@@ -266,10 +266,10 @@ func TestSearchEmptyRepeatsLastPattern(t *testing.T) {
 
 	m = typeInto(m, "/foo")
 	m = send(m, "enter")
-	require.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	require.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 
 	m = send(m, "?", "enter")
-	assert.Equal(t, 0, bufferOf(t, m).cursor.Line, "`?` 로 들어갔으니 위로 찾는다")
+	assert.Equal(t, 0, bufferOf(t, m).Cursor.Line, "`?` 로 들어갔으니 위로 찾는다")
 }
 
 // `*` 는 커서 아래 단어를 그대로 찾는다. 단어 전체가 맞아야 한다.
@@ -278,7 +278,7 @@ func TestSearchWordUnderCursor(t *testing.T) {
 
 	m = send(m, "*")
 
-	assert.Equal(t, 2, bufferOf(t, m).cursor.Line, "foobar 는 건너뛴다")
+	assert.Equal(t, 2, bufferOf(t, m).Cursor.Line, "foobar 는 건너뛴다")
 }
 
 func TestSearchWordBackward(t *testing.T) {
@@ -287,7 +287,7 @@ func TestSearchWordBackward(t *testing.T) {
 
 	m = send(m, "#")
 
-	assert.Equal(t, 0, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 0, bufferOf(t, m).Cursor.Line)
 }
 
 // 한글 단어는 `\b` 를 붙이지 않는다. 붙이면 아무것도 찾지 못한다.
@@ -296,7 +296,7 @@ func TestSearchWordHangul(t *testing.T) {
 
 	m = send(m, "*")
 
-	assert.Equal(t, 2, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 2, bufferOf(t, m).Cursor.Line)
 }
 
 // 커서가 단어 위가 아니면 그 줄에서 오른쪽으로 첫 단어를 찾는다.
@@ -305,7 +305,7 @@ func TestSearchWordSkipsBlank(t *testing.T) {
 
 	m = send(m, "*")
 
-	assert.Equal(t, 1, bufferOf(t, m).cursor.Line)
+	assert.Equal(t, 1, bufferOf(t, m).Cursor.Line)
 }
 
 func TestSearchWordOnEmptyLineTells(t *testing.T) {
@@ -319,7 +319,7 @@ func TestSearchWordOnEmptyLineTells(t *testing.T) {
 func TestWordUnderCursorSplitsByClass(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("한글abc\n"))
 
-	word, _, ok := buf.wordUnderCursor()
+	word, _, ok := buf.WordUnderCursor()
 
 	require.True(t, ok)
 	assert.Equal(t, "한글", word, "`한글abc` 는 두 단어다")
@@ -443,5 +443,5 @@ func TestSearchSurvivesTabSwitch(t *testing.T) {
 
 	model = send(model, "g", "t", "n")
 
-	assert.Equal(t, 1, bufferOf(t, model).cursor.Line)
+	assert.Equal(t, 1, bufferOf(t, model).Cursor.Line)
 }

@@ -29,14 +29,14 @@ func renameInputMode(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
-	word, col, ok := buf.wordUnderCursor()
+	word, col, ok := buf.WordUnderCursor()
 	if !ok {
 		e.notify("바꿀 이름이 없습니다")
 
 		return normalMode(e)
 	}
 
-	buf.moveTo(buf.cursor.Line, col)
+	buf.MoveTo(buf.Cursor.Line, col)
 	e.scrollToCursor()
 
 	return viewRenameInput{editor: e, old: word, input: newInputLine(word)}, nil
@@ -142,7 +142,7 @@ func (m viewRenameInput) View() tea.View {
 
 	buf := m.activeBuffer()
 
-	x, y, ok := buf.cursorScreenPos(m.textHeight())
+	x, y, ok := buf.CursorScreenPos(m.textHeight())
 	if !ok {
 		return view
 	}

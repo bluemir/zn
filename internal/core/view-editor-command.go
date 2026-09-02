@@ -234,11 +234,11 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// **나가는 길에서는 설치를 묻지 않는다.** 깔려 있지 않으면(errHookNotInstalled) 맞추지
 		// 않고 그냥 쓴다 — 여기서 창을 띄우면 tab 을 닫는 것과 겹친다. 다음 `:w` 가 묻는다
 		// (ADR-0065).
-		hook, _ := m.saveHookFor(buf.path)
+		hook, _ := m.saveHookFor(buf.Path)
 		if cmd.force {
-			note, err = buf.SaveForce(hook)
+			note, err = buf.SaveForce(hook.saveFormat())
 		} else {
-			note, err = buf.Save(hook)
+			note, err = buf.Save(hook.saveFormat())
 		}
 		if err != nil {
 			return normalModeError(m.editor, err)
@@ -398,7 +398,7 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 
 	// 지울 것이 없으면 조용히 나간다. visual 의 `d` 와 같다 — 빈 줄 하나를 글자로 고른
 	// 자리이고, 알릴 것도 register 에 담을 것도 없다.
-	removed, cut := buf.deleteRange(area)
+	removed, cut := buf.DeleteRange(area)
 	if !cut {
 		return normalMode(m.editor)
 	}
@@ -421,7 +421,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 		return normalModeError(m.editor, err)
 	}
 
-	copied, ok := buf.yankRange(area)
+	copied, ok := buf.YankRange(area)
 	if !ok {
 		return normalMode(m.editor)
 	}
@@ -432,7 +432,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 	// `'<,'>` 만 갈린다. 보고 있던 범위라 visual 의 `y` 처럼 시작으로 가는 것이 맞다
 	// (ADR-0089, ADR-0100).
 	if cmd.lines.isSelection() {
-		buf.moveToRangeStart(area)
+		buf.MoveToRangeStart(area)
 	}
 
 	m.registers.storeYank(copied, "")
@@ -494,14 +494,14 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 		return substituteMode(m.editor, sub, area)
 	}
 
-	changes, lines, last := buf.substitute(sub, area)
+	changes, lines, last := substituteIn(buf, sub, area)
 	if changes == 0 {
 		// 못 찾은 것은 실패가 아니라 결과다. 검색이 쓰는 문구를 그대로 쓴다.
 		return normalModeMessage(m.editor, "찾을 수 없음: "+sub.input)
 	}
 
-	buf.moveToLine(last)
-	buf.clampToNormal()
+	buf.MoveToLine(last)
+	buf.ClampToNormal()
 	m.scrollToCursor()
 
 	return normalModeMessage(m.editor, substituteMessage(changes, lines))
@@ -524,8 +524,8 @@ func (m viewEditorCommand) goToLine(cmd command) (tea.Model, tea.Cmd) {
 
 	from, jumping := m.here()
 
-	buf.moveToLine(to)
-	buf.clampToNormal()
+	buf.MoveToLine(to)
+	buf.ClampToNormal()
 	m.scrollToCursor()
 
 	if jumping {
@@ -555,13 +555,13 @@ func (m viewEditorCommand) write(cmd command) (tea.Model, tea.Cmd) {
 
 	// `:w <보고 있는 파일>` 은 사본이 아니라 제자리 저장이다. 사본 쪽으로 보내면
 	// 「이미 있습니다」로 막히고, `!` 를 붙여도 dirty 가 남는다.
-	if buf.path != "" && samePath(buf.path, path) {
+	if buf.Path != "" && samePath(buf.Path, path) {
 		return m.save(cmd)
 	}
 
 	// 이름 없는 buffer 는 이 저장으로 그 파일의 buffer 가 되므로 「같은 파일은 한 tab」에
 	// 걸린다(ADR-0015, ADR-0021). 이름 있는 buffer 는 이름이 그대로라 걸리지 않는다.
-	naming := buf.path == ""
+	naming := buf.Path == ""
 	if naming {
 		if _, ok := m.tabOf(path); ok {
 			return normalModeMessage(m.editor, "그 파일은 이미 다른 tab 에 열려 있습니다")
@@ -606,7 +606,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 
 	// 쓰기 직전에 통과시킬 포매터다. 깔려 있지 않으면 hook 이 nil 이고 까닭이 따라온다 —
 	// 그것을 가지고 물을지는 저장을 끝낸 뒤에 본다(save-hook.go, ADR-0065).
-	hook, hookErr := m.saveHookFor(buf.path)
+	hook, hookErr := m.saveHookFor(buf.Path)
 
 	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
 	var (
@@ -614,9 +614,9 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 		note string
 	)
 	if cmd.force {
-		note, err = buf.SaveForce(hook)
+		note, err = buf.SaveForce(hook.saveFormat())
 	} else {
-		note, err = buf.Save(hook)
+		note, err = buf.Save(hook.saveFormat())
 	}
 	if err != nil {
 		return normalModeError(m.editor, err)
@@ -635,7 +635,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	//
 	// **경로는 줄여 적는다.** 트리나 팔레트로 연 파일은 절대 경로라, 그대로 두면 좁은 화면에서
 	// 경로가 줄을 다 먹고 뒤에 붙인 문구가 잘린다. 줄이는 법은 `GOTO` 목록과 같다(view-locations.go).
-	message := "저장함: " + shortenPath(buf.path)
+	message := "저장함: " + shortenPath(buf.Path)
 	if note != "" {
 		message += "  " + note
 	}
@@ -645,7 +645,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 	// 포매터를 찾지 못했으면 여기서 한 번 묻는다. **저장은 이미 끝났다** — 깔지 않기로 해도
 	// 파일은 쓰인 상태다. 창은 방금 그린 화면 위에 얹히고 Yes·No 둘 다 그 화면으로 돌아온다
 	// (ADR-0065).
-	if spec := formatterFor(buf.path); errors.Is(hookErr, errHookNotInstalled) && spec != nil && m.askFormatter(spec) {
+	if spec := formatterFor(buf.Path); errors.Is(hookErr, errHookNotInstalled) && spec != nil && m.askFormatter(spec) {
 		confirm, _ := formatterInstallConfirmMode(model, m.editor, spec)
 
 		return confirm, tea.Batch(next, refresh)
@@ -678,7 +678,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 	// tab 이 아예 없으면 갈아끼우는 것이 아니라 새로 여는 것이라 여기서도 잃을 것이 없다
 	// (replaceTab, ADR-0064).
 	_, opened := m.tabOf(path)
-	if m.hasTab() && m.activeBuffer().dirty && !cmd.force && !opened {
+	if m.hasTab() && m.activeBuffer().Dirty && !cmd.force && !opened {
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 		back, _ := normalMode(m.editor)
 

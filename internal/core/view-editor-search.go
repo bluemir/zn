@@ -17,7 +17,7 @@ func searchMode(e *editor, direction searchDirection) (tea.Model, tea.Cmd) {
 	return viewEditorSearch{
 		editor:    e,
 		direction: direction,
-		origin:    searchOrigin{place: buf.place(), search: e.search},
+		origin:    searchOrigin{place: buf.Place(), search: e.search},
 	}, nil
 }
 
@@ -132,7 +132,7 @@ func (m *viewEditorSearch) preview() {
 
 	buf := m.activeBuffer()
 
-	result, ok := buf.find(pattern, m.direction, m.origin.place.cursor.Line, m.origin.place.cursor.Col)
+	result, ok := buf.Find(pattern, m.direction, m.origin.place.Cursor.Line, m.origin.place.Cursor.Col)
 	if !ok {
 		return
 	}
@@ -140,8 +140,8 @@ func (m *viewEditorSearch) preview() {
 	// 찾은 자리를 미리 강조한다. 아직 마지막 검색으로 굳히는 것은 아니라 Esc 로 되돌아간다.
 	m.search = searchState{input: m.input.text, pattern: pattern, direction: m.direction, highlight: true}
 
-	buf.moveTo(result.line, result.col)
-	buf.clampToNormal()
+	buf.MoveTo(result.Line, result.Col)
+	buf.ClampToNormal()
 	m.scrollToCursor()
 }
 
@@ -149,7 +149,7 @@ func (m *viewEditorSearch) preview() {
 func (m *viewEditorSearch) restore() {
 	buf := m.activeBuffer()
 
-	buf.moveToPlace(m.origin.place)
+	buf.MoveToPlace(m.origin.place)
 
 	m.search = m.origin.search
 }
@@ -216,11 +216,11 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 
 	buf := e.activeBuffer()
 
-	line, col := buf.cursor.Line, buf.cursor.Col
+	line, col := buf.Cursor.Line, buf.Cursor.Col
 	wrapped := false
 
 	for range n {
-		result, ok := buf.find(e.search.pattern, direction, line, col)
+		result, ok := buf.Find(e.search.pattern, direction, line, col)
 		if !ok {
 			// 하나도 못 찾았으면 커서를 두고 알리기만 한다. 도중까지 옮기면 어디로 갔는지 알 수 없다.
 			e.notify("찾을 수 없음: " + e.search.input)
@@ -228,16 +228,16 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 			return
 		}
 
-		line, col = result.line, result.col
-		wrapped = wrapped || result.wrapped
+		line, col = result.Line, result.Col
+		wrapped = wrapped || result.Wrapped
 	}
 
 	// **찾은 것을 확인한 뒤에 담는다.** 못 찾으면 커서가 그대로라 담을 것도 없다.
 	// 여기가 `/` `?` `n` `N` `*` `#` 이 모두 지나는 자리다(ADR-0070).
 	e.recordJump()
 
-	buf.moveTo(line, col)
-	buf.clampToNormal()
+	buf.MoveTo(line, col)
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
 	// 닿은 자리도 방문 기록에 남는다. 떠난 자리는 위의 recordJump 가 남겼다(ADR-0074).
@@ -261,7 +261,7 @@ func wrapMessage(direction searchDirection) string {
 func (e *editor) searchWord(direction searchDirection, n int) {
 	buf := e.activeBuffer()
 
-	word, col, ok := buf.wordUnderCursor()
+	word, col, ok := buf.WordUnderCursor()
 	if !ok {
 		e.notify("커서 아래에 단어가 없습니다")
 
@@ -270,7 +270,7 @@ func (e *editor) searchWord(direction searchDirection, n int) {
 
 	// 커서를 단어 앞으로 옮기고 거기서 찾는다. 옮기지 않으면 커서 오른쪽에 있던 그 단어가
 	// 첫 매칭이 되어, `*` 를 눌렀는데 제자리에서 한 칸 옆으로 가는 것으로 끝난다. vim 과 같다.
-	buf.moveTo(buf.cursor.Line, col)
+	buf.MoveTo(buf.Cursor.Line, col)
 
 	// QuoteMeta 를 거친 글자와 `\b` 뿐이라 정규식이 될 수 없는 경우가 없다.
 	input := wordSearchPattern(word)

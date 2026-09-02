@@ -113,26 +113,26 @@ func TestLocationsStopsAtMaxRows(t *testing.T) {
 func TestLocationsPreviewsWhileMoving(t *testing.T) {
 	m, paths := locationsFixture(t)
 
-	require.Equal(t, paths[0], m.activeBuffer().path)
-	require.Equal(t, 0, m.activeBuffer().cursor.Line, "여는 것만으로는 옮기지 않는다")
+	require.Equal(t, paths[0], m.activeBuffer().Path)
+	require.Equal(t, 0, m.activeBuffer().Cursor.Line, "여는 것만으로는 옮기지 않는다")
 
 	next, _ := m.press("j")
 	m = next.(viewLocations)
 
 	assert.Equal(t, 1, m.selected)
-	assert.Equal(t, paths[1], m.activeBuffer().path, "그 자리를 보여준다")
-	assert.Equal(t, 2, m.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[1], m.activeBuffer().Path, "그 자리를 보여준다")
+	assert.Equal(t, 2, m.activeBuffer().Cursor.Line)
 	assert.Empty(t, m.jumps.places, "확정 전이라 이력에 담기지 않는다")
 
 	next, _ = m.press("j")
 	m = next.(viewLocations)
-	assert.Equal(t, paths[2], m.activeBuffer().path)
+	assert.Equal(t, paths[2], m.activeBuffer().Path)
 
 	// 아래 끝에서 멈추면 커서도 그대로다.
 	next, _ = m.press("j")
 	m = next.(viewLocations)
 	assert.Equal(t, 2, m.selected)
-	assert.Equal(t, paths[2], m.activeBuffer().path)
+	assert.Equal(t, paths[2], m.activeBuffer().Path)
 }
 
 // enter 는 **판을 닫으며 확정한다**(ADR-0073).
@@ -148,9 +148,9 @@ func TestLocationsConfirmsAndCloses(t *testing.T) {
 	assert.Zero(t, model.(viewEditorNormal).drawerHeight)
 	assert.NotNil(t, cmd)
 
-	assert.Equal(t, paths[1], m.activeBuffer().path)
-	assert.Equal(t, 2, m.activeBuffer().cursor.Line)
-	assert.Equal(t, 5, m.activeBuffer().cursor.Col)
+	assert.Equal(t, paths[1], m.activeBuffer().Path)
+	assert.Equal(t, 2, m.activeBuffer().Cursor.Line)
+	assert.Equal(t, 5, m.activeBuffer().Cursor.Col)
 }
 
 // **q 와 esc 는 취소다.** 둘러본 것이 없던 일이 되어 판을 열기 전 자리로 돌아가고,
@@ -177,8 +177,8 @@ func TestLocationsCancelRestoresOrigin(t *testing.T) {
 				"편집 영역이 돌아와야 한다")
 
 			assert.Len(t, m.buffers, 1, "둘러보며 연 tab 이 닫힌다")
-			assert.Equal(t, paths[0], m.activeBuffer().path, "열기 전 파일로 돌아온다")
-			assert.Equal(t, 0, m.activeBuffer().cursor.Line, "열기 전 줄로 돌아온다")
+			assert.Equal(t, paths[0], m.activeBuffer().Path, "열기 전 파일로 돌아온다")
+			assert.Equal(t, 0, m.activeBuffer().Cursor.Line, "열기 전 줄로 돌아온다")
 			assert.Empty(t, m.jumps.places, "아무 데도 안 갔으니 이력도 비어 있다")
 		})
 	}
@@ -340,8 +340,8 @@ func TestTrimLeftToWidth(t *testing.T) {
 func TestLocationsRecordsOriginOnConfirm(t *testing.T) {
 	m, paths := locationsFixture(t)
 
-	require.Equal(t, paths[0], m.activeBuffer().path)
-	require.Equal(t, 0, m.activeBuffer().cursor.Line)
+	require.Equal(t, paths[0], m.activeBuffer().Path)
+	require.Equal(t, 0, m.activeBuffer().Cursor.Line)
 	require.Empty(t, m.jumps.places, "판을 여는 것만으로는 담지 않는다")
 
 	// 세 군데를 둘러보고 마지막에서 확정한다.
@@ -361,8 +361,8 @@ func TestLocationsRecordsOriginOnConfirm(t *testing.T) {
 	// `ctrl+o` 한 번이면 물어보던 자리다.
 	m.jumpBack()
 
-	assert.Equal(t, paths[0], m.activeBuffer().path)
-	assert.Equal(t, 0, m.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[0], m.activeBuffer().Path)
+	assert.Equal(t, 0, m.activeBuffer().Cursor.Line)
 }
 
 // **자모 하나가 키 여럿으로 풀릴 때 미리보기 Cmd 를 흘리지 않는다.**
@@ -386,6 +386,6 @@ func TestLocationsKeepsPreviewCmdWhenLeavingMidKey(t *testing.T) {
 	assert.NotNil(t, cmd, "그 Cmd 를 흘리면 starting 이 참으로 굳어 서버가 영영 안 뜬다")
 
 	// 나가는 길은 취소라 판을 열기 전 자리로 돌아온다.
-	assert.Equal(t, paths[0], m.activeBuffer().path)
-	assert.Equal(t, 0, m.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[0], m.activeBuffer().Path)
+	assert.Equal(t, 0, m.activeBuffer().Cursor.Line)
 }

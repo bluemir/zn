@@ -246,7 +246,7 @@ func (e *editor) bufferByPath(path string) *viewport {
 	}
 
 	for i := range e.buffers {
-		if e.buffers[i].path == path {
+		if e.buffers[i].Path == path {
 			return &e.buffers[i]
 		}
 	}
@@ -266,7 +266,7 @@ func (e *editor) scrollToCursor() {
 		return
 	}
 
-	e.activeBuffer().scrollTo(e.textHeight())
+	e.activeBuffer().ScrollTo(e.textHeight())
 }
 
 func (e *editor) resize(msg tea.WindowSizeMsg) {
@@ -289,7 +289,7 @@ func (e *editor) nextTab() tea.Cmd {
 	e.active = (e.active + 1) % len(e.buffers)
 	e.scrollTabsTo()
 
-	return e.revealInSidebar(e.activeBuffer().path)
+	return e.revealInSidebar(e.activeBuffer().Path)
 }
 func (e *editor) prevTab() tea.Cmd {
 	if !e.hasTab() {
@@ -299,7 +299,7 @@ func (e *editor) prevTab() tea.Cmd {
 	e.active = (e.active - 1 + len(e.buffers)) % len(e.buffers)
 	e.scrollTabsTo()
 
-	return e.revealInSidebar(e.activeBuffer().path)
+	return e.revealInSidebar(e.activeBuffer().Path)
 }
 
 // activePath 는 지금 보고 있는 파일의 절대 경로다. sidebar 가 그 행을 굵게 그린다(ADR-0022).
@@ -312,7 +312,7 @@ func (e editor) activePath() string {
 		return ""
 	}
 
-	path := e.buffers[e.active].path
+	path := e.buffers[e.active].Path
 	if path == "" {
 		return ""
 	}
@@ -327,7 +327,7 @@ func (e editor) activePath() string {
 
 // currentFile 은 명령줄의 `%` 가 가리키는 경로다. 펼 파일이 없으면 빈 문자열이다.
 //
-// 연 그대로(`buffers[active].path`) 가 아니라 늘 상대다. 같은 파일이 CLI 로 열었는지 트리로
+// 연 그대로(`buffers[active].Path`) 가 아니라 늘 상대다. 같은 파일이 CLI 로 열었는지 트리로
 // 열었는지에 따라 다르게 펴지면 `:!git add %` 가 어느 날은 짧고 어느 날은 길다. 화면이 경로를
 // 줄여 보이는 규칙과도 같아서 보이는 것과 펴지는 것이 어긋나지 않는다(ADR-0114).
 //
@@ -448,10 +448,10 @@ func (e *editor) replaceTab(path string) (tea.Cmd, error) {
 func (e editor) tabOf(path string) (int, bool) {
 	for i, buf := range e.buffers {
 		// 이름 없는 buffer 는 어느 파일도 아니다.
-		if buf.path == "" {
+		if buf.Path == "" {
 			continue
 		}
-		if samePath(buf.path, path) {
+		if samePath(buf.Path, path) {
 			return i, true
 		}
 	}
@@ -469,24 +469,24 @@ func (e editor) tabOf(path string) (int, bool) {
 func (e editor) openTabUnder(path string, isDir bool) (string, bool) {
 	for _, buf := range e.buffers {
 		// 이름 없는 buffer 는 어느 파일도 아니다.
-		if buf.path == "" {
+		if buf.Path == "" {
 			continue
 		}
 
-		if samePath(buf.path, path) {
-			return buf.path, true
+		if samePath(buf.Path, path) {
+			return buf.Path, true
 		}
 		if !isDir {
 			continue
 		}
 
 		// 디렉터리 안인지는 정규화한 절대 경로로 본다. CLI 로 연 파일은 상대 경로다.
-		abs, err := filepath.Abs(buf.path)
+		abs, err := filepath.Abs(buf.Path)
 		if err != nil {
 			continue
 		}
 		if strings.HasPrefix(abs, path+string(filepath.Separator)) {
-			return buf.path, true
+			return buf.Path, true
 		}
 	}
 
@@ -499,26 +499,26 @@ func (e editor) openTabUnder(path string, isDir bool) (string, bool) {
 // 편집하던 내용과 커서 자리는 그대로다 — 저장하지 않은 변경도 새 이름으로 저장된다.
 //
 // 파일 내용도 mtime 도 그대로라 바깥 변경 검사(diskSize·diskTime·diskHash) 는 손대지 않는다.
-// 문법 강조는 `syntaxCache.path` 가 buffer 의 경로와 어긋난 것을 보고 스스로 다시 고른다.
+// 문법 강조는 `syntaxCache.Path` 가 buffer 의 경로와 어긋난 것을 보고 스스로 다시 고른다.
 //
 // isDir 이면 그 아래 전부의 앞부분을 갈아끼운다 — 디렉터리를 옮기면 안의 파일도 옮겨진 것이다.
 func (e *editor) renameBuffers(from, to string, isDir bool) {
 	for i := range e.buffers {
-		if e.buffers[i].path == "" {
+		if e.buffers[i].Path == "" {
 			continue
 		}
 
 		// CLI 로 연 파일은 상대 경로다. 트리가 주는 것은 절대 경로라 맞춰 둔다.
-		abs, err := filepath.Abs(e.buffers[i].path)
+		abs, err := filepath.Abs(e.buffers[i].Path)
 		if err != nil {
 			continue
 		}
 
 		switch {
 		case abs == from:
-			e.buffers[i].path = to
+			e.buffers[i].Path = to
 		case isDir && strings.HasPrefix(abs, from+string(filepath.Separator)):
-			e.buffers[i].path = to + abs[len(from):]
+			e.buffers[i].Path = to + abs[len(from):]
 		}
 	}
 }
@@ -656,7 +656,7 @@ func (e *editor) closeAllTabs() int {
 // 전체 종료는 보고 있지 않은 tab 의 변경도 잃게 하므로 활성 buffer 만 봐서는 안 된다.
 func (e editor) anyDirty() bool {
 	for _, buf := range e.buffers {
-		if buf.dirty {
+		if buf.Dirty {
 			return true
 		}
 	}
@@ -671,7 +671,7 @@ func (e editor) otherDirty() bool {
 		if i == e.active {
 			continue
 		}
-		if buf.dirty {
+		if buf.Dirty {
 			return true
 		}
 	}
@@ -683,7 +683,7 @@ func (e editor) otherDirty() bool {
 // 오른쪽만 닫는 것은 활성 buffer 와 그 왼쪽을 건드리지 않으므로 그쪽만 본다.
 func (e editor) rightDirty() bool {
 	for i := e.active + 1; i < len(e.buffers); i++ {
-		if e.buffers[i].dirty {
+		if e.buffers[i].Dirty {
 			return true
 		}
 	}
@@ -715,7 +715,7 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 		// 이름 없는 buffer 면 갈 자리가 없어서 뿌리만 읽는다. tab 이 아예 없을 때도 같다.
 		var target string
 		if e.hasTab() {
-			target = e.activeBuffer().path
+			target = e.activeBuffer().Path
 		}
 
 		e.sidebar.setRevealTarget(target)
@@ -772,7 +772,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 	height := e.textHeight()
 
 	// 화면보다 긴 줄은 visibleRows 가 이미 화면 행 여러 개로 나눠서 준다.
-	rows := buf.visibleRows(height)
+	rows := buf.VisibleRows(height)
 	textRows := make([]string, 0, height)
 
 	// 문법 토큰을 화면 맨 아래 줄까지 채운다. 줄 하나를 훑으려면 그 앞 줄을 끝낸 문맥이
@@ -782,38 +782,38 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 	// mode 마다 챙길 자리가 없다 — 빠뜨린 mode 에서 고리가 끊기는 것은 tick 에서 이미 겪은
 	// 일이다(ADR-0038).
 	if len(rows) > 0 {
-		buf.lexSyntaxTo(rows[len(rows)-1].line)
+		buf.LexSyntaxTo(rows[len(rows)-1].Line)
 	}
 
 	// 검색 매칭은 줄 단위로 찾는다. wrap 된 줄은 행이 여럿이라 줄이 바뀔 때만 다시 찾는다.
 	matchLine, matches := -1, [][]int(nil)
 
 	// 고른 범위는 화면마다 한 번만 구한다. 줄마다의 구간은 selectionOn 이 잘라 준다.
-	area, selecting := buf.selectionRange()
+	area, selecting := buf.SelectionRange()
 
 	for _, row := range rows {
-		if row.line != matchLine {
-			matchLine, matches = row.line, e.searchMatches(buf.lines[row.line])
+		if row.Line != matchLine {
+			matchLine, matches = row.Line, e.searchMatches(buf.Lines[row.Line])
 		}
 
 		// 커서가 선 매칭만 색이 다르다. 다른 줄이면 그런 매칭이 없다.
 		cursorCol := -1
-		if row.line == buf.cursor.Line {
-			cursorCol = buf.cursor.Col
+		if row.Line == buf.Cursor.Line {
+			cursorCol = buf.Cursor.Col
 		}
 
 		highlight := rowHighlight{
 			matches:   matches,
 			cursorCol: cursorCol,
-			tokens:    buf.syntaxTokens(row.line),
+			tokens:    buf.SyntaxTokens(row.Line),
 		}
 		if selecting {
-			highlight.selection, highlight.toLineEnd, _ = buf.selectionOn(area, row.line)
+			highlight.selection, highlight.toLineEnd, _ = buf.SelectionOn(area, row.Line)
 		}
 
 		textRows = append(textRows,
 			e.renderGutter(buf, row)+
-				renderRow(buf.lines[row.line], row, e.contentWidth(), highlight, buf.tabWidth()))
+				renderRow(buf.Lines[row.Line], row, e.contentWidth(), highlight, buf.TabWidth()))
 	}
 
 	// 감싸는 머리줄로 본문 위 몇 행을 덮는다(ADR-0049).
@@ -834,7 +834,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 	view := newView(e.renderScreen(textRows, mode, bottom), e.renderWindowTitle())
 
-	if x, y, ok := buf.cursorScreenPos(height); ok {
+	if x, y, ok := buf.CursorScreenPos(height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
 		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)
 		view.Cursor.Shape = shape
@@ -904,16 +904,16 @@ func (e editor) renderWindowTitle() string {
 	buf := e.buffers[e.active]
 
 	title := name + " " + e.tabName(e.active)
-	if buf.dirty {
+	if buf.Dirty {
 		title += " +"
 	}
 
-	if buf.path == "" {
+	if buf.Path == "" {
 		return title
 	}
 
 	// 폴더만 덧붙인다. 파일 이름은 이미 앞에 있다.
-	if dir := filepath.Dir(shortenPath(buf.path)); dir != "." && dir != "" {
+	if dir := filepath.Dir(shortenPath(buf.Path)); dir != "." && dir != "" {
 		title += " (" + dir + ")"
 	}
 

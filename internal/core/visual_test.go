@@ -14,7 +14,7 @@ func TestVisualEntersAndLeaves(t *testing.T) {
 
 		visual, ok := m.(viewEditorVisual)
 		require.True(t, ok, "visual mode 여야 한다")
-		assert.False(t, visual.activeBuffer().selection.linewise)
+		assert.False(t, visual.activeBuffer().Selection.Linewise)
 		assert.Equal(t, "VISUAL", modeOf(t, m))
 	})
 
@@ -23,7 +23,7 @@ func TestVisualEntersAndLeaves(t *testing.T) {
 
 		visual, ok := m.(viewEditorVisual)
 		require.True(t, ok)
-		assert.True(t, visual.activeBuffer().selection.linewise)
+		assert.True(t, visual.activeBuffer().Selection.Linewise)
 		assert.Contains(t, barOf(t, m)[0], "VISUAL LINE")
 	})
 
@@ -31,7 +31,7 @@ func TestVisualEntersAndLeaves(t *testing.T) {
 		m := send(newTestEditor("foo bar", 80, 20), "v", "l", "esc")
 
 		require.IsType(t, viewEditorNormal{}, m)
-		assert.False(t, bufferOf(t, m).selection.active, "normal 에는 고른 범위가 없다")
+		assert.False(t, bufferOf(t, m).Selection.Active, "normal 에는 고른 범위가 없다")
 	})
 
 	t.Run("같은 키를 다시 치면 나간다", func(t *testing.T) {
@@ -44,8 +44,8 @@ func TestVisualEntersAndLeaves(t *testing.T) {
 
 		visual, ok := m.(viewEditorVisual)
 		require.True(t, ok, "visual 에 머문다")
-		assert.True(t, visual.activeBuffer().selection.linewise)
-		assert.Equal(t, 0, visual.activeBuffer().selection.line, "anchor 는 그대로다")
+		assert.True(t, visual.activeBuffer().Selection.Linewise)
+		assert.Equal(t, 0, visual.activeBuffer().Selection.Line, "anchor 는 그대로다")
 	})
 }
 
@@ -93,8 +93,8 @@ func TestVisualLineDeleteTakesWholeLines(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"baz"}, linesOf(buf))
-	assert.Equal(t, 0, buf.cursor.Line)
-	assert.Equal(t, 0, buf.cursor.Col, "메운 줄의 첫 비공백이다")
+	assert.Equal(t, 0, buf.Cursor.Line)
+	assert.Equal(t, 0, buf.Cursor.Col, "메운 줄의 첫 비공백이다")
 }
 
 // `y` 는 파일을 건드리지 않고 커서를 범위의 시작에 놓는다.
@@ -103,19 +103,19 @@ func TestVisualYankFillsRegister(t *testing.T) {
 		after, ok := send(newTestEditor("foo bar\nbaz", 80, 20), "l", "l", "v", "h", "h", "y").(viewEditorNormal)
 		require.True(t, ok)
 
-		assert.Equal(t, [][]byte{[]byte("foo")}, after.registers.unnamed.lines)
-		assert.False(t, after.registers.unnamed.linewise)
+		assert.Equal(t, [][]byte{[]byte("foo")}, after.registers.unnamed.Lines)
+		assert.False(t, after.registers.unnamed.Linewise)
 		assert.Equal(t, []string{"foo bar", "baz"}, linesOf(after.buffers[after.active]), "파일은 그대로다")
-		assert.False(t, after.buffers[after.active].dirty)
-		assert.Equal(t, 0, after.buffers[after.active].cursor.Col, "커서는 범위의 시작이다")
+		assert.False(t, after.buffers[after.active].Dirty)
+		assert.Equal(t, 0, after.buffers[after.active].Cursor.Col, "커서는 범위의 시작이다")
 	})
 
 	t.Run("줄 단위", func(t *testing.T) {
 		after, ok := send(newTestEditor("foo bar\nbaz", 80, 20), "V", "j", "y").(viewEditorNormal)
 		require.True(t, ok)
 
-		assert.Equal(t, [][]byte{[]byte("foo bar"), []byte("baz")}, after.registers.unnamed.lines)
-		assert.True(t, after.registers.unnamed.linewise)
+		assert.Equal(t, [][]byte{[]byte("foo bar"), []byte("baz")}, after.registers.unnamed.Lines)
+		assert.True(t, after.registers.unnamed.Linewise)
 	})
 
 	t.Run("줄 단위로 복사한 것은 줄로 붙는다", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestVisualChange(t *testing.T) {
 	t.Run("고른 것을 놓고 insert 로 간다", func(t *testing.T) {
 		m := send(newTestEditor("foo bar", 80, 20), "v", "l", "c")
 
-		assert.False(t, bufferOf(t, m).selection.active)
+		assert.False(t, bufferOf(t, m).Selection.Active)
 	})
 }
 
@@ -260,7 +260,7 @@ func TestVisualRegisterName(t *testing.T) {
 		m := send(newTestEditor("foo bar\nbaz", 80, 20), "V", `"`, "1", "y")
 
 		assert.IsType(t, viewEditorVisual{}, m, "아무 일도 없이 visual 에 머문다")
-		assert.False(t, m.(viewEditorVisual).registers.byName("1").filled())
+		assert.False(t, m.(viewEditorVisual).registers.byName("1").Filled())
 	})
 
 	t.Run("이름을 실은 이동은 없다", func(t *testing.T) {
@@ -269,7 +269,7 @@ func TestVisualRegisterName(t *testing.T) {
 		// `j` 가 버려지므로 고른 것은 첫 줄뿐이고, 이름도 같이 버려져서 무명에만 담긴다.
 		require.IsType(t, viewEditorNormal{}, m)
 		assert.Equal(t, "foo⏎", previewOf(m.(viewEditorNormal).registers.unnamed))
-		assert.False(t, m.(viewEditorNormal).registers.byName("a").filled())
+		assert.False(t, m.(viewEditorNormal).registers.byName("a").Filled())
 	})
 
 	t.Run("글자 하나가 아닌 키는 이름을 무른다", func(t *testing.T) {

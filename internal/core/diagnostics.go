@@ -51,9 +51,9 @@ func diagnosticsOf(list []lsp.Diagnostic) []diagnostic {
 	out := make([]diagnostic, 0, len(list))
 	for _, item := range list {
 		out = append(out, diagnostic{
-			line:     item.Range.Start.Line,
-			severity: diagnosticSeverity(item.Severity),
-			message:  item.Message,
+			Line:     item.Range.Start.Line,
+			Severity: diagnosticSeverity(item.Severity),
+			Message:  item.Message,
 		})
 	}
 
@@ -62,7 +62,7 @@ func diagnosticsOf(list []lsp.Diagnostic) []diagnostic {
 
 func (e *editor) applyDiagnostics() {
 	for i := range e.buffers {
-		server, path, ok := serverPath(e.buffers[i].path)
+		server, path, ok := serverPath(e.buffers[i].Path)
 		if !ok {
 			continue
 		}
@@ -72,7 +72,7 @@ func (e *editor) applyDiagnostics() {
 			continue
 		}
 
-		e.buffers[i].setDiagnostics(diagnosticsOf(client.Diagnostics(path)))
+		e.buffers[i].SetDiagnostics(diagnosticsOf(client.Diagnostics(path)))
 	}
 }
 
@@ -88,14 +88,14 @@ func (e *editor) applyDiagnostics() {
 func (e editor) renderDiagnostic() string {
 	buf := e.buffers[e.active]
 
-	list := buf.diagnosticAt(buf.cursor.Line)
+	list := buf.DiagnosticAt(buf.Cursor.Line)
 	if len(list) == 0 {
 		return ""
 	}
 
 	// 마커와 같은 글자를 앞에 둔다. 위(마커 칸) 와 아래(이 줄) 가 같은 것을 말하고 있다는 것이
 	// 색뿐 아니라 글자로도 이어진다.
-	text := renderDiagnosticMarker(list) + " " + list[0].message
+	text := renderDiagnosticMarker(list) + " " + list[0].Message
 
 	if len(list) > 1 {
 		text += " (" + strconv.Itoa(len(list)) + ")"

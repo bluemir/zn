@@ -97,7 +97,7 @@ func TestPositionAt(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 			setContentWidth(&buf, test.width, 10)
 
-			line, col, ok := buf.positionAt(test.x, test.y, 10)
+			line, col, ok := buf.PositionAt(test.x, test.y, 10)
 			if test.missing {
 				assert.False(t, ok)
 				return
@@ -289,7 +289,7 @@ func TestClickSidebarOpensFile(t *testing.T) {
 	model, _ = model.Update(click(3, index-m.sidebar.top))
 
 	assert.IsType(t, viewEditorNormal{}, model, "파일을 열면 포커스가 편집 영역으로 온다")
-	assert.Equal(t, "README.md", bufferOf(t, model).path[len(bufferOf(t, model).path)-9:])
+	assert.Equal(t, "README.md", bufferOf(t, model).Path[len(bufferOf(t, model).Path)-9:])
 }
 
 func TestClickBelowTreeDoesNothing(t *testing.T) {
@@ -341,7 +341,7 @@ func TestClickTablineSwitchesTab(t *testing.T) {
 // dirty 표시 `+` 로 칸이 밀려도 클릭이 옆 tab 으로 가지 않는다.
 func TestClickTablineWithDirtyTab(t *testing.T) {
 	m := newTestEditor("abc\n", 60, 5)
-	m.buffers[0].dirty = true
+	m.buffers[0].Dirty = true
 	m.buffers = append(m.buffers, newBuffer("second.txt", []byte("xyz\n")))
 	m.buffers = append(m.buffers, newBuffer("third.txt", []byte("xyz\n")))
 
@@ -420,7 +420,7 @@ func TestClickIgnoredWhileTypingCommand(t *testing.T) {
 	command, ok := m.(viewEditorCommand)
 	require.True(t, ok, "명령줄에 남는다")
 	assert.Equal(t, "w", command.input.text, "치던 명령이 그대로다")
-	assert.Equal(t, 0, command.buffers[command.active].cursor.Line, "커서도 그대로다")
+	assert.Equal(t, 0, command.buffers[command.active].Cursor.Line, "커서도 그대로다")
 }
 
 func TestClickIgnoredWhileTypingSearch(t *testing.T) {
@@ -451,35 +451,35 @@ func TestWheelScrollsWithoutMovingCursor(t *testing.T) {
 	m, _ = m.Update(wheel(left+1, tablineHeight+1, false))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, wheelRows, buf.top.line, "화면이 굴러간다")
-	assert.Equal(t, wheelRows, buf.cursor.Line, "화면 맨 윗줄로 끌려온다")
+	assert.Equal(t, wheelRows, buf.Top.Line, "화면이 굴러간다")
+	assert.Equal(t, wheelRows, buf.Cursor.Line, "화면 맨 윗줄로 끌려온다")
 }
 
 func TestWheelKeepsCursorWhileVisible(t *testing.T) {
 	m := newTestEditor(longBuffer(50), 40, 10)
-	m.buffers[0].cursor.Line = 8
-	m.buffers[0].top.line = 0
+	m.buffers[0].Cursor.Line = 8
+	m.buffers[0].Top.Line = 0
 
 	var model tea.Model = m
 	model, _ = model.Update(wheel(contentLeftOf(t, model)+1, tablineHeight+1, false))
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, wheelRows, buf.top.line)
-	assert.Equal(t, 8, buf.cursor.Line, "아직 화면 안이라 그대로다")
+	assert.Equal(t, wheelRows, buf.Top.Line)
+	assert.Equal(t, 8, buf.Cursor.Line, "아직 화면 안이라 그대로다")
 }
 
 // 위로 굴리면 커서가 화면 아래로 벗어난다. 아래쪽 끝 행으로 데려온다.
 func TestWheelUpPullsCursorToBottom(t *testing.T) {
 	m := newTestEditor(longBuffer(50), 40, 10)
-	m.buffers[0].top.line = 20
-	m.buffers[0].cursor.Line = 29 // 화면 맨 아랫줄
+	m.buffers[0].Top.Line = 20
+	m.buffers[0].Cursor.Line = 29 // 화면 맨 아랫줄
 
 	var model tea.Model = m
 	model, _ = model.Update(wheel(contentLeftOf(t, model)+1, tablineHeight+1, true))
 
 	buf := bufferOf(t, model)
-	require.Equal(t, 20-wheelRows, buf.top.line)
-	assert.Equal(t, buf.top.line+9, buf.cursor.Line, "화면 맨 아랫줄로 끌려온다")
+	require.Equal(t, 20-wheelRows, buf.Top.Line)
+	assert.Equal(t, buf.Top.Line+9, buf.Cursor.Line, "화면 맨 아랫줄로 끌려온다")
 }
 
 func TestWheelUpAtTopDoesNothing(t *testing.T) {
@@ -487,7 +487,7 @@ func TestWheelUpAtTopDoesNothing(t *testing.T) {
 
 	m, _ = m.Update(wheel(contentLeftOf(t, m)+1, tablineHeight+1, true))
 
-	assert.Equal(t, 0, bufferOf(t, m).top.line)
+	assert.Equal(t, 0, bufferOf(t, m).Top.Line)
 }
 
 func TestWheelStopsAtLastLine(t *testing.T) {
@@ -499,7 +499,7 @@ func TestWheelStopsAtLastLine(t *testing.T) {
 	}
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, len(buf.lines)-1, buf.top.line, "마지막 줄이 맨 위에서 멈춘다")
+	assert.Equal(t, len(buf.Lines)-1, buf.Top.Line, "마지막 줄이 맨 위에서 멈춘다")
 }
 
 func TestWheelMovesTopRowInsideWrappedLine(t *testing.T) {
@@ -513,8 +513,8 @@ func TestWheelMovesTopRowInsideWrappedLine(t *testing.T) {
 	m, _ = m.Update(wheel(contentLeftOf(t, m)+1, tablineHeight+1, false))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 0, buf.top.line, "같은 논리 줄 안이다")
-	assert.Equal(t, wheelRows, buf.top.row)
+	assert.Equal(t, 0, buf.Top.Line, "같은 논리 줄 안이다")
+	assert.Equal(t, wheelRows, buf.Top.Row)
 }
 
 func TestWheelOnSidebarScrollsTree(t *testing.T) {
@@ -530,7 +530,7 @@ func TestWheelOnSidebarScrollsTree(t *testing.T) {
 	require.True(t, ok, "포커스는 편집 영역에 남는다")
 	assert.Equal(t, wheelRows, normal.sidebar.top, "트리가 굴러간다")
 	assert.Equal(t, before, normal.sidebar.selected, "고른 항목은 그대로다")
-	assert.Equal(t, 0, normal.buffers[normal.active].top.line, "편집 영역은 굴러가지 않는다")
+	assert.Equal(t, 0, normal.buffers[normal.active].Top.Line, "편집 영역은 굴러가지 않는다")
 }
 
 func TestWheelOnTextDoesNotScrollTree(t *testing.T) {
@@ -543,7 +543,7 @@ func TestWheelOnTextDoesNotScrollTree(t *testing.T) {
 	normal, ok := model.(viewEditorNormal)
 	require.True(t, ok)
 	assert.Equal(t, 0, normal.sidebar.top, "트리는 그대로다")
-	assert.Equal(t, wheelRows, normal.buffers[normal.active].top.line)
+	assert.Equal(t, wheelRows, normal.buffers[normal.active].Top.Line)
 }
 
 // 고른 항목이 화면 밖으로 나가면 커서를 놓을 자리가 없다. ADR-0005 의 포커스 표시가 잠시 없다.
@@ -572,7 +572,7 @@ func TestWheelWorksWhileTypingCommand(t *testing.T) {
 
 	command, ok := m.(viewEditorCommand)
 	require.True(t, ok, "명령줄에 남는다")
-	assert.Equal(t, wheelRows, command.buffers[command.active].top.line)
+	assert.Equal(t, wheelRows, command.buffers[command.active].Top.Line)
 }
 
 // drag 는 버튼을 누른 채 움직이는 것이다. click 과 같이 화면 좌표 하나를 메시지로 만든다.
@@ -595,9 +595,9 @@ func TestDragStartsVisual(t *testing.T) {
 	require.True(t, ok, "끌기 시작하면 visual 이다")
 
 	buf := visual.activeBuffer()
-	assert.False(t, buf.selection.linewise, "드래그는 글자 단위다")
-	assert.Equal(t, 1, buf.selection.col, "누른 자리가 anchor 다")
-	assert.Equal(t, 4, buf.cursor.Col, "끌린 자리가 커서다")
+	assert.False(t, buf.Selection.Linewise, "드래그는 글자 단위다")
+	assert.Equal(t, 1, buf.Selection.Col, "누른 자리가 anchor 다")
+	assert.Equal(t, 4, buf.Cursor.Col, "끌린 자리가 커서다")
 
 	// 뗄 때는 보지 않는다. visual 에 머문다.
 	after, _ = after.Update(tea.MouseReleaseMsg{X: left + 4, Y: tablineHeight, Button: tea.MouseLeft})
@@ -614,7 +614,7 @@ func TestDragOutsideTextClampsInside(t *testing.T) {
 
 	visual, ok := after.(viewEditorVisual)
 	require.True(t, ok, "sidebar 쪽으로 끌어도 포커스는 그대로다")
-	assert.Equal(t, 0, visual.activeBuffer().cursor.Col, "줄 시작까지 골랐다")
+	assert.Equal(t, 0, visual.activeBuffer().Cursor.Col, "줄 시작까지 골랐다")
 }
 
 // 화면 아래로 끌면 그 방향으로 한 행 굴린다.
@@ -633,8 +633,8 @@ func TestDragBelowTextScrolls(t *testing.T) {
 
 	visual, ok := after.(viewEditorVisual)
 	require.True(t, ok)
-	assert.Equal(t, 1, visual.activeBuffer().top.line, "한 행 굴러갔다")
-	assert.Equal(t, 2, visual.activeBuffer().cursor.Line, "끌린 쪽 끝 행이 커서다")
+	assert.Equal(t, 1, visual.activeBuffer().Top.Line, "한 행 굴러갔다")
+	assert.Equal(t, 2, visual.activeBuffer().Cursor.Line, "끌린 쪽 끝 행이 커서다")
 }
 
 // visual 에서 클릭하면 고른 것을 놓고 그 자리가 새 시작이 된다.
@@ -649,9 +649,9 @@ func TestClickLeavesVisual(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, after)
 	buf := bufferOf(t, after)
-	assert.False(t, buf.selection.active, "고른 범위를 놓는다")
-	assert.Equal(t, 1, buf.cursor.Line)
-	assert.Equal(t, 2, buf.cursor.Col)
+	assert.False(t, buf.Selection.Active, "고른 범위를 놓는다")
+	assert.Equal(t, 1, buf.Cursor.Line)
+	assert.Equal(t, 2, buf.Cursor.Col)
 }
 
 // statusBar 는 눌러도 아무 일이 없다. visual 도 그대로다.
@@ -661,7 +661,7 @@ func TestClickStatusBarKeepsVisual(t *testing.T) {
 	after, _ = after.Update(click(0, tablineHeight+20))
 
 	assert.IsType(t, viewEditorVisual{}, after)
-	assert.True(t, bufferOf(t, after).selection.active)
+	assert.True(t, bufferOf(t, after).Selection.Active)
 }
 
 // 우클릭은 누른 자리의 tab 을 닫는다. 보고 있던 파일은 그대로 본다(ADR-0060).
@@ -679,7 +679,7 @@ func TestRightClickTablineClosesTab(t *testing.T) {
 	require.True(t, ok, "normal 에 머문다: %T", model)
 	require.Len(t, normal.buffers, 2)
 	assert.Equal(t, 1, normal.active)
-	assert.Equal(t, "b.txt", normal.activeBuffer().path, "보고 있던 파일이 그대로다")
+	assert.Equal(t, "b.txt", normal.activeBuffer().Path, "보고 있던 파일이 그대로다")
 	assert.Equal(t, " 1 a.txt │ 2 b.txt", tablineOf(t, normal.View()))
 }
 
@@ -696,7 +696,7 @@ func TestRightClickTablineOnLeftKeepsViewedFile(t *testing.T) {
 	normal, ok := model.(viewEditorNormal)
 	require.True(t, ok)
 	assert.Equal(t, 1, normal.active, "번호가 하나 당겨진다")
-	assert.Equal(t, "c.txt", normal.activeBuffer().path)
+	assert.Equal(t, "c.txt", normal.activeBuffer().Path)
 	assert.Equal(t, " 1 b.txt │ 2 c.txt", tablineOf(t, normal.View()))
 }
 
@@ -714,7 +714,7 @@ func TestRightClickTablineClosesViewedTab(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, normal.buffers, 2)
 	assert.Equal(t, 1, normal.active)
-	assert.Equal(t, "c.txt", normal.activeBuffer().path, "닫은 자리에 드러난 파일이다")
+	assert.Equal(t, "c.txt", normal.activeBuffer().Path, "닫은 자리에 드러난 파일이다")
 }
 
 // tab 이 하나뿐이어도 닫는다. 닫으면 빈 화면이 남고 편집기는 끝나지 않는다(ADR-0064).
@@ -756,7 +756,7 @@ func TestRightClickTablineNonTabColumns(t *testing.T) {
 // 보고 있지 않은 tab 이어도 저장하지 않은 변경이 있으면 묻는다. 물음에 파일 이름이 들어간다.
 func TestRightClickDirtyTabAsks(t *testing.T) {
 	m := newTabsEditor("a.txt", "b.txt")
-	m.buffers[1].dirty = true
+	m.buffers[1].Dirty = true
 
 	spans := m.renderTabline(m.textWidth()).tabs
 
@@ -776,7 +776,7 @@ func TestRightClickDirtyTabAsks(t *testing.T) {
 	normal, ok := closed.(viewEditorNormal)
 	require.True(t, ok)
 	require.Len(t, normal.buffers, 1)
-	assert.Equal(t, "a.txt", normal.activeBuffer().path)
+	assert.Equal(t, "a.txt", normal.activeBuffer().Path)
 }
 
 // insert 로 치던 중에 옆 tab 을 닫아도 계속 친다. 고치던 buffer 는 그대로다.
@@ -793,7 +793,7 @@ func TestRightClickOtherTabKeepsInsert(t *testing.T) {
 	insert, ok := model.(viewEditorInsert)
 	require.True(t, ok, "insert 에 머문다: %T", model)
 	require.Len(t, insert.buffers, 1)
-	assert.Equal(t, "a.txt", insert.activeBuffer().path)
+	assert.Equal(t, "a.txt", insert.activeBuffer().Path)
 }
 
 // 고치던 tab 을 닫았으면 insert 에 남을 수 없다. 남으면 다른 파일을 그 mode 로 고친다.
@@ -807,7 +807,7 @@ func TestRightClickViewedTabLeavesInsert(t *testing.T) {
 
 	normal, ok := model.(viewEditorNormal)
 	require.True(t, ok, "normal 로 나간다: %T", model)
-	assert.Equal(t, "b.txt", normal.activeBuffer().path)
+	assert.Equal(t, "b.txt", normal.activeBuffer().Path)
 }
 
 // visual 로 고른 것이 남은 buffer 를 보고 있으면 범위도 mode 도 그대로다.
@@ -824,7 +824,7 @@ func TestRightClickOtherTabKeepsVisual(t *testing.T) {
 	visual, ok := model.(viewEditorVisual)
 	require.True(t, ok, "visual 에 머문다: %T", model)
 	require.Len(t, visual.buffers, 1)
-	assert.True(t, visual.activeBuffer().selection.active, "고른 범위가 그대로다")
+	assert.True(t, visual.activeBuffer().Selection.Active, "고른 범위가 그대로다")
 }
 
 // 트리에 포커스를 두고 남의 tab 을 닫아도 포커스는 트리에 남는다. 보는 파일이 그대로다.
@@ -838,5 +838,5 @@ func TestRightClickOtherTabKeepsTreeFocus(t *testing.T) {
 	tree, ok := model.(viewSidebar)
 	require.True(t, ok, "포커스가 트리에 남는다: %T", model)
 	require.Len(t, tree.buffers, 1)
-	assert.Equal(t, "a.txt", tree.activeBuffer().path)
+	assert.Equal(t, "a.txt", tree.activeBuffer().Path)
 }

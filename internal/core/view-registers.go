@@ -78,7 +78,7 @@ type registerRow struct {
 func (m viewRegisters) rows() []registerRow {
 	rows := make([]registerRow, 0, len(registerNames))
 	for _, name := range registerNames {
-		if reg := m.registers.byName(name); reg.filled() {
+		if reg := m.registers.byName(name); reg.Filled() {
 			rows = append(rows, registerRow{name: name, reg: reg})
 		}
 	}
@@ -309,7 +309,7 @@ func (m viewRegisters) renderListRows(inner int) []string {
 // 있어서(.claude/skills/run-zn) 색으로만 갈리면 그 길에서 사라진다(view-messages.go).
 func (m viewRegisters) renderRow(row registerRow, inner int) string {
 	kind := "글자"
-	if row.reg.linewise {
+	if row.reg.Linewise {
 		kind = "줄"
 	}
 
@@ -337,8 +337,8 @@ func registerLabel(name string) string {
 // 하고, 줄 단위 register 는 마지막 줄에도 그것이 붙는다 — 그것이 `p` 가 줄로 끼워 넣는
 // 까닭이다. tab 은 그대로 둔다. 넓이는 trimTextRight 가 잰다.
 func previewOf(reg register) string {
-	text := strings.Join(linesToStrings(reg.lines), "⏎")
-	if reg.linewise {
+	text := strings.Join(linesToStrings(reg.Lines), "⏎")
+	if reg.Linewise {
 		text += "⏎"
 	}
 

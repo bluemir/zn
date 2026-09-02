@@ -136,8 +136,8 @@ func TestGrepDoesNotMoveOnOpen(t *testing.T) {
 	model, _ := grepMode(e)
 	m := model.(viewGrep)
 
-	assert.Equal(t, paths[0], m.activeBuffer().path, "다른 파일로 옮기지 않았다")
-	assert.Zero(t, m.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[0], m.activeBuffer().Path, "다른 파일로 옮기지 않았다")
+	assert.Zero(t, m.activeBuffer().Cursor.Line)
 }
 
 // `j`/`k` 는 커서를 실제로 그 자리로 옮겨 보여준다. jumplist 판들과 같은 손이다.
@@ -162,8 +162,8 @@ func TestGrepPreviewsWhileMoving(t *testing.T) {
 	m = next.(viewGrep)
 
 	assert.Equal(t, 1, m.selected)
-	assert.Equal(t, paths[1], m.activeBuffer().path, "다른 파일도 열어 보여준다")
-	assert.Equal(t, 4, m.activeBuffer().cursor.Line, "그 자리를 보여준다")
+	assert.Equal(t, paths[1], m.activeBuffer().Path, "다른 파일도 열어 보여준다")
+	assert.Equal(t, 4, m.activeBuffer().Cursor.Line, "그 자리를 보여준다")
 }
 
 // `q`·`esc` 는 취소다. 열기 전 자리로 되돌아가고 둘러보며 연 tab 을 닫는다.
@@ -171,7 +171,7 @@ func TestGrepCancelRestoresOrigin(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
 	require.NoError(t, gotoFile(e, paths[0], 0))
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 
 	tabs := len(e.buffers)
 
@@ -191,14 +191,14 @@ func TestGrepCancelRestoresOrigin(t *testing.T) {
 	// 둘러보며 다른 파일을 연다.
 	next, _ := m.press("j")
 	m = next.(viewGrep)
-	require.Equal(t, paths[2], m.activeBuffer().path)
+	require.Equal(t, paths[2], m.activeBuffer().Path)
 
 	back, _ := m.press("q")
 
 	require.IsType(t, viewEditorNormal{}, back)
 	e = back.(viewEditorNormal).editor
-	assert.Equal(t, paths[0], e.activeBuffer().path, "열기 전 파일로 되돌아온다")
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line, "커서도 되돌아온다")
+	assert.Equal(t, paths[0], e.activeBuffer().Path, "열기 전 파일로 되돌아온다")
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line, "커서도 되돌아온다")
 	assert.Len(t, e.buffers, tabs, "둘러보며 연 tab 을 닫는다")
 	assert.Zero(t, e.drawerHeight, "판이 걷힌다")
 }
@@ -208,7 +208,7 @@ func TestGrepConfirmKeepsPlaceAndRecordsJump(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
 	require.NoError(t, gotoFile(e, paths[0], 0))
-	e.activeBuffer().moveTo(2, 0)
+	e.activeBuffer().MoveTo(2, 0)
 
 	e.grep = grepResult{
 		input:   "func b",
@@ -227,8 +227,8 @@ func TestGrepConfirmKeepsPlaceAndRecordsJump(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, done)
 	e = done.(viewEditorNormal).editor
 
-	assert.Equal(t, paths[1], e.activeBuffer().path, "고른 자리에 남는다")
-	assert.Equal(t, 4, e.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[1], e.activeBuffer().Path, "고른 자리에 남는다")
+	assert.Equal(t, 4, e.activeBuffer().Cursor.Line)
 
 	require.NotEmpty(t, e.jumps.places, "떠난 자리를 담는다")
 	last := e.jumps.places[len(e.jumps.places)-1]
@@ -257,8 +257,8 @@ func TestGrepConfirmWithoutBrowsing(t *testing.T) {
 	done, _ := model.(viewGrep).press("enter")
 
 	e = done.(viewEditorNormal).editor
-	assert.Equal(t, paths[2], e.activeBuffer().path)
-	assert.Equal(t, 6, e.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[2], e.activeBuffer().Path)
+	assert.Equal(t, 6, e.activeBuffer().Cursor.Line)
 }
 
 // 목록에 `경로:줄` 과 줄 내용이 같이 온다. 어디를 둘러볼지 고르는 판단이 목록에서 일어난다.
@@ -348,13 +348,13 @@ func TestGrepFilterEatsMovementKeys(t *testing.T) {
 		grepHit{path: "aj.go", line: 0, text: "든 줄"},
 		grepHit{path: "b.go", line: 0, text: "없다"})
 
-	before := m.activeBuffer().path
+	before := m.activeBuffer().Path
 
 	filtered := send(m, "/", "j").(viewGrep)
 
 	assert.Equal(t, "j", filtered.filter.text)
 	assert.Zero(t, filtered.selected, "목록은 움직이지 않았다")
-	assert.Equal(t, before, filtered.activeBuffer().path, "미리보기를 태우지 않았다")
+	assert.Equal(t, before, filtered.activeBuffer().Path, "미리보기를 태우지 않았다")
 	assert.Len(t, grepDrawerRowsOf(t, filtered), 1)
 }
 
@@ -503,8 +503,8 @@ func TestGrepOnEmptyScreenOpensAndCancels(t *testing.T) {
 	done, _ := model.(viewGrep).press("enter")
 	require.IsType(t, viewEditorNormal{}, done)
 	opened := done.(viewEditorNormal).editor
-	assert.Equal(t, paths[0], opened.activeBuffer().path, "고른 파일이 열린다")
-	assert.Equal(t, 2, opened.activeBuffer().cursor.Line)
+	assert.Equal(t, paths[0], opened.activeBuffer().Path, "고른 파일이 열린다")
+	assert.Equal(t, 2, opened.activeBuffer().Cursor.Line)
 	assert.Empty(t, opened.jumps.places, "떠날 자리가 없었으므로 이력에 담을 것도 없다")
 
 	// 다시 빈 화면에서 열고 취소한다.

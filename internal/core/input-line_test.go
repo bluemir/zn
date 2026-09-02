@@ -140,7 +140,7 @@ func TestEveryLineInputTakesCursorKeys(t *testing.T) {
 			name: "이름 바꾸기",
 			open: func(t *testing.T) tea.Model {
 				e := newTestEditorFile("a.go", "package p\n\nvar Greet = 1\n", 80, 6).editor
-				e.buffers[0].cursor.Line, e.buffers[0].cursor.Col = 2, 4
+				e.buffers[0].Cursor.Line, e.buffers[0].Cursor.Col = 2, 4
 
 				// 옛 이름이 채워진 채로 열린다. 빈 칸에서 시작하도록 지운다.
 				m, _ := renameInputMode(e)

@@ -120,7 +120,7 @@ func TestDragTabOutsideTablineDoesNothing(t *testing.T) {
 	model, _ = model.Update(drag(contentLeftOf(t, model)+2, tablineHeight+1))
 
 	assert.IsType(t, viewEditorNormal{}, model, "visual 로 넘어가지 않는다")
-	assert.False(t, bufferOf(t, model).selection.active, "범위를 고르지 않는다")
+	assert.False(t, bufferOf(t, model).Selection.Active, "범위를 고르지 않는다")
 	assert.Equal(t, []string{"a.txt", "b.txt", "c.txt"}, tabNamesOf(t, model), "순서도 그대로다")
 
 	// 포인터가 tabline 으로 돌아오면 이어서 옮긴다.

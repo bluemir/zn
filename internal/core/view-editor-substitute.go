@@ -57,7 +57,7 @@ func substituteMode(e *editor, sub substitution, area scheme.MotionRange) (tea.M
 		line: area.Start.Line - 1,
 		last: -1,
 
-		back: buf.place(),
+		back: buf.Place(),
 	}
 
 	if !m.seek() {
@@ -154,12 +154,12 @@ func (m viewEditorSubstitute) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorSubstitute) stale() bool {
 	buf := m.activeBuffer()
 
-	if m.area.End.Line >= len(buf.lines) {
+	if m.area.End.Line >= len(buf.Lines) {
 		return true
 	}
 
 	// 물어보는 자리는 늘 있다. seek 이 못 찾으면 그 자리에서 판이 끝난다.
-	return m.matches[m.at][1]+m.delta > len(buf.lines[m.line])
+	return m.matches[m.at][1]+m.delta > len(buf.Lines[m.line])
 }
 
 // seek 은 지금 자리부터 다음 물어볼 매칭을 찾는다. 범위 끝까지 없으면 false 다.
@@ -173,14 +173,14 @@ func (m *viewEditorSubstitute) seek() bool {
 		}
 
 		// 고른 밖은 물어보지도 않는다. 일괄 치환이 거르는 것과 같은 자리다.
-		span, _, ok := buf.selectionOn(m.area, m.line)
+		span, _, ok := buf.SelectionOn(m.area, m.line)
 		if !ok {
 			m.matches, m.at, m.delta = nil, 0, 0
 
 			continue
 		}
 
-		m.origin = buf.lines[m.line]
+		m.origin = buf.Lines[m.line]
 		m.matches = m.sub.matchesIn(m.origin, span[0], span[1])
 		m.at, m.delta = 0, 0
 	}
@@ -204,8 +204,8 @@ func (m *viewEditorSubstitute) step() (tea.Model, tea.Cmd) {
 func (m *viewEditorSubstitute) show() {
 	buf := m.activeBuffer()
 
-	buf.moveTo(m.line, m.matches[m.at][0]+m.delta)
-	buf.clampToNormal()
+	buf.MoveTo(m.line, m.matches[m.at][0]+m.delta)
+	buf.ClampToNormal()
 	m.scrollToCursor()
 }
 
@@ -218,12 +218,12 @@ func (m *viewEditorSubstitute) replaceHere() {
 	// 처음 바꿀 때 구간을 연다. 하나도 안 바꾸고 나가면 열리지 않아서 파일이 그대로다.
 	// 범위 전체를 한 번에 담으므로 뒤의 줄들도 이 한 번의 `u` 로 돌아간다.
 	if !m.editing {
-		buf.endEdit()
-		buf.beginEdit(m.area.Start.Line, m.area.End.Line-m.area.Start.Line+1)
+		buf.EndEdit()
+		buf.BeginEdit(m.area.Start.Line, m.area.End.Line-m.area.Start.Line+1)
 		m.editing = true
 	}
 
-	buf.spliceLine(m.line, match[0]+m.delta, match[1]+m.delta, with)
+	buf.SpliceLine(m.line, match[0]+m.delta, match[1]+m.delta, with)
 	m.delta += len(with) - (match[1] - match[0])
 
 	m.changes++
@@ -253,17 +253,17 @@ func (m *viewEditorSubstitute) finish() (tea.Model, tea.Cmd) {
 	buf := m.activeBuffer()
 
 	if m.editing {
-		buf.endEdit()
+		buf.EndEdit()
 	}
 
 	if m.changes == 0 {
-		buf.moveToPlace(m.back)
+		buf.MoveToPlace(m.back)
 
 		return normalModeMessage(m.editor, "바꾼 것이 없습니다")
 	}
 
-	buf.moveToLine(m.last)
-	buf.clampToNormal()
+	buf.MoveToLine(m.last)
+	buf.ClampToNormal()
 	m.scrollToCursor()
 
 	return normalModeMessage(m.editor, substituteMessage(m.changes, m.lines))

@@ -15,7 +15,7 @@ func catOf(t *testing.T, buf viewport, area scheme.MotionRange) string {
 	t.Helper()
 
 	out := &bytes.Buffer{}
-	run := &catRun{header: catHeader(buf, area), lines: buf.catLines(area)}
+	run := &catRun{header: catHeader(buf, area), lines: buf.CatLines(area)}
 	run.SetStdin(strings.NewReader("\n"))
 	run.SetStdout(out)
 	run.SetStderr(out)
@@ -107,7 +107,7 @@ func TestCatLines(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := make([]string, 0, len(test.want))
-			for _, line := range buf.catLines(test.area) {
+			for _, line := range buf.CatLines(test.area) {
 				got = append(got, string(line))
 			}
 
@@ -119,14 +119,14 @@ func TestCatLines(t *testing.T) {
 // 파일도 커서도 건드리지 않는다.
 func TestCatLinesTouchesNothing(t *testing.T) {
 	buf := newBuffer("a.go", []byte("abc\ndef\n"))
-	buf.cursor.Line, buf.cursor.Col = 1, 2
+	buf.Cursor.Line, buf.Cursor.Col = 1, 2
 
-	buf.catLines(scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
+	buf.CatLines(scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
 	assert.Equal(t, []string{"abc", "def"}, linesOf(buf))
-	assert.Equal(t, 1, buf.cursor.Line)
-	assert.Equal(t, 2, buf.cursor.Col)
-	assert.False(t, buf.dirty)
+	assert.Equal(t, 1, buf.Cursor.Line)
+	assert.Equal(t, 2, buf.Cursor.Col)
+	assert.False(t, buf.Dirty)
 }
 
 // 보이는 줄들이다. wrap 된 줄은 한 조각만 보여도 그 줄 전체가 든다 —
@@ -144,7 +144,7 @@ func TestVisibleRange(t *testing.T) {
 // 굴려 놓은 자리를 따라간다. 화면 첫 줄이 파일 첫 줄이 아니어도 된다.
 func TestVisibleRangeFollowsScroll(t *testing.T) {
 	m := newTestEditor("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n", 40, 4)
-	m.buffers[0].top.line = 5
+	m.buffers[0].Top.Line = 5
 
 	area := m.visibleRange()
 
@@ -245,7 +245,7 @@ func TestCatKeyAfterCountDoesNotChange(t *testing.T) {
 
 	assert.IsType(t, viewEditorNormal{}, m, "cat 은 normal 로 나온다")
 	assert.Equal(t, []string{"aaa", "bbb", "ccc"}, linesOf(bufferOf(t, m)), "파일을 건드리지 않는다")
-	assert.False(t, bufferOf(t, m).dirty)
+	assert.False(t, bufferOf(t, m).Dirty)
 }
 
 // visual 에서 부르면 normal 로 나오고 커서는 고른 범위의 시작이다. `y` 와 같은 자리다.
@@ -255,8 +255,8 @@ func TestCatFromVisualLeavesToNormalAtRangeStart(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 1, buf.cursor.Line)
-	assert.False(t, buf.selection.active, "고른 것은 놓는다")
+	assert.Equal(t, 1, buf.Cursor.Line)
+	assert.False(t, buf.Selection.Active, "고른 것은 놓는다")
 	assert.Equal(t, []string{"aaa", "bbb", "ccc", "ddd"}, linesOf(buf))
 }
 
@@ -267,8 +267,8 @@ func TestCatFromNormalTouchesNothing(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 1, buf.cursor.Line)
-	assert.False(t, buf.dirty)
+	assert.Equal(t, 1, buf.Cursor.Line)
+	assert.False(t, buf.Dirty)
 }
 
 // `:cat` 은 줄 범위를 받는다. 범위를 치지 않으면 화면에 보이는 줄들이다.
@@ -316,9 +316,9 @@ func TestVisibleRangeIncludesLinesUnderSticky(t *testing.T) {
 		"}\n" // 7
 
 	m := newTestEditorFile("a.go", data, 40, 4)
-	m.activeBuffer().top.line = 3
+	m.activeBuffer().Top.Line = 3
 
-	require.NotEmpty(t, m.activeBuffer().stickyAt(3, 4), "머리줄이 붙는 화면이어야 한다")
+	require.NotEmpty(t, m.activeBuffer().StickyAt(3, 4), "머리줄이 붙는 화면이어야 한다")
 
 	area := m.visibleRange()
 

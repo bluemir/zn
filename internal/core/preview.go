@@ -31,7 +31,7 @@ func startPreview(e *editor) previewSession {
 	session.origin, session.hasOrigin = e.here()
 
 	for i := range e.buffers {
-		session.wasOpen[e.buffers[i].path] = true
+		session.wasOpen[e.buffers[i].Path] = true
 	}
 
 	return session
@@ -70,7 +70,7 @@ func (s previewSession) keep(e *editor, path string) {
 // 뒤에서 앞으로 닫는다. 앞부터 닫으면 뒤 index 가 밀린다.
 func (s previewSession) closeOpened(e *editor, keep string) {
 	for i := len(e.buffers) - 1; i >= 0; i-- {
-		path := e.buffers[i].path
+		path := e.buffers[i].Path
 		if s.wasOpen[path] || path == keep {
 			continue
 		}

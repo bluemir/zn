@@ -330,7 +330,7 @@ type paletteCommand struct {
 func whenBuffer(e *editor) bool { return e.hasTab() }
 
 // whenWritable 은 고칠 파일이 있어야 성립하는 명령이다. refuseNoBuffer + refuseReadOnly 다.
-func whenWritable(e *editor) bool { return e.hasTab() && !e.activeBuffer().readOnly }
+func whenWritable(e *editor) bool { return e.hasTab() && !e.activeBuffer().ReadOnly }
 
 // whenSelection 은 고칠 범위를 visual 에서 받아야 성립하는 명령이다.
 //
@@ -344,7 +344,7 @@ func whenSelection(e *editor) bool {
 		return false
 	}
 
-	_, ok := e.activeBuffer().selectionRange()
+	_, ok := e.activeBuffer().SelectionRange()
 
 	return ok
 }
@@ -361,7 +361,7 @@ func whenNoSelection(e *editor) bool {
 		return false
 	}
 
-	_, ok := e.activeBuffer().selectionRange()
+	_, ok := e.activeBuffer().SelectionRange()
 
 	return !ok
 }
@@ -465,7 +465,7 @@ func runCatScreen(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 // runTrimTrailingSpace 는 줄 끝의 공백과 tab 을 지운다.
 //
 // **표에 두 줄이 이것을 가리킨다.** 「선택 영역 …」쪽은 고른 줄만이고 그냥 이름 쪽은 파일
-// 전체다. 둘을 가르는 것은 이 함수가 아니라 실려 오는 옵션이다(runOptions.lines, ADR-0112).
+// 전체다. 둘을 가르는 것은 이 함수가 아니라 실려 오는 옵션이다(runOptions.Lines, ADR-0112).
 func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
@@ -477,14 +477,14 @@ func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	from, to := newRunOptions(opts).lines(len(buf.lines))
+	from, to := newRunOptions(opts).lines(len(buf.Lines))
 
-	count := buf.trimTrailingSpace(from, to)
+	count := buf.TrimTrailingSpace(from, to)
 	if count == 0 {
 		return normalModeMessage(e, "지울 줄 끝 공백이 없습니다")
 	}
 
-	buf.clampToNormal()
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 끝 공백을 지웠습니다", count))
@@ -504,7 +504,7 @@ func runFormatTables(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	from, to := newRunOptions(opts).lines(len(e.activeBuffer().lines))
+	from, to := newRunOptions(opts).lines(len(e.activeBuffer().Lines))
 
 	return formatTablesIn(e, from, to)
 }
@@ -523,7 +523,7 @@ func runLowerCase(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 // visual 쪽도 actionVisualChangeCase 하나가 셋을 맡는다(action.go).
 //
 // **고른 범위가 있어야 한다.** 파일 전체로 갈음하지 않는다 — 손이 미끄러졌을 때 잃는 것이
-// 너무 크고, 되돌리기가 있어도 시킬 만한 일이 아니다. 그래서 이 둘만 runOptions.lines 를
+// 너무 크고, 되돌리기가 있어도 시킬 만한 일이 아니다. 그래서 이 둘만 runOptions.Lines 를
 // 쓰지 않고 hasArea 를 직접 본다(ADR-0111).
 //
 // 커서는 범위의 시작으로 간다. visual 의 `U`·`u` 와 같고 복사(`y`) 와도 같은 길이다
@@ -545,8 +545,8 @@ func paletteChangeCase(e *editor, kind caseKind, o runOptions) (tea.Model, tea.C
 
 	buf := e.activeBuffer()
 
-	buf.changeCaseRange(o.area, kind)
-	buf.moveToRangeStart(o.area)
+	buf.ChangeCaseRange(o.area, kind)
+	buf.MoveToRangeStart(o.area)
 	e.scrollToCursor()
 
 	return normalMode(e)
@@ -563,11 +563,11 @@ func runReloadFile(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 
 	// 이름이 없으면 다시 읽을 곳도 없다. 물어보기 전에 여기서 끝낸다 —
 	// Yes 를 눌러도 실패로 끝나는 확인창을 띄우지 않는다.
-	if e.activeBuffer().path == "" {
+	if e.activeBuffer().Path == "" {
 		return normalModeMessage(e, "파일 이름이 없습니다")
 	}
 
-	if !e.activeBuffer().dirty {
+	if !e.activeBuffer().Dirty {
 		return reloadFile(e)
 	}
 
@@ -588,10 +588,10 @@ func reloadFile(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	// 커서 칸은 유지하지만 그 자리가 새 내용에서는 줄 끝 다음일 수 있다.
-	buf.clampToNormal()
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
-	return normalModeMessage(e, "다시 읽음: "+buf.path)
+	return normalModeMessage(e, "다시 읽음: "+buf.Path)
 }
 
 // runCloseOtherTabs 는 지금 보고 있는 tab 만 남기고 나머지를 닫는다.
@@ -660,14 +660,14 @@ func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	from, to := newRunOptions(opts).lines(len(buf.lines))
+	from, to := newRunOptions(opts).lines(len(buf.Lines))
 
-	count := buf.squeezeSpaces(from, to)
+	count := buf.SqueezeSpaces(from, to)
 	if count == 0 {
 		return normalModeMessage(e, "줄일 중복 공백이 없습니다")
 	}
 
-	buf.clampToNormal()
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 중복 공백을 줄였습니다", count))
@@ -679,7 +679,7 @@ func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 // 두고 미결로 남겼던 자리이고, 팔레트가 범위를 실어 보내면서 열렸다(ADR-0111, ADR-0112).
 //
 // **줄 단위다.** `v` 로 줄 가운데를 골라도 걸친 줄이 통째로 선다 — 줄을 뒤섞는 일이라
-// 칸을 볼 자리가 없다(runOptions.lines).
+// 칸을 볼 자리가 없다(runOptions.Lines).
 func runSortLines(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
@@ -690,14 +690,14 @@ func runSortLines(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	from, to := newRunOptions(opts).lines(len(buf.lines))
+	from, to := newRunOptions(opts).lines(len(buf.Lines))
 
-	moved := buf.sortLines(from, to)
+	moved := buf.SortLines(from, to)
 	if moved == 0 {
 		return normalModeMessage(e, "이미 정렬되어 있습니다")
 	}
 
-	buf.clampToNormal()
+	buf.ClampToNormal()
 	e.scrollToCursor()
 
 	return normalModeMessage(e, fmt.Sprintf("%d 줄의 자리가 바뀌었습니다", moved))

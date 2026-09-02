@@ -402,7 +402,7 @@ func (e *editor) applyWatch() tea.Cmd {
 			continue
 		}
 
-		cmds = append(cmds, e.startOutsideCheckFor(e.buffers[index].path))
+		cmds = append(cmds, e.startOutsideCheckFor(e.buffers[index].Path))
 	}
 
 	return tea.Batch(cmds...)

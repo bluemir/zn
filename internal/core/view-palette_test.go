@@ -256,7 +256,7 @@ func TestPaletteOpensFile(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	normal := m.(viewEditorNormal)
 	assert.Len(t, normal.buffers, 2)
-	assert.Equal(t, "editor.go", normal.buffers[normal.active].path)
+	assert.Equal(t, "editor.go", normal.buffers[normal.active].Path)
 }
 
 // 없는 파일을 고르면 알리고 만다. 목록을 읽은 뒤에 지워졌을 수 있다.
@@ -305,7 +305,7 @@ func TestPaletteReloadsFile(t *testing.T) {
 	var next tea.Model = send(m, "enter")
 
 	require.IsType(t, viewEditorNormal{}, next)
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, next).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, next).Lines[0]))
 	assert.Contains(t, barOf(t, next)[1], "다시 읽음")
 }
 
@@ -315,7 +315,7 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
 	m := newFilePalette(t, path, "> reload")
-	m.activeBuffer().insert([]byte("X"))
+	m.activeBuffer().Insert([]byte("X"))
 	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	confirm := send(m, "enter")
@@ -324,11 +324,11 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 	// No 로 취소하면 편집이 그대로 남고 팔레트가 아니라 normal 로 돌아간다.
 	cancelled := send(confirm, "n", "enter")
 	require.IsType(t, viewEditorNormal{}, cancelled)
-	assert.Equal(t, "Xabc", string(bufferOf(t, cancelled).lines[0]))
+	assert.Equal(t, "Xabc", string(bufferOf(t, cancelled).Lines[0]))
 
 	reloaded := send(confirm, "y", "enter")
 	require.IsType(t, viewEditorNormal{}, reloaded)
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, reloaded).lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, reloaded).Lines[0]))
 }
 
 // 이름 없는 buffer 는 읽을 곳이 없다. 변경이 있어도 묻지 않고 알리고 만다 —
@@ -343,7 +343,7 @@ func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 		input: newInputLine("> reload"),
 	}
 	m.filter()
-	m.activeBuffer().insert([]byte("X"))
+	m.activeBuffer().Insert([]byte("X"))
 
 	var next tea.Model = send(m, "enter")
 
@@ -418,7 +418,7 @@ func TestPaletteOpensFromVisualKeepingSelection(t *testing.T) {
 	m = send(m, "ctrl+p")
 
 	require.IsType(t, viewPalette{}, m)
-	assert.True(t, bufferOf(t, m).selection.active, "고른 것이 살아 있다")
+	assert.True(t, bufferOf(t, m).Selection.Active, "고른 것이 살아 있다")
 
 	// 상자가 그 줄의 대부분을 덮어서 왼쪽 한 칸만 남는다. 그 한 칸이 선택 색이면 된다.
 	assert.Contains(t, contentRowsOf(t, m)[0], styleSelection.Render("f"), "상자 뒤로 칠해져 있다")
@@ -433,7 +433,7 @@ func TestPaletteReleasesSelectionWhenPicking(t *testing.T) {
 	m = send(m, "enter")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.False(t, bufferOf(t, m).selection.active)
+	assert.False(t, bufferOf(t, m).Selection.Active)
 }
 
 // `esc` 로 물러도 놓는다. normalMode 가 이미 놓는 자리다(ADR-0037).
@@ -444,7 +444,7 @@ func TestPaletteReleasesSelectionOnEscape(t *testing.T) {
 	m = send(m, "esc")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.False(t, bufferOf(t, m).selection.active)
+	assert.False(t, bufferOf(t, m).Selection.Active)
 }
 
 // 다른 파일을 열어도 **원래 tab 에 유령 강조가 남지 않는다.**
@@ -462,7 +462,7 @@ func TestPaletteReleasesSelectionBeforeOpeningAnotherFile(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	normal := m.(viewEditorNormal)
 	require.NotEqual(t, from, normal.active, "다른 tab 으로 갔다")
-	assert.False(t, normal.buffers[from].selection.active, "떠나온 tab 에 강조가 남지 않는다")
+	assert.False(t, normal.buffers[from].Selection.Active, "떠나온 tab 에 강조가 남지 않는다")
 }
 
 // ── 고른 범위를 받는 명령 (ADR-0111, ADR-0112) ──
@@ -477,7 +477,7 @@ func TestPaletteSortsSelectedLinesOnly(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Equal(t, []string{"b", "c", "d", "a"}, linesOf(bufferOf(t, m)))
-	assert.False(t, bufferOf(t, m).selection.active, "고른 것은 놓는다")
+	assert.False(t, bufferOf(t, m).Selection.Active, "고른 것은 놓는다")
 }
 
 // 짝이 되는 「줄 정렬」은 파일 전체다. 범위가 없을 때만 목록에 선다.
@@ -512,7 +512,7 @@ func TestPaletteChangesCaseOfSelection(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Equal(t, []string{"FOO bar"}, linesOf(bufferOf(t, m)))
 	// 커서는 범위의 시작이다. visual 의 `U` 와 같다(ADR-0100).
-	assert.Equal(t, 0, bufferOf(t, m).cursor.Col)
+	assert.Equal(t, 0, bufferOf(t, m).Cursor.Col)
 }
 
 // 짝이 되는 둘 중 하나만 목록에 선다. 무엇에 걸리는지가 고르기 전에 이름에 있다(ADR-0112).
@@ -581,7 +581,7 @@ func TestPaletteHidesCommandsThatDoNotHold(t *testing.T) {
 // 읽기 전용 파일에서는 고치는 명령이 빠진다. 거절하는 조건을 그대로 옮겨 적은 결과다.
 func TestPaletteHidesEditingCommandsOnReadOnly(t *testing.T) {
 	m := newPaletteView(t, 80, 20, "a.go")
-	m.activeBuffer().readOnly = true
+	m.activeBuffer().ReadOnly = true
 	m.input = newInputLine(">")
 	m.filter()
 

@@ -20,7 +20,7 @@ func joinOf(t *testing.T, data string, keys ...string) (lines []string, line, co
 
 	buf := bufferOf(t, m)
 
-	return linesOf(buf), buf.cursor.Line, buf.cursor.Col
+	return linesOf(buf), buf.Cursor.Line, buf.Cursor.Col
 }
 
 // 다음 줄의 들여쓰기를 걷고 공백 하나로 잇는다. 커서는 이은 자리다.

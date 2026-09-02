@@ -33,7 +33,7 @@ func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	server, _, ok := serverPath(e.activeBuffer().path)
+	server, _, ok := serverPath(e.activeBuffer().Path)
 	if !ok {
 		e.notify("언어 서버가 붙는 파일에서만 사용처를 찾습니다")
 
@@ -75,7 +75,7 @@ func gotoReferences(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 func (e *editor) startReferences() tea.Cmd {
 	buf := e.activeBuffer()
 
-	server, path, ok := serverPath(buf.path)
+	server, path, ok := serverPath(buf.Path)
 	if !ok {
 		e.notify("언어 서버가 붙는 파일에서만 사용처를 찾습니다")
 
@@ -95,10 +95,10 @@ func (e *editor) startReferences() tea.Cmd {
 		return e.startServer(server)
 	}
 
-	lines := buf.lines
+	lines := buf.Lines
 	position := lsp.Position{
-		Line:      buf.cursor.Line,
-		Character: lsp.UTF16Column(buf.lines[buf.cursor.Line], buf.cursor.Col),
+		Line:      buf.Cursor.Line,
+		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
 	}
 
 	e.notify("사용처를 찾는 중입니다")

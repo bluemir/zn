@@ -28,9 +28,9 @@ func TestVisualColonKeepsSelection(t *testing.T) {
 	m := send(newTestEditor("aaa\nbbb\nccc\n", 40, 10), "V", "j", ":")
 
 	buf := bufferOf(t, m)
-	require.True(t, buf.selection.active, "고른 것이 살아 있다")
+	require.True(t, buf.Selection.Active, "고른 것이 살아 있다")
 
-	area, ok := buf.selectionRange()
+	area, ok := buf.SelectionRange()
 	require.True(t, ok)
 	assert.Equal(t, 0, area.Start.Line)
 	assert.Equal(t, 1, area.End.Line)
@@ -52,7 +52,7 @@ func TestVisualColonEscapeClearsSelection(t *testing.T) {
 	m := send(newTestEditor("a\nb\nc\n", 40, 10), "v", "j", ":", "esc")
 
 	require.IsType(t, viewEditorNormal{}, m)
-	assert.False(t, bufferOf(t, m).selection.active)
+	assert.False(t, bufferOf(t, m).Selection.Active)
 }
 
 // `V` 로 고른 것은 그 줄들 전체다.

@@ -309,11 +309,11 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 	// **tab 이 바뀌기 전이라 지우는 buffer 가 언제나 옳다.**
 	opts := []runOption{}
 	if m.hasTab() {
-		if area, ok := m.activeBuffer().selectionRange(); ok {
+		if area, ok := m.activeBuffer().SelectionRange(); ok {
 			opts = append(opts, withRange(area))
 		}
 
-		m.activeBuffer().clearSelection()
+		m.activeBuffer().ClearSelection()
 	}
 
 	if kind == paletteKindShell {

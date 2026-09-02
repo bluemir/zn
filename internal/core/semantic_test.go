@@ -90,123 +90,6 @@ func applySemanticTo(t *testing.T, buf *viewport, msg semanticTokensMsg) {
 	*buf = e.buffers[0]
 }
 
-// 서버의 답이 줄에 얹히고, 그 줄은 lexer 대신 서버가 정한다.
-func TestSetSemanticTokens(t *testing.T) {
-	buf := semanticTestBuffer(t, "package main", "", "var 이름 = 3")
-
-	applySemanticTo(t, buf, semanticTokensMsg{
-		path:     buf.path,
-		revision: buf.syntax.revision,
-		from:     0,
-		to:       3,
-		tokens: []lsp.SemanticToken{
-			{Line: 0, Start: 0, Length: 7, Type: "keyword"},
-			{Line: 0, Start: 8, Length: 4, Type: "namespace"},
-			// 한글은 UTF-16 으로 한 글자가 하나, byte 로는 셋이다.
-			{Line: 2, Start: 4, Length: 2, Type: "variable", Modifiers: []string{"definition"}},
-			{Line: 2, Start: 9, Length: 1, Type: "number"},
-		},
-	})
-
-	assert.Equal(t, []syntax.Token{
-		{Start: 0, End: 7, Kind: syntax.KindKeyword},
-		{Start: 8, End: 12, Kind: syntax.KindType},
-	}, buf.syntaxTokens(0))
-
-	assert.Equal(t, []syntax.Token{
-		{Start: 4, End: 10, Kind: syntax.KindVariable},
-		{Start: 13, End: 14, Kind: syntax.KindNumber},
-	}, buf.syntaxTokens(2), "한글 줄의 열이 byte 로 바뀌어야 한다")
-}
-
-// 물을 때와 글이 달라졌으면 버린다. 줄이 밀린 뒤에 얹으면 엉뚱한 자리에 색이 붙는다.
-func TestSetSemanticTokensDropsStaleAnswer(t *testing.T) {
-	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
-
-	asked := buf.syntax.revision
-
-	// 답을 기다리는 사이에 위에 한 줄이 끼었다.
-	buf.replaceLines(0, 0, [][]byte{[]byte("// 끼운 줄")})
-
-	applySemanticTo(t, buf, semanticTokensMsg{
-		path:     buf.path,
-		revision: asked,
-		from:     0,
-		to:       3,
-		tokens:   []lsp.SemanticToken{{Line: 0, Start: 0, Length: 7, Type: "keyword"}},
-	})
-
-	assert.Nil(t, buf.syntax.lines[0].semantic, "낡은 답이 얹혔다")
-}
-
-// 다음 답에서 빠진 줄은 lexer 에게 돌아간다. 낡은 답이 그 줄에 굳으면 안 된다.
-func TestSetSemanticTokensClearsRange(t *testing.T) {
-	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
-
-	first := semanticTokensMsg{
-		path:     buf.path,
-		revision: buf.syntax.revision,
-		from:     0,
-		to:       3,
-		tokens: []lsp.SemanticToken{
-			{Line: 0, Start: 0, Length: 7, Type: "keyword"},
-			{Line: 2, Start: 0, Length: 3, Type: "keyword"},
-		},
-	}
-	applySemanticTo(t, buf, first)
-	require.NotNil(t, buf.syntax.lines[2].semantic)
-
-	// 두 번째 답에는 3 번째 줄이 없다. 문법이 깨진 동안 이렇게 온다.
-	second := first
-	second.tokens = first.tokens[:1]
-	applySemanticTo(t, buf, second)
-
-	assert.Nil(t, buf.syntax.lines[2].semantic)
-	assert.NotNil(t, buf.syntax.lines[0].semantic)
-}
-
-// 편집한 줄의 답은 그 자리에서 버려진다. 손대지 않은 줄은 그대로 남는다.
-func TestEditDropsSemanticOnChangedLineOnly(t *testing.T) {
-	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
-
-	applySemanticTo(t, buf, semanticTokensMsg{
-		path:     buf.path,
-		revision: buf.syntax.revision,
-		from:     0,
-		to:       3,
-		tokens: []lsp.SemanticToken{
-			{Line: 0, Start: 0, Length: 7, Type: "keyword"},
-			{Line: 2, Start: 0, Length: 3, Type: "keyword"},
-		},
-	})
-
-	buf.replaceLines(2, 1, [][]byte{[]byte("var x = 33")})
-
-	assert.Nil(t, buf.syntax.lines[2].semantic, "고친 줄은 lexer 로 돌아간다")
-	assert.NotNil(t, buf.syntax.lines[0].semantic, "손대지 않은 줄은 그대로다")
-}
-
-// 창 밖이나 파일 밖을 가리키는 토큰은 버린다. 서버가 보던 판과 어긋난 답이 그렇다.
-func TestSetSemanticTokensIgnoresOutOfRange(t *testing.T) {
-	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
-
-	applySemanticTo(t, buf, semanticTokensMsg{
-		path:     buf.path,
-		revision: buf.syntax.revision,
-		from:     0,
-		to:       2,
-		tokens: []lsp.SemanticToken{
-			{Line: 2, Start: 0, Length: 3, Type: "keyword"},   // 창 밖이다
-			{Line: 99, Start: 0, Length: 3, Type: "keyword"},  // 파일 밖이다
-			{Line: 0, Start: 200, Length: 3, Type: "keyword"}, // 줄 끝 너머다
-		},
-	})
-
-	for i := range buf.syntax.lines {
-		assert.Nil(t, buf.syntax.lines[i].semantic, "줄 %d", i)
-	}
-}
-
 // 서버가 없으면 묻지 않는다. Go 파일이 아닌 것도 그렇다.
 func TestStartSemanticTokensWithoutServer(t *testing.T) {
 	e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}, width: 80, height: 20}
@@ -224,36 +107,19 @@ func TestApplySemanticTokensPicksBufferByPath(t *testing.T) {
 	e := &editor{buffers: []viewport{*first, *second}, active: 0, width: 80, height: 20}
 
 	e.applySemanticTokens(semanticTokensMsg{
-		path:     second.path,
-		revision: second.syntax.revision,
+		path:     second.Path,
+		revision: second.SyntaxRevision(),
 		from:     0,
 		to:       3,
-		tokens:   []lsp.SemanticToken{{Line: 0, Start: 0, Length: 7, Type: "keyword"}},
+		// **lexer 와 갈리는 갈래를 고른다.** `package` 는 lexer 도 keyword 라 얹혔는지
+		// 글자로는 알 수 없다. 서버가 type 이라 말하면 그 줄의 색이 갈린다.
+		tokens: []lsp.SemanticToken{{Line: 0, Start: 0, Length: 7, Type: "type"}},
 	})
 
-	assert.Nil(t, e.buffers[0].syntax.lines[0].semantic)
-	assert.NotNil(t, e.buffers[1].syntax.lines[0].semantic)
-}
-
-// 다시 읽기도 갈린 것으로 센다. 새 Buffer 라 세던 값이 0 으로 돌아가는 자리다.
-func TestReloadKeepsSemanticRevisionMoving(t *testing.T) {
-	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
-
-	asked := buf.syntax.revision
-
-	require.NoError(t, os.WriteFile(buf.path, []byte("package main\n\nvar y = 4\n"), 0644))
-	require.NoError(t, buf.Reload())
-
-	buf.lexSyntaxTo(len(buf.lines) - 1)
-	applySemanticTo(t, buf, semanticTokensMsg{
-		path:     buf.path,
-		revision: asked,
-		from:     0,
-		to:       3,
-		tokens:   []lsp.SemanticToken{{Line: 0, Start: 0, Length: 7, Type: "keyword"}},
-	})
-
-	assert.Nil(t, buf.syntax.lines[0].semantic, "다시 읽기 전에 물어둔 답이 얹혔다")
+	assert.NotEqual(t, syntax.KindType, e.buffers[0].SyntaxTokens(0)[0].Kind,
+		"묻지 않은 창에 답이 얹혔다")
+	assert.Equal(t, syntax.KindType, e.buffers[1].SyntaxTokens(0)[0].Kind,
+		"물어본 창에 답이 안 얹혔다")
 }
 
 // 진짜 gopls 에게 물어 화면까지 닿는 길을 한 번에 본다.
@@ -297,8 +163,8 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 
 	e := &editor{buffers: []viewport{buf}, width: 100, height: 30}
 	e.serverState(lsp.ServerFor("main.go")).client = client
-	require.NoError(t, client.Open(path, e.activeBuffer().lines))
-	e.activeBuffer().lexSyntaxTo(len(e.activeBuffer().lines) - 1)
+	require.NoError(t, client.Open(path, e.activeBuffer().Lines))
+	e.activeBuffer().LexSyntaxTo(len(e.activeBuffer().Lines) - 1)
 
 	cmd := e.startSemanticTokens()
 	require.NotNil(t, cmd)
@@ -310,9 +176,9 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 
 	active := e.activeBuffer()
 	kinds := map[string]syntax.Kind{}
-	for line := range active.lines {
-		for _, token := range active.syntaxTokens(line) {
-			kinds[string(active.lines[line][token.Start:token.End])] = token.Kind
+	for line := range active.Lines {
+		for _, token := range active.SyntaxTokens(line) {
+			kinds[string(active.Lines[line][token.Start:token.End])] = token.Kind
 		}
 	}
 
@@ -344,7 +210,51 @@ func semanticTestBuffer(t *testing.T, lines ...string) *viewport {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	buf.lexSyntaxTo(len(buf.lines) - 1)
+	buf.LexSyntaxTo(len(buf.Lines) - 1)
 
 	return &buf
+}
+
+// 언어 서버가 준 토큰을 줄에 얹는 자리를 보는 시험이다(buffer-syntax.go).
+
+// 서버의 답이 줄에 얹히고, 그 줄은 lexer 대신 서버가 정한다.
+func TestSetSemanticTokens(t *testing.T) {
+	buf := semanticTestBuffer(t, "package main", "", "var 이름 = 3")
+
+	applySemanticTo(t, buf, semanticTokensMsg{
+		path:     buf.Path,
+		revision: buf.SyntaxRevision(),
+		from:     0,
+		to:       3,
+		tokens: []lsp.SemanticToken{
+			{Line: 0, Start: 0, Length: 7, Type: "keyword"},
+			{Line: 0, Start: 8, Length: 4, Type: "namespace"},
+			// 한글은 UTF-16 으로 한 글자가 하나, byte 로는 셋이다.
+			{Line: 2, Start: 4, Length: 2, Type: "variable", Modifiers: []string{"definition"}},
+			{Line: 2, Start: 9, Length: 1, Type: "number"},
+		},
+	})
+
+	assert.Equal(t, []syntax.Token{
+		{Start: 0, End: 7, Kind: syntax.KindKeyword},
+		{Start: 8, End: 12, Kind: syntax.KindType},
+	}, buf.SyntaxTokens(0))
+
+	assert.Equal(t, []syntax.Token{
+		{Start: 4, End: 10, Kind: syntax.KindVariable},
+		{Start: 13, End: 14, Kind: syntax.KindNumber},
+	}, buf.SyntaxTokens(2), "한글 줄의 열이 byte 로 바뀌어야 한다")
+}
+
+// 다시 읽기도 갈린 것으로 센다. 새 Buffer 라 세던 값이 0 으로 돌아가는 자리다 — 돌아가면
+// 지나간 답이 다시 맞아 보인다(ADR-0103).
+func TestReloadKeepsSemanticRevisionMoving(t *testing.T) {
+	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
+
+	asked := buf.SyntaxRevision()
+
+	require.NoError(t, os.WriteFile(buf.Path, []byte("package main\n\nvar y = 4\n"), 0644))
+	require.NoError(t, buf.Reload())
+
+	assert.NotEqual(t, asked, buf.SyntaxRevision(), "다시 읽었는데 세던 값이 그대로다")
 }

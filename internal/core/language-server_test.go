@@ -121,8 +121,8 @@ func TestFinishDefinitionMovesCursor(t *testing.T) {
 	// nil 이다 — 답을 받았다는 것이 곧 서버가 있다는 뜻이다.
 	assert.NotNil(t, cmd)
 
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
-	assert.Equal(t, 13, e.activeBuffer().cursor.Col)
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line)
+	assert.Equal(t, 13, e.activeBuffer().Cursor.Col)
 	assert.Empty(t, e.notice)
 }
 
@@ -146,9 +146,9 @@ func TestFinishDefinitionOpensNewTab(t *testing.T) {
 	}}})
 
 	require.Len(t, e.buffers, 2)
-	assert.Equal(t, there, e.activeBuffer().path)
-	assert.Equal(t, 2, e.activeBuffer().cursor.Line)
-	assert.Equal(t, 5, e.activeBuffer().cursor.Col)
+	assert.Equal(t, there, e.activeBuffer().Path)
+	assert.Equal(t, 2, e.activeBuffer().Cursor.Line)
+	assert.Equal(t, 5, e.activeBuffer().Cursor.Col)
 }
 
 // 후보가 여럿이면 고르는 화면이 열린다. 커서는 물어본 자리에 그대로 있다(ADR-0051).
@@ -172,7 +172,7 @@ func TestFinishDefinitionOpensList(t *testing.T) {
 	require.True(t, ok, "고르는 화면이 열려야 한다")
 	assert.Len(t, list.locations, 3)
 	assert.Equal(t, 0, list.selected)
-	assert.Equal(t, 0, e.activeBuffer().cursor.Line, "고르기 전에는 커서가 움직이지 않는다")
+	assert.Equal(t, 0, e.activeBuffer().Cursor.Line, "고르기 전에는 커서가 움직이지 않는다")
 	assert.Empty(t, e.notice)
 }
 
@@ -254,7 +254,7 @@ func TestSyncServersReconcilesOpenTabs(t *testing.T) {
 	assert.False(t, client.Tracks(python), "남의 언어 파일은 이 서버에 알리지 않는다")
 
 	// 고친 것이 다음 tick 에 간다. 사본이 갱신되어 그다음 tick 에는 보낼 것이 없다.
-	e.buffers[1].insert([]byte("// 끼운 줄\n"))
+	e.buffers[1].Insert([]byte("// 끼운 줄\n"))
 
 	cmd = e.syncServers()
 	require.NotNil(t, cmd)
@@ -274,7 +274,7 @@ func TestSyncServersReconcilesOpenTabs(t *testing.T) {
 
 func TestGotoDefinitionPromptsInstallWhenMissing(t *testing.T) {
 	editor := newTestEditor("package main\nfunc main() {}\n", 80, 20)
-	editor.editor.buffers[0].path = "main.go"
+	editor.editor.buffers[0].Path = "main.go"
 	editor.editor.serverState(lsp.ServerFor("main.go")).failed = true
 
 	normal, _ := normalMode(editor.editor)
@@ -291,7 +291,7 @@ func TestGotoDefinitionPromptsInstallWhenMissing(t *testing.T) {
 // python 파일에서는 python 서버를 깔라고 묻는다. 창이 어느 서버인지 들고 있는 값이 이것이다.
 func TestGotoDefinitionPromptsPyrightForPython(t *testing.T) {
 	editor := newTestEditor("def f():\n    pass\n", 80, 20)
-	editor.editor.buffers[0].path = "app.py"
+	editor.editor.buffers[0].Path = "app.py"
 	editor.editor.serverState(lsp.ServerFor("app.py")).failed = true
 
 	normal, _ := normalMode(editor.editor)
@@ -306,7 +306,7 @@ func TestGotoDefinitionPromptsPyrightForPython(t *testing.T) {
 
 func TestGotoDefinitionWithoutServerForFileNotifies(t *testing.T) {
 	editor := newTestEditor("# Hello\n", 80, 20)
-	editor.editor.buffers[0].path = "README.md"
+	editor.editor.buffers[0].Path = "README.md"
 
 	normal, _ := normalMode(editor.editor)
 	model, cmd := gotoDefinition(normal, editor.editor)
@@ -318,7 +318,7 @@ func TestGotoDefinitionWithoutServerForFileNotifies(t *testing.T) {
 
 func TestGotoDefinitionWhileInstallingNotifies(t *testing.T) {
 	editor := newTestEditor("package main\n", 80, 20)
-	editor.editor.buffers[0].path = "main.go"
+	editor.editor.buffers[0].Path = "main.go"
 	editor.editor.putJob(job{name: serverJobName(lsp.ServerFor("main.go"))})
 
 	normal, _ := normalMode(editor.editor)
@@ -331,7 +331,7 @@ func TestGotoDefinitionWhileInstallingNotifies(t *testing.T) {
 
 func TestActionGotoDefinitionPromptsConfirm(t *testing.T) {
 	editor := newTestEditor("package main\n", 80, 20)
-	editor.editor.buffers[0].path = "main.go"
+	editor.editor.buffers[0].Path = "main.go"
 	editor.editor.serverState(lsp.ServerFor("main.go")).failed = true
 
 	model, cmd := actionGotoDefinition{}.run(editor.editor)
@@ -344,7 +344,7 @@ func TestServerInstallJobDoneStartsThatServer(t *testing.T) {
 	server := lsp.ServerFor("main.go")
 
 	editor := newTestEditor("package main\n", 80, 20)
-	editor.editor.buffers[0].path = "main.go"
+	editor.editor.buffers[0].Path = "main.go"
 
 	_, cmd := editor.editor.handleJob(jobDoneMsg{name: serverJobName(server)})
 	assert.NotNil(t, cmd)
@@ -357,7 +357,7 @@ func TestPyrightInstallJobDoneStartsOnlyPyright(t *testing.T) {
 	pyServer := lsp.ServerFor("app.py")
 
 	editor := newTestEditor("def f():\n    pass\n", 80, 20)
-	editor.editor.buffers[0].path = "app.py"
+	editor.editor.buffers[0].Path = "app.py"
 
 	_, cmd := editor.editor.handleJob(jobDoneMsg{name: serverJobName(pyServer)})
 	assert.NotNil(t, cmd)

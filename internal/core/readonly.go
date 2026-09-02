@@ -12,7 +12,7 @@ package core
 // 때문이다. 줄을 갈아끼우는 자리(edit.go 의 replaceLines) 에서 막으면 한 군데면 되지만
 // 아무 일도 일어나지 않는 것처럼 보인다 — 키가 먹지 않는 편집기가 된다.
 func (e *editor) refuseReadOnly() bool {
-	if !e.activeBuffer().readOnly {
+	if !e.activeBuffer().ReadOnly {
 		return false
 	}
 

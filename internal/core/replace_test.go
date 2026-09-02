@@ -123,16 +123,16 @@ func TestReplaceFileGoesThroughTheOpenBuffer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, changed)
 
-	assert.Equal(t, "bar one", string(e.buffers[0].lines[0]), "화면에 보이는 글이 같이 바뀐다")
-	assert.False(t, e.buffers[0].dirty, "저장까지 했다")
+	assert.Equal(t, "bar one", string(e.buffers[0].Lines[0]), "화면에 보이는 글이 같이 바뀐다")
+	assert.False(t, e.buffers[0].Dirty, "저장까지 했다")
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "bar one\nfoo two\n", string(data))
 
 	// 되돌리기가 그 tab 에서는 산다.
-	e.buffers[0].applyUndo()
-	assert.Equal(t, "foo one", string(e.buffers[0].lines[0]))
+	e.buffers[0].ApplyUndo()
+	assert.Equal(t, "foo one", string(e.buffers[0].Lines[0]))
 }
 
 func TestApplyReplaceOverFiles(t *testing.T) {
