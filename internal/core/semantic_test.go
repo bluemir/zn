@@ -78,11 +78,23 @@ func TestSemanticKind(t *testing.T) {
 	}
 }
 
+// applySemanticTo 는 창 하나를 editor 에 얹고 서버의 답을 먹인다.
+//
+// **옮기는 일이 editor 쪽으로 갔다.** 서버의 UTF-16 열을 byte 로 바꾸는 것이 그쪽이라
+// (applySemanticTokens) 창만 세운 시험도 그 길을 지나야 같은 것을 본다 (ADR-0125).
+func applySemanticTo(t *testing.T, buf *viewport, msg semanticTokensMsg) {
+	t.Helper()
+
+	e := &editor{buffers: []viewport{*buf}, width: 80, height: 20}
+	e.applySemanticTokens(msg)
+	*buf = e.buffers[0]
+}
+
 // 서버의 답이 줄에 얹히고, 그 줄은 lexer 대신 서버가 정한다.
 func TestSetSemanticTokens(t *testing.T) {
 	buf := semanticTestBuffer(t, "package main", "", "var 이름 = 3")
 
-	buf.setSemanticTokens(semanticTokensMsg{
+	applySemanticTo(t, buf, semanticTokensMsg{
 		path:     buf.path,
 		revision: buf.syntax.revision,
 		from:     0,
@@ -116,7 +128,7 @@ func TestSetSemanticTokensDropsStaleAnswer(t *testing.T) {
 	// 답을 기다리는 사이에 위에 한 줄이 끼었다.
 	buf.replaceLines(0, 0, [][]byte{[]byte("// 끼운 줄")})
 
-	buf.setSemanticTokens(semanticTokensMsg{
+	applySemanticTo(t, buf, semanticTokensMsg{
 		path:     buf.path,
 		revision: asked,
 		from:     0,
@@ -141,13 +153,13 @@ func TestSetSemanticTokensClearsRange(t *testing.T) {
 			{Line: 2, Start: 0, Length: 3, Type: "keyword"},
 		},
 	}
-	buf.setSemanticTokens(first)
+	applySemanticTo(t, buf, first)
 	require.NotNil(t, buf.syntax.lines[2].semantic)
 
 	// 두 번째 답에는 3 번째 줄이 없다. 문법이 깨진 동안 이렇게 온다.
 	second := first
 	second.tokens = first.tokens[:1]
-	buf.setSemanticTokens(second)
+	applySemanticTo(t, buf, second)
 
 	assert.Nil(t, buf.syntax.lines[2].semantic)
 	assert.NotNil(t, buf.syntax.lines[0].semantic)
@@ -157,7 +169,7 @@ func TestSetSemanticTokensClearsRange(t *testing.T) {
 func TestEditDropsSemanticOnChangedLineOnly(t *testing.T) {
 	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
 
-	buf.setSemanticTokens(semanticTokensMsg{
+	applySemanticTo(t, buf, semanticTokensMsg{
 		path:     buf.path,
 		revision: buf.syntax.revision,
 		from:     0,
@@ -178,7 +190,7 @@ func TestEditDropsSemanticOnChangedLineOnly(t *testing.T) {
 func TestSetSemanticTokensIgnoresOutOfRange(t *testing.T) {
 	buf := semanticTestBuffer(t, "package main", "", "var x = 3")
 
-	buf.setSemanticTokens(semanticTokensMsg{
+	applySemanticTo(t, buf, semanticTokensMsg{
 		path:     buf.path,
 		revision: buf.syntax.revision,
 		from:     0,
@@ -233,7 +245,7 @@ func TestReloadKeepsSemanticRevisionMoving(t *testing.T) {
 	require.NoError(t, buf.Reload())
 
 	buf.lexSyntaxTo(len(buf.lines) - 1)
-	buf.setSemanticTokens(semanticTokensMsg{
+	applySemanticTo(t, buf, semanticTokensMsg{
 		path:     buf.path,
 		revision: asked,
 		from:     0,

@@ -90,7 +90,21 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 	}
 }
 
+// semanticToken 은 서버가 말한 색 한 조각이다. **열이 이미 byte 로 옮겨져 있다.**
+//
+// 창이 드는 자료라 `lsp.SemanticToken` 을 그대로 쓰지 않는다. 창은 어느 줄 어디에 무슨 색이
+// 붙는지만 알면 되고, 그것을 언어 서버가 말했다는 것도 그 열이 UTF-16 이었다는 것도 알
+// 필요가 없다 (ADR-0125).
+type semanticToken struct {
+	line  int
+	token syntax.Token
+}
+
 // applySemanticTokens 는 받은 답을 그 파일의 줄들에 얹는다.
+//
+// **여기서 창의 말로 옮긴다.** 서버의 열은 UTF-16 이라 byte 로 바꿔야 하는데(lsp/position.go)
+// 그러려면 그 줄의 글자가 필요하고, 그 줄을 든 것이 창이다. 그래서 창을 손에 쥔 이 자리가
+// 옮기기에 맞다 — 창 안에서 하면 창이 lsp 를 알게 된다 (ADR-0125).
 func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 	for i := range e.buffers {
 		_, path, ok := serverPath(e.buffers[i].path)
@@ -98,56 +112,70 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 			continue
 		}
 
-		e.buffers[i].setSemanticTokens(msg)
+		buf := &e.buffers[i]
+
+		// **물을 때와 글이 달라졌으면 버린다.** 답은 뒤늦게 오고 그 사이의 한 글자가 줄 자리를
+		// 밀어 두었을 수 있다. 그때 얹으면 엉뚱한 줄에 색이 붙는다 — 버리면 lexer 의 답으로 한
+		// 박자 남았다가 다음 tick 이 다시 묻는다(syntaxCache.revision).
+		if buf.syntax.revision != msg.revision {
+			return
+		}
+
+		tokens := make([]semanticToken, 0, len(msg.tokens))
+		for _, token := range msg.tokens {
+			if token.Line < 0 || token.Line >= len(buf.lines) {
+				continue
+			}
+
+			kind := semanticKind(token)
+			if kind == syntax.KindPlain {
+				// 강조하지 않는 자리는 토큰을 내지 않는다(syntax.go 의 KindPlain). 연산자와
+				// 이름표가 여기서 걸러진다.
+				continue
+			}
+
+			// 서버의 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go).
+			line := buf.lines[token.Line]
+			start := lsp.ByteColumn(line, token.Start)
+			end := lsp.ByteColumn(line, token.Start+token.Length)
+
+			if start >= end {
+				continue
+			}
+
+			tokens = append(tokens, semanticToken{
+				line:  token.Line,
+				token: syntax.Token{Start: start, End: end, Kind: kind},
+			})
+		}
+
+		buf.setSemanticTokens(msg.from, msg.to, tokens)
 
 		return
 	}
 }
 
-// setSemanticTokens 는 [from, to) 의 서버 답을 갈아끼운다.
-//
-// **물을 때와 글이 달라졌으면 버린다.** 답은 뒤늦게 오고 그 사이의 한 글자가 줄 자리를
-// 밀어 두었을 수 있다. 그때 얹으면 엉뚱한 줄에 색이 붙는다 — 버리면 lexer 의 답으로 한
-// 박자 남았다가 다음 tick 이 다시 묻는다(syntaxCache.revision).
+// setSemanticTokens 는 [from, to) 의 서버 답을 갈아끼운다. 열은 이미 byte 로 옮겨져 있다.
 //
 // **구간을 먼저 비운다.** 서버가 아무 말도 하지 않은 줄은 lexer 에게 돌려주어야 한다.
 // 문법이 깨진 동안 서버의 답에서 빠지는 줄이 그렇다 — 낡은 답을 남겨 두면 그 줄만 지나간
 // 글의 색으로 굳는다.
-func (buf *Buffer) setSemanticTokens(msg semanticTokensMsg) {
-	if buf.syntax.revision != msg.revision {
-		return
-	}
-
-	from := max(0, msg.from)
-	to := min(len(buf.syntax.lines), msg.to)
+//
+// 물을 때와 글이 달라졌는지는 부르는 쪽이 이미 본다(applySemanticTokens).
+func (buf *Buffer) setSemanticTokens(from, to int, tokens []semanticToken) {
+	from = max(0, from)
+	to = min(len(buf.syntax.lines), to)
 
 	for line := from; line < to; line++ {
 		buf.syntax.lines[line].semantic = nil
 	}
 
-	for _, token := range msg.tokens {
-		if token.Line < from || token.Line >= to || token.Line >= len(buf.lines) {
+	for _, item := range tokens {
+		if item.line < from || item.line >= to {
 			continue
 		}
 
-		kind := semanticKind(token)
-		if kind == syntax.KindPlain {
-			// 강조하지 않는 자리는 토큰을 내지 않는다(syntax.go 의 KindPlain). 연산자와
-			// 이름표가 여기서 걸러진다.
-			continue
-		}
-
-		// 서버의 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go).
-		line := buf.lines[token.Line]
-		start := lsp.ByteColumn(line, token.Start)
-		end := lsp.ByteColumn(line, token.Start+token.Length)
-
-		if start >= end {
-			continue
-		}
-
-		buf.syntax.lines[token.Line].semantic = append(buf.syntax.lines[token.Line].semantic,
-			syntax.Token{Start: start, End: end, Kind: kind})
+		buf.syntax.lines[item.line].semantic = append(buf.syntax.lines[item.line].semantic, item.token)
 	}
 }
 
