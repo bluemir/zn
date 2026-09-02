@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // logLines 는 기록을 「경로:줄」로 편 것이다. 견주기 쉬우라고 둔다.
@@ -23,7 +25,7 @@ func TestJumpLogKeepsBothEnds(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	// A(first.go:2) 에서 B(second.go:4) 로
 	e.recordJump()
@@ -48,20 +50,20 @@ func TestJumpLogMovesRepeatToFront(t *testing.T) {
 
 	e.active = 0
 	for _, line := range []int{0, 2, 4} {
-		e.activeBuffer().MoveTo(line, 0)
+		e.activeBuffer().MoveTo(scheme.Cursor{Line: line})
 		e.arrive()
 	}
 	require.Equal(t, []int{4, 2, 0}, logLines(e))
 
 	// 가운데 것을 다시 방문한다.
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 	e.arrive()
 
 	assert.Equal(t, []int{2, 4, 0}, logLines(e), "쌓이지 않고 위로 올라온다")
 	assert.Len(t, e.logs.places, 3)
 
 	// 칸만 다르면 같은 자리다.
-	e.activeBuffer().MoveTo(2, 3)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2, Col: 3})
 	e.arrive()
 
 	assert.Len(t, e.logs.places, 3, "칸은 보지 않는다")
@@ -78,7 +80,7 @@ func TestJumpLogKeepsWhatJumplistDrops(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
@@ -110,7 +112,7 @@ func TestJumpLogRecordsRetrace(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))

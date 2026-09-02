@@ -4,6 +4,8 @@ import (
 	"regexp"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // viewEditorSearch 는 `/` `?` 로 들어가는 검색 입력이다. command mode 와 같은 자리를 쓴다.
@@ -132,7 +134,7 @@ func (m *viewEditorSearch) preview() {
 
 	buf := m.activeBuffer()
 
-	result, ok := buf.Find(pattern, m.direction, m.origin.place.Cursor.Line, m.origin.place.Cursor.Col)
+	result, ok := buf.Find(pattern, m.direction, m.origin.place.Cursor)
 	if !ok {
 		return
 	}
@@ -140,7 +142,7 @@ func (m *viewEditorSearch) preview() {
 	// 찾은 자리를 미리 강조한다. 아직 마지막 검색으로 굳히는 것은 아니라 Esc 로 되돌아간다.
 	m.search = searchState{input: m.input.text, pattern: pattern, direction: m.direction, highlight: true}
 
-	buf.MoveTo(result.Line, result.Col)
+	buf.MoveTo(result.Cursor)
 	buf.ClampToNormal()
 	m.scrollToCursor()
 }
@@ -216,11 +218,12 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 
 	buf := e.activeBuffer()
 
-	line, col := buf.Cursor.Line, buf.Cursor.Col
+	// 찾은 자리가 그대로 다음 바퀴의 시작이다. `3n` 이 세 번 도는 것이 이것이다.
+	at := buf.Cursor
 	wrapped := false
 
 	for range n {
-		result, ok := buf.Find(e.search.pattern, direction, line, col)
+		result, ok := buf.Find(e.search.pattern, direction, at)
 		if !ok {
 			// 하나도 못 찾았으면 커서를 두고 알리기만 한다. 도중까지 옮기면 어디로 갔는지 알 수 없다.
 			e.notify("찾을 수 없음: " + e.search.input)
@@ -228,7 +231,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 			return
 		}
 
-		line, col = result.Line, result.Col
+		at = result.Cursor
 		wrapped = wrapped || result.Wrapped
 	}
 
@@ -236,7 +239,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	// 여기가 `/` `?` `n` `N` `*` `#` 이 모두 지나는 자리다(ADR-0070).
 	e.recordJump()
 
-	buf.MoveTo(line, col)
+	buf.MoveTo(at)
 	buf.ClampToNormal()
 	e.scrollToCursor()
 
@@ -270,7 +273,7 @@ func (e *editor) searchWord(direction searchDirection, n int) {
 
 	// 커서를 단어 앞으로 옮기고 거기서 찾는다. 옮기지 않으면 커서 오른쪽에 있던 그 단어가
 	// 첫 매칭이 되어, `*` 를 눌렀는데 제자리에서 한 칸 옆으로 가는 것으로 끝난다. vim 과 같다.
-	buf.MoveTo(buf.Cursor.Line, col)
+	buf.MoveTo(scheme.Cursor{Line: buf.Cursor.Line, Col: col})
 
 	// QuoteMeta 를 거친 글자와 `\b` 뿐이라 정규식이 될 수 없는 경우가 없다.
 	input := wordSearchPattern(word)

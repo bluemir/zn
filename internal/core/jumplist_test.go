@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // jumpEditor 는 파일 셋이 열린 편집기다. 파일을 넘는 이력을 재는 데 쓴다.
@@ -50,7 +52,7 @@ func TestJumpBackReturnsToRecordedPlace(t *testing.T) {
 
 	// first.go 의 2 번째 줄에서 second.go 로 뛴다.
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
@@ -72,7 +74,7 @@ func TestJumpForwardRetracesBack(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -105,7 +107,7 @@ func TestNewJumpDropsForwardHistory(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -132,7 +134,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 	e, _ := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	e.recordJump()
 	e.recordJump()
@@ -141,7 +143,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 	assert.Len(t, e.jumps.places, 1)
 
 	// 줄이 달라지면 담는다.
-	e.activeBuffer().MoveTo(4, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 4})
 	e.recordJump()
 
 	assert.Len(t, e.jumps.places, 2)
@@ -163,7 +165,7 @@ func TestJumpListDropsOldest(t *testing.T) {
 	e.active = 0
 	for i := range jumpListMax + 20 {
 		// 줄을 번갈아 바꾸어 같은 줄 거르기에 걸리지 않게 한다.
-		e.activeBuffer().MoveTo(i%6, 0)
+		e.activeBuffer().MoveTo(scheme.Cursor{Line: i % 6})
 		e.recordJump()
 	}
 
@@ -176,7 +178,7 @@ func TestGoToPlaceDoesNotRecord(t *testing.T) {
 	e, paths := jumpEditor(t)
 
 	e.active = 0
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 	e.recordJump()
 	require.NoError(t, gotoFile(e, paths[1], 4))
 
@@ -196,7 +198,7 @@ func gotoFile(e *editor, path string, line int) error {
 		return err
 	}
 
-	e.activeBuffer().MoveTo(line, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: line})
 
 	return nil
 }

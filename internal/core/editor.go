@@ -834,9 +834,9 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 	view := newView(e.renderScreen(textRows, mode, bottom), e.renderWindowTitle())
 
-	if x, y, ok := buf.CursorScreenPos(height); ok {
+	if at, ok := buf.CursorScreenPos(height); ok {
 		// cursorScreenPos 는 본문 안에서의 좌표를 주므로 화면 좌표로 옮긴다.
-		view.Cursor = tea.NewCursor(x+e.contentLeft(), y+tablineHeight)
+		view.Cursor = tea.NewCursor(at.X+e.contentLeft(), at.Y+tablineHeight)
 		view.Cursor.Shape = shape
 	}
 

@@ -11,6 +11,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/lsp"
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // 언어 서버와 이어지는 자리다. 하는 일은 셋이다 — 띄우기, 보고 있는 파일을 서버와 맞추기,
@@ -509,7 +510,7 @@ func (e *editor) moveToLocation(target lsp.Location) {
 		column = lsp.ByteColumn(buf.Lines[line], target.Range.Start.Character)
 	}
 
-	buf.MoveTo(line, column)
+	buf.MoveTo(scheme.Cursor{Line: line, Col: column})
 	buf.ClampToNormal()
 	e.scrollToCursor()
 }

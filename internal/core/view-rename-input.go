@@ -5,6 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // renameBoxInner 는 이름 바꾸기 창 안쪽 폭이다.
@@ -36,7 +38,7 @@ func renameInputMode(e *editor) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	buf.MoveTo(buf.Cursor.Line, col)
+	buf.MoveTo(scheme.Cursor{Line: buf.Cursor.Line, Col: col})
 	e.scrollToCursor()
 
 	return viewRenameInput{editor: e, old: word, input: newInputLine(word)}, nil
@@ -142,7 +144,7 @@ func (m viewRenameInput) View() tea.View {
 
 	buf := m.activeBuffer()
 
-	x, y, ok := buf.CursorScreenPos(m.textHeight())
+	at, ok := buf.CursorScreenPos(m.textHeight())
 	if !ok {
 		return view
 	}
@@ -150,7 +152,7 @@ func (m viewRenameInput) View() tea.View {
 	body := m.renderRenameBox()
 	rows := strings.Split(body, "\n")
 
-	left, top := popupPos(x+m.contentLeft(), y+tablineHeight, renameBoxInner+2, len(rows), m.width, m.height)
+	left, top := popupPos(at.X+m.contentLeft(), at.Y+tablineHeight, renameBoxInner+2, len(rows), m.width, m.height)
 
 	// 받은 view 를 그대로 쓰고 내용만 갈아끼운다. 새 view 를 만들면 터미널 설정을 손으로
 	// 베껴야 한다(ADR-0110).

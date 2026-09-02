@@ -204,7 +204,7 @@ func (m *viewEditorSubstitute) step() (tea.Model, tea.Cmd) {
 func (m *viewEditorSubstitute) show() {
 	buf := m.activeBuffer()
 
-	buf.MoveTo(m.line, m.matches[m.at][0]+m.delta)
+	buf.MoveTo(scheme.Cursor{Line: m.line, Col: m.matches[m.at][0] + m.delta})
 	buf.ClampToNormal()
 	m.scrollToCursor()
 }

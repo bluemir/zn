@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // newJumpsView 는 이력 셋이 쌓인 판이다.
@@ -17,7 +19,7 @@ func newJumpsView(t *testing.T) (viewJumps, []string) {
 
 	e.active = 0
 	for i, path := range paths {
-		e.activeBuffer().MoveTo(i*2, 0)
+		e.activeBuffer().MoveTo(scheme.Cursor{Line: i * 2})
 		e.recordJump()
 		require.NoError(t, gotoFile(e, path, i*2+1))
 	}
@@ -227,7 +229,7 @@ func jumpsViewWithClosedTabs(t *testing.T) (viewJumps, []string) {
 
 	e.active = 0
 	for i, path := range paths {
-		e.activeBuffer().MoveTo(i*2, 0)
+		e.activeBuffer().MoveTo(scheme.Cursor{Line: i * 2})
 		e.recordJump()
 		require.NoError(t, gotoFile(e, path, i*2+1))
 	}

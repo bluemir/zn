@@ -163,7 +163,7 @@ func (m motionWordForward) span(buf viewport, count int) (scheme.MotionRange, bo
 	// 빈 줄에서는 그 줄 자체가 지울 것이라 다음 줄 시작까지 간다. 파일 끝이면 갈 곳이 없다.
 	if len(moved.Lines[line]) == 0 {
 		if line+1 < len(moved.Lines) {
-			moved.MoveTo(line+1, 0)
+			moved.MoveTo(scheme.Cursor{Line: line + 1})
 		}
 
 		return charSpan(buf, moved)
@@ -172,7 +172,7 @@ func (m motionWordForward) span(buf viewport, count int) (scheme.MotionRange, bo
 	// 마지막 한 걸음만 줄에서 멈춘다. 넘었으면 줄끝으로 되돌린다.
 	moved.WordForward(m.kind)
 	if moved.Cursor.Line != line {
-		moved.MoveTo(line, len(moved.Lines[line]))
+		moved.MoveTo(scheme.Cursor{Line: line, Col: len(moved.Lines[line])})
 	}
 
 	return charSpan(buf, moved)
@@ -304,7 +304,7 @@ func (m motionChangeWord) span(buf viewport, count int) (scheme.MotionRange, boo
 	}
 
 	// 공백 위면 예외가 아니다. 바꿀 것이 그 공백이라 `dw` 와 같이 건너뛴다.
-	if buf.ClassAt(buf.Cursor.Line, buf.Cursor.Col, m.kind) == classBlank {
+	if buf.ClassAt(buf.Cursor, m.kind) == classBlank {
 		return motionWordForward{kind: m.kind}.span(buf, count)
 	}
 
@@ -355,7 +355,7 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 	// 「단어를 바꾼다」와 「공백을 지운다」로 갈리면 눌러 보고 아는 키가 된다(ADR-0091 §2).
 	//
 	// 빈 줄과 줄 끝도 여기서 같이 걸린다. classAt 이 줄 끝을 공백으로 보기 때문이다.
-	class := buf.ClassAt(line, buf.Cursor.Col, m.kind)
+	class := buf.ClassAt(buf.Cursor, m.kind)
 	if class == classBlank {
 		return scheme.MotionRange{}, false
 	}
@@ -365,7 +365,7 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 	start := buf.Cursor.Col
 	for start > 0 {
 		prev := prevGlyphStart(text, 0, start)
-		if buf.ClassAt(line, prev, m.kind) != class {
+		if buf.ClassAt(scheme.Cursor{Line: line, Col: prev}, m.kind) != class {
 			break
 		}
 
@@ -373,15 +373,19 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 	}
 
 	end := buf.Cursor.Col
-	for end < len(text) && buf.ClassAt(line, end, m.kind) == class {
+	for end < len(text) && buf.ClassAt(scheme.Cursor{Line: line, Col: end}, m.kind) == class {
 		end += glyphSize(text, end)
 	}
 
+	area := scheme.MotionRange{
+		Start: scheme.Cursor{Line: line, Col: start},
+		End:   scheme.Cursor{Line: line, Col: end},
+	}
 	if m.around {
-		start, end = buf.AroundWord(line, start, end, m.kind)
+		area = buf.AroundWord(area, m.kind)
 	}
 
-	return scheme.MotionRange{Start: scheme.Cursor{Line: line, Col: start}, End: scheme.Cursor{Line: line, Col: end}}, true
+	return area, true
 }
 
 // scheme.MotionRange 는 `internal/scheme` 에 있다. 만드는 곳이 넷이고 받는 곳이 글과 창이라

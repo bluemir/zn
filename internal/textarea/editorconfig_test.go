@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // withEditorconfig 는 `.editorconfig` 와 파일 하나가 든 임시 디렉터리를 만들고 그 파일 경로를 준다.
@@ -219,7 +221,7 @@ func TestSaveTrimPullsCursorIn(t *testing.T) {
 	require.NoError(t, err)
 
 	// 공백 위에 커서를 둔다.
-	buf.MoveTo(0, 12)
+	buf.MoveTo(scheme.Cursor{Line: 0, Col: 12})
 	require.Equal(t, 12, buf.Cursor.Col)
 
 	_, err = buf.Save(nil)

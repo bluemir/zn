@@ -29,7 +29,7 @@ func (m viewEditorInsert) overlayCompletion(view tea.View) tea.View {
 
 	buf := m.activeBuffer()
 
-	x, y, ok := buf.CursorScreenPos(m.textHeight())
+	cursor, ok := buf.CursorScreenPos(m.textHeight())
 	if !ok {
 		return view
 	}
@@ -37,7 +37,7 @@ func (m viewEditorInsert) overlayCompletion(view tea.View) tea.View {
 	box := m.renderCompletionBox()
 	rows := strings.Split(box, "\n")
 
-	left, top := popupPos(x+m.contentLeft(), y+tablineHeight, completionBoxWidth, len(rows), m.width, m.height)
+	left, top := popupPos(cursor.X+m.contentLeft(), cursor.Y+tablineHeight, completionBoxWidth, len(rows), m.width, m.height)
 
 	// **받은 view 를 그대로 쓰고 내용만 갈아끼운다.** 새 view 를 만들면 터미널 설정을 손으로
 	// 베껴야 하고, 베낄 목록이 늘 때 이 자리가 조용히 뒤처진다 — AltScreen·MouseMode 만 베끼던

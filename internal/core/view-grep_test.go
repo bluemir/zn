@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // newGrepView 는 적중이 담긴 결과 판이다. 파일은 jumpEditor 가 만든 셋을 쓴다.
@@ -171,7 +173,7 @@ func TestGrepCancelRestoresOrigin(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
 	require.NoError(t, gotoFile(e, paths[0], 0))
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	tabs := len(e.buffers)
 
@@ -208,7 +210,7 @@ func TestGrepConfirmKeepsPlaceAndRecordsJump(t *testing.T) {
 	e, paths := jumpEditor(t)
 	e.active = 0
 	require.NoError(t, gotoFile(e, paths[0], 0))
-	e.activeBuffer().MoveTo(2, 0)
+	e.activeBuffer().MoveTo(scheme.Cursor{Line: 2})
 
 	e.grep = grepResult{
 		input:   "func b",

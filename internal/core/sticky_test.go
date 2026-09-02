@@ -144,9 +144,9 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 		sticky := buf.StickyAt(buf.Top.Line, 10)
 		require.NotEmpty(t, sticky, "감싸는 제목이 있어야 시험이 뜻을 가진다")
 
-		_, y, ok := buf.CursorScreenPos(10)
+		at, ok := buf.CursorScreenPos(10)
 		require.True(t, ok, "커서가 화면 안이다")
-		assert.GreaterOrEqual(t, y, len(sticky), "커서가 머리줄에 덮였다")
+		assert.GreaterOrEqual(t, at.Y, len(sticky), "커서가 머리줄에 덮였다")
 	})
 
 	// 키로 커서를 위로 끌고 가도 마찬가지다.
@@ -159,9 +159,9 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 			editor := m.(viewEditorNormal).editor
 			buf := editor.activeBuffer()
 
-			_, y, ok := buf.CursorScreenPos(editor.textHeight())
+			at, ok := buf.CursorScreenPos(editor.textHeight())
 			require.True(t, ok, "커서가 화면 안이다")
-			assert.GreaterOrEqual(t, y, len(buf.StickyAt(buf.Top.Line, editor.textHeight())),
+			assert.GreaterOrEqual(t, at.Y, len(buf.StickyAt(buf.Top.Line, editor.textHeight())),
 				"커서가 머리줄에 덮였다")
 		}
 	})

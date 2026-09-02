@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // wide 는 wrap 이 일어나지 않을 만큼 넓은 화면이다.
@@ -812,24 +814,21 @@ func TestCursorScreenPos(t *testing.T) {
 	buf := NewBuffer("test.txt", []byte("abcdefgh\nnext\n"))
 	setContentWidth(&buf, 4, Height)
 
-	x, y, ok := buf.CursorScreenPos(Height)
+	at, ok := buf.CursorScreenPos(Height)
 	require.True(t, ok)
-	assert.Equal(t, 0, x)
-	assert.Equal(t, 0, y)
+	assert.Equal(t, scheme.Cell{X: 0, Y: 0}, at)
 
 	// 두 번째 행 시작
 	buf.MoveDownRow(1)
-	x, y, ok = buf.CursorScreenPos(Height)
+	at, ok = buf.CursorScreenPos(Height)
 	require.True(t, ok)
-	assert.Equal(t, 0, x)
-	assert.Equal(t, 1, y, "wrap 된 행도 화면 행을 차지한다")
+	assert.Equal(t, scheme.Cell{X: 0, Y: 1}, at, "wrap 된 행도 화면 행을 차지한다")
 
 	// 다음 줄
 	buf.MoveDownRow(1)
-	x, y, ok = buf.CursorScreenPos(Height)
+	at, ok = buf.CursorScreenPos(Height)
 	require.True(t, ok)
-	assert.Equal(t, 0, x)
-	assert.Equal(t, 2, y)
+	assert.Equal(t, scheme.Cell{X: 0, Y: 2}, at)
 }
 
 // 결합 문자는 rune 여러 개가 한 글자다. 커서 이동과 줄바꿈은 이 단위여야 한다.
@@ -1002,13 +1001,13 @@ func TestMoveRowStartEndStayInTheScreenRow(t *testing.T) {
 	buf := NewBuffer("test.txt", []byte(strings.Repeat("a", 25)+"\nsecond\n"))
 	setContentWidth(&buf, 10, 10)
 
-	buf.MoveTo(0, 14) // 가운데 행
+	buf.MoveTo(scheme.Cursor{Line: 0, Col: 14}) // 가운데 행
 
 	buf.MoveRowStart()
 	assert.Equal(t, 0, buf.Cursor.Line)
 	assert.Equal(t, 10, buf.Cursor.Col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
 
-	buf.MoveTo(0, 14)
+	buf.MoveTo(scheme.Cursor{Line: 0, Col: 14})
 	buf.MoveRowEnd()
 	assert.Equal(t, 20, buf.Cursor.Col, "지금 행의 끝이다. 줄 맨 끝(25) 이 아니다")
 }
@@ -1018,7 +1017,7 @@ func TestMoveRowEndOnLastRowIsLineEnd(t *testing.T) {
 	buf := NewBuffer("test.txt", []byte(strings.Repeat("a", 25)+"\n"))
 	setContentWidth(&buf, 10, 10)
 
-	buf.MoveTo(0, 22)
+	buf.MoveTo(scheme.Cursor{Line: 0, Col: 22})
 	buf.MoveRowEnd()
 
 	assert.Equal(t, 25, buf.Cursor.Col)
@@ -1028,7 +1027,7 @@ func TestMoveRowEndOnLastRowIsLineEnd(t *testing.T) {
 func TestMoveRowStartEndMatchLineOnUnwrappedLine(t *testing.T) {
 	buf := NewBuffer("test.txt", []byte("hello world\n"))
 
-	buf.MoveTo(0, 5)
+	buf.MoveTo(scheme.Cursor{Line: 0, Col: 5})
 	buf.MoveRowStart()
 	assert.Equal(t, 0, buf.Cursor.Col)
 

@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/syntax"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // syntaxToken 은 시험에서 토큰을 짧게 적는 손이다.
@@ -100,7 +102,7 @@ func TestSyntaxCacheStopsAtConvergence(t *testing.T) {
 	require.Equal(t, 100, buf.syntax.valid, "전체를 훑으면 파일 끝까지 찬다")
 
 	// 여러 줄에 걸치는 것을 열지 않는 편집이다. 한 글자만 넣는다.
-	buf.MoveTo(1, 1)
+	buf.MoveTo(scheme.Cursor{Line: 1, Col: 1})
 	buf.Insert([]byte(" "))
 	require.Equal(t, "v ar x int = 1", string(buf.Lines[1]), "편집이 실제로 일어났다")
 
@@ -119,7 +121,7 @@ func TestSyntaxCacheKeepsGoingWhenContextChanges(t *testing.T) {
 	require.Equal(t, 100, buf.syntax.valid)
 
 	// 첫 줄에 여는 블록 주석을 넣는다. 그 아래 전부가 주석이 된다.
-	buf.MoveTo(0, 0)
+	buf.MoveTo(scheme.Cursor{Line: 0})
 	buf.Insert([]byte("/* "))
 
 	buf.LexSyntaxTo(4)

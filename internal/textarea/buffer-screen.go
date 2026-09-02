@@ -17,39 +17,44 @@ import (
 // **여기 남은 것은 글만 다룬다.** 커서를 옮기며 이것을 부르는 쪽은
 // viewport-screen.go 다 (ADR-0121).
 
-// retreatRows 는 (line,row) 에서 화면 행 n 개 위로 올라간 위치를 돌려준다.
-func (buf Buffer) retreatRows(Line, Row, n, Width int) (int, int) {
+// retreatRows 는 from 에서 화면 행 n 개 위로 올라간 자리다.
+//
+// **줄과 행을 ViewTop 으로 주고받는다.** 둘이 짝이어야 자리 하나가 정해지는데, `int` 둘로
+// 두면 서명만 보고 그것이 (줄, 행) 인지 (행, 줄) 인지 알 수 없다.
+func (buf Buffer) retreatRows(from ViewTop, n, width int) ViewTop {
 	for range n {
 		switch {
-		case Row > 0:
-			Row--
-		case Line > 0:
-			Line--
-			Row = len(WrapOffsets(buf.Lines[Line], Width, buf.TabWidth())) - 1
+		case from.Row > 0:
+			from.Row--
+		case from.Line > 0:
+			from.Line--
+			from.Row = len(WrapOffsets(buf.Lines[from.Line], width, buf.TabWidth())) - 1
 		default:
-			return 0, 0
+			return ViewTop{}
 		}
 	}
-	return Line, Row
+
+	return from
 }
 
-// advanceRows 는 (line,row) 에서 화면 행 n 개 아래로 내려간 위치를 돌려준다.
+// advanceRows 는 from 에서 화면 행 n 개 아래로 내려간 자리다.
 // 파일 끝을 넘으면 마지막 줄의 마지막 행에서 멈춘다. retreatRows 의 반대 방향이다.
-func (buf Buffer) advanceRows(Line, Row, n, Width int) (int, int) {
+func (buf Buffer) advanceRows(from ViewTop, n, width int) ViewTop {
 	for range n {
-		last := len(WrapOffsets(buf.Lines[Line], Width, buf.TabWidth())) - 1
+		last := len(WrapOffsets(buf.Lines[from.Line], width, buf.TabWidth())) - 1
 
 		switch {
-		case Row < last:
-			Row++
-		case Line < len(buf.Lines)-1:
-			Line++
-			Row = 0
+		case from.Row < last:
+			from.Row++
+		case from.Line < len(buf.Lines)-1:
+			from.Line++
+			from.Row = 0
 		default:
-			return Line, Row
+			return from
 		}
 	}
-	return Line, Row
+
+	return from
 }
 
 // stickyAt 은 line 을 화면 맨 위로 그릴 때 그 위에 붙는 머리줄들이다.

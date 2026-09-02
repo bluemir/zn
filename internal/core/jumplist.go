@@ -2,6 +2,8 @@ package core
 
 import (
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // 되돌아오기(jumplist) 다. `ctrl+o`(뒤로)·`ctrl+i`(앞으로) 가 이 이력을 오간다(ADR-0070).
@@ -191,7 +193,7 @@ func (e *editor) goToPlace(place jumpPlace) tea.Cmd {
 	}
 
 	buf := e.activeBuffer()
-	buf.MoveTo(place.line, place.col)
+	buf.MoveTo(scheme.Cursor{Line: place.line, Col: place.col})
 	buf.ClampToNormal()
 	e.scrollToCursor()
 	e.clearNotice()

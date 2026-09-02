@@ -46,14 +46,14 @@ func (viewport *Viewport) ChangeRange(area scheme.MotionRange) (TextBlock, bool)
 // `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 func (viewport Viewport) AtWordEnd(kind WordKind) bool {
-	class := viewport.ClassAt(viewport.Cursor.Line, viewport.Cursor.Col, kind)
+	class := viewport.ClassAt(viewport.Cursor, kind)
 	if class == ClassBlank {
 		return false
 	}
 
-	Line, Col, ok := viewport.nextPos(viewport.Cursor.Line, viewport.Cursor.Col)
+	next, ok := viewport.nextPos(viewport.Cursor)
 
-	return !ok || Line != viewport.Cursor.Line || viewport.ClassAt(Line, Col, kind) != class
+	return !ok || next.Line != viewport.Cursor.Line || viewport.ClassAt(next, kind) != class
 }
 
 // changeLines 는 [from, to] 줄을 들여쓰기만 남기고 비운다.

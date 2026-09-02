@@ -1,5 +1,9 @@
 package core
 
+import (
+	"github.com/bluemir/zn/internal/scheme"
+)
+
 // 줄 앞 마커 사이를 뛰는 자리다(ADR-0095).
 //
 // 마커가 둘이라 뛰는 키도 둘이다. `]c`·`[c` 가 git 으로 바뀐 자리(ADR-0094) 로 가고
@@ -74,7 +78,7 @@ func (e *editor) jumpToMarkerLines(lines []int, direction markerDirection, count
 
 	// 줄의 첫 글자로 간다. 마커가 가리키는 것이 줄이라 칸에는 뜻이 없고, `gg`·`G` 가 줄 앞으로
 	// 가는 것과 같은 손이다.
-	buf.MoveTo(line, 0)
+	buf.MoveTo(scheme.Cursor{Line: line})
 	buf.ClampToNormal()
 	e.scrollToCursor()
 

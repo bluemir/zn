@@ -61,9 +61,9 @@ func TestJoinKeepsCursorVisible(t *testing.T) {
 	buf := bufferOf(t, next)
 	require.Equal(t, 200, buf.Cursor.Col, "이은 자리는 원래 첫 줄의 끝 다음이다")
 
-	_, y, ok := buf.CursorScreenPos(view.textHeight())
+	at, ok := buf.CursorScreenPos(view.textHeight())
 	require.True(t, ok, "커서가 화면 안에 있다")
-	assert.Less(t, y, view.textHeight())
+	assert.Less(t, at.Y, view.textHeight())
 }
 
 // 아래 기대값은 vim 9.1 에서 같은 키를 쳐서 확인한 것이다(ADR-0018).

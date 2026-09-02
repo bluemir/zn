@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // click, wheel 은 key 와 같은 자리다 — 화면 좌표 하나를 메시지로 만든다.
@@ -97,15 +99,14 @@ func TestPositionAt(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.data))
 			setContentWidth(&buf, test.width, 10)
 
-			line, col, ok := buf.PositionAt(test.x, test.y, 10)
+			at, ok := buf.PositionAt(scheme.Cell{X: test.x, Y: test.y}, 10)
 			if test.missing {
 				assert.False(t, ok)
 				return
 			}
 
 			require.True(t, ok)
-			assert.Equal(t, test.line, line, "줄")
-			assert.Equal(t, test.col, col, "offset")
+			assert.Equal(t, scheme.Cursor{Line: test.line, Col: test.col}, at)
 		})
 	}
 }

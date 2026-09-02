@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // `home`·`end`·`pgup`·`pgdown`·`delete` 가 실제로 먹는지 보는 자리다.
@@ -24,11 +26,11 @@ func TestNormalHomeEndMoveWithinScreenRow(t *testing.T) {
 
 	// 자리를 매번 다시 잡는다. `m` 은 값이지만 buffer 는 같은 editor 를 가리켜서,
 	// 앞 검사가 옮긴 커서에서 다음 검사가 출발한다.
-	m.activeBuffer().MoveTo(0, width+3)
+	m.activeBuffer().MoveTo(scheme.Cursor{Line: 0, Col: width + 3})
 	end := bufferOf(t, send(m, "end"))
 	assert.Equal(t, 2*width, end.Cursor.Col, "지금 행의 끝이다. 줄 끝(60) 이 아니다")
 
-	m.activeBuffer().MoveTo(0, width+3)
+	m.activeBuffer().MoveTo(scheme.Cursor{Line: 0, Col: width + 3})
 	home := bufferOf(t, send(m, "home"))
 	assert.Equal(t, width, home.Cursor.Col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
 }
@@ -37,11 +39,11 @@ func TestNormalHomeEndMoveWithinScreenRow(t *testing.T) {
 func TestNormalHomeEndOnUnwrappedLine(t *testing.T) {
 	m := newTestEditor("hello world\nsecond\n", wide, 8)
 
-	m.activeBuffer().MoveTo(0, 4)
+	m.activeBuffer().MoveTo(scheme.Cursor{Line: 0, Col: 4})
 	assert.Zero(t, bufferOf(t, send(m, "home")).Cursor.Col)
 
 	// normal 은 마지막 글자 위에 선다(clampToNormal). `$` 와 같다.
-	m.activeBuffer().MoveTo(0, 4)
+	m.activeBuffer().MoveTo(scheme.Cursor{Line: 0, Col: 4})
 	assert.Equal(t, len("hello world")-1, bufferOf(t, send(m, "end")).Cursor.Col)
 }
 

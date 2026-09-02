@@ -13,7 +13,7 @@ type ScreenRow struct {
 	End   int // 줄 안의 byte offset. 제외
 }
 
-// rowBefore 는 화면 행 (line1,row1) 이 (line2,row2) 보다 위인지 본다.
-func rowBefore(line1, row1, line2, row2 int) bool {
-	return line1 < line2 || (line1 == line2 && row1 < row2)
+// rowBefore 는 화면 행 a 가 b 보다 위인지 본다.
+func rowBefore(a, b ViewTop) bool {
+	return a.Line < b.Line || (a.Line == b.Line && a.Row < b.Row)
 }

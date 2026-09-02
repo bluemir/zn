@@ -2,6 +2,8 @@ package core
 
 import (
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/scheme"
 )
 
 // region 은 화면 좌표가 어느 영역인지다.
@@ -74,12 +76,12 @@ func (e *editor) clickText(x, y int) {
 		return
 	}
 
-	line, col, ok := buf.PositionAt(x-e.contentLeft(), row, e.textHeight())
+	at, ok := buf.PositionAt(scheme.Cell{X: x - e.contentLeft(), Y: row}, e.textHeight())
 	if !ok {
 		return
 	}
 
-	buf.MoveTo(line, col)
+	buf.MoveTo(at)
 }
 
 // clickSidebar 는 sidebar 좌표의 항목을 고르고 연다.
@@ -271,7 +273,7 @@ func (e *editor) dragTo(x, y int) {
 		row = height - 1
 	}
 
-	line, col, ok := buf.PositionAt(x-e.contentLeft(), row, height)
+	at, ok := buf.PositionAt(scheme.Cell{X: x - e.contentLeft(), Y: row}, height)
 	if !ok {
 		// 마지막 줄 아래로 끌었다. 클릭은 그 자리에서 멈추지만(positionAt 주석) 끄는 중에는
 		// 있는 데까지 따라가야 한다 — 범위가 손을 놓치면 어디까지 골랐는지 알 수 없다.
@@ -281,10 +283,10 @@ func (e *editor) dragTo(x, y int) {
 		}
 
 		last := rows[len(rows)-1]
-		line, col = last.Line, last.End
+		at = scheme.Cursor{Line: last.Line, Col: last.End}
 	}
 
-	buf.MoveTo(line, col)
+	buf.MoveTo(at)
 	buf.ClampToNormal()
 }
 
