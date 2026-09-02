@@ -11,8 +11,15 @@ import (
 // sidebarWidth 는 좌측 sidebar 가 차지하는 칸 수다(docs/spec.md).
 const sidebarWidth = 32
 
-// minTextWidth 는 sidebar 를 그리고도 남아 있어야 하는 편집 영역 너비다.
-// 이보다 좁아지면 sidebar 가 켜져 있어도 그리지 않는다.
+// minTextWidth 는 본문이 있어야 하는 최소 너비다.
+//
+// **두 자리가 이 하나를 지킨다.** sidebar 는 이만큼 안 남으면 켜져 있어도 안 그리고
+// (sidebarVisible), 창은 본문 앞 칸을 떼고 이만큼 안 남으면 그 칸을 통째로 버린다
+// (viewport.gutterWidth). 폭 52 에서 sidebar 를 열면 편집 영역이 20 이고 앞 칸 아홉을
+// 떼면 11 이라, 창이 앞 칸을 버려서 본문이 다시 20 이 된다. 이어진 한 규칙이다.
+//
+// **화면 배치 상수 중 이것만 두 겹에 걸친다.** 나머지 넷(markerWidth·minAbsoluteDigits·
+// minRelativeDigits·digits) 은 창만 쓰므로 viewport.go 로 갔다 (ADR-0123).
 const minTextWidth = 20
 
 // sidebar 는 좌측 파일 트리다.

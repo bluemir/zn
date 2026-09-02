@@ -107,6 +107,24 @@ type viewSize struct {
 
 `Buffer` 의 `retreatRows`·`advanceRows` 둘은 그대로 `width` 를 받는다. `Buffer` 에는 자리가 없다 — 글만 드는 type 이라는 ADR-0121 의 가름이 여기서도 선다.
 
+## 7. 본문 앞 칸의 상수도 창으로 갔다
+
+크기를 창에 준 뒤 「그 크기를 나누는 값들은 누구 것인가」를 재 보았다.
+
+| 상수 | 창이 쓰는 자리 | editor 가 쓰는 자리 |
+|---|---|---|
+| `markerWidth` | `gutterWidth` | **없다** |
+| `minAbsoluteDigits`·`minRelativeDigits`·`digits` | `lineNumberDigits` | `editor.lineNumberDigits()` 한 줄 |
+| `minTextWidth` | `gutterWidth` | `sidebarVisible` |
+
+**그 「한 줄」은 닿지 않았다.** `editor.lineNumberDigits()` 를 부르는 곳은 `renderGutter` 하나인데, 그 함수는 `gutterWidth()==0` 이면 먼저 나가고 tab 이 없으면 그 값이 0 이다. tab 이 없을 때를 위해 둔 갈래가 tab 이 없으면 도달하지 않는다.
+
+그리고 `renderGutter` 는 **이미 `buf *viewport` 를 인자로 받고 있었다.** 창에게 직접 물으면 editor 쪽 함수가 통째로 없어진다. 그 김에 `e.gutterWidth()` 도 `buf.gutterWidth()` 로 바꿨다 — 그리는 것은 인자로 받은 창이고, 지금은 같지만 화면 분할이 오면 갈린다.
+
+그래서 넷은 `viewport.go` 로 갔다. 「본문 앞에 몇 칸을 두나」는 **창이 자기 안을 어떻게 그릴지**의 문제이지 화면을 어떻게 나눌지가 아니다.
+
+**`minTextWidth` 하나만 두 겹에 걸친다.** sidebar 는 이만큼 안 남으면 안 그리고, 창은 앞 칸을 떼고 이만큼 안 남으면 그 칸을 버린다. 폭 52 에서 sidebar 를 열면 편집 영역이 20 이고 앞 칸 아홉을 떼면 11 이라, 창이 앞 칸을 버려서 본문이 다시 20 이 된다. **둘이 이어져 「본문은 20 칸」이라는 한 규칙을 두 자리에서 지킨다.** 그래서 나누지 않고 `sidebar.go` 에 둔 채 그 이어짐을 주석에 적었다.
+
 ## 남는 것
 
 - **`height`.** 여덟 개가 아직 인자로 받는다. `size.height` 가 이미 있으므로 같은 손으로 걷을 수 있는데, 화면 높이를 쓰는 자리가 판(drawer) 과 얽혀 있어 따로 본다

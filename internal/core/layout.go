@@ -88,42 +88,6 @@ func (e editor) contentLeft() int {
 	return e.sidebarLeft() + e.gutterWidth()
 }
 
-// 줄번호 칸의 최소 자릿수다. 파일이 짧아도 이만큼은 잡아서 줄을 오갈 때 본문이 흔들리지 않는다.
-//
-// minAbsoluteDigits 3 은 vim 의 `numberwidth` 기본값 4 와 같은 자리다. vim 은 뒤 공백까지
-// 포함한 총 폭이고 여기서는 자릿수라 하나 작다. 그래서 vim 과 같이 999 줄까지는 안 흔들리고
-// 1000 줄에서 한 칸 늘어난다(ADR-0007). 이 값을 올리면 그 지점이 vim 과 갈린다.
-const (
-	minAbsoluteDigits = 3
-	minRelativeDigits = 2
-)
-
-// markerWidth 는 줄번호 왼쪽 마커 칸의 폭이다. 진단 마커와 git 마커가 각각 한 칸씩 선다
-// (ADR-0086, ADR-0094).
-//
-// **아무것도 없어도 늘 잡는다.** 있을 때만 잡으면 첫 오류가 뜨는 순간 본문 전체가 한 칸
-// 밀리고 줄바꿈 자리가 통째로 달라진다. minAbsoluteDigits 를 3 으로 잡아 999 줄까지
-// 번호 칸이 흔들리지 않게 한 것과 같은 손이다(ADR-0007).
-//
-// Go 파일이 아니어도, 저장소가 아니어도 잡는다. 「표시가 오는 파일」과 「칸이 있는 파일」이
-// 갈리면 tab 을 옮길 때마다 본문이 좌우로 흔들린다.
-//
-// **둘을 한 칸에 겹치지 않는다.** 오류가 있는 줄은 대개 방금 고친 줄이라, 한 칸을 나눠 쓰면
-// 정작 보고 싶을 때 git 표시가 가려진다(ADR-0094 §3).
-const markerWidth = 2
-
-// lineNumberDigits 는 활성 창의 번호 자릿수다. 창이 없으면 최소값이다.
-//
-// **세는 것은 창이 한다**(viewport.lineNumberDigits). 줄 수를 아는 것이 그쪽이라, 여기는
-// 「어느 창인가」와 「높이가 얼마인가」만 정해 넘긴다.
-func (e editor) lineNumberDigits() (absolute, relative int) {
-	if !e.hasTab() {
-		return minAbsoluteDigits, max(digits(e.textHeight()), minRelativeDigits)
-	}
-
-	return e.buffers[e.active].lineNumberDigits()
-}
-
 // gutterWidth 는 본문 앞에 붙는 칸이 차지하는 폭이다. 마커 칸과 줄번호 칸을 합친 것이고,
 // 안 그릴 때는 0 이다.
 //
@@ -174,24 +138,15 @@ func (e *editor) setDrawerHeight(height int) {
 	e.layoutViews()
 }
 
-// digits 는 십진수 자릿수다.
-func digits(n int) int {
-	count := 1
-	for n >= 10 {
-		n /= 10
-		count++
-	}
-
-	return count
-}
-
 // renderGutter 는 화면 행 앞에 붙는 칸이다. `마커 절대 상대 ` 순서다.
 //
 // wrap 되어 이어지는 행은 전부 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
 // 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다. 마커도 같은 규칙이다 — 한 줄이 세 행이
 // 되었을 때 마커가 세 번 서면 오류가 셋인 것처럼 보인다(ADR-0086).
 func (e editor) renderGutter(buf *viewport, row screenRow) string {
-	width := e.gutterWidth()
+	// **그리는 그 창에게 묻는다.** editor 를 거치면 활성 창의 값이 오는데, 그리는 것은 인자로
+	// 받은 창이다. 지금은 같지만 화면 분할이 오면 갈린다(ADR-0123).
+	width := buf.gutterWidth()
 	if width == 0 {
 		return ""
 	}
@@ -199,7 +154,7 @@ func (e editor) renderGutter(buf *viewport, row screenRow) string {
 		return strings.Repeat(" ", width)
 	}
 
-	absolute, relative := e.lineNumberDigits()
+	absolute, relative := buf.lineNumberDigits()
 
 	// 커서 줄은 0 이다. 절대번호가 바로 옆에 있어서 거기에 또 찍을 이유가 없다.
 	distance := row.line - buf.cursor.Line
