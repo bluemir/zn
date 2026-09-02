@@ -148,6 +148,7 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.regionAt(mouse.X, mouse.Y) == regionText {
 			m.startSelection(false)
 			m.dragTo(mouse.X, mouse.Y)
+			m.activeBuffer().ExtendSelection()
 
 			return visualMode(m.editor)
 		}

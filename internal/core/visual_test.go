@@ -45,7 +45,7 @@ func TestVisualEntersAndLeaves(t *testing.T) {
 		visual, ok := m.(viewEditorVisual)
 		require.True(t, ok, "visual 에 머문다")
 		assert.True(t, visual.activeBuffer().Selection.Linewise)
-		assert.Equal(t, 0, visual.activeBuffer().Selection.Line, "anchor 는 그대로다")
+		assert.Equal(t, 0, visual.activeBuffer().Selection.From.Line, "시작은 그대로다")
 	})
 }
 

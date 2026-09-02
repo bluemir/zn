@@ -55,10 +55,9 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 			buf.Selection = selection{
 				Active:   true,
 				Linewise: test.linewise,
-				Line:     test.anchorLine,
-				Col:      test.anchorCol,
+				From:     scheme.Cursor{Line: test.anchorLine, Col: test.anchorCol},
+				To:       scheme.Cursor{Line: test.cursorLine, Col: test.cursorCol},
 			}
-			buf.Cursor = scheme.Cursor{Line: test.cursorLine, Col: test.cursorCol}
 
 			area, ok := buf.SelectionRange()
 			require.True(t, ok)

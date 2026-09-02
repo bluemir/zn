@@ -5,7 +5,7 @@ import (
 )
 
 // viewEditorVisual 은 visual mode 다. 커서는 normal 과 같이 글자 위에 있고,
-// 반대쪽 끝(anchor) 은 Buffer 가 든다(selection.go).
+// 고른 범위의 양끝은 창이 든다(viewport-selection.go).
 //
 // 여는 것은 startSelection 이고 이것은 화면만 만든다. 갈래를 바꾸는 `V` 가 이미 열린 범위를
 // 그대로 두고 다시 들어와야 해서 둘이 나뉘어 있다.
@@ -55,6 +55,7 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 버튼을 누른 채 움직이는 중이다. 고른 범위가 커서를 따라 자란다.
 		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
 			m.dragTo(mouse.X, mouse.Y)
+			m.activeBuffer().ExtendSelection()
 		}
 
 		return m, nil
@@ -78,27 +79,44 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // press 는 키 하나를 먹고 그것으로 완성된 동작을 차례로 실행한다.
 // viewEditorNormal.press 와 같은 고리다 — 도중에 mode 가 바뀌면 남은 동작은 버린다(ADR-0008).
+//
+// **고른 끝을 여기서 늘린다.** 이동 키가 옮기는 것은 커서뿐이라(normal 과 같은 동작을 쓴다)
+// 고른 범위가 그것을 따라가는 것은 이 mode 의 규칙이고, 그 규칙이 사는 자리가 여기다.
+// 동작 하나하나에 붙이면 이동 동작 열몇에 흩어진다(ADR-0037).
+//
+// **그래서 나가지 않는 길이 하나로 모여야 한다.** normal 의 press 는 머무는 자리가 둘인데
+// (`ctrl+z` 처럼 model 없이 Cmd 만 내는 동작이 있다) 여기서는 그 둘이 갈리면 늘리는 것을
+// 한쪽에서 잊는다. 그래서 cmd 를 들고 빠져나와 마지막에 한 번 늘린다.
+//
+// mode 가 바뀌어 나가는 길에서는 늘리지 않는다. `d`·`y` 는 이미 범위를 읽고 나갔고
+// `esc` 는 고른 것을 버렸다.
 func (m viewEditorVisual) press(key string) (tea.Model, tea.Cmd) {
 	m.clearNotice()
 
 	actions, state := m.keyState().press(key)
 	m.state = state
 
-	for _, act := range actions {
-		next, cmd := act.run(m.editor)
+	var cmd tea.Cmd
 
-		if next == nil && cmd == nil {
+	for _, act := range actions {
+		next, actionCmd := act.run(m.editor)
+
+		if next == nil && actionCmd == nil {
 			continue
 		}
 
-		if next == nil {
-			return m, cmd
+		if next != nil {
+			return next, actionCmd
 		}
 
-		return next, cmd
+		cmd = actionCmd
+
+		break
 	}
 
-	return m, nil
+	m.activeBuffer().ExtendSelection()
+
+	return m, cmd
 }
 
 // modeName 은 statusBar 에 찍히는 이름이다. 갈래가 둘이라 줄 단위만 뒤에 붙인다.

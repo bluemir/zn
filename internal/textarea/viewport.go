@@ -68,7 +68,7 @@ type Viewport struct {
 	// viewPlace 에 안 든 것은 **담는 값이 아니기 때문**이다. 되돌린 뒤 다시 잰다.
 	desiredX int
 
-	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
+	// Selection 은 visual mode 가 고른 범위다. 양끝을 다 든다(viewport-selection.go).
 	Selection Selection
 }
 

@@ -110,7 +110,7 @@ func TestHalfPageGrowsVisualSelection(t *testing.T) {
 	require.IsType(t, viewEditorVisual{}, model, "visual 에 머문다")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, 0, buf.Selection.Line, "anchor 는 그대로다")
+	assert.Equal(t, 0, buf.Selection.From.Line, "시작은 그대로다")
 	assert.Equal(t, 5, buf.Cursor.Line)
 }
 

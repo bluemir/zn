@@ -597,12 +597,44 @@ func TestDragStartsVisual(t *testing.T) {
 
 	buf := visual.activeBuffer()
 	assert.False(t, buf.Selection.Linewise, "드래그는 글자 단위다")
-	assert.Equal(t, 1, buf.Selection.Col, "누른 자리가 anchor 다")
+	assert.Equal(t, 1, buf.Selection.From.Col, "누른 자리가 시작이다")
 	assert.Equal(t, 4, buf.Cursor.Col, "끌린 자리가 커서다")
 
 	// 뗄 때는 보지 않는다. visual 에 머문다.
 	after, _ = after.Update(tea.MouseReleaseMsg{X: left + 4, Y: tablineHeight, Button: tea.MouseLeft})
 	assert.IsType(t, viewEditorVisual{}, after)
+}
+
+// 끌린 자리가 고른 범위의 끝이다.
+//
+// **키로 고르는 것과 따로 본다.** 고른 끝을 늘리는 자리가 키 쪽과 드래그 쪽으로 갈려 있어서,
+// 드래그 쪽을 빠뜨려도 키 시험은 전부 통과한다. 실제로 그랬다.
+func TestDragExtendsSelection(t *testing.T) {
+	m := newTestEditor("foo bar\nbaz qux", 80, 20)
+	left := contentLeftOf(t, m)
+
+	// `f` 를 누르고 빈 칸까지 끈 다음 지운다. visual 은 inclusive 라 고른 것은 `foo ` 다.
+	after, _ := m.Update(click(left, tablineHeight))
+	after, _ = after.Update(drag(left+3, tablineHeight))
+	after = send(after, "d")
+
+	assert.Equal(t, "bar", string(bufferOf(t, after).Lines[0]))
+}
+
+// 이미 visual 인 채로 더 끌면 고른 범위가 그만큼 더 자란다.
+func TestDragInVisualKeepsExtending(t *testing.T) {
+	m := newTestEditor("foo bar\nbaz qux", 80, 20)
+	left := contentLeftOf(t, m)
+
+	after, _ := m.Update(click(left, tablineHeight))
+	after, _ = after.Update(drag(left+2, tablineHeight))
+	require.IsType(t, viewEditorVisual{}, after, "끌기 시작하면 visual 이다")
+
+	// visual 안에서 한 번 더 끈다. 이번 것은 viewEditorVisual 의 MouseMotion 이 받는다.
+	after, _ = after.Update(drag(left+3, tablineHeight))
+	after = send(after, "d")
+
+	assert.Equal(t, "bar", string(bufferOf(t, after).Lines[0]))
 }
 
 // 편집 영역 밖으로 끌면 좌표를 안으로 당겨서 읽는다. 포커스는 옮기지 않는다.
