@@ -88,11 +88,13 @@ func (e *editor) outsideTargets() []outsideTarget {
 
 // outsideTargetOf 는 buffer 하나에서 기준을 뜬다.
 func outsideTargetOf(buf *viewport) outsideTarget {
+	seen, size, mtime := buf.diskSeenAt()
+
 	return outsideTarget{
 		path:  buf.path,
-		seen:  buf.disk.hash,
-		size:  buf.disk.size,
-		mtime: buf.disk.mtime,
+		seen:  seen,
+		size:  size,
+		mtime: mtime,
 	}
 }
 
@@ -231,8 +233,7 @@ func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) out
 	// 갈아끼울 내용을 여기서 만들어 둔다. 줄 나누기와 해시가 파일 크기만큼 드는 일이라
 	// `Update` 로 넘기면 그만큼 화면이 멈춘다.
 	next := newBuffer(path, data)
-	next.disk.size = result.size
-	next.disk.mtime = result.mtime
+	next.markDiskStamp(result.size, result.mtime)
 	result.next = &next
 
 	return result
@@ -266,8 +267,7 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 	}
 
 	// 앞잡이는 판정과 무관하게 갱신한다. 다음 검사가 읽지 않고 끝나는 것이 이 값이다.
-	buf.disk.size = result.size
-	buf.disk.mtime = result.mtime
+	buf.markDiskStamp(result.size, result.mtime)
 
 	if result.change != outsideModified || buf.dirty || result.next == nil {
 		if message := markOutsideChange(buf, result.change); message != "" {
@@ -319,8 +319,8 @@ func outsideSummary(result outsideResult) string {
 // 활성 buffer 가 아니라 buffer 를 받는다. 검사가 백그라운드로 내려가서, 결과가 돌아올 때는
 // 보고 있는 tab 이 검사한 tab 이 아닐 수 있다(ADR-0044).
 func markOutsideChange(buf *viewport, change outsideChange) string {
-	was := buf.disk.outside
-	buf.disk.outside = change
+	was := buf.outsideState()
+	buf.setOutsideState(change)
 
 	if change == outsideSame || was != outsideSame {
 		return ""

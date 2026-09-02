@@ -69,7 +69,7 @@ func (e editor) renderStatusPath() string {
 
 	// `[!]` 는 마지막으로 맞춰 봤을 때 바깥이 달라져 있었다는 것이다. `[+]` 가 내 손의 미저장
 	// 변경이고 이것은 남의 변경이라, 둘이 같이 붙으면 양쪽에 잃을 것이 있다는 뜻이다(ADR-0031).
-	if buf.disk.outside != outsideSame {
+	if buf.outsideState() != outsideSame {
 		path += " [!]"
 	}
 

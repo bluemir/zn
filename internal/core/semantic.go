@@ -63,7 +63,7 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 
 	from := max(0, rows[0].line-semanticMargin)
 	to := min(len(buf.lines), rows[len(rows)-1].line+1+semanticMargin)
-	revision := buf.syntax.revision
+	revision := buf.syntaxRevision()
 	lines := buf.lines
 
 	return func() tea.Msg {
@@ -117,7 +117,7 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 		// **물을 때와 글이 달라졌으면 버린다.** 답은 뒤늦게 오고 그 사이의 한 글자가 줄 자리를
 		// 밀어 두었을 수 있다. 그때 얹으면 엉뚱한 줄에 색이 붙는다 — 버리면 lexer 의 답으로 한
 		// 박자 남았다가 다음 tick 이 다시 묻는다(syntaxCache.revision).
-		if buf.syntax.revision != msg.revision {
+		if buf.syntaxRevision() != msg.revision {
 			return
 		}
 

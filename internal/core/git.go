@@ -353,7 +353,7 @@ func (e *editor) startGitRefresh() tea.Cmd {
 	wanted := make(map[string]string, len(e.buffers))
 	for i := range e.buffers {
 		if e.buffers[i].path != "" {
-			wanted[e.buffers[i].path] = e.buffers[i].git.head
+			wanted[e.buffers[i].path] = e.buffers[i].gitHead()
 		}
 	}
 
@@ -414,14 +414,15 @@ func (e *editor) applyGitSnapshot(snapshot gitSnapshot) {
 		buf := &e.buffers[i]
 
 		if snapshot.status.head == "" {
-			buf.git.base, buf.git.head, buf.git.marks = nil, "", nil
+			buf.clearGitBase()
 
 			continue
 		}
 
 		if base, ok := snapshot.bases[buf.path]; ok {
-			buf.git.base = base
-			buf.git.head = snapshot.status.head
+			buf.setGitBase(base, snapshot.status.head)
+
+			continue
 		}
 
 		buf.refreshGitLines()

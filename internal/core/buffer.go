@@ -348,3 +348,51 @@ var (
 	errOpenFile  = errors.New("열 수 없습니다")
 	errWriteFile = errors.New("쓸 수 없습니다")
 )
+
+// 아래 열은 **밖에서 안쪽 살림을 묻는 문**이다.
+//
+// `disk`·`git`·`syntax` 는 이 파일의 상태를 담아 둔 것이라 밖에서 속을 헤집을 것이 아니다.
+// 그런데 바깥 검사·git 갱신·언어 서버가 그 값을 알아야 해서, 필드를 여는 대신 물음마다 문을
+// 하나씩 낸다. 창을 새 패키지로 낼 때 열 면이 그만큼 좁아진다 (ADR-0127).
+
+// diskSeenAt 은 마지막으로 읽거나 쓴 그 파일의 자국이다. 바깥 변경 검사가 기준으로 쓴다.
+func (buf Buffer) diskSeenAt() (hash []byte, size int64, mtime time.Time) {
+	return buf.disk.hash, buf.disk.size, buf.disk.mtime
+}
+
+// markDiskStamp 는 크기와 시각만 새로 적는다. 해시는 그대로다 — 다음 검사가 읽지 않고
+// 끝나게 해 주는 앞잡이라, 내용이 같다고 판정한 뒤에도 갱신한다(outside.go).
+func (buf *Buffer) markDiskStamp(size int64, mtime time.Time) {
+	buf.disk.size, buf.disk.mtime = size, mtime
+}
+
+// outsideState 는 마지막 검사에서 바깥이 어떠했는지다. statusBar 의 `[!]` 가 이것을 본다.
+func (buf Buffer) outsideState() outsideChange { return buf.disk.outside }
+
+// setOutsideState 는 그것을 적는다. 달라진 순간을 가리는 것은 부르는 쪽이 한다.
+func (buf *Buffer) setOutsideState(change outsideChange) { buf.disk.outside = change }
+
+// hasGitBase 는 견줄 HEAD 원본이 있는지다.
+func (buf Buffer) hasGitBase() bool { return len(buf.git.base) > 0 }
+
+// gitHead 는 이 파일이 견주고 있는 commit 이다. 없으면 빈 문자열이다.
+func (buf Buffer) gitHead() string { return buf.git.head }
+
+// gitMarkAt 은 그 줄이 HEAD 와 어떻게 다른지다. 그리는 자리가 행마다 묻는다.
+func (buf Buffer) gitMarkAt(line int) gitLineMark { return buf.git.marks[line] }
+
+// setGitBase 는 견줄 원본을 갈아끼우고 줄 마커를 다시 잰다.
+func (buf *Buffer) setGitBase(base [][]byte, head string) {
+	buf.git.base, buf.git.head = base, head
+	buf.refreshGitLines()
+}
+
+// clearGitBase 는 들고 있던 것을 전부 내린다. 저장소가 아닌 자리로 옮겨 갔을 때다 —
+// 표시가 남아 있으면 그것이 어느 저장소의 것인지 알 수 없다.
+func (buf *Buffer) clearGitBase() {
+	buf.git.base, buf.git.head, buf.git.marks = nil, "", nil
+}
+
+// syntaxRevision 은 내용이 갈린 횟수다. 언어 서버의 답이 지금 내용의 것인지 가르는 데 쓴다
+// (semantic.go, ADR-0103).
+func (buf Buffer) syntaxRevision() int { return buf.syntax.revision }
