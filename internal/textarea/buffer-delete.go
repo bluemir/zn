@@ -11,16 +11,16 @@ import "github.com/bluemir/zn/internal/scheme"
 // 지우기와 복사가 같은 모양으로 register 를 채운다.
 //
 // 줄은 제자리에서 바뀌지 않으므로(ADR-0001) 잘라낸 조각을 그대로 들고 있어도 된다.
-func (buf Buffer) textBetween(Start, End scheme.Cursor) [][]byte {
-	count := End.Line - Start.Line + 1
+func (buf Buffer) textBetween(from, to scheme.Cursor) [][]byte {
+	count := to.Line - from.Line + 1
 
 	text := make([][]byte, 0, count)
 	if count == 1 {
-		return append(text, buf.Lines[Start.Line][Start.Col:End.Col])
+		return append(text, buf.Lines[from.Line][from.Col:to.Col])
 	}
 
-	text = append(text, buf.Lines[Start.Line][Start.Col:])
-	text = append(text, buf.Lines[Start.Line+1:End.Line]...)
+	text = append(text, buf.Lines[from.Line][from.Col:])
+	text = append(text, buf.Lines[from.Line+1:to.Line]...)
 
-	return append(text, buf.Lines[End.Line][:End.Col])
+	return append(text, buf.Lines[to.Line][:to.Col])
 }

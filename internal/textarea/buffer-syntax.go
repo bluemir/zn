@@ -90,8 +90,8 @@ func (buf Buffer) syntaxStateAt(Line int) syntax.State {
 //
 // 아직 훑지 않은 줄이면 파일 언어의 규칙이다. 부르는 자리가 전부 커서 줄이나 그 앞이고
 // 먼저 lexSyntaxTo 를 지나므로 실제로 담아둔 것이 없는 때는 파일을 막 연 순간뿐이다.
-func (buf Buffer) indentRuleAt(Line int) syntax.Indent {
-	if state := buf.syntaxStateAt(Line); state != nil {
+func (buf Buffer) indentRuleAt(line int) syntax.Indent {
+	if state := buf.syntaxStateAt(line); state != nil {
 		return state.Indent()
 	}
 
@@ -100,19 +100,19 @@ func (buf Buffer) indentRuleAt(Line int) syntax.Indent {
 
 // syntaxTokens 는 그 줄에 담아둔 토큰이다.
 // 강조하지 않는 파일이거나 아직 훑지 않은 줄이면 nil 이다.
-func (buf Buffer) SyntaxTokens(Line int) []syntax.Token {
+func (buf Buffer) SyntaxTokens(line int) []syntax.Token {
 	// valid 이후는 아직 훑지 않은 줄이다. 화면 밖이라 그릴 사람이 없다.
-	if Line < 0 || Line >= len(buf.syntax.Lines) || Line >= buf.syntax.valid {
+	if line < 0 || line >= len(buf.syntax.Lines) || line >= buf.syntax.valid {
 		return nil
 	}
 
 	// 언어 서버가 말한 줄은 서버가 정한다. 생김새로 어림잡은 답보다 type 검사를 마친 답이
 	// 낫고, 서버가 없거나 아직 말하지 않은 줄에는 lexer 의 답이 남아 있다(ADR-0103).
-	if semantic := buf.syntax.Lines[Line].semantic; semantic != nil {
+	if semantic := buf.syntax.Lines[line].semantic; semantic != nil {
 		return semantic
 	}
 
-	return buf.syntax.Lines[Line].tokens
+	return buf.syntax.Lines[line].tokens
 }
 
 // setSemanticTokens 는 [from, to) 의 서버 답을 갈아끼운다. 열은 이미 byte 로 옮겨져 있다.

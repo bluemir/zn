@@ -11,25 +11,25 @@ import "github.com/bluemir/zn/internal/scheme"
 //
 // toEnd 는 개행까지 든 줄인지다. 그리는 쪽이 줄 끝에 빈 칸 하나를 더 칠한다 —
 // `V` 로 고른 빈 줄은 칠할 글자가 없어서 그 칸이 없으면 아무것도 보이지 않는다.
-func (buf Buffer) SelectionOn(area scheme.MotionRange, Line int) (span []int, toEnd, ok bool) {
-	if Line < area.Start.Line || Line > area.End.Line {
+func (buf Buffer) SelectionOn(area scheme.MotionRange, line int) (span []int, toEnd, ok bool) {
+	if line < area.Start.Line || line > area.End.Line {
 		return nil, false, false
 	}
 
-	End := len(buf.Lines[Line])
+	end := len(buf.Lines[line])
 
 	if area.Linewise {
-		return []int{0, End}, true, true
+		return []int{0, end}, true, true
 	}
 
-	Start := 0
-	if Line == area.Start.Line {
-		Start = area.Start.Col
+	start := 0
+	if line == area.Start.Line {
+		start = area.Start.Col
 	}
 
-	if Line == area.End.Line {
-		return []int{Start, area.End.Col}, false, true
+	if line == area.End.Line {
+		return []int{start, area.End.Col}, false, true
 	}
 
-	return []int{Start, End}, true, true
+	return []int{start, end}, true, true
 }

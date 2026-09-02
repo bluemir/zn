@@ -98,14 +98,14 @@ func (viewport *Viewport) ReplaceWithNewline(count int) bool {
 // clusterEnd 는 col 에서 글자 n 개 뒤의 offset 이다. 줄에 그만큼 남아 있지 않으면 false 다.
 //
 // byte 가 아니라 글자로 센다. 한글 한 글자는 3 byte 이고 이모지는 더 길다.
-func clusterEnd(Line []byte, Col, n int) (int, bool) {
+func clusterEnd(line []byte, col, n int) (int, bool) {
 	for range n {
-		if Col >= len(Line) {
+		if col >= len(line) {
 			return 0, false
 		}
 
-		Col += GlyphSize(Line, Col)
+		col += GlyphSize(line, col)
 	}
 
-	return Col, true
+	return col, true
 }
