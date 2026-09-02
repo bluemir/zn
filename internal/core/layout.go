@@ -104,18 +104,16 @@ const (
 // 정작 보고 싶을 때 git 표시가 가려진다(ADR-0094 §3).
 const markerWidth = 2
 
-// lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.
+// lineNumberDigits 는 활성 창의 번호 자릿수다. 창이 없으면 최소값이다.
 //
-// 절대번호는 전체 줄 수까지, 상대번호는 화면 높이까지만 커진다.
-// 상대번호는 화면 밖으로 나가면 볼 수 없으므로 줄 수와 무관하다.
+// **세는 것은 창이 한다**(viewport.lineNumberDigits). 줄 수를 아는 것이 그쪽이라, 여기는
+// 「어느 창인가」와 「높이가 얼마인가」만 정해 넘긴다.
 func (e editor) lineNumberDigits() (absolute, relative int) {
-	lines := 0
-	if e.hasTab() {
-		lines = len(e.buffers[e.active].lines)
+	if !e.hasTab() {
+		return minAbsoluteDigits, max(digits(e.textHeight()), minRelativeDigits)
 	}
 
-	return max(digits(lines), minAbsoluteDigits),
-		max(digits(e.textHeight()), minRelativeDigits)
+	return e.buffers[e.active].lineNumberDigits(e.textHeight())
 }
 
 // gutterWidth 는 본문 앞에 붙는 칸이 차지하는 폭이다. 마커 칸과 줄번호 칸을 합친 것이고,
@@ -130,17 +128,8 @@ func (e editor) gutterWidth() int {
 		return 0
 	}
 
-	absolute, relative := e.lineNumberDigits()
-
-	// 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
-	// 마커 칸도 여기서 같이 사라진다 — 번호가 없는데 마커만 남으면 그것이 어느 줄의 것인지
-	// 셀 수 없다(ADR-0086).
-	width := markerWidth + absolute + 1 + relative + 1
-	if e.textWidth()-width < minTextWidth {
-		return 0
-	}
-
-	return width
+	// **재는 것은 창이 한다**(viewport.gutterWidth). 여기는 창에 준 칸만 알려 준다.
+	return e.buffers[e.active].gutterWidth(e.textWidth(), e.textHeight())
 }
 
 // digits 는 십진수 자릿수다.
