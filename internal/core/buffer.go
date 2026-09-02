@@ -12,7 +12,7 @@ import (
 	"github.com/bluemir/zn/internal/syntax"
 )
 
-// Buffer 는 파일 하나의 **글**이다. 이 파일은 type 과 태어나는 자리만 들고, 메서드 40 개는
+// Buffer 는 파일 하나의 **글**이다. 이 파일에는 type 과  생성자만 있고, 메서드 40 개는
 // 갈래별로 `buffer-*.go` 에 나뉘어 있다.
 //
 // **커서와 화면 자리는 여기 없다.** 「그 글의 어디를 보고 있나」는 viewport 가 들고, 커서를
@@ -49,30 +49,6 @@ import (
 // **흐린 자리가 하나 남았다.** 화면 폭(`width`) 을 아직 메서드 예순 남짓이 받는다. 화면 행
 // 이동과 `desiredCol` 이 줄바꿈에 걸려 있어서인데, 그 둘이 viewport 로 갔으므로 이 인자도
 // 그쪽으로 모을 수 있다 (docs/tasks.md).
-
-// viewPlace 는 「이 파일의 어디를 보고 있나」다. 커서와 화면 자리를 함께 담는다.
-//
-// **`Buffer` 가 이것을 embed 한다.** 그래서 이 넷은 지금 보고 있는 자리이면서, 담아 두었다가
-// 되돌릴 수 있는 한 덩어리다. 담는 자리(검색 무르기·치환 그만두기) 가 넷을 따로 들던 것을
-// 이 type 이 걷었고, `Buffer` 쪽도 같은 덩어리로 묶었다.
-//
-// **넷이 함께여야 한다.** 커서만 되돌리면 보이는 곳이 달라진 채로 남는다.
-//
-// 되돌리는 것은 `Buffer` 가 한다(buffer-screen.go 의 moveToPlace). 커서를 쓰는 일이라
-// `desiredCol` 을 다시 맞추는 것까지 안에서 끝나야 한다(ADR-0100).
-//
-// **`desiredCol` 과 `selection` 은 여기 없다.** 앞엣것은 담는 것이 아니라 되돌린 뒤 다시
-// 재는 파생값이고, 뒤엣것은 고른 범위라 「어디를 보고 있나」와 갈래가 다르다.
-type viewPlace struct {
-	// cursorLine 은 lines 의 index, cursorCol 은 그 줄 안의 byte offset 이다.
-	cursorLine, cursorCol int
-
-	// top, topRow 는 화면 최상단에 그릴 자리다. **커서에서 파생할 수 없다** — 커서를 두고
-	// 화면만 움직이는 동작이 있고, 커서가 화면 안에 있는 동안은 화면이 움직이지 않아야 한다.
-	// 줄 하나가 화면 행 여러 개가 될 수 있어서 줄 번호만으로는 부족하다.
-	top    int // lines 의 index
-	topRow int // 그 줄의 몇 번째 wrap 행부터 그리는지
-}
 
 // gitCache 는 HEAD 에 든 이 파일과 견줘 낸 것이다(git-lines.go, ADR-0094).
 //
