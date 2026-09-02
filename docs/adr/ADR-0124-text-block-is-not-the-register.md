@@ -70,7 +70,7 @@ embed 라 `reg.lines`·`reg.filled()` 가 그대로 서고, 밖에서 고친 자
 
 - **화면 배치 상수.** `markerWidth`·`minAbsoluteDigits`·`minRelativeDigits`·`digits` 는 재 보니 밖에서 안 쓴다 — `editor.lineNumberDigits()` 의 「tab 없을 때」 갈래가 유일한 밖 사용인데 **그 갈래는 닿지 않는다**(`renderGutter` 가 `gutterWidth()==0` 이면 먼저 나가고, tab 이 없으면 0 이다). `minTextWidth` 하나만 sidebar 와 같이 쓴다
 - **언어를 아는 자리.** `internal/syntax` 가 이미 `Language.Indent`·`Outline`·`State` 셋을 낸다. core 에 남은 것은 그 위의 얇은 층인데, `table.go`(markdown 표)·`semantic.go`·`sticky.go` 가 어디로 갈지가 아직 안 정해졌다
-- **`textBlock` 을 `scheme` 으로 올릴지.** 이제 메서드가 `filled` 하나이고 겹을 오간다. ADR-0122 의 잣대에 걸리는지 다시 볼 자리다
+- **`textBlock` 을 `scheme` 으로 올릴지.** 이제 메서드가 `filled` 하나이고 겹을 오간다. ADR-0122 의 잣대에 걸리는지 다시 볼 자리다. 가르고 보니 `textarea.TextBlock` 으로 나갔다 (ADR-0128)
 
 ## 되짚은 것
 
