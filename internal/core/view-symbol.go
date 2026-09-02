@@ -24,7 +24,7 @@ const symbolFrame = 5
 
 // symbolGridRows 는 격자에 쓸 수 있는 행 수다. 편집 영역을 다 먹지 않는 선까지다.
 func (e editor) symbolGridRows() int {
-	return min(symbolMaxGridRows, e.paneHeight()-symbolFrame-symbolMinTextHeight)
+	return min(symbolMaxGridRows, e.textAndDrawerHeight()-symbolFrame-symbolMinTextHeight)
 }
 
 // symbolColumns 는 격자 한 행에 들어가는 칸 수다.

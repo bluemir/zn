@@ -390,7 +390,7 @@ func TestSymbolHandsDrawerToNextDrawer(t *testing.T) {
 	m := newSymbolView(t, 80, 20)
 	require.NotZero(t, m.drawerHeight)
 
-	pane := m.paneHeight()
+	room := m.textAndDrawerHeight()
 
 	// 정의 후보가 여럿이면 handleJob 이 목록 판을 돌려준다(gopls.go).
 	next, _ := m.Update(definitionMsg{locations: []lsp.Location{
@@ -402,13 +402,13 @@ func TestSymbolHandsDrawerToNextDrawer(t *testing.T) {
 	require.True(t, ok, "다른 판으로 넘어가야 하는 시험이다")
 
 	assert.Equal(t, list.locationsDrawerHeight(), m.drawerHeight, "새 판의 높이여야 한다")
-	assert.Equal(t, pane-list.locationsDrawerHeight(), m.textHeight())
+	assert.Equal(t, room-list.locationsDrawerHeight(), m.textHeight())
 
 	// 그 판에서 나가면 닫힌다. 닫는 자리가 normalMode 하나다.
 	back, _ := normalMode(m.editor)
 	require.IsType(t, viewEditorNormal{}, back)
 	assert.Zero(t, back.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
-	assert.Equal(t, pane, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
+	assert.Equal(t, room, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
 }
 
 // 읽기 전용 파일은 고치지 않는다.

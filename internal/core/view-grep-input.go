@@ -33,7 +33,7 @@ func grepInputMode(e *editor) (tea.Model, tea.Cmd) {
 // 이 박스에는 목록이 없다 — 그것으로 재면 낮은 화면에서 그릴 수 있는데도 거절한다.
 // 폭은 팔레트와 같은 자를 쓴다(같은 자리에 같은 폭으로 떠야 한다).
 func (e editor) grepInputFits() bool {
-	return e.paletteWidth() >= paletteMinWidth && e.paneHeight() >= paletteTop+grepInputRows
+	return e.paletteWidth() >= paletteMinWidth && e.textAndDrawerHeight() >= paletteTop+grepInputRows
 }
 
 // grepInputRows 는 박스가 쓰는 행 수다. 테두리 둘과 입력줄 하나다.

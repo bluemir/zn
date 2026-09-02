@@ -102,7 +102,7 @@ type viewGrep struct {
 // 남는 행은 빈 줄이다. 아랫 테두리가 몇 번째인지 적으므로(ADR-0079) 빈 줄이 「이게 전부」로
 // 읽히지 않는다.
 func (m viewGrep) grepRows() int {
-	room := m.paneHeight() - grepFrame - grepMinTextHeight
+	room := m.textAndDrawerHeight() - grepFrame - grepMinTextHeight
 
 	return min(grepMaxRows, max(room, 1))
 }

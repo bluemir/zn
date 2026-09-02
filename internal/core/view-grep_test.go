@@ -77,11 +77,11 @@ func TestGrepTakesDrawerRows(t *testing.T) {
 
 	m := newGrepView(t, "func", grepHitsIn(paths[0], 2, 4, 6)...)
 
-	rows := min(grepMaxRows, m.paneHeight()-grepFrame-grepMinTextHeight)
+	rows := min(grepMaxRows, m.textAndDrawerHeight()-grepFrame-grepMinTextHeight)
 
 	assert.Equal(t, rows, m.grepRows())
 	assert.Equal(t, rows+grepFrame, m.drawerHeight)
-	assert.Equal(t, m.paneHeight()-m.drawerHeight, m.textHeight())
+	assert.Equal(t, m.textAndDrawerHeight()-m.drawerHeight, m.textHeight())
 }
 
 // 적중 수가 판 높이를 바꾸지 않는다. 하나여도 열여섯이어도 같다(grepRows).

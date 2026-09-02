@@ -110,7 +110,7 @@ func TestRegistersLeaveRestoresText(t *testing.T) {
 	for _, key := range []string{"q", "esc"} {
 		t.Run(key, func(t *testing.T) {
 			m := newRegistersView(t, 40, 20)
-			before := m.paneHeight()
+			before := m.textAndDrawerHeight()
 
 			next := send(m, key)
 
@@ -126,7 +126,7 @@ func TestRegistersHandsDrawerToNextDrawer(t *testing.T) {
 	m := newRegistersView(t, 80, 20)
 	require.NotZero(t, m.drawerHeight)
 
-	pane := m.paneHeight()
+	room := m.textAndDrawerHeight()
 
 	next, _ := m.Update(definitionMsg{locations: []lsp.Location{
 		{URI: "file:///a.go"},
@@ -137,17 +137,17 @@ func TestRegistersHandsDrawerToNextDrawer(t *testing.T) {
 	require.True(t, ok, "다른 판으로 넘어가야 하는 시험이다")
 
 	assert.Equal(t, list.locationsDrawerHeight(), m.drawerHeight, "새 판의 높이여야 한다")
-	assert.Equal(t, pane-list.locationsDrawerHeight(), m.textHeight())
+	assert.Equal(t, room-list.locationsDrawerHeight(), m.textHeight())
 
 	back, _ := normalMode(m.editor)
 	require.IsType(t, viewEditorNormal{}, back)
 	assert.Zero(t, back.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
-	assert.Equal(t, pane, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
+	assert.Equal(t, room, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
 }
 
 // 화면이 낮으면 들어가는 만큼만 그리고 `j`/`k` 로 훑는다. 조용히 감추지 않는다.
 func TestRegistersScrollsWhenShort(t *testing.T) {
-	// 편집 내용 여섯 줄이면 paneHeight 가 6 이라 목록에 한 줄만 남는다.
+	// 편집 내용 여섯 줄이면 textAndDrawerHeight 가 6 이라 목록에 한 줄만 남는다.
 	m := newRegistersView(t, 40, 6)
 	require.Equal(t, 1, m.registersRows())
 

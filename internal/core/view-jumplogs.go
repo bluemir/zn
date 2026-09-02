@@ -59,7 +59,7 @@ type viewJumplogs struct {
 
 // jumplogsRows 는 목록에 쓸 수 있는 행 수다.
 func (m viewJumplogs) jumplogsRows() int {
-	room := m.paneHeight() - jumplogsFrame - jumplogsMinTextHeight
+	room := m.textAndDrawerHeight() - jumplogsFrame - jumplogsMinTextHeight
 	want := min(max(len(m.logs.places), 1), jumplogsMaxRows)
 
 	return min(want, max(room, 1))

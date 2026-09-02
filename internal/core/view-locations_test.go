@@ -99,7 +99,7 @@ func TestLocationsTakesDrawerRows(t *testing.T) {
 	// 셋이면 목록 세 줄에 테두리 둘이다.
 	assert.Equal(t, 3, m.locationsRows())
 	assert.Equal(t, 5, m.drawerHeight)
-	assert.Equal(t, m.paneHeight()-5, m.textHeight(), "편집 영역이 그만큼 줄어든다")
+	assert.Equal(t, m.textAndDrawerHeight()-5, m.textHeight(), "편집 영역이 그만큼 줄어든다")
 }
 
 // 담긴 것이 많아도 열여섯 줄에서 멈춘다. 판이 화면을 다 먹으면 간 자리가 안 보인다.
@@ -160,7 +160,7 @@ func TestLocationsCancelRestoresOrigin(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			m, paths := locationsFixture(t)
 
-			pane := m.paneHeight()
+			room := m.textAndDrawerHeight()
 
 			// 둘러본다. 커서가 실제로 움직이고 tab 도 열린다.
 			next, _ := m.press("j")
@@ -173,7 +173,7 @@ func TestLocationsCancelRestoresOrigin(t *testing.T) {
 
 			require.IsType(t, viewEditorNormal{}, model)
 			assert.Zero(t, model.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
-			assert.Equal(t, pane, model.(viewEditorNormal).textHeight(),
+			assert.Equal(t, room, model.(viewEditorNormal).textHeight(),
 				"편집 영역이 돌아와야 한다")
 
 			assert.Len(t, m.buffers, 1, "둘러보며 연 tab 이 닫힌다")

@@ -39,7 +39,7 @@ func TestJumplogsTakesDrawerRows(t *testing.T) {
 	require.Len(t, m.logs.places, 3)
 	assert.Equal(t, 3, m.jumplogsRows())
 	assert.Equal(t, 5, m.drawerHeight)
-	assert.Equal(t, m.paneHeight()-5, m.textHeight())
+	assert.Equal(t, m.textAndDrawerHeight()-5, m.textHeight())
 }
 
 // **담는 것과 보이는 것이 다르다.** 기록이 256 개라도 판은 열여섯 줄이고 `j`/`k` 가 훑는다.
@@ -156,7 +156,7 @@ func TestJumplogsCancelRestoresOrigin(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			m, _ := newJumplogsView(t, 6)
 
-			pane := m.paneHeight()
+			room := m.textAndDrawerHeight()
 			originLine := m.activeBuffer().cursor.Line
 
 			next, _ := m.press("j")
@@ -169,7 +169,7 @@ func TestJumplogsCancelRestoresOrigin(t *testing.T) {
 
 			require.IsType(t, viewEditorNormal{}, model)
 			assert.Zero(t, model.(viewEditorNormal).drawerHeight, "판이 닫혀야 한다")
-			assert.Equal(t, pane, model.(viewEditorNormal).textHeight())
+			assert.Equal(t, room, model.(viewEditorNormal).textHeight())
 			assert.Equal(t, originLine, m.activeBuffer().cursor.Line, "열기 전 줄로 돌아온다")
 			assert.Empty(t, m.jumps.places, "아무 데도 안 갔으니 되돌아오기 이력도 비어 있다")
 		})

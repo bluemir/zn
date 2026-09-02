@@ -90,7 +90,7 @@ type viewLocations struct {
 // 화면이 낮으면 들어가는 만큼만 그리고 `j`/`k` 로 훑는다. 거절하지 않는 것은 여기 오는 것이
 // 사용자가 부른 화면이 아니라 **물어본 답**이라서다 — 답을 못 보이면 물어본 것이 사라진다.
 func (m viewLocations) locationsRows() int {
-	room := m.paneHeight() - locationsFrame - locationsMinTextHeight
+	room := m.textAndDrawerHeight() - locationsFrame - locationsMinTextHeight
 	want := min(max(len(m.locations), 1), locationsMaxRows)
 
 	return min(want, max(room, 1))

@@ -11,9 +11,13 @@ const tablineHeight = 1
 // statusBarHeight 는 화면 아래 statusBar 가 차지하는 줄 수다(docs/spec.md).
 const statusBarHeight = 2
 
-// paneHeight 는 tabline 과 statusBar 를 뺀 높이다.
-// 편집 영역과 하단 drawer 가 이것을 나눠 쓴다(docs/spec.md).
-func (e editor) paneHeight() int {
+// textAndDrawerHeight 는 tabline 과 statusBar 를 뺀 높이다.
+// 편집 영역과 하단 판(drawer) 이 이것을 나눠 쓴다(docs/spec.md).
+//
+// **전에는 `paneHeight` 였다.** 그 이름이 「판의 높이」로 읽히는데 실제로는 판을 아직 안고
+// 있는 높이라, 판이 열리면 그만큼 어긋난다. 닫혀 있는 동안은 우연히 편집 영역과 같아서
+// 그 어긋남이 안 보인다. 나눠 쓰는 둘을 이름에 다 적어 그 물음을 없앴다 (ADR-0123).
+func (e editor) textAndDrawerHeight() int {
 	return max(0, e.height-tablineHeight-statusBarHeight)
 }
 
@@ -23,7 +27,7 @@ func (e editor) paneHeight() int {
 // drawer 는 편집 화면에 얹지 않고 이 높이를 가져간다. 얹으면 넣는 자리인 커서가 그 밑에
 // 가려질 수 있고, 여기서 빼두면 scrollToCursor 가 그대로 커서를 살려 준다(ADR-0056).
 func (e editor) textHeight() int {
-	return max(0, e.paneHeight()-e.drawerHeight)
+	return max(0, e.textAndDrawerHeight()-e.drawerHeight)
 }
 
 // sidebarHeight 는 sidebar 가 차지하는 높이다.
@@ -37,7 +41,7 @@ func (e editor) textHeight() int {
 //
 // 트리 이동과 스크롤은 편집 영역이 아니라 이 높이를 기준으로 세야 맨 윗줄이 잘리지 않는다.
 func (e editor) sidebarHeight() int {
-	return tablineHeight + e.paneHeight()
+	return tablineHeight + e.textAndDrawerHeight()
 }
 
 // sidebarVisible 은 sidebar 가 실제로 그려지는지다.

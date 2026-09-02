@@ -37,7 +37,7 @@ func TestJumpsTakesDrawerRows(t *testing.T) {
 	require.Len(t, m.jumps.places, 3)
 	assert.Equal(t, 3, m.jumpsRows())
 	assert.Equal(t, 5, m.drawerHeight)
-	assert.Equal(t, m.paneHeight()-5, m.textHeight())
+	assert.Equal(t, m.textAndDrawerHeight()-5, m.textHeight())
 }
 
 // 이력이 없어도 열린다. 「없다」를 보여주는 것이 아무 일도 안 나는 것보다 낫다.
@@ -157,7 +157,7 @@ func TestJumpsCancelRestoresOrigin(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			m, _ := newJumpsView(t)
 
-			pane := m.paneHeight()
+			room := m.textAndDrawerHeight()
 			originPath := m.activeBuffer().path
 			originLine := m.activeBuffer().cursor.Line
 			at := m.jumps.at
@@ -171,7 +171,7 @@ func TestJumpsCancelRestoresOrigin(t *testing.T) {
 
 			require.IsType(t, viewEditorNormal{}, model, "판이 닫혀야 한다")
 			assert.Zero(t, model.(viewEditorNormal).drawerHeight)
-			assert.Equal(t, pane, model.(viewEditorNormal).textHeight())
+			assert.Equal(t, room, model.(viewEditorNormal).textHeight())
 
 			assert.Equal(t, originPath, m.activeBuffer().path, "열기 전 파일로 돌아온다")
 			assert.Equal(t, originLine, m.activeBuffer().cursor.Line, "열기 전 줄로 돌아온다")

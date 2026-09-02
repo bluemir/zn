@@ -71,7 +71,7 @@ type viewJumps struct {
 
 // jumpsRows 는 목록에 쓸 수 있는 행 수다. `GOTO` 판과 같은 셈이다.
 func (m viewJumps) jumpsRows() int {
-	room := m.paneHeight() - jumpsFrame - jumpsMinTextHeight
+	room := m.textAndDrawerHeight() - jumpsFrame - jumpsMinTextHeight
 	want := min(max(len(m.jumps.places), 1), jumpsMaxRows)
 
 	return min(want, max(room, 1))

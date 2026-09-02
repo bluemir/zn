@@ -92,7 +92,7 @@ func (m viewRegisters) rows() []registerRow {
 // 그리고 `j`/`k` 로 훑는다 — 목록이 최대 열한 줄이라 훑을 일이 드물지만, 조용히 감추면
 // 「그 register 는 비었나」로 읽힌다.
 func (m viewRegisters) registersRows() int {
-	room := m.paneHeight() - registersFrame - registersMinTextHeight
+	room := m.textAndDrawerHeight() - registersFrame - registersMinTextHeight
 
 	return min(max(len(m.rows()), 1), max(room, 1))
 }
