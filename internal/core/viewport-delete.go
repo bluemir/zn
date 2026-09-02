@@ -11,7 +11,7 @@ import "github.com/bluemir/zn/internal/scheme"
 //
 // **범위를 잡는 것은 부르는 쪽이다.** motion 이 잡은 것(`dw`) 도 visual 이 고른 것(`d`) 도
 // 여기로 온다 — 둘이 범위를 얻는 길만 다르고 그다음은 같다(action.go, ADR-0037).
-func (buf *viewport) deleteRange(area scheme.MotionRange) (register, bool) {
+func (buf *viewport) deleteRange(area scheme.MotionRange) (textBlock, bool) {
 	if area.Linewise {
 		return buf.deleteLines(area.Start.Line, area.End.Line), true
 	}
@@ -37,9 +37,9 @@ func (buf *viewport) includeCursorCluster() {
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 // deleteText 는 (start.line, start.col) 부터 (end.line, end.col) 앞까지 지운다.
 // 지울 것이 없으면 아무것도 하지 않고 false 다.
-func (buf *viewport) deleteText(start, end scheme.Cursor) (register, bool) {
+func (buf *viewport) deleteText(start, end scheme.Cursor) (textBlock, bool) {
 	if start.Line == end.Line && start.Col == end.Col {
-		return register{}, false
+		return textBlock{}, false
 	}
 
 	count := end.Line - start.Line + 1
@@ -62,14 +62,14 @@ func (buf *viewport) deleteText(start, end scheme.Cursor) (register, bool) {
 	buf.clampToNormal()
 	buf.updateDesiredCol()
 
-	return register{lines: removed}, true
+	return textBlock{lines: removed}, true
 }
 
 // deleteLines 는 [from, to] 줄을 통째로 지운다.
 //
 // 파일의 모든 줄을 지우면 빈 줄 하나를 남긴다. lines 는 비어 있을 수 없다 —
 // 커서가 설 줄이 없으면 그리는 쪽과 이동하는 쪽이 모두 무너진다.
-func (buf *viewport) deleteLines(from, to int) register {
+func (buf *viewport) deleteLines(from, to int) textBlock {
 	count := to - from + 1
 
 	with := [][]byte(nil)
@@ -89,5 +89,5 @@ func (buf *viewport) deleteLines(from, to int) register {
 	buf.moveLineFirstNonBlank()
 	buf.clampToNormal()
 
-	return register{lines: removed, linewise: true}
+	return textBlock{lines: removed, linewise: true}
 }

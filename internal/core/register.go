@@ -46,7 +46,8 @@ type registerSet struct {
 //
 // 이름이 없을 때 숫자 링을 밀지 않는 것은 `"0` 이 「마지막으로 복사한 것」이라 지운 것들과
 // 섞이지 않아야 하기 때문이다 — 지우다 덮어버리는 일을 없애려고 넣은 것이 그 갈라짐이다.
-func (regs *registerSet) storeYank(reg register, name string) {
+func (regs *registerSet) storeYank(block textBlock, name string) {
+	reg := register{block}
 	regs.unnamed = reg
 
 	if name == "" {
@@ -55,7 +56,7 @@ func (regs *registerSet) storeYank(reg register, name string) {
 		return
 	}
 
-	regs.storeNamed(reg, name)
+	regs.storeNamed(block, name)
 }
 
 // storeDelete 는 지우거나 바꾼 것을 담는다. 이름이 비어 있으면 무명과 `"1` 이고,
@@ -67,11 +68,12 @@ func (regs *registerSet) storeYank(reg register, name string) {
 // 그 무게보다 작다. 그래서 `x` 를 세 번 치면 `"1` `"2` `"3` 이 글자 하나씩이 된다(ADR-0058).
 //
 // `"0` 은 건드리지 않는다. 복사 전용이다.
-func (regs *registerSet) storeDelete(reg register, name string) {
+func (regs *registerSet) storeDelete(block textBlock, name string) {
+	reg := register{block}
 	regs.unnamed = reg
 
 	if name != "" {
-		regs.storeNamed(reg, name)
+		regs.storeNamed(block, name)
 
 		return
 	}
@@ -87,7 +89,9 @@ func (regs *registerSet) storeDelete(reg register, name string) {
 //
 // `"A` 는 `"a` 와 같은 자리이고 담는 법만 다르다. 그래서 자리를 소문자로 맞춘다 — 대문자를
 // 따로 두면 `"ap` 가 `"A` 로 모은 것을 못 본다.
-func (regs *registerSet) storeNamed(reg register, name string) {
+func (regs *registerSet) storeNamed(block textBlock, name string) {
+	reg := register{block}
+
 	if regs.named == nil {
 		regs.named = map[string]register{}
 	}
@@ -125,13 +129,13 @@ func appendRegister(base, extra register) register {
 	lines = append(lines, base.lines...)
 
 	if base.linewise || extra.linewise {
-		return register{lines: append(lines, extra.lines...), linewise: true}
+		return register{textBlock{lines: append(lines, extra.lines...), linewise: true}}
 	}
 
 	last := len(lines) - 1
 	lines[last] = append(append([]byte{}, lines[last]...), extra.lines[0]...)
 
-	return register{lines: append(lines, extra.lines[1:]...)}
+	return register{textBlock{lines: append(lines, extra.lines[1:]...)}}
 }
 
 // byName 은 이름으로 고른 register 다. 이름이 비어 있으면 무명이다.
@@ -166,17 +170,14 @@ func registerWritable(name string) bool {
 	return (name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z')
 }
 
-// filled 는 담긴 것이 있는지다. `:registers` 가 빈 것을 걸러내는 데 쓴다.
-func (reg register) filled() bool {
-	return len(reg.lines) > 0
-}
-
-// register 는 지우거나 복사한 내용이다. vim 의 무명 register 에 해당한다.
+// register 는 한 칸에 담긴 것이다. vim 의 무명 register 에 해당한다.
 //
-// 줄 단위였는지를 같이 들고 있어야 붙여넣기가 줄로 넣을지 글자로 넣을지 정할 수 있다(ADR-0017).
+// **떼어 낸 자료(textBlock) 에 말을 얹은 것이다.** 담긴 것 자체는 글에서 떼어 낸 덩이라
+// 글을 다루는 겹의 것이고, 「몇 자인가」·「무엇을 알릴까」는 editor 가 하는 말이다.
+// embed 라 `reg.lines`·`reg.filled()` 가 그대로 서고, 붙여넣기에 넘길 때는 `reg.textBlock`
+// 으로 자료만 준다 — 그쪽이 필요한 것은 자리와 글과 줄 단위인지뿐이다(text-block.go).
 type register struct {
-	lines    [][]byte // 줄 단위면 그 줄들, 글자 단위면 조각을 줄로 끊은 것
-	linewise bool
+	textBlock
 }
 
 // copiedMessage 는 `y` 가 statusBar 아래 줄에 띄우는 알림이다. 다음 키를 누르면 사라진다.

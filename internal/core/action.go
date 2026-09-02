@@ -130,7 +130,7 @@ func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 		// 복사할 것이 없었으면 옮기지도 않는다. 아무 일도 안 일어난 것이 맞다.
 		if yanked, copied := buf.yankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
-			e.notify(yanked.copiedMessage())
+			e.notify(register{yanked}.copiedMessage())
 			buf.moveToRangeStart(area)
 		}
 	}
@@ -357,7 +357,7 @@ func (c actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 	if area, ok := buf.selectionRange(); ok {
 		if yanked, copied := buf.yankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
-			e.notify(yanked.copiedMessage())
+			e.notify(register{yanked}.copiedMessage())
 			buf.moveToRangeStart(area)
 		}
 	}
@@ -476,7 +476,7 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteAfter(e.registers.byName(c.reg), max(c.count, 1))
+	e.activeBuffer().pasteAfter(e.registers.byName(c.reg).textBlock, max(c.count, 1))
 	e.scrollToCursor()
 
 	return nil, nil
@@ -494,7 +494,7 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().pasteBefore(e.registers.byName(c.reg), max(c.count, 1))
+	e.activeBuffer().pasteBefore(e.registers.byName(c.reg).textBlock, max(c.count, 1))
 	e.scrollToCursor()
 
 	return nil, nil

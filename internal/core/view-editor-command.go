@@ -406,7 +406,7 @@ func (m viewEditorCommand) deleteLines(cmd command) (tea.Model, tea.Cmd) {
 	m.registers.storeDelete(removed, "")
 	m.scrollToCursor()
 
-	return normalModeMessage(m.editor, removed.deletedMessage())
+	return normalModeMessage(m.editor, register{removed}.deletedMessage())
 }
 
 // yankLines 는 `:[범위]y` 다. 범위를 치지 않았으면 커서 줄 하나다.
@@ -437,7 +437,7 @@ func (m viewEditorCommand) yankLines(cmd command) (tea.Model, tea.Cmd) {
 
 	m.registers.storeYank(copied, "")
 
-	return normalModeMessage(m.editor, copied.copiedMessage())
+	return normalModeMessage(m.editor, register{copied}.copiedMessage())
 }
 
 // cat 은 `:[범위]cat` 이다. 그 줄들을 평문으로 터미널에 낸다(ADR-0085).

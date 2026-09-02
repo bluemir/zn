@@ -16,22 +16,22 @@ import "github.com/bluemir/zn/internal/scheme"
 // `y` 가 커서를 옮기는 것은 그 위에 얹힌 별개의 걸음이다 — `yb` 는 앞으로 가고 `yw` 는
 // 제자리인데, 그 규칙은 복사의 성질이 아니라 키의 규칙이다. 「복사하고, 커서를 옮긴다」를
 // 부르는 쪽이 그 차례로 한다(action.go, ADR-0100).
-func (buf Buffer) yankRange(area scheme.MotionRange) (register, bool) {
+func (buf Buffer) yankRange(area scheme.MotionRange) (textBlock, bool) {
 	if area.Linewise {
-		return register{lines: append([][]byte(nil), buf.lines[area.Start.Line:area.End.Line+1]...), linewise: true}, true
+		return textBlock{lines: append([][]byte(nil), buf.lines[area.Start.Line:area.End.Line+1]...), linewise: true}, true
 	}
 
 	if area.Start.Line == area.End.Line && area.Start.Col == area.End.Col {
-		return register{}, false
+		return textBlock{}, false
 	}
 
-	return register{lines: buf.textBetween(area.Start, area.End)}, true
+	return textBlock{lines: buf.textBetween(area.Start, area.End)}, true
 }
 
 // yankLines 는 [from, to] 줄을 register 에 담는다. `:[범위]y` 가 쓴다.
 //
 // 커서를 움직이지 않는다. motion 쪽은 이동이 잡은 범위라 커서가 따라가야 하지만(`yb` 는
 // 앞으로 간다) 여기는 손으로 친 줄 번호라 따라갈 이동이 없다. 파일도 건드리지 않는다.
-func (buf Buffer) yankLines(from, to int) register {
-	return register{lines: append([][]byte(nil), buf.lines[from:to+1]...), linewise: true}
+func (buf Buffer) yankLines(from, to int) textBlock {
+	return textBlock{lines: append([][]byte(nil), buf.lines[from:to+1]...), linewise: true}
 }
