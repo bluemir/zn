@@ -17,34 +17,34 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 		want                  motionRange
 	}{
 		{
-			name: "한 글자", want: motionRange{endCol: 1},
+			name: "한 글자", want: motionRange{end: cursor{col: 1}},
 		},
 		{
 			name: "앞으로 고르기", cursorCol: 3,
-			want: motionRange{endCol: 4},
+			want: motionRange{end: cursor{col: 4}},
 		},
 		{
 			name: "뒤로 고르기", anchorCol: 3,
-			want: motionRange{endCol: 4},
+			want: motionRange{end: cursor{col: 4}},
 		},
 		{
 			name: "줄을 넘어", cursorLine: 1, cursorCol: 1,
-			want: motionRange{endLine: 1, endCol: 2},
+			want: motionRange{end: cursor{line: 1, col: 2}},
 		},
 		{
 			// 한글 한 글자는 3 byte 다. cluster 통째로 든다.
 			name: "한글", anchorLine: 2, cursorLine: 2,
-			want: motionRange{startLine: 2, endLine: 2, endCol: 3},
+			want: motionRange{start: cursor{line: 2}, end: cursor{line: 2, col: 3}},
 		},
 		{
 			name: "빈 줄에는 밀 글자가 없다", anchorLine: 3, cursorLine: 3,
-			want: motionRange{startLine: 3, endLine: 3},
+			want: motionRange{start: cursor{line: 3}, end: cursor{line: 3}},
 		},
 		{
 			// 줄 단위도 칸을 담는다. 고치는 자리는 줄 전체를 쓰지만, 복사가 커서를 처음
 			// 짚은 자리로 되돌릴 때 그 칸이 필요하다(ADR-0100).
 			name: "줄 단위도 칸을 담는다", anchorCol: 2, cursorLine: 1, cursorCol: 5, linewise: true,
-			want: motionRange{startCol: 2, endLine: 1, endCol: 5, linewise: true},
+			want: motionRange{start: cursor{col: 2}, end: cursor{line: 1, col: 5}, linewise: true},
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 				line:     test.anchorLine,
 				col:      test.anchorCol,
 			}
-			buf.cursorLine, buf.cursorCol = test.cursorLine, test.cursorCol
+			buf.cursor = cursor{line: test.cursorLine, col: test.cursorCol}
 
 			area, ok := buf.selectionRange()
 			require.True(t, ok)
@@ -78,7 +78,7 @@ func TestSelectionOn(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\nquux\n"))
 
 	t.Run("한 줄 안", func(t *testing.T) {
-		span, toEnd, ok := buf.selectionOn(motionRange{startCol: 1, endCol: 4}, 0)
+		span, toEnd, ok := buf.selectionOn(motionRange{start: cursor{col: 1}, end: cursor{col: 4}}, 0)
 
 		require.True(t, ok)
 		assert.Equal(t, []int{1, 4}, span)
@@ -86,7 +86,7 @@ func TestSelectionOn(t *testing.T) {
 	})
 
 	t.Run("여러 줄", func(t *testing.T) {
-		area := motionRange{startCol: 4, endLine: 2, endCol: 2}
+		area := motionRange{start: cursor{col: 4}, end: cursor{line: 2, col: 2}}
 
 		span, toEnd, ok := buf.selectionOn(area, 0)
 		require.True(t, ok)
@@ -105,7 +105,7 @@ func TestSelectionOn(t *testing.T) {
 	})
 
 	t.Run("줄 단위는 줄 전체", func(t *testing.T) {
-		span, toEnd, ok := buf.selectionOn(motionRange{endLine: 1, linewise: true}, 1)
+		span, toEnd, ok := buf.selectionOn(motionRange{end: cursor{line: 1}, linewise: true}, 1)
 
 		require.True(t, ok)
 		assert.Equal(t, []int{0, 7}, span)
@@ -113,7 +113,7 @@ func TestSelectionOn(t *testing.T) {
 	})
 
 	t.Run("범위 밖의 줄", func(t *testing.T) {
-		_, _, ok := buf.selectionOn(motionRange{endLine: 1}, 2)
+		_, _, ok := buf.selectionOn(motionRange{end: cursor{line: 1}}, 2)
 
 		assert.False(t, ok)
 	})

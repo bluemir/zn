@@ -138,8 +138,8 @@ func TestChangeCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, test.line, test.col, test.keys...)
 
-			assert.Equal(t, test.wantLine, buf.cursorLine)
-			assert.Equal(t, test.wantCol, buf.cursorCol)
+			assert.Equal(t, test.wantLine, buf.cursor.line)
+			assert.Equal(t, test.wantCol, buf.cursor.col)
 		})
 	}
 }

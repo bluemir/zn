@@ -26,7 +26,7 @@ package core
 // **드는 것**
 //
 //   - **글.** Buffer 를 embed 한다
-//   - **그 글의 어디를 보고 있나.** 커서·`top`·`topRow`·`desiredCol`·고른 범위
+//   - **그 글의 어디를 보고 있나.** 커서·`top`·`topRow`·`desiredX`·고른 범위
 //   - **본문 앞 칸의 폭.** gutterWidth·lineNumberDigits 다. 마커 두 칸과 번호 칸을 합친
 //     것이고, 자릿수가 이 파일의 줄 수에서 나오므로 창이 잰다
 //
@@ -52,14 +52,14 @@ type viewport struct {
 	// viewPlace 는 커서와 화면 자리다. 담아 두었다가 되돌리는 단위이기도 하다(place·moveToPlace).
 	viewPlace
 
-	// desiredCol 은 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
+	// desiredX 은 위아래로 움직일 때 지킬 열이다. **화면 행 안에서 센 칸이다**(ADR-0108).
 	//
 	// 그렇게 둔 것은 `↑`/`↓` 가 화면 행 단위라서다(ADR-0006, ADR-0076). 대가로 wrap 된 줄의
 	// 둘째 행 이후에서 `j`/`k` 를 누르면 다음 줄의 첫 화면 행에 선다. vim 은 이 칸을 줄
 	// 시작에서 세므로 그 자리에서 다르고, 그대로 두기로 정했다(placeCursorInLine).
 	//
 	// viewPlace 에 안 든 것은 **담는 값이 아니기 때문**이다. 되돌린 뒤 다시 잰다.
-	desiredCol int
+	desiredX int
 
 	// selection 은 visual mode 가 고른 범위의 반대쪽 끝이다. 이쪽 끝은 커서다(selection.go).
 	selection selection
@@ -73,20 +73,47 @@ type viewport struct {
 //
 // **넷이 함께여야 한다.** 커서만 되돌리면 보이는 곳이 달라진 채로 남는다.
 //
-// 되돌리는 것은 창이 한다(아래 moveToPlace). 커서를 쓰는 일이라 `desiredCol` 을 다시 맞추는
+// 되돌리는 것은 창이 한다(아래 moveToPlace). 커서를 쓰는 일이라 `desiredX` 을 다시 맞추는
 // 것까지 안에서 끝나야 한다(ADR-0100).
 //
-// **`desiredCol` 과 `selection` 은 여기 없다.** 앞엣것은 담는 것이 아니라 되돌린 뒤 다시
+// **`desiredX` 과 `selection` 은 여기 없다.** 앞엣것은 담는 것이 아니라 되돌린 뒤 다시
 // 재는 파생값이고, 뒤엣것은 고른 범위라 「어디를 보고 있나」와 갈래가 다르다.
 type viewPlace struct {
-	// cursorLine 은 lines 의 index, cursorCol 은 그 줄 안의 byte offset 이다.
-	cursorLine, cursorCol int
+	cursor cursor
+	top    viewTop
+}
 
-	// top, topRow 는 화면 최상단에 그릴 자리다. **커서에서 파생할 수 없다** — 커서를 두고
-	// 화면만 움직이는 동작이 있고, 커서가 화면 안에 있는 동안은 화면이 움직이지 않아야 한다.
-	// 줄 하나가 화면 행 여러 개가 될 수 있어서 줄 번호만으로는 부족하다.
-	top    int // lines 의 index
-	topRow int // 그 줄의 몇 번째 wrap 행부터 그리는지
+// cursor 는 파일 안의 자리다.
+//
+// **col 은 화면 칸이 아니라 byte offset 이다.** 이 저장소에는 `col` 이라는 낱말이 두 단위로
+// 있어서 type 으로 가른다 — 여기는 줄 안의 byte 이고, 화면에 그려진 칸은 cell 이다.
+// 그냥 `int` 둘이던 때는 바꿔 넣어도 컴파일이 되었다 (ADR-0122).
+type cursor struct {
+	line int // lines 의 index
+	col  int // 그 줄 안의 byte offset
+}
+
+// cell 은 화면에 그려진 자리다. 터미널 셀 격자의 칸이라 둘 다 화면 칸으로 센다.
+//
+// x, y 로 세는 것은 받는 쪽(`tea.NewCursor`) 의 어휘이기도 하고, `col` 을 쓰면 cursor 의
+// byte offset 과 같은 낱말이 되어 다시 헷갈린다.
+type cell struct {
+	x int // 왼쪽에서 몇 번째 칸
+	y int // 위에서 몇 번째 행
+}
+
+// viewTop 은 화면 맨 위에 그릴 자리다.
+//
+// **커서에서 파생할 수 없다.** 커서를 두고 화면만 움직이는 동작이 있고, 커서가 화면 안에
+// 있는 동안은 화면이 움직이지 않아야 한다.
+//
+// **논리 줄과 그 안의 행으로 센다.** 「파일 앞에서부터 몇 번째 화면 행」으로 담으면 폭이 한
+// 칸만 바뀌어도 통째로 틀리고, 다시 세려면 파일 앞부분을 처음부터 훑어야 한다. 논리 줄은
+// 폭과 무관하므로 그것을 닻으로 삼고 그 안에서만 행을 센다 — 폭이 바뀌면 row 만 다시 재면
+// 되고 line 은 그대로다 (ADR-0122).
+type viewTop struct {
+	line int // lines 의 index
+	row  int // 그 줄의 몇 번째 wrap 행부터 그리는지
 }
 
 // place 는 지금 보고 있는 자리다. 무르는 자리가 이것을 담아 두었다가 moveToPlace 로 되돌린다.
@@ -99,7 +126,7 @@ func (buf viewport) place() viewPlace {
 
 // moveToPlace 는 담아 둔 자리로 커서와 화면을 되돌린다.
 //
-// **`desiredCol` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
+// **`desiredX` 을 다시 맞춘다.** 커서를 옮기는 자리라 그 불변이 여기서 끝나야 한다 —
 // 밖에서 필드를 직접 쓰면 그 겹이 이것을 같이 져야 하고, 잊으면 되돌린 뒤 `j` 가 엉뚱한
 // 칸으로 간다(ADR-0100).
 func (buf *viewport) moveToPlace(at viewPlace, width int) {

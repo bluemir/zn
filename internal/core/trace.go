@@ -123,15 +123,15 @@ func traceBuffer(model tea.Model) string {
 	}
 
 	buf := holder.activeBuffer()
-	if buf.cursorLine < 0 || buf.cursorLine >= len(buf.lines) {
+	if buf.cursor.line < 0 || buf.cursor.line >= len(buf.lines) {
 		return ""
 	}
 
-	line := buf.lines[buf.cursorLine]
-	at := min(max(buf.cursorCol, 0), len(line))
+	line := buf.lines[buf.cursor.line]
+	at := min(max(buf.cursor.col, 0), len(line))
 
 	return fmt.Sprintf(" cur=%d:%d screen=%d line=%q",
-		buf.cursorLine+1, at, screenColAt(line, at, buf.tabWidth()),
+		buf.cursor.line+1, at, screenColAt(line, at, buf.tabWidth()),
 		string(line[:at])+traceCursor+string(line[at:]))
 }
 

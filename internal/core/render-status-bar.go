@@ -141,9 +141,9 @@ func (e editor) noticeOr(fallback string) string {
 // (diagnostics.go 의 renderDiagnostic, tip.go 의 renderWithTip, ADR-0086).
 func (e editor) renderPosition() string {
 	buf := e.buffers[e.active]
-	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, buf.tabWidth())
+	col := screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, buf.tabWidth())
 
-	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.cursorLine+1, col+1, len(buf.lines))
+	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.cursor.line+1, col+1, len(buf.lines))
 
 	diagnostic := e.renderDiagnostic()
 	if diagnostic == "" {

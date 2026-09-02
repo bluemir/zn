@@ -17,8 +17,8 @@ import "github.com/bluemir/zn/internal/lsp"
 // **되돌리기 구간을 닫지 않는다.** insert 에서 친 글자와 한 구간에 있어야 `u` 한 번으로
 // 그 insert 가 통째로 돌아간다. vim 과 같다.
 func (buf *viewport) insertCompletion(item lsp.CompletionItem, width int) {
-	line := buf.cursorLine
-	start, end := buf.cursorCol, buf.cursorCol
+	line := buf.cursor.line
+	start, end := buf.cursor.col, buf.cursor.col
 
 	if edit := item.TextEdit; edit != nil &&
 		edit.Range.Start.Line == line && edit.Range.End.Line == line {
@@ -40,6 +40,6 @@ func (buf *viewport) insertCompletion(item lsp.CompletionItem, width int) {
 	buf.beginEdit(line, 1)
 	buf.replaceLines(line, 1, [][]byte{next})
 
-	buf.cursorCol = start + len(text)
+	buf.cursor.col = start + len(text)
 	buf.updateDesiredCol(width)
 }

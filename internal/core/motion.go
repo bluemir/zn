@@ -32,20 +32,14 @@ type moveMotion interface {
 // `dw` 가 지우는 끝이 어긋날 수 없다. Buffer 는 slice header 뭉치라 복사가 싸고
 // 이동은 lines 를 건드리지 않는다(ADR-0013).
 func charSpan(buf viewport, moved viewport) (motionRange, bool) {
-	line, col := moved.cursorLine, moved.cursorCol
+	line, col := moved.cursor.line, moved.cursor.col
 
 	// 뒤로 가는 motion 은 커서가 범위의 끝이다.
-	if line < buf.cursorLine || (line == buf.cursorLine && col < buf.cursorCol) {
-		return motionRange{
-			startLine: line, startCol: col,
-			endLine: buf.cursorLine, endCol: buf.cursorCol,
-		}, true
+	if line < buf.cursor.line || (line == buf.cursor.line && col < buf.cursor.col) {
+		return motionRange{start: cursor{line: line, col: col}, end: cursor{line: buf.cursor.line, col: buf.cursor.col}}, true
 	}
 
-	return motionRange{
-		startLine: buf.cursorLine, startCol: buf.cursorCol,
-		endLine: line, endCol: col,
-	}, true
+	return motionRange{start: cursor{line: buf.cursor.line, col: buf.cursor.col}, end: cursor{line: line, col: col}}, true
 }
 
 // lineSpan 은 줄 단위 범위다. 커서 줄과 닿은 줄 사이의 줄 전체를 뜻한다.
@@ -56,15 +50,11 @@ func charSpan(buf viewport, moved viewport) (motionRange, bool) {
 // 비공백으로 가는데, 그 칸이 범위에 없으면 어디서도 만들어 낼 수 없다(ADR-0017, ADR-0100).
 func lineSpan(buf viewport, moved viewport) (motionRange, bool) {
 	start, end := buf, moved
-	if moved.cursorLine < buf.cursorLine {
+	if moved.cursor.line < buf.cursor.line {
 		start, end = moved, buf
 	}
 
-	return motionRange{
-		startLine: start.cursorLine, startCol: start.cursorCol,
-		endLine: end.cursorLine, endCol: end.cursorCol,
-		linewise: true,
-	}, true
+	return motionRange{start: cursor{line: start.cursor.line, col: start.cursor.col}, end: cursor{line: end.cursor.line, col: end.cursor.col}, linewise: true}, true
 }
 
 // moveOn 은 복사본 위에서 이동을 실행한 결과다. span 을 구하는 자리가 모두 이것으로 시작한다.
@@ -166,7 +156,7 @@ func (m motionWordForward) span(buf viewport, count, width int) (motionRange, bo
 	// 중간 걸음은 줄을 넘어도 된다 — `2dw` 는 다음 줄의 단어까지 지운다.
 	moved.moveWordForward(max(count, 1)-1, m.kind, width)
 
-	line := moved.cursorLine
+	line := moved.cursor.line
 
 	// 빈 줄에서는 그 줄 자체가 지울 것이라 다음 줄 시작까지 간다. 파일 끝이면 갈 곳이 없다.
 	if len(moved.lines[line]) == 0 {
@@ -179,7 +169,7 @@ func (m motionWordForward) span(buf viewport, count, width int) (motionRange, bo
 
 	// 마지막 한 걸음만 줄에서 멈춘다. 넘었으면 줄끝으로 되돌린다.
 	moved.wordForward(m.kind)
-	if moved.cursorLine != line {
+	if moved.cursor.line != line {
 		moved.moveTo(line, len(moved.lines[line]), width)
 	}
 
@@ -196,7 +186,7 @@ func (motionLineDown) move(buf *viewport, count, width int) { buf.moveDownLine(m
 func (m motionLineDown) span(buf viewport, count, width int) (motionRange, bool) {
 	// 이미 마지막 줄이면 갈 곳이 없어서 아무 일도 하지 않는다.
 	// 줄이 모자라기만 한 것은 파일 끝까지다. vim 과 같다.
-	if buf.cursorLine == len(buf.lines)-1 {
+	if buf.cursor.line == len(buf.lines)-1 {
 		return motionRange{}, false
 	}
 
@@ -209,7 +199,7 @@ type motionLineUp struct{}
 func (motionLineUp) move(buf *viewport, count, width int) { buf.moveUpLine(max(count, 1)) }
 
 func (m motionLineUp) span(buf viewport, count, width int) (motionRange, bool) {
-	if buf.cursorLine == 0 {
+	if buf.cursor.line == 0 {
 		return motionRange{}, false
 	}
 
@@ -307,14 +297,12 @@ func (m motionChangeWord) span(buf viewport, count, width int) (motionRange, boo
 	// 빈 줄에서는 바꿀 것이 없다. `dw` 는 그 줄을 지우고 다음 줄을 끌어올리지만(ADR-0013),
 	// 빈 줄에 글을 쓰려고 `cw` 를 친 손에는 다음 줄이 딸려 올라오는 것이 사고다.
 	// vim 도 여기서는 줄을 합치지 않는다 — exclusive 보정 규칙이 이 자리를 줄 단위로 돌린다.
-	if len(buf.lines[buf.cursorLine]) == 0 {
-		return motionRange{
-			startLine: buf.cursorLine, endLine: buf.cursorLine,
-		}, true
+	if len(buf.lines[buf.cursor.line]) == 0 {
+		return motionRange{start: cursor{line: buf.cursor.line}, end: cursor{line: buf.cursor.line}}, true
 	}
 
 	// 공백 위면 예외가 아니다. 바꿀 것이 그 공백이라 `dw` 와 같이 건너뛴다.
-	if buf.classAt(buf.cursorLine, buf.cursorCol, m.kind) == classBlank {
+	if buf.classAt(buf.cursor.line, buf.cursor.col, m.kind) == classBlank {
 		return motionWordForward{kind: m.kind}.span(buf, count, width)
 	}
 
@@ -339,15 +327,11 @@ func (m motionChangeWord) span(buf viewport, count, width int) (motionRange, boo
 type motionWholeLines struct{}
 
 func (motionWholeLines) span(buf viewport, count, width int) (motionRange, bool) {
-	end := min(buf.cursorLine+max(count, 1)-1, len(buf.lines)-1)
+	end := min(buf.cursor.line+max(count, 1)-1, len(buf.lines)-1)
 
 	// 칸은 커서 그대로다. `yy` 가 커서를 옮기지 않는 것이 이 값으로 표현된다 — 범위의 시작이
 	// 곧 지금 자리라 「뒤로 갔나」가 거짓이 된다(buffer-yank.go 의 moveToRangeStart).
-	return motionRange{
-		startLine: buf.cursorLine, startCol: buf.cursorCol,
-		endLine: end, endCol: buf.cursorCol,
-		linewise: true,
-	}, true
+	return motionRange{start: cursor{line: buf.cursor.line, col: buf.cursor.col}, end: cursor{line: end, col: buf.cursor.col}, linewise: true}, true
 }
 
 // motionWordObject 는 커서가 든 단어다. vim 의 `iw`·`aw`·`iW`·`aW` 다(ADR-0091).
@@ -362,21 +346,21 @@ type motionWordObject struct {
 }
 
 func (m motionWordObject) span(buf viewport, count, width int) (motionRange, bool) {
-	line := buf.cursorLine
+	line := buf.cursor.line
 	text := buf.lines[line]
 
 	// **공백 위에서는 잡지 않는다.** vim 은 공백 덩어리를 잡는데, 같은 키가 커서 한 칸에 따라
 	// 「단어를 바꾼다」와 「공백을 지운다」로 갈리면 눌러 보고 아는 키가 된다(ADR-0091 §2).
 	//
 	// 빈 줄과 줄 끝도 여기서 같이 걸린다. classAt 이 줄 끝을 공백으로 보기 때문이다.
-	class := buf.classAt(line, buf.cursorCol, m.kind)
+	class := buf.classAt(line, buf.cursor.col, m.kind)
 	if class == classBlank {
 		return motionRange{}, false
 	}
 
 	// 같은 부류가 이어지는 데까지 좌우로 넓힌다. **줄을 넘지 않는다** — 단어는 줄 안의 것이고
 	// 줄 끝이 공백이라 저절로 멈춘다.
-	start := buf.cursorCol
+	start := buf.cursor.col
 	for start > 0 {
 		prev := prevGlyphStart(text, 0, start)
 		if buf.classAt(line, prev, m.kind) != class {
@@ -386,7 +370,7 @@ func (m motionWordObject) span(buf viewport, count, width int) (motionRange, boo
 		start = prev
 	}
 
-	end := buf.cursorCol
+	end := buf.cursor.col
 	for end < len(text) && buf.classAt(line, end, m.kind) == class {
 		end += glyphSize(text, end)
 	}
@@ -395,10 +379,7 @@ func (m motionWordObject) span(buf viewport, count, width int) (motionRange, boo
 		start, end = buf.aroundWord(line, start, end, m.kind)
 	}
 
-	return motionRange{
-		startLine: line, startCol: start,
-		endLine: line, endCol: end,
-	}, true
+	return motionRange{start: cursor{line: line, col: start}, end: cursor{line: line, col: end}}, true
 }
 
 // aroundWord 는 `aw` 가 단어에 더 먹는 공백까지 넓힌 범위다.

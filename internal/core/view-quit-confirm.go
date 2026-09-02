@@ -110,7 +110,7 @@ func (m viewConfirmDiscard) boxWidth() int {
 			maxContent = w
 		}
 	}
-	if btnW := widthOf(cursor(true, "Yes") + "    " + cursor(false, "No")); btnW > maxContent {
+	if btnW := widthOf(pickMark(true, "Yes") + "    " + pickMark(false, "No")); btnW > maxContent {
 		maxContent = btnW
 	}
 
@@ -139,7 +139,7 @@ func (m viewConfirmDiscard) renderBox(width int) string {
 		rows = append(rows, chars.vertical+" "+padTo(truncateToWidth(qLine, inner), inner)+" "+chars.vertical)
 	}
 
-	buttons := cursor(m.cursor == 0, "Yes") + "    " + cursor(m.cursor == 1, "No")
+	buttons := pickMark(m.cursor == 0, "Yes") + "    " + pickMark(m.cursor == 1, "No")
 
 	rows = append(rows,
 		chars.vertical+strings.Repeat(" ", width-2)+chars.vertical,
@@ -187,7 +187,7 @@ func Exit() (tea.Model, tea.Cmd) {
 	return finalExit{}, tea.Quit
 }
 
-func cursor(cond bool, str string) string {
+func pickMark(cond bool, str string) string {
 	if cond {
 		return "> " + str
 	} else {

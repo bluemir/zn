@@ -13,8 +13,8 @@ func pressFrom(t *testing.T, data string, line, col int, keys ...string) viewpor
 	t.Helper()
 
 	m := newTestEditor(data, 80, 20)
-	m.buffers[0].cursorLine = line
-	m.buffers[0].cursorCol = col
+	m.buffers[0].cursor.line = line
+	m.buffers[0].cursor.col = col
 
 	return bufferOf(t, send(m, keys...))
 }
@@ -132,7 +132,7 @@ func TestDeleteCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, test.line, test.col, test.keys...)
 
-			assert.Equal(t, test.want, [2]int{buf.cursorLine, buf.cursorCol})
+			assert.Equal(t, test.want, [2]int{buf.cursor.line, buf.cursor.col})
 		})
 	}
 }

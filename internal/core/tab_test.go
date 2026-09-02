@@ -93,17 +93,17 @@ func TestTabSwitchKeepsCursorPerFile(t *testing.T) {
 
 	// 첫 tab 에서 두 줄 내려간다.
 	m = send(m, "down", "down")
-	require.Equal(t, 2, bufferOf(t, m).cursorLine)
+	require.Equal(t, 2, bufferOf(t, m).cursor.line)
 
 	m = send(m, "g", "t")
 	require.Equal(t, 1, activeOf(t, m))
-	assert.Equal(t, 0, bufferOf(t, m).cursorLine, "새 tab 은 자기 자리에서 시작한다")
+	assert.Equal(t, 0, bufferOf(t, m).cursor.line, "새 tab 은 자기 자리에서 시작한다")
 
 	m = send(m, "down")
-	require.Equal(t, 1, bufferOf(t, m).cursorLine)
+	require.Equal(t, 1, bufferOf(t, m).cursor.line)
 
 	m = send(m, "g", "T")
-	assert.Equal(t, 2, bufferOf(t, m).cursorLine, "돌아오면 보던 자리 그대로다")
+	assert.Equal(t, 2, bufferOf(t, m).cursor.line, "돌아오면 보던 자리 그대로다")
 }
 
 // 접두 키 뒤에 짝이 없는 키가 오면 아무 일도 없고 접두 키는 풀린다.
@@ -363,11 +363,11 @@ func TestNewTabKeepsOtherCursors(t *testing.T) {
 
 	m = send(m, "down", "down")
 	m = send(m, ":", "t", "a", "b", "n", "e", "w", "enter")
-	require.Equal(t, 0, bufferOf(t, m).cursorLine, "새 tab 은 맨 위에서 시작한다")
+	require.Equal(t, 0, bufferOf(t, m).cursor.line, "새 tab 은 맨 위에서 시작한다")
 
 	m = send(m, "g", "T")
 
-	assert.Equal(t, 2, bufferOf(t, m).cursorLine)
+	assert.Equal(t, 2, bufferOf(t, m).cursor.line)
 }
 
 // 이름이 없으면 쓸 곳이 없다. vim 의 E32 와 같다.

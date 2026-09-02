@@ -125,7 +125,7 @@ func (m viewFormatterInstallConfirm) renderBox(width int) string {
 	line := strings.Repeat(chars.horizontal, width-2)
 
 	title, question := m.lines()
-	buttons := cursor(m.cursor == 0, "Yes") + "    " + cursor(m.cursor == 1, "No")
+	buttons := pickMark(m.cursor == 0, "Yes") + "    " + pickMark(m.cursor == 1, "No")
 
 	rows := []string{
 		chars.topLeft + line + chars.topRight,

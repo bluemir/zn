@@ -187,10 +187,8 @@ func (r lineRange) area(buf viewport) (motionRange, error) {
 	// **손으로 친 범위에는 따라갈 이동이 없다.** 그래서 커서를 옮길지도 여기서 정하지 않는다 —
 	// `:y` 가 `isSelection()` 을 보고 가른다. `:1,5y` 는 커서를 1 줄로 끌어가지 않고
 	// `:'<,'>y` 만 visual 의 `y` 처럼 범위 시작으로 간다(view-editor-command.go, ADR-0100).
-	return motionRange{
-		startLine: from, endLine: to,
-		linewise: true,
-	}, nil
+	return motionRange{start: cursor{line: from}, end: cursor{line: to},
+		linewise: true}, nil
 }
 
 // isSelection 은 범위가 `'<,'>` 그 자체인지다. 자리 옮김이 붙으면 아니다.
@@ -204,7 +202,7 @@ func (r lineRange) isSelection() bool {
 // 없는 줄을 가리키면 오류다. 끝으로 잘라 주지 않는다 — `:1,500d` 를 조용히 파일 전체로 읽으면
 // 손이 미끄러진 것과 시킨 것을 가를 수 없다. vim 도 여기서 거절한다.
 func (a lineAddress) resolve(buf viewport) (int, error) {
-	base := buf.cursorLine
+	base := buf.cursor.line
 
 	switch a.base {
 	case addressNumber:
@@ -219,9 +217,9 @@ func (a lineAddress) resolve(buf viewport) (int, error) {
 			return 0, errors.New("고른 범위가 없습니다")
 		}
 
-		base = area.startLine
+		base = area.start.line
 		if a.base == addressSelectEnd {
-			base = area.endLine
+			base = area.end.line
 		}
 	}
 

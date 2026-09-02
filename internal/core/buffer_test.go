@@ -364,15 +364,15 @@ func TestBufferReloadKeepsCursorColumn(t *testing.T) {
 
 	buf.moveDownLine(1)
 	buf.moveRight(2, wide)
-	require.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
+	require.Equal(t, 2, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth))
 
 	// 둘째 줄이 두 칸 글자로 바뀐다. 2 칸은 두 번째 글자의 시작이다.
 	require.NoError(t, os.WriteFile(path, []byte("abc\n한글\n"), 0644))
 	require.NoError(t, buf.Reload())
 
-	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
-	assert.Equal(t, "글", string(buf.lines[1][buf.cursorCol:]), "글자 경계에 선다")
+	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth))
+	assert.Equal(t, "글", string(buf.lines[1][buf.cursor.col:]), "글자 경계에 선다")
 }
 
 // 파일이 짧아졌으면 커서를 범위 안으로 끌어온다.
@@ -384,13 +384,13 @@ func TestBufferReloadClampsCursorToShorterFile(t *testing.T) {
 	require.NoError(t, err)
 
 	buf.moveDownLine(2)
-	require.Equal(t, 2, buf.cursorLine)
+	require.Equal(t, 2, buf.cursor.line)
 
 	require.NoError(t, os.WriteFile(path, []byte("a\n"), 0644))
 	require.NoError(t, buf.Reload())
 
-	assert.Equal(t, 0, buf.cursorLine, "한 줄만 남았으므로 그 줄로 끌려온다")
-	assert.Equal(t, 0, buf.cursorCol)
+	assert.Equal(t, 0, buf.cursor.line, "한 줄만 남았으므로 그 줄로 끌려온다")
+	assert.Equal(t, 0, buf.cursor.col)
 }
 
 // 밖에서 지워진 파일은 다시 읽지 않는다. 손에 든 것이 마지막 사본이다.
@@ -472,35 +472,35 @@ func TestCursorKeepsDesiredCol(t *testing.T) {
 	for range 5 {
 		buf.moveRight(1, wide)
 	}
-	require.Equal(t, 5, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
+	require.Equal(t, 5, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth))
 
 	// 짧은 줄로 내려가면 줄 끝까지만
 	buf.moveDownRow(1, wide)
-	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth), "짧은 줄에서는 줄 끝")
+	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth), "짧은 줄에서는 줄 끝")
 
 	// 다시 긴 줄로 내려가면 원래 열로 복귀
 	buf.moveDownRow(1, wide)
-	assert.Equal(t, 2, buf.cursorLine)
-	assert.Equal(t, 5, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth), "긴 줄로 돌아오면 원래 열")
+	assert.Equal(t, 2, buf.cursor.line)
+	assert.Equal(t, 5, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth), "긴 줄로 돌아오면 원래 열")
 }
 
 func TestCursorMoveClamps(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("ab\ncd\n"))
 
 	buf.moveUpRow(1, wide)
-	assert.Equal(t, 0, buf.cursorLine, "첫 줄 위로는 못 간다")
+	assert.Equal(t, 0, buf.cursor.line, "첫 줄 위로는 못 간다")
 
 	buf.moveLeft(1, wide)
-	assert.Equal(t, 0, buf.cursorCol, "줄 시작 왼쪽으로는 못 간다")
+	assert.Equal(t, 0, buf.cursor.col, "줄 시작 왼쪽으로는 못 간다")
 
 	buf.moveDownRow(99, wide)
-	assert.Equal(t, 1, buf.cursorLine, "마지막 줄 아래로는 못 간다")
+	assert.Equal(t, 1, buf.cursor.line, "마지막 줄 아래로는 못 간다")
 
 	buf.moveRight(1, wide)
 	buf.moveRight(1, wide)
 	buf.moveRight(1, wide)
-	assert.Equal(t, 2, buf.cursorCol, "줄 끝 오른쪽으로는 못 간다")
+	assert.Equal(t, 2, buf.cursor.col, "줄 끝 오른쪽으로는 못 간다")
 }
 
 // moveLeft, moveRight 는 count 만큼 움직이고 줄 양끝에서 멈춘다.
@@ -508,16 +508,16 @@ func TestCursorMoveCounted(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("0123456789\n"))
 
 	buf.moveRight(5, wide)
-	assert.Equal(t, 5, buf.cursorCol)
+	assert.Equal(t, 5, buf.cursor.col)
 
 	buf.moveLeft(3, wide)
-	assert.Equal(t, 2, buf.cursorCol)
+	assert.Equal(t, 2, buf.cursor.col)
 
 	buf.moveRight(99, wide)
-	assert.Equal(t, 10, buf.cursorCol, "줄 끝에서 멈춘다")
+	assert.Equal(t, 10, buf.cursor.col, "줄 끝에서 멈춘다")
 
 	buf.moveLeft(99, wide)
-	assert.Equal(t, 0, buf.cursorCol, "줄 시작에서 멈춘다")
+	assert.Equal(t, 0, buf.cursor.col, "줄 시작에서 멈춘다")
 }
 
 // moveUpLine·moveDownLine 은 논리 줄 단위다. wrap 된 줄도 한 번에 건넌다.
@@ -527,18 +527,18 @@ func TestCursorMoveByLine(t *testing.T) {
 	const width = 10
 
 	buf.moveDownLine(1)
-	assert.Equal(t, 1, buf.cursorLine, "wrap 된 줄을 한 번에 건넌다")
+	assert.Equal(t, 1, buf.cursor.line, "wrap 된 줄을 한 번에 건넌다")
 
 	// 같은 자리에서 화면 행 단위로 내려가면 같은 줄 안에서 행만 옮긴다.
 	other := newBuffer("test.txt", []byte(strings.Repeat("a", 25)+"\nsecond\nthird\n"))
 	other.moveDownRow(1, width)
-	assert.Equal(t, 0, other.cursorLine, "moveDown 은 화면 행 단위라 같은 줄에 남는다")
+	assert.Equal(t, 0, other.cursor.line, "moveDown 은 화면 행 단위라 같은 줄에 남는다")
 
 	buf.moveDownLine(99)
-	assert.Equal(t, 2, buf.cursorLine, "마지막 줄 아래로는 못 간다")
+	assert.Equal(t, 2, buf.cursor.line, "마지막 줄 아래로는 못 간다")
 
 	buf.moveUpLine(99)
-	assert.Equal(t, 0, buf.cursorLine, "첫 줄 위로는 못 간다")
+	assert.Equal(t, 0, buf.cursor.line, "첫 줄 위로는 못 간다")
 }
 
 // 줄 단위 이동도 짧은 줄을 지나가면 원래 칸으로 돌아온다.
@@ -546,14 +546,14 @@ func TestCursorMoveByLineKeepsDesiredCol(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("0123456789\nab\n0123456789\n"))
 
 	buf.moveRight(5, wide)
-	require.Equal(t, 5, buf.cursorCol)
+	require.Equal(t, 5, buf.cursor.col)
 
 	buf.moveDownLine(1)
 	buf.clampToNormal(wide)
-	assert.Equal(t, 1, buf.cursorCol, "짧은 줄에서는 마지막 글자 위")
+	assert.Equal(t, 1, buf.cursor.col, "짧은 줄에서는 마지막 글자 위")
 
 	buf.moveDownLine(1)
-	assert.Equal(t, 5, buf.cursorCol, "긴 줄로 돌아오면 원래 칸")
+	assert.Equal(t, 5, buf.cursor.col, "긴 줄로 돌아오면 원래 칸")
 }
 
 // 한글은 rune 하나에 두 칸이다.
@@ -561,16 +561,16 @@ func TestCursorMoveHangul(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("한글abc\n"))
 
 	buf.moveRight(1, wide)
-	assert.Equal(t, 3, buf.cursorCol, "byte offset 은 3")
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth), "화면 칸은 2")
+	assert.Equal(t, 3, buf.cursor.col, "byte offset 은 3")
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth), "화면 칸은 2")
 
 	buf.moveRight(1, wide)
-	assert.Equal(t, 6, buf.cursorCol)
-	assert.Equal(t, 4, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
+	assert.Equal(t, 6, buf.cursor.col)
+	assert.Equal(t, 4, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth))
 
 	buf.moveLeft(1, wide)
-	assert.Equal(t, 3, buf.cursorCol)
-	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, defaultTabWidth))
+	assert.Equal(t, 3, buf.cursor.col)
+	assert.Equal(t, 2, screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, defaultTabWidth))
 }
 
 // 커서가 화면 안에 있으면 화면은 움직이지 않아야 한다.
@@ -580,19 +580,19 @@ func TestScrollTo(t *testing.T) {
 
 	buf.moveDownRow(5, wide)
 	buf.scrollTo(wide, height)
-	assert.Equal(t, 0, buf.top, "화면 안이면 안 움직인다")
+	assert.Equal(t, 0, buf.top.line, "화면 안이면 안 움직인다")
 
 	buf.moveDownRow(5, wide) // 10 번째 줄, 화면 아래로 한 줄 초과
 	buf.scrollTo(wide, height)
-	assert.Equal(t, 1, buf.top, "아래로 벗어나면 한 줄만 밀린다")
+	assert.Equal(t, 1, buf.top.line, "아래로 벗어나면 한 줄만 밀린다")
 
 	buf.moveDownRow(50, wide)
 	buf.scrollTo(wide, height)
-	assert.Equal(t, 51, buf.top)
+	assert.Equal(t, 51, buf.top.line)
 
 	buf.moveUpRow(20, wide)
 	buf.scrollTo(wide, height)
-	assert.Equal(t, 40, buf.top, "위로 벗어나면 커서 줄이 최상단")
+	assert.Equal(t, 40, buf.top.line, "위로 벗어나면 커서 줄이 최상단")
 }
 
 func TestVisibleRows(t *testing.T) {
@@ -601,7 +601,7 @@ func TestVisibleRows(t *testing.T) {
 	assert.Len(t, buf.visibleRows(wide, 3), 3)
 	assert.Len(t, buf.visibleRows(wide, 99), 5, "줄 수보다 큰 화면은 있는 만큼만")
 
-	buf.top = 3
+	buf.top.line = 3
 	assert.Len(t, buf.visibleRows(wide, 99), 2, "top 이후만")
 }
 
@@ -636,20 +636,20 @@ func TestCursorMovesByScreenRow(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("abcdefghij\nnext\n"))
 
 	buf.moveDownRow(1, width)
-	assert.Equal(t, 0, buf.cursorLine, "아직 같은 줄")
-	assert.Equal(t, 4, buf.cursorCol, "두 번째 행의 시작")
+	assert.Equal(t, 0, buf.cursor.line, "아직 같은 줄")
+	assert.Equal(t, 4, buf.cursor.col, "두 번째 행의 시작")
 
 	buf.moveDownRow(1, width)
-	assert.Equal(t, 0, buf.cursorLine)
-	assert.Equal(t, 8, buf.cursorCol, "세 번째 행의 시작")
+	assert.Equal(t, 0, buf.cursor.line)
+	assert.Equal(t, 8, buf.cursor.col, "세 번째 행의 시작")
 
 	buf.moveDownRow(1, width)
-	assert.Equal(t, 1, buf.cursorLine, "행이 끝나면 다음 줄")
-	assert.Equal(t, 0, buf.cursorCol)
+	assert.Equal(t, 1, buf.cursor.line, "행이 끝나면 다음 줄")
+	assert.Equal(t, 0, buf.cursor.col)
 
 	buf.moveUpRow(1, width)
-	assert.Equal(t, 0, buf.cursorLine, "위로도 행 단위")
-	assert.Equal(t, 8, buf.cursorCol)
+	assert.Equal(t, 0, buf.cursor.line, "위로도 행 단위")
+	assert.Equal(t, 8, buf.cursor.col)
 }
 
 // wrap 된 줄에서 위아래로 움직여도 행 안에서의 칸이 유지되어야 한다.
@@ -659,19 +659,19 @@ func TestCursorKeepsDesiredColAcrossWrappedRows(t *testing.T) {
 
 	buf.moveRight(1, width)
 	buf.moveRight(1, width)
-	require.Equal(t, 2, buf.cursorCol)
-	require.Equal(t, 2, buf.desiredCol, "행 안에서 2 칸")
+	require.Equal(t, 2, buf.cursor.col)
+	require.Equal(t, 2, buf.desiredX, "행 안에서 2 칸")
 
 	buf.moveDownRow(1, width)
-	assert.Equal(t, 6, buf.cursorCol, "두 번째 행의 2 칸 = offset 4+2")
+	assert.Equal(t, 6, buf.cursor.col, "두 번째 행의 2 칸 = offset 4+2")
 
 	buf.moveDownRow(1, width)
-	assert.Equal(t, 10, buf.cursorCol, "세 번째 행의 2 칸. 줄이 짧아 끝")
+	assert.Equal(t, 10, buf.cursor.col, "세 번째 행의 2 칸. 줄이 짧아 끝")
 }
 
 // **wrap 된 줄의 둘째 행에서 `j` 를 누르면 다음 줄의 첫 화면 행에 선다**(ADR-0108).
 //
-// desiredCol 이 화면 행 안에서 센 칸이라 늘 width 보다 작고, `j` 는 그것을 줄 시작에서 센
+// desiredX 이 화면 행 안에서 센 칸이라 늘 width 보다 작고, `j` 는 그것을 줄 시작에서 센
 // 칸으로 읽는다. vim 은 이 칸을 줄 시작에서 세므로 여기서 결과가 갈린다. 잰 값으로 vim 9.1
 // 은 offset 25 에 서고 우리는 offset 5 에 선다.
 //
@@ -684,29 +684,29 @@ func TestDesiredColIsRowRelativeAcrossLines(t *testing.T) {
 	buf := newBuffer("test.txt", []byte(long+"\n"+long+"\n"))
 
 	// 첫 줄 offset 25 는 둘째 화면 행(행 시작 20) 의 6 번째 칸이다.
-	buf.cursorLine = 0
-	buf.cursorCol = 25
+	buf.cursor.line = 0
+	buf.cursor.col = 25
 	buf.updateDesiredCol(width)
-	require.Equal(t, 5, buf.desiredCol, "행 시작을 뺀 칸이다")
+	require.Equal(t, 5, buf.desiredX, "행 시작을 뺀 칸이다")
 	require.Equal(t, byte('z'), buf.lines[0][25])
 
 	buf.moveDownLine(1)
 
-	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 5, buf.cursorCol, "줄 시작에서 5 칸. vim 은 25 로 간다")
-	assert.Equal(t, byte('f'), buf.lines[1][buf.cursorCol])
+	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 5, buf.cursor.col, "줄 시작에서 5 칸. vim 은 25 로 간다")
+	assert.Equal(t, byte('f'), buf.lines[1][buf.cursor.col])
 
 	offsets := wrapOffsets(buf.lines[1], width, buf.tabWidth())
-	assert.Equal(t, 0, rowIndexAt(offsets, buf.cursorCol), "언제나 첫 화면 행이다")
+	assert.Equal(t, 0, rowIndexAt(offsets, buf.cursor.col), "언제나 첫 화면 행이다")
 
 	// 셋째 행에서 눌렀으면 두 행 몫이 당겨진다. 같은 규칙의 더 센 모습이다.
-	buf.cursorLine = 0
-	buf.cursorCol = 45
+	buf.cursor.line = 0
+	buf.cursor.col = 45
 	buf.updateDesiredCol(width)
-	require.Equal(t, 5, buf.desiredCol, "셋째 행(행 시작 40) 의 6 번째 칸")
+	require.Equal(t, 5, buf.desiredX, "셋째 행(행 시작 40) 의 6 번째 칸")
 
 	buf.moveDownLine(1)
-	assert.Equal(t, 5, buf.cursorCol, "행이 달라져도 같은 자리로 온다")
+	assert.Equal(t, 5, buf.cursor.col, "행이 달라져도 같은 자리로 온다")
 }
 
 // wrap 된 줄이 화면을 넘으면 그 줄 중간부터 그려야 한다.
@@ -717,20 +717,20 @@ func TestScrollToWithinWrappedLine(t *testing.T) {
 
 	buf.moveDownRow(2, width)
 	buf.scrollTo(width, height)
-	assert.Equal(t, 0, buf.topRow, "화면 안이면 안 움직인다")
+	assert.Equal(t, 0, buf.top.row, "화면 안이면 안 움직인다")
 
 	buf.moveDownRow(1, width)
 	buf.scrollTo(width, height)
-	assert.Equal(t, 0, buf.top, "같은 줄이다")
-	assert.Equal(t, 1, buf.topRow, "행 하나만 밀린다")
+	assert.Equal(t, 0, buf.top.line, "같은 줄이다")
+	assert.Equal(t, 1, buf.top.row, "행 하나만 밀린다")
 
 	buf.moveDownRow(5, width)
 	buf.scrollTo(width, height)
-	assert.Equal(t, 6, buf.topRow)
+	assert.Equal(t, 6, buf.top.row)
 
 	buf.moveUpRow(4, width)
 	buf.scrollTo(width, height)
-	assert.Equal(t, 4, buf.topRow, "위로 벗어나면 커서 행이 최상단")
+	assert.Equal(t, 4, buf.top.row, "위로 벗어나면 커서 행이 최상단")
 }
 
 // 화면이 넓어지면 그 줄의 wrap 행 수가 줄어서 예전 topRow 가 없는 행을 가리키게 된다.
@@ -752,14 +752,14 @@ func TestScrollToClampsTopRowWhenWidened(t *testing.T) {
 	buf.moveDownRow(1, narrow)
 	buf.scrollTo(narrow, height)
 
-	require.Equal(t, 2, buf.cursorLine, "커서는 top 보다 아래 줄")
-	require.Equal(t, 0, buf.top)
-	require.Equal(t, 9, buf.topRow, "긴 줄의 마지막 행부터 그리고 있다")
+	require.Equal(t, 2, buf.cursor.line, "커서는 top 보다 아래 줄")
+	require.Equal(t, 0, buf.top.line)
+	require.Equal(t, 9, buf.top.row, "긴 줄의 마지막 행부터 그리고 있다")
 
 	buf.scrollTo(wide, height)
 
-	assert.Equal(t, 0, buf.top)
-	assert.Equal(t, 0, buf.topRow, "넓어진 뒤에는 그 줄에 행이 하나뿐이다")
+	assert.Equal(t, 0, buf.top.line)
+	assert.Equal(t, 0, buf.top.row, "넓어진 뒤에는 그 줄에 행이 하나뿐이다")
 
 	rows := buf.visibleRows(wide, height)
 	require.NotEmpty(t, rows)
@@ -771,12 +771,12 @@ func TestScrollToClampsTopBeyondEnd(t *testing.T) {
 	width, height := 10, 3
 	buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
 
-	buf.top, buf.topRow = 4, 0
+	buf.top.line, buf.top.row = 4, 0
 	buf.lines = buf.lines[:2]
-	buf.cursorLine, buf.cursorCol = 0, 0
+	buf.cursor.line, buf.cursor.col = 0, 0
 
 	assert.NotPanics(t, func() { buf.scrollTo(width, height) })
-	assert.Less(t, buf.top, len(buf.lines))
+	assert.Less(t, buf.top.line, len(buf.lines))
 }
 
 func TestCursorScreenPos(t *testing.T) {
@@ -862,16 +862,16 @@ func TestCursorMovesByCluster(t *testing.T) {
 			buf := newBuffer("test.txt", []byte(test.text+"a\n"))
 
 			buf.moveRight(1, wide)
-			assert.Equal(t, test.size, buf.cursorCol, "글자 하나를 통째로 건너뛴다")
+			assert.Equal(t, test.size, buf.cursor.col, "글자 하나를 통째로 건너뛴다")
 
 			buf.moveRight(1, wide)
-			assert.Equal(t, test.size+1, buf.cursorCol)
+			assert.Equal(t, test.size+1, buf.cursor.col)
 
 			buf.moveLeft(1, wide)
-			assert.Equal(t, test.size, buf.cursorCol)
+			assert.Equal(t, test.size, buf.cursor.col)
 
 			buf.moveLeft(1, wide)
-			assert.Equal(t, 0, buf.cursorCol, "글자 중간이 아니라 시작으로 돌아온다")
+			assert.Equal(t, 0, buf.cursor.col, "글자 중간이 아니라 시작으로 돌아온다")
 		})
 	}
 }
@@ -895,11 +895,11 @@ func TestMoveLeftAcrossWrappedRowWithClusters(t *testing.T) {
 	buf := newBuffer("test.txt", []byte(strings.Repeat(emoji, 3)+"\n"))
 	width := 5
 
-	buf.cursorCol = 36 // 두 번째 행의 시작
-	require.Equal(t, 1, rowIndexAt(wrapOffsets(buf.lines[0], width, defaultTabWidth), buf.cursorCol))
+	buf.cursor.col = 36 // 두 번째 행의 시작
+	require.Equal(t, 1, rowIndexAt(wrapOffsets(buf.lines[0], width, defaultTabWidth), buf.cursor.col))
 
 	buf.moveLeft(1, width)
-	assert.Equal(t, 18, buf.cursorCol, "앞 행 마지막 글자의 시작")
+	assert.Equal(t, 18, buf.cursor.col, "앞 행 마지막 글자의 시작")
 }
 
 // tab 은 다음 tab stop 까지 밀어내므로 시작 위치에 따라 폭이 다르다.
@@ -952,11 +952,11 @@ func TestCursorMoveOverTab(t *testing.T) {
 	buf := newBuffer("test.txt", []byte("\tab\n"))
 
 	buf.moveRight(1, wide)
-	assert.Equal(t, 1, buf.cursorCol, "tab 은 1 byte")
-	assert.Equal(t, 4, screenColAt(buf.lines[0], buf.cursorCol, defaultTabWidth), "화면 칸은 4")
+	assert.Equal(t, 1, buf.cursor.col, "tab 은 1 byte")
+	assert.Equal(t, 4, screenColAt(buf.lines[0], buf.cursor.col, defaultTabWidth), "화면 칸은 4")
 
 	buf.moveLeft(1, wide)
-	assert.Equal(t, 0, buf.cursorCol)
+	assert.Equal(t, 0, buf.cursor.col)
 }
 
 // tab 이 든 줄도 화면 너비 기준으로 나뉘어야 한다.
@@ -976,12 +976,12 @@ func TestMoveRowStartEndStayInTheScreenRow(t *testing.T) {
 	buf.moveTo(0, 14, width) // 가운데 행
 
 	buf.moveRowStart(width)
-	assert.Equal(t, 0, buf.cursorLine)
-	assert.Equal(t, 10, buf.cursorCol, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
+	assert.Equal(t, 0, buf.cursor.line)
+	assert.Equal(t, 10, buf.cursor.col, "지금 행의 앞이다. 줄 맨 앞(0) 이 아니다")
 
 	buf.moveTo(0, 14, width)
 	buf.moveRowEnd(width)
-	assert.Equal(t, 20, buf.cursorCol, "지금 행의 끝이다. 줄 맨 끝(25) 이 아니다")
+	assert.Equal(t, 20, buf.cursor.col, "지금 행의 끝이다. 줄 맨 끝(25) 이 아니다")
 }
 
 // 마지막 행에서 `end` 는 줄 끝이다. 뒤에 이어지는 행이 없다.
@@ -992,7 +992,7 @@ func TestMoveRowEndOnLastRowIsLineEnd(t *testing.T) {
 	buf.moveTo(0, 22, width)
 	buf.moveRowEnd(width)
 
-	assert.Equal(t, 25, buf.cursorCol)
+	assert.Equal(t, 25, buf.cursor.col)
 }
 
 // 접히지 않은 줄에서는 `0`·`$` 와 같은 자리다.
@@ -1001,10 +1001,10 @@ func TestMoveRowStartEndMatchLineOnUnwrappedLine(t *testing.T) {
 
 	buf.moveTo(0, 5, wide)
 	buf.moveRowStart(wide)
-	assert.Equal(t, 0, buf.cursorCol)
+	assert.Equal(t, 0, buf.cursor.col)
 
 	buf.moveRowEnd(wide)
-	assert.Equal(t, len("hello world"), buf.cursorCol)
+	assert.Equal(t, len("hello world"), buf.cursor.col)
 }
 
 // deleteForward 는 커서 자리 글자를 지운다. insert mode 의 `delete` 다.
@@ -1013,7 +1013,7 @@ func TestDeleteForward(t *testing.T) {
 
 	buf.deleteForward(wide)
 	assert.Equal(t, "bc", string(buf.lines[0]))
-	assert.Equal(t, 0, buf.cursorCol, "커서는 제자리다")
+	assert.Equal(t, 0, buf.cursor.col, "커서는 제자리다")
 }
 
 // 한글·이모지도 한 글자로 지운다. lines.Size 가 글자 경계를 준다.
@@ -1033,7 +1033,7 @@ func TestDeleteForwardJoinsNextLine(t *testing.T) {
 
 	require.Len(t, buf.lines, 1)
 	assert.Equal(t, "abcd", string(buf.lines[0]))
-	assert.Equal(t, 2, buf.cursorCol, "이은 자리가 곧 커서 자리다")
+	assert.Equal(t, 2, buf.cursor.col, "이은 자리가 곧 커서 자리다")
 }
 
 // 마지막 줄 끝에서는 끌어올 것이 없어서 아무 일도 하지 않는다.

@@ -82,8 +82,8 @@ func TestSubstituteConfirmMovesCursorToMatch(t *testing.T) {
 	m := startConfirm(t, "zzz\nabc\n", "%s/b/X/c")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 1, buf.cursorCol)
+	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 1, buf.cursor.col)
 }
 
 // 되돌리기는 한 구간이다. 물어보며 바꾼 것 전부가 한 번의 `u` 로 돌아간다.
@@ -99,7 +99,7 @@ func TestSubstituteConfirmUndoIsOneStep(t *testing.T) {
 // 하나도 안 바꾸고 나가면 커서가 시작한 자리로 돌아온다. 훑고 다닌 것이 남을 까닭이 없다.
 func TestSubstituteConfirmRestoresCursorWhenNothingChanged(t *testing.T) {
 	start := newTestEditor("a\na\na\n", 60, 8)
-	start.buffers[0].cursorLine = 2
+	start.buffers[0].cursor.line = 2
 
 	m := runCommand(start, "%s/a/X/c")
 	require.IsType(t, viewEditorSubstitute{}, m)
@@ -107,7 +107,7 @@ func TestSubstituteConfirmRestoresCursorWhenNothingChanged(t *testing.T) {
 	m = send(m, "n", "n", "n")
 
 	assert.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, 2, bufferOf(t, m).cursorLine)
+	assert.Equal(t, 2, bufferOf(t, m).cursor.line)
 	assert.False(t, bufferOf(t, m).dirty, "파일을 건드리지 않는다")
 	assert.Contains(t, barOf(t, m)[1], "바꾼 것이 없습니다")
 }

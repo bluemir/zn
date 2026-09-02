@@ -427,8 +427,8 @@ func (e *editor) startDefinition() tea.Cmd {
 
 	lines := buf.lines
 	position := lsp.Position{
-		Line:      buf.cursorLine,
-		Character: lsp.UTF16Column(buf.lines[buf.cursorLine], buf.cursorCol),
+		Line:      buf.cursor.line,
+		Character: lsp.UTF16Column(buf.lines[buf.cursor.line], buf.cursor.col),
 	}
 
 	e.notify("정의를 찾는 중입니다")

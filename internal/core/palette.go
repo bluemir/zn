@@ -291,7 +291,7 @@ func (o runOptions) lines(lineCount int) (from, to int) {
 		return 0, lineCount
 	}
 
-	return o.area.startLine, o.area.endLine + 1
+	return o.area.start.line, o.area.end.line + 1
 }
 
 // paletteCommand 는 `>` 목록의 한 줄이다.

@@ -48,16 +48,16 @@ func (buf *viewport) Reload() error {
 func (buf viewport) adopt(next viewport) viewport {
 	// 커서 자리를 화면 칸으로 옮겨 둔다. byte offset 은 새 내용에서 다른 글자의 중간일 수 있다.
 	// statusBar 가 보여주는 `줄:칸` 이 이 칸이라, 유지되는 것이 눈에 보이는 값과 같다.
-	col := screenColAt(buf.lines[buf.cursorLine], buf.cursorCol, buf.tabWidth())
+	col := screenColAt(buf.lines[buf.cursor.line], buf.cursor.col, buf.tabWidth())
 
-	next.cursorLine = min(buf.cursorLine, len(next.lines)-1)
-	next.cursorCol = offsetAtScreenCol(next.lines[next.cursorLine], col, buf.tabWidth())
-	next.desiredCol = buf.desiredCol
+	next.cursor.line = min(buf.cursor.line, len(next.lines)-1)
+	next.cursor.col = offsetAtScreenCol(next.lines[next.cursor.line], col, buf.tabWidth())
+	next.desiredX = buf.desiredX
 
 	// 화면도 보고 있던 자리를 유지한다. topRow 는 폭에 따라 있을 수도 없을 수도 있는 행이라
 	// 여기서 맞추지 못한다. 부르는 쪽의 scrollTo 가 clampTop 으로 맞춘다.
-	next.top = min(buf.top, len(next.lines)-1)
-	next.topRow = buf.topRow
+	next.top.line = min(buf.top.line, len(next.lines)-1)
+	next.top.row = buf.top.row
 
 	// 문법 캐시는 새 내용의 것으로 비워지지만 **갈린 횟수는 이어 간다.** 새 Buffer 라 0 에서
 	// 다시 세는데, 그러면 다시 읽기 전에 물어 둔 언어 서버의 답이 새 내용에 맞아 보인다

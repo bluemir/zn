@@ -49,7 +49,7 @@ func TestShiftTabOutdentsTheLine(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"  foo"}, linesOf(buf))
-	assert.Equal(t, 5, buf.cursorCol, "치던 자리가 두 칸 왼쪽으로 따라온다")
+	assert.Equal(t, 5, buf.cursor.col, "치던 자리가 두 칸 왼쪽으로 따라온다")
 }
 
 func TestShiftTabStopsAtTheLeftEdge(t *testing.T) {

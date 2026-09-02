@@ -16,7 +16,7 @@ func (buf *viewport) moveWordForward(n int, kind wordKind, width int) {
 }
 
 func (buf *viewport) wordForward(kind wordKind) {
-	line, col := buf.cursorLine, buf.cursorCol
+	line, col := buf.cursor.line, buf.cursor.col
 
 	// 지금 글자와 같은 부류가 이어지는 동안 앞으로 간다.
 	// 공백에서 시작했으면 건너뛸 단어가 없으므로 아래 공백 건너뛰기로 바로 간다.
@@ -24,7 +24,7 @@ func (buf *viewport) wordForward(kind wordKind) {
 	for class != classBlank && buf.classAt(line, col, kind) == class {
 		next, nextCol, ok := buf.nextPos(line, col)
 		if !ok {
-			buf.cursorLine, buf.cursorCol = line, col
+			buf.cursor.line, buf.cursor.col = line, col
 
 			return
 		}
@@ -34,7 +34,7 @@ func (buf *viewport) wordForward(kind wordKind) {
 
 	// 공백을 건너뛴다. 빈 줄은 그 자체로 단어라 거기서 멈춘다.
 	for buf.classAt(line, col, kind) == classBlank {
-		if col == 0 && len(buf.lines[line]) == 0 && line != buf.cursorLine {
+		if col == 0 && len(buf.lines[line]) == 0 && line != buf.cursor.line {
 			break
 		}
 
@@ -46,7 +46,7 @@ func (buf *viewport) wordForward(kind wordKind) {
 		line, col = next, nextCol
 	}
 
-	buf.cursorLine, buf.cursorCol = line, col
+	buf.cursor.line, buf.cursor.col = line, col
 }
 
 // moveWordBackward 는 단어의 첫 글자로 되돌아간다. vim 의 b/B 다.
@@ -59,9 +59,9 @@ func (buf *viewport) moveWordBackward(n int, kind wordKind, width int) {
 }
 
 func (buf *viewport) wordBackward(kind wordKind) {
-	line, col, ok := buf.prevPos(buf.cursorLine, buf.cursorCol)
+	line, col, ok := buf.prevPos(buf.cursor.line, buf.cursor.col)
 	if !ok {
-		buf.cursorCol = 0
+		buf.cursor.col = 0
 
 		return
 	}
@@ -76,7 +76,7 @@ func (buf *viewport) wordBackward(kind wordKind) {
 		line, col = prev, prevCol
 	}
 	if len(buf.lines[line]) == 0 {
-		buf.cursorLine, buf.cursorCol = line, 0
+		buf.cursor.line, buf.cursor.col = line, 0
 
 		return
 	}
@@ -92,7 +92,7 @@ func (buf *viewport) wordBackward(kind wordKind) {
 		line, col = prev, prevCol
 	}
 
-	buf.cursorLine, buf.cursorCol = line, col
+	buf.cursor.line, buf.cursor.col = line, col
 }
 
 // moveWordEnd 는 단어의 마지막 글자로 간다. vim 의 e/E 다.
@@ -107,7 +107,7 @@ func (buf *viewport) moveWordEnd(n int, kind wordKind, width int) {
 }
 
 func (buf *viewport) wordEnd(kind wordKind) {
-	line, col, ok := buf.nextPos(buf.cursorLine, buf.cursorCol)
+	line, col, ok := buf.nextPos(buf.cursor.line, buf.cursor.col)
 	if !ok {
 		return
 	}
@@ -133,5 +133,5 @@ func (buf *viewport) wordEnd(kind wordKind) {
 		line, col = next, nextCol
 	}
 
-	buf.cursorLine, buf.cursorCol = line, col
+	buf.cursor.line, buf.cursor.col = line, col
 }

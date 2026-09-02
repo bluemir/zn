@@ -195,7 +195,7 @@ func (c actionIndent) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
-		buf.shiftLines(area.startLine, area.endLine, c.direction, e.contentWidth())
+		buf.shiftLines(area.start.line, area.end.line, c.direction, e.contentWidth())
 	}
 	e.scrollToCursor()
 
@@ -217,7 +217,7 @@ func (c actionReindent) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := c.motion.span(*buf, c.count, e.contentWidth()); ok {
-		buf.reindentLines(area.startLine, area.endLine, e.contentWidth())
+		buf.reindentLines(area.start.line, area.end.line, e.contentWidth())
 	}
 	e.scrollToCursor()
 
@@ -409,7 +409,7 @@ func (c actionVisualIndent) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
-		buf.shiftLines(area.startLine, area.endLine, c.direction, e.contentWidth())
+		buf.shiftLines(area.start.line, area.end.line, c.direction, e.contentWidth())
 	}
 	e.scrollToCursor()
 
@@ -428,7 +428,7 @@ func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	if area, ok := buf.selectionRange(); ok {
-		buf.reindentLines(area.startLine, area.endLine, e.contentWidth())
+		buf.reindentLines(area.start.line, area.end.line, e.contentWidth())
 	}
 	e.scrollToCursor()
 
@@ -703,7 +703,7 @@ func (c actionVisualFormatTables) run(e *editor) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	return formatTablesIn(e, area.startLine, area.endLine+1)
+	return formatTablesIn(e, area.start.line, area.end.line+1)
 }
 
 // actionGotoDefinition 은 커서 자리의 정의로 간다. `\gd` 다(ADR-0051).

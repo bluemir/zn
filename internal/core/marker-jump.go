@@ -58,7 +58,7 @@ func nextMarkerLine(lines []int, from int, direction markerDirection) (int, bool
 func (e *editor) jumpToMarkerLines(lines []int, direction markerDirection, count int, empty string) {
 	buf := e.activeBuffer()
 
-	line, wrapped := buf.cursorLine, false
+	line, wrapped := buf.cursor.line, false
 
 	for range count {
 		next, turned, ok := nextMarkerLine(lines, line, direction)

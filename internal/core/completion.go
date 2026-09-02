@@ -99,8 +99,8 @@ func (e *editor) startCompletion() tea.Cmd {
 
 	lines := buf.lines
 	position := lsp.Position{
-		Line:      buf.cursorLine,
-		Character: lsp.UTF16Column(buf.lines[buf.cursorLine], buf.cursorCol),
+		Line:      buf.cursor.line,
+		Character: lsp.UTF16Column(buf.lines[buf.cursor.line], buf.cursor.col),
 	}
 
 	e.completionSeq++
@@ -144,7 +144,7 @@ func (e *editor) finishCompletion(msg completionMsg) tea.Cmd {
 		return nil
 	}
 
-	e.completion = completion{items: msg.items, line: e.activeBuffer().cursorLine}
+	e.completion = completion{items: msg.items, line: e.activeBuffer().cursor.line}
 
 	return nil
 }

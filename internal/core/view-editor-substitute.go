@@ -53,7 +53,7 @@ func substituteMode(e *editor, sub substitution, area motionRange) (tea.Model, t
 		area:   area,
 
 		// seek 이 첫 줄부터 들어서게 한 줄 앞에서 시작한다.
-		line: area.startLine - 1,
+		line: area.start.line - 1,
 		last: -1,
 
 		back: buf.place(),
@@ -153,7 +153,7 @@ func (m viewEditorSubstitute) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorSubstitute) stale() bool {
 	buf := m.activeBuffer()
 
-	if m.area.endLine >= len(buf.lines) {
+	if m.area.end.line >= len(buf.lines) {
 		return true
 	}
 
@@ -167,7 +167,7 @@ func (m *viewEditorSubstitute) seek() bool {
 
 	for m.at >= len(m.matches) {
 		m.line++
-		if m.line > m.area.endLine {
+		if m.line > m.area.end.line {
 			return false
 		}
 
@@ -218,7 +218,7 @@ func (m *viewEditorSubstitute) replaceHere() {
 	// 범위 전체를 한 번에 담으므로 뒤의 줄들도 이 한 번의 `u` 로 돌아간다.
 	if !m.editing {
 		buf.endEdit()
-		buf.beginEdit(m.area.startLine, m.area.endLine-m.area.startLine+1)
+		buf.beginEdit(m.area.start.line, m.area.end.line-m.area.start.line+1)
 		m.editing = true
 	}
 

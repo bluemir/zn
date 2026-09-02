@@ -53,7 +53,7 @@ func (e editor) renderStickyRow(buf *viewport, line int) string {
 // 파일 끝에서 화면이 다 안 차는 자리를 위한 것이다. 보통은 scrollTo 가 머리줄 수만큼 top 을
 // 올려 두어 rows 가 화면을 채우므로 자를 것이 없다.
 func (e editor) stickyRows(buf *viewport, height, rows int) []int {
-	sticky := buf.stickyAt(buf.top, height)
+	sticky := buf.stickyAt(buf.top.line, height)
 	if over := len(sticky) - rows; over > 0 {
 		sticky = sticky[over:]
 	}

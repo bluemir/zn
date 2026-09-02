@@ -93,8 +93,8 @@ func TestVisualLineDeleteTakesWholeLines(t *testing.T) {
 
 	buf := bufferOf(t, m)
 	assert.Equal(t, []string{"baz"}, linesOf(buf))
-	assert.Equal(t, 0, buf.cursorLine)
-	assert.Equal(t, 0, buf.cursorCol, "메운 줄의 첫 비공백이다")
+	assert.Equal(t, 0, buf.cursor.line)
+	assert.Equal(t, 0, buf.cursor.col, "메운 줄의 첫 비공백이다")
 }
 
 // `y` 는 파일을 건드리지 않고 커서를 범위의 시작에 놓는다.
@@ -107,7 +107,7 @@ func TestVisualYankFillsRegister(t *testing.T) {
 		assert.False(t, after.registers.unnamed.linewise)
 		assert.Equal(t, []string{"foo bar", "baz"}, linesOf(after.buffers[after.active]), "파일은 그대로다")
 		assert.False(t, after.buffers[after.active].dirty)
-		assert.Equal(t, 0, after.buffers[after.active].cursorCol, "커서는 범위의 시작이다")
+		assert.Equal(t, 0, after.buffers[after.active].cursor.col, "커서는 범위의 시작이다")
 	})
 
 	t.Run("줄 단위", func(t *testing.T) {

@@ -21,7 +21,7 @@ func joinOf(t *testing.T, data string, keys ...string) (lines []string, line, co
 
 	buf := bufferOf(t, m)
 
-	return linesOf(buf), buf.cursorLine, buf.cursorCol
+	return linesOf(buf), buf.cursor.line, buf.cursor.col
 }
 
 // 다음 줄의 들여쓰기를 걷고 공백 하나로 잇는다. 커서는 이은 자리다.
@@ -171,7 +171,7 @@ func TestJoinKeepsCursorVisible(t *testing.T) {
 	view := next.(viewEditorNormal)
 
 	buf := bufferOf(t, next)
-	require.Equal(t, 200, buf.cursorCol, "이은 자리는 원래 첫 줄의 끝 다음이다")
+	require.Equal(t, 200, buf.cursor.col, "이은 자리는 원래 첫 줄의 끝 다음이다")
 
 	_, y, ok := buf.cursorScreenPos(view.contentWidth(), view.textHeight())
 	require.True(t, ok, "커서가 화면 안에 있다")

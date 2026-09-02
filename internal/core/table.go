@@ -146,7 +146,7 @@ func (buf *viewport) formatTables(from, to, width int) (found, changed int) {
 	buf.replaceLines(first, last-first+1, next[first:last+1])
 
 	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
-	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.cursor.col = min(buf.cursor.col, len(buf.lines[buf.cursor.line]))
 	buf.updateDesiredCol(width)
 
 	buf.endEdit()

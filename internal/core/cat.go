@@ -101,7 +101,7 @@ func catHeader(buf viewport, area motionRange) string {
 		path = shortenPath(buf.path)
 	}
 
-	return fmt.Sprintf(":cat %s %d-%d", path, area.startLine+1, area.endLine+1)
+	return fmt.Sprintf(":cat %s %d-%d", path, area.start.line+1, area.end.line+1)
 }
 
 // visibleRange 는 화면에 보이는 줄들이다. 범위를 대지 않은 `\c`·`:cat`·팔레트가 쓴다.
@@ -117,10 +117,10 @@ func (e *editor) visibleRange() motionRange {
 	rows := buf.visibleRows(e.contentWidth(), e.textHeight())
 	if len(rows) == 0 {
 		// 그릴 행이 없을 만큼 좁은 화면이다. 커서 줄 하나를 낸다.
-		return motionRange{startLine: buf.cursorLine, endLine: buf.cursorLine, linewise: true}
+		return motionRange{start: cursor{line: buf.cursor.line}, end: cursor{line: buf.cursor.line}, linewise: true}
 	}
 
 	first, last := rows[0].line, rows[len(rows)-1].line
 
-	return motionRange{startLine: first, endLine: last, linewise: true}
+	return motionRange{start: cursor{line: first}, end: cursor{line: last}, linewise: true}
 }

@@ -106,12 +106,12 @@ func TestSaveHookUndoDoesNotSwallowTyping(t *testing.T) {
 // 파일이 짧아져도 커서는 범위 안에 남는다.
 func TestSaveHookKeepsCursorInRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("첫 줄\n둘째 줄\n셋째 줄\n"))
-	buf.cursorLine, buf.cursorCol = 2, 6
+	buf.cursor.line, buf.cursor.col = 2, 6
 
 	buf.applySaveHook(shellHook("head -1"), wide)
 
-	assert.Equal(t, 0, buf.cursorLine)
-	assert.LessOrEqual(t, buf.cursorCol, len(buf.lines[0]))
+	assert.Equal(t, 0, buf.cursor.line)
+	assert.LessOrEqual(t, buf.cursor.col, len(buf.lines[0]))
 }
 
 // 실패하면 buffer 를 건드리지 않는다. 저장은 그대로 가고 까닭만 아래 줄에 뜬다.

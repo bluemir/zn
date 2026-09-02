@@ -19,12 +19,12 @@ package core
 // 칠 것(`x` 로 공백 지우기, `i` 로 손보기) 이 놓인 자리다. 이것도 vim 과 같다.
 func (buf *viewport) joinLines(count, width int) {
 	// 남은 줄로 이을 수 있는 만큼으로 줄인다. 마지막 줄에서는 이을 것이 없어 아무 일도 없다.
-	lines := min(max(count, 2), len(buf.lines)-buf.cursorLine)
+	lines := min(max(count, 2), len(buf.lines)-buf.cursor.line)
 	if lines < 2 {
 		return
 	}
 
-	at := buf.cursorLine
+	at := buf.cursor.line
 
 	joined := buf.lines[at]
 	cursor := 0
@@ -54,7 +54,7 @@ func (buf *viewport) joinLines(count, width int) {
 
 	buf.endEdit()
 
-	buf.cursorCol = cursor
+	buf.cursor.col = cursor
 	buf.updateDesiredCol(width)
 
 	// 이은 자리가 줄 끝을 넘을 수 있다. 다음 줄이 비어 있거나 공백뿐이면 붙는 것이 없어서

@@ -23,8 +23,10 @@ package core
 // 자리」를 따로 들고 다니던 두 필드가 있었는데, 재 보니 **그것이 늘 범위의 시작이었다** —
 // `span` 이 커서 자리와 이동이 닿은 자리로 범위를 짓기 때문이다(charSpan·lineSpan).
 // 커서를 옮길지는 부르는 쪽이 정한다(ADR-0100 §5).
+// **좌표를 cursor 로 든다.** 넷이 전부 쌍으로만 쓰여서(`textBetween(start, end)` 같은 자리)
+// 따로 두면 부르는 쪽이 매번 짝을 맞춰야 하고, `col` 이 byte 인지 화면 칸인지도 이름만으로는
+// 갈리지 않았다 (ADR-0122).
 type motionRange struct {
-	startLine, startCol int
-	endLine, endCol     int
-	linewise            bool
+	start, end cursor
+	linewise   bool
 }

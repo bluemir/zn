@@ -23,11 +23,10 @@ func (buf *viewport) beginEdit(at, count int) {
 
 	if !buf.editing {
 		buf.undo = append(buf.undo, edit{
-			at:         at,
-			before:     append([][]byte(nil), buf.lines[at:at+count]...),
-			count:      count,
-			cursorLine: buf.cursorLine,
-			cursorCol:  buf.cursorCol,
+			at:     at,
+			before: append([][]byte(nil), buf.lines[at:at+count]...),
+			count:  count,
+			cursor: buf.cursor,
 		})
 		buf.editing = true
 
@@ -60,11 +59,11 @@ func (buf *viewport) insert(text []byte, width int) {
 		return
 	}
 
-	line := buf.lines[buf.cursorLine]
-	head, tail := line[:buf.cursorCol], line[buf.cursorCol:]
+	line := buf.lines[buf.cursor.line]
+	head, tail := line[:buf.cursor.col], line[buf.cursor.col:]
 	pieces := bytes.Split(text, []byte{'\n'})
 
-	buf.beginEdit(buf.cursorLine, 1)
+	buf.beginEdit(buf.cursor.line, 1)
 
 	if len(pieces) == 1 {
 		merged := make([]byte, 0, len(line)+len(text))
@@ -72,8 +71,8 @@ func (buf *viewport) insert(text []byte, width int) {
 		merged = append(merged, text...)
 		merged = append(merged, tail...)
 
-		buf.replaceLines(buf.cursorLine, 1, [][]byte{merged})
-		buf.cursorCol += len(text)
+		buf.replaceLines(buf.cursor.line, 1, [][]byte{merged})
+		buf.cursor.col += len(text)
 		buf.updateDesiredCol(width)
 
 		return
@@ -96,11 +95,11 @@ func (buf *viewport) insert(text []byte, width int) {
 	joined = append(joined, tail...)
 	next = append(next, joined)
 
-	buf.replaceLines(buf.cursorLine, 1, next)
+	buf.replaceLines(buf.cursor.line, 1, next)
 	buf.growEdit(len(next) - 1)
 
-	buf.cursorLine += len(next) - 1
-	buf.cursorCol = len(last)
+	buf.cursor.line += len(next) - 1
+	buf.cursor.col = len(last)
 	buf.updateDesiredCol(width)
 }
 
@@ -135,7 +134,7 @@ func (buf *viewport) insertLines(at int, lines [][]byte) {
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다(indent.go). `cc` 가 들여쓰기를 남기는 것과
 // 손이 같아졌다 — 둘 다 「새로 칠 줄」이다.
 func (buf *viewport) openLineBelow(width int) {
-	buf.cursorCol = len(buf.lines[buf.cursorLine])
+	buf.cursor.col = len(buf.lines[buf.cursor.line])
 	buf.insertNewLine(width)
 }
 
@@ -145,58 +144,58 @@ func (buf *viewport) openLineBelow(width int) {
 // `o` 를 윗 줄에서 친 것과 같은 자리다. 첫 줄 위에는 가져올 곳이 없어서 빈 줄이다.
 func (buf *viewport) openLineAbove(width int) {
 	indent := []byte(nil)
-	if buf.cursorLine > 0 {
-		above := buf.lines[buf.cursorLine-1]
-		indent = buf.indentForNewLine(buf.cursorLine-1, above)
+	if buf.cursor.line > 0 {
+		above := buf.lines[buf.cursor.line-1]
+		indent = buf.indentForNewLine(buf.cursor.line-1, above)
 	}
 
-	buf.cursorCol = 0
+	buf.cursor.col = 0
 	buf.insert(concat(indent, []byte{'\n'}), width)
 
 	// 줄 맨 앞에서 가르면 원래 내용이 아래로 밀리고 커서가 그것을 따라간다.
 	// 새로 생긴 줄은 그 위이므로 한 줄 되돌아온다.
-	buf.cursorLine--
-	buf.cursorCol = len(indent)
+	buf.cursor.line--
+	buf.cursor.col = len(indent)
 	buf.updateDesiredCol(width)
 }
 
 // deleteBackward 는 커서 앞 글자를 지운다. 줄 시작이면 앞 줄과 합친다.
 func (buf *viewport) deleteBackward(width int) {
-	if buf.cursorCol > 0 {
-		line := buf.lines[buf.cursorLine]
-		from := buf.prevOffset(buf.cursorCol, width)
+	if buf.cursor.col > 0 {
+		line := buf.lines[buf.cursor.line]
+		from := buf.prevOffset(buf.cursor.col, width)
 
 		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. prevOffset 이 글자 경계를 준다.
-		rest := make([]byte, 0, len(line)-(buf.cursorCol-from))
+		rest := make([]byte, 0, len(line)-(buf.cursor.col-from))
 		rest = append(rest, line[:from]...)
-		rest = append(rest, line[buf.cursorCol:]...)
+		rest = append(rest, line[buf.cursor.col:]...)
 
-		buf.beginEdit(buf.cursorLine, 1)
-		buf.replaceLines(buf.cursorLine, 1, [][]byte{rest})
-		buf.cursorCol = from
+		buf.beginEdit(buf.cursor.line, 1)
+		buf.replaceLines(buf.cursor.line, 1, [][]byte{rest})
+		buf.cursor.col = from
 		buf.updateDesiredCol(width)
 
 		return
 	}
 
-	if buf.cursorLine == 0 {
+	if buf.cursor.line == 0 {
 		return
 	}
 
-	prev := buf.lines[buf.cursorLine-1]
-	line := buf.lines[buf.cursorLine]
+	prev := buf.lines[buf.cursor.line-1]
+	line := buf.lines[buf.cursor.line]
 
 	joined := make([]byte, 0, len(prev)+len(line))
 	joined = append(joined, prev...)
 	joined = append(joined, line...)
 
 	// 두 줄을 건드리므로 열린 구간이 있으면 범위가 넓어진다.
-	buf.beginEdit(buf.cursorLine-1, 2)
-	buf.replaceLines(buf.cursorLine-1, 2, [][]byte{joined})
+	buf.beginEdit(buf.cursor.line-1, 2)
+	buf.replaceLines(buf.cursor.line-1, 2, [][]byte{joined})
 	buf.growEdit(-1)
 
-	buf.cursorLine--
-	buf.cursorCol = len(prev)
+	buf.cursor.line--
+	buf.cursor.col = len(prev)
 	buf.updateDesiredCol(width)
 }
 
@@ -205,37 +204,37 @@ func (buf *viewport) deleteBackward(width int) {
 //
 // normal 에는 걸지 않았다. 그 자리에는 `x` 가 이미 있고 register 에 담는 것까지 정해져 있다.
 func (buf *viewport) deleteForward(width int) {
-	line := buf.lines[buf.cursorLine]
+	line := buf.lines[buf.cursor.line]
 
-	if buf.cursorCol < len(line) {
+	if buf.cursor.col < len(line) {
 		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. lines.Size 가 글자 경계를 준다.
-		to := buf.cursorCol + glyphSize(line, buf.cursorCol)
+		to := buf.cursor.col + glyphSize(line, buf.cursor.col)
 
-		rest := make([]byte, 0, len(line)-(to-buf.cursorCol))
-		rest = append(rest, line[:buf.cursorCol]...)
+		rest := make([]byte, 0, len(line)-(to-buf.cursor.col))
+		rest = append(rest, line[:buf.cursor.col]...)
 		rest = append(rest, line[to:]...)
 
-		buf.beginEdit(buf.cursorLine, 1)
-		buf.replaceLines(buf.cursorLine, 1, [][]byte{rest})
+		buf.beginEdit(buf.cursor.line, 1)
+		buf.replaceLines(buf.cursor.line, 1, [][]byte{rest})
 		buf.updateDesiredCol(width)
 
 		return
 	}
 
 	// 줄 끝이다. 마지막 줄이면 끌어올 것이 없다.
-	if buf.cursorLine == len(buf.lines)-1 {
+	if buf.cursor.line == len(buf.lines)-1 {
 		return
 	}
 
-	next := buf.lines[buf.cursorLine+1]
+	next := buf.lines[buf.cursor.line+1]
 
 	joined := make([]byte, 0, len(line)+len(next))
 	joined = append(joined, line...)
 	joined = append(joined, next...)
 
 	// 두 줄을 건드리므로 열린 구간이 있으면 범위가 넓어진다. deleteBackward 와 같다.
-	buf.beginEdit(buf.cursorLine, 2)
-	buf.replaceLines(buf.cursorLine, 2, [][]byte{joined})
+	buf.beginEdit(buf.cursor.line, 2)
+	buf.replaceLines(buf.cursor.line, 2, [][]byte{joined})
 	buf.growEdit(-1)
 
 	// 커서는 제자리다 — 이은 자리가 곧 커서 자리다.
@@ -286,7 +285,7 @@ func (buf *viewport) trimTrailingSpace(from, to, width int) int {
 
 	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
 	// beginEdit 가 이미 원래 자리를 기록했으므로 `u` 로 되돌리면 거기로 돌아간다.
-	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.cursor.col = min(buf.cursor.col, len(buf.lines[buf.cursor.line]))
 	buf.updateDesiredCol(width)
 
 	buf.endEdit()
@@ -313,8 +312,8 @@ func (buf *viewport) replaceAll(next [][]byte, width int) {
 	buf.replaceLines(0, before, next)
 	buf.growEdit(len(next) - before)
 
-	buf.cursorLine = min(buf.cursorLine, len(buf.lines)-1)
-	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.cursor.line = min(buf.cursor.line, len(buf.lines)-1)
+	buf.cursor.col = min(buf.cursor.col, len(buf.lines[buf.cursor.line]))
 	buf.updateDesiredCol(width)
 
 	buf.endEdit()
@@ -357,7 +356,7 @@ func (buf *viewport) sortLines(from, to, width int) int {
 	buf.replaceLines(from, to-from, next)
 
 	// 커서 줄의 내용이 바뀌었으므로 줄 밖에 서 있을 수 있다.
-	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.cursor.col = min(buf.cursor.col, len(buf.lines[buf.cursor.line]))
 	buf.updateDesiredCol(width)
 
 	buf.endEdit()
@@ -404,7 +403,7 @@ func (buf *viewport) squeezeSpaces(from, to, width int) int {
 	buf.replaceLines(first, last-first+1, next[first:last+1])
 
 	// 커서가 줄어든 자리 뒤에 서 있었으면 줄 끝으로 당긴다.
-	buf.cursorCol = min(buf.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.cursor.col = min(buf.cursor.col, len(buf.lines[buf.cursor.line]))
 	buf.updateDesiredCol(width)
 
 	buf.endEdit()
@@ -445,17 +444,16 @@ func (buf *viewport) applyRedo(width int) bool {
 // revert 는 e 를 적용하고 반대 방향으로 되돌릴 edit 을 돌려준다.
 func (buf *viewport) revert(e edit, width int) edit {
 	inverse := edit{
-		at:         e.at,
-		before:     append([][]byte(nil), buf.lines[e.at:e.at+e.count]...),
-		count:      len(e.before),
-		cursorLine: buf.cursorLine,
-		cursorCol:  buf.cursorCol,
+		at:     e.at,
+		before: append([][]byte(nil), buf.lines[e.at:e.at+e.count]...),
+		count:  len(e.before),
+		cursor: buf.cursor,
 	}
 
 	buf.replaceLines(e.at, e.count, e.before)
 
-	buf.cursorLine = min(e.cursorLine, len(buf.lines)-1)
-	buf.cursorCol = min(e.cursorCol, len(buf.lines[buf.cursorLine]))
+	buf.cursor.line = min(e.cursor.line, len(buf.lines)-1)
+	buf.cursor.col = min(e.cursor.col, len(buf.lines[buf.cursor.line]))
 	buf.updateDesiredCol(width)
 
 	return inverse

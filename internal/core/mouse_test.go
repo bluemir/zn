@@ -419,7 +419,7 @@ func TestClickIgnoredWhileTypingCommand(t *testing.T) {
 	command, ok := m.(viewEditorCommand)
 	require.True(t, ok, "명령줄에 남는다")
 	assert.Equal(t, "w", command.input.text, "치던 명령이 그대로다")
-	assert.Equal(t, 0, command.buffers[command.active].cursorLine, "커서도 그대로다")
+	assert.Equal(t, 0, command.buffers[command.active].cursor.line, "커서도 그대로다")
 }
 
 func TestClickIgnoredWhileTypingSearch(t *testing.T) {
@@ -450,35 +450,35 @@ func TestWheelScrollsWithoutMovingCursor(t *testing.T) {
 	m, _ = m.Update(wheel(left+1, tablineHeight+1, false))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, wheelRows, buf.top, "화면이 굴러간다")
-	assert.Equal(t, wheelRows, buf.cursorLine, "화면 맨 윗줄로 끌려온다")
+	assert.Equal(t, wheelRows, buf.top.line, "화면이 굴러간다")
+	assert.Equal(t, wheelRows, buf.cursor.line, "화면 맨 윗줄로 끌려온다")
 }
 
 func TestWheelKeepsCursorWhileVisible(t *testing.T) {
 	m := newTestEditor(longBuffer(50), 40, 10)
-	m.buffers[0].cursorLine = 8
-	m.buffers[0].top = 0
+	m.buffers[0].cursor.line = 8
+	m.buffers[0].top.line = 0
 
 	var model tea.Model = m
 	model, _ = model.Update(wheel(contentLeftOf(t, model)+1, tablineHeight+1, false))
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, wheelRows, buf.top)
-	assert.Equal(t, 8, buf.cursorLine, "아직 화면 안이라 그대로다")
+	assert.Equal(t, wheelRows, buf.top.line)
+	assert.Equal(t, 8, buf.cursor.line, "아직 화면 안이라 그대로다")
 }
 
 // 위로 굴리면 커서가 화면 아래로 벗어난다. 아래쪽 끝 행으로 데려온다.
 func TestWheelUpPullsCursorToBottom(t *testing.T) {
 	m := newTestEditor(longBuffer(50), 40, 10)
-	m.buffers[0].top = 20
-	m.buffers[0].cursorLine = 29 // 화면 맨 아랫줄
+	m.buffers[0].top.line = 20
+	m.buffers[0].cursor.line = 29 // 화면 맨 아랫줄
 
 	var model tea.Model = m
 	model, _ = model.Update(wheel(contentLeftOf(t, model)+1, tablineHeight+1, true))
 
 	buf := bufferOf(t, model)
-	require.Equal(t, 20-wheelRows, buf.top)
-	assert.Equal(t, buf.top+9, buf.cursorLine, "화면 맨 아랫줄로 끌려온다")
+	require.Equal(t, 20-wheelRows, buf.top.line)
+	assert.Equal(t, buf.top.line+9, buf.cursor.line, "화면 맨 아랫줄로 끌려온다")
 }
 
 func TestWheelUpAtTopDoesNothing(t *testing.T) {
@@ -486,7 +486,7 @@ func TestWheelUpAtTopDoesNothing(t *testing.T) {
 
 	m, _ = m.Update(wheel(contentLeftOf(t, m)+1, tablineHeight+1, true))
 
-	assert.Equal(t, 0, bufferOf(t, m).top)
+	assert.Equal(t, 0, bufferOf(t, m).top.line)
 }
 
 func TestWheelStopsAtLastLine(t *testing.T) {
@@ -498,7 +498,7 @@ func TestWheelStopsAtLastLine(t *testing.T) {
 	}
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, len(buf.lines)-1, buf.top, "마지막 줄이 맨 위에서 멈춘다")
+	assert.Equal(t, len(buf.lines)-1, buf.top.line, "마지막 줄이 맨 위에서 멈춘다")
 }
 
 func TestWheelMovesTopRowInsideWrappedLine(t *testing.T) {
@@ -512,8 +512,8 @@ func TestWheelMovesTopRowInsideWrappedLine(t *testing.T) {
 	m, _ = m.Update(wheel(contentLeftOf(t, m)+1, tablineHeight+1, false))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, 0, buf.top, "같은 논리 줄 안이다")
-	assert.Equal(t, wheelRows, buf.topRow)
+	assert.Equal(t, 0, buf.top.line, "같은 논리 줄 안이다")
+	assert.Equal(t, wheelRows, buf.top.row)
 }
 
 func TestWheelOnSidebarScrollsTree(t *testing.T) {
@@ -529,7 +529,7 @@ func TestWheelOnSidebarScrollsTree(t *testing.T) {
 	require.True(t, ok, "포커스는 편집 영역에 남는다")
 	assert.Equal(t, wheelRows, normal.sidebar.top, "트리가 굴러간다")
 	assert.Equal(t, before, normal.sidebar.selected, "고른 항목은 그대로다")
-	assert.Equal(t, 0, normal.buffers[normal.active].top, "편집 영역은 굴러가지 않는다")
+	assert.Equal(t, 0, normal.buffers[normal.active].top.line, "편집 영역은 굴러가지 않는다")
 }
 
 func TestWheelOnTextDoesNotScrollTree(t *testing.T) {
@@ -542,7 +542,7 @@ func TestWheelOnTextDoesNotScrollTree(t *testing.T) {
 	normal, ok := model.(viewEditorNormal)
 	require.True(t, ok)
 	assert.Equal(t, 0, normal.sidebar.top, "트리는 그대로다")
-	assert.Equal(t, wheelRows, normal.buffers[normal.active].top)
+	assert.Equal(t, wheelRows, normal.buffers[normal.active].top.line)
 }
 
 // 고른 항목이 화면 밖으로 나가면 커서를 놓을 자리가 없다. ADR-0005 의 포커스 표시가 잠시 없다.
@@ -571,7 +571,7 @@ func TestWheelWorksWhileTypingCommand(t *testing.T) {
 
 	command, ok := m.(viewEditorCommand)
 	require.True(t, ok, "명령줄에 남는다")
-	assert.Equal(t, wheelRows, command.buffers[command.active].top)
+	assert.Equal(t, wheelRows, command.buffers[command.active].top.line)
 }
 
 // drag 는 버튼을 누른 채 움직이는 것이다. click 과 같이 화면 좌표 하나를 메시지로 만든다.
@@ -596,7 +596,7 @@ func TestDragStartsVisual(t *testing.T) {
 	buf := visual.activeBuffer()
 	assert.False(t, buf.selection.linewise, "드래그는 글자 단위다")
 	assert.Equal(t, 1, buf.selection.col, "누른 자리가 anchor 다")
-	assert.Equal(t, 4, buf.cursorCol, "끌린 자리가 커서다")
+	assert.Equal(t, 4, buf.cursor.col, "끌린 자리가 커서다")
 
 	// 뗄 때는 보지 않는다. visual 에 머문다.
 	after, _ = after.Update(tea.MouseReleaseMsg{X: left + 4, Y: tablineHeight, Button: tea.MouseLeft})
@@ -613,7 +613,7 @@ func TestDragOutsideTextClampsInside(t *testing.T) {
 
 	visual, ok := after.(viewEditorVisual)
 	require.True(t, ok, "sidebar 쪽으로 끌어도 포커스는 그대로다")
-	assert.Equal(t, 0, visual.activeBuffer().cursorCol, "줄 시작까지 골랐다")
+	assert.Equal(t, 0, visual.activeBuffer().cursor.col, "줄 시작까지 골랐다")
 }
 
 // 화면 아래로 끌면 그 방향으로 한 행 굴린다.
@@ -632,8 +632,8 @@ func TestDragBelowTextScrolls(t *testing.T) {
 
 	visual, ok := after.(viewEditorVisual)
 	require.True(t, ok)
-	assert.Equal(t, 1, visual.activeBuffer().top, "한 행 굴러갔다")
-	assert.Equal(t, 2, visual.activeBuffer().cursorLine, "끌린 쪽 끝 행이 커서다")
+	assert.Equal(t, 1, visual.activeBuffer().top.line, "한 행 굴러갔다")
+	assert.Equal(t, 2, visual.activeBuffer().cursor.line, "끌린 쪽 끝 행이 커서다")
 }
 
 // visual 에서 클릭하면 고른 것을 놓고 그 자리가 새 시작이 된다.
@@ -649,8 +649,8 @@ func TestClickLeavesVisual(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, after)
 	buf := bufferOf(t, after)
 	assert.False(t, buf.selection.active, "고른 범위를 놓는다")
-	assert.Equal(t, 1, buf.cursorLine)
-	assert.Equal(t, 2, buf.cursorCol)
+	assert.Equal(t, 1, buf.cursor.line)
+	assert.Equal(t, 2, buf.cursor.col)
 }
 
 // statusBar 는 눌러도 아무 일이 없다. visual 도 그대로다.

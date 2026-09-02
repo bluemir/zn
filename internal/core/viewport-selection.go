@@ -18,7 +18,7 @@ func (buf viewport) selectionRange() (motionRange, bool) {
 	}
 
 	startLine, startCol := buf.selection.line, buf.selection.col
-	endLine, endCol := buf.cursorLine, buf.cursorCol
+	endLine, endCol := buf.cursor.line, buf.cursor.col
 
 	if endLine < startLine || (endLine == startLine && endCol < startCol) {
 		startLine, startCol, endLine, endCol = endLine, endCol, startLine, startCol
@@ -28,11 +28,7 @@ func (buf viewport) selectionRange() (motionRange, bool) {
 	// 범위의 시작으로 옮길 때 그 칸이 필요하다 — 어느 쪽 끝에서 골랐든 처음 짚은 자리로
 	// 돌아가는 것이 vim 의 visual `y` 다(buffer-yank.go 의 moveToRangeStart, ADR-0100).
 	if buf.selection.linewise {
-		return motionRange{
-			startLine: startLine, startCol: startCol,
-			endLine: endLine, endCol: endCol,
-			linewise: true,
-		}, true
+		return motionRange{start: cursor{line: startLine, col: startCol}, end: cursor{line: endLine, col: endCol}, linewise: true}, true
 	}
 
 	// 줄 끝에서는 밀 글자가 없다. 빈 줄을 고른 것이라 범위가 비어 있는 그대로다.
@@ -40,10 +36,7 @@ func (buf viewport) selectionRange() (motionRange, bool) {
 		endCol += glyphSize(line, endCol)
 	}
 
-	return motionRange{
-		startLine: startLine, startCol: startCol,
-		endLine: endLine, endCol: endCol,
-	}, true
+	return motionRange{start: cursor{line: startLine, col: startCol}, end: cursor{line: endLine, col: endCol}}, true
 }
 
 // startSelection 은 커서 자리를 anchor 로 삼아 범위를 연다. `v`·`V` 와 드래그가 여기로 온다.
@@ -51,8 +44,8 @@ func (buf *viewport) startSelection(linewise bool) {
 	buf.selection = selection{
 		active:   true,
 		linewise: linewise,
-		line:     buf.cursorLine,
-		col:      buf.cursorCol,
+		line:     buf.cursor.line,
+		col:      buf.cursor.col,
 	}
 }
 

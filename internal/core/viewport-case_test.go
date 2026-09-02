@@ -80,8 +80,8 @@ func TestChangeCaseCursor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := pressFrom(t, test.data, test.line, test.col, test.keys...)
 
-			assert.Equal(t, test.wantLine, buf.cursorLine, "줄")
-			assert.Equal(t, test.wantCol, buf.cursorCol, "칸")
+			assert.Equal(t, test.wantLine, buf.cursor.line, "줄")
+			assert.Equal(t, test.wantCol, buf.cursor.col, "칸")
 		})
 	}
 }

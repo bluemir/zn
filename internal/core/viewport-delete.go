@@ -11,20 +11,20 @@ package core
 // 여기로 온다 — 둘이 범위를 얻는 길만 다르고 그다음은 같다(action.go, ADR-0037).
 func (buf *viewport) deleteRange(area motionRange, width int) (register, bool) {
 	if area.linewise {
-		return buf.deleteLines(area.startLine, area.endLine, width), true
+		return buf.deleteLines(area.start.line, area.end.line, width), true
 	}
 
-	return buf.deleteText(area.startLine, area.startCol, area.endLine, area.endCol, width)
+	return buf.deleteText(area.start, area.end, width)
 }
 
 // includeCursorCluster 는 커서가 선 글자까지 범위에 넣는다. inclusive motion 이 쓴다.
 func (buf *viewport) includeCursorCluster() {
-	line := buf.lines[buf.cursorLine]
-	if buf.cursorCol >= len(line) {
+	line := buf.lines[buf.cursor.line]
+	if buf.cursor.col >= len(line) {
 		return
 	}
 
-	buf.cursorCol += glyphSize(line, buf.cursorCol)
+	buf.cursor.col += glyphSize(line, buf.cursor.col)
 }
 
 // wordForwardToDelete 는 `dw` 가 지울 끝 자리로 간다. 마지막 한 걸음은 줄을 넘지 않는다.
@@ -33,30 +33,30 @@ func (buf *viewport) includeCursorCluster() {
 //
 // `cw` 가 첫 걸음을 어디서 멈출지 이것으로 가른다. 그 판단은 motion.go 가 한다 — 여기는
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
-// deleteText 는 (startLine, startCol) 부터 (endLine, endCol) 앞까지 지운다.
+// deleteText 는 (start.line, start.col) 부터 (end.line, end.col) 앞까지 지운다.
 // 지울 것이 없으면 아무것도 하지 않고 false 다.
-func (buf *viewport) deleteText(startLine, startCol, endLine, endCol, width int) (register, bool) {
-	if startLine == endLine && startCol == endCol {
+func (buf *viewport) deleteText(start, end cursor, width int) (register, bool) {
+	if start.line == end.line && start.col == end.col {
 		return register{}, false
 	}
 
-	count := endLine - startLine + 1
-	removed := buf.textBetween(startLine, startCol, endLine, endCol)
+	count := end.line - start.line + 1
+	removed := buf.textBetween(start, end)
 
-	head, tail := buf.lines[startLine][:startCol], buf.lines[endLine][endCol:]
+	head, tail := buf.lines[start.line][:start.col], buf.lines[end.line][end.col:]
 	joined := make([]byte, 0, len(head)+len(tail))
 	joined = append(joined, head...)
 	joined = append(joined, tail...)
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 지우기는 언제나 제 구간이다.
 	buf.endEdit()
-	buf.beginEdit(startLine, count)
-	buf.replaceLines(startLine, count, [][]byte{joined})
+	buf.beginEdit(start.line, count)
+	buf.replaceLines(start.line, count, [][]byte{joined})
 	buf.growEdit(1 - count)
 	buf.endEdit()
 
 	// 지운 자리가 곧 커서 자리다. 줄 끝을 지웠으면 마지막 글자 위로 당겨진다.
-	buf.cursorLine, buf.cursorCol = startLine, startCol
+	buf.cursor.line, buf.cursor.col = start.line, start.col
 	buf.clampToNormal(width)
 	buf.updateDesiredCol(width)
 
@@ -83,7 +83,7 @@ func (buf *viewport) deleteLines(from, to, width int) register {
 
 	// 지운 자리를 메운 줄로 간다. 마지막 줄을 지웠으면 그 앞 줄이다.
 	// 칸은 첫 비공백이다 — 지운 줄의 칸을 지키는 것보다 들여쓴 코드에서 손이 덜 간다. vim 과 같다.
-	buf.cursorLine = min(from, len(buf.lines)-1)
+	buf.cursor.line = min(from, len(buf.lines)-1)
 	buf.moveLineFirstNonBlank(width)
 	buf.clampToNormal(width)
 

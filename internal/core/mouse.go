@@ -67,7 +67,7 @@ func (e *editor) clickText(x, y int) {
 	// 가려진 줄로 커서가 간다 — 눌러서 보이는 글자와 커서가 어긋난다.
 	//
 	// 여기서는 화면을 옮긴다. 가려는 곳이 화면 밖이라 위의 「이미 보이는 자리」가 아니다.
-	if sticky := buf.stickyAt(buf.top, e.textHeight()); row < len(sticky) {
+	if sticky := buf.stickyAt(buf.top.line, e.textHeight()); row < len(sticky) {
 		buf.moveToLine(sticky[row], e.contentWidth())
 		e.scrollToCursor()
 
@@ -257,14 +257,14 @@ func (e *editor) dragTo(x, y int) {
 
 	// 머리줄이 덮은 자리는 편집 영역 위로 나간 것과 같이 다룬다 — 그리로 끌면 위로 굴려서
 	// 가려진 줄을 드러낸다. 머리줄이 없으면 sticky 가 0 이라 예전과 같다(ADR-0049).
-	sticky := len(buf.stickyAt(buf.top, height))
+	sticky := len(buf.stickyAt(buf.top.line, height))
 
 	row := y - tablineHeight
 	switch {
 	case row < sticky:
 		buf.scrollBy(-1, width, height)
 
-		row = len(buf.stickyAt(buf.top, height))
+		row = len(buf.stickyAt(buf.top.line, height))
 	case row >= height:
 		buf.scrollBy(1, width, height)
 

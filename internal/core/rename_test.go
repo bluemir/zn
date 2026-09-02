@@ -149,7 +149,7 @@ func TestRenameOpensPopupFromEveryDoor(t *testing.T) {
 		},
 	} {
 		e := newTestEditorFile("a.go", "package p\n\nvar Greet = 1\n", 80, 6).editor
-		e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 4
+		e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 4
 
 		m, _ := open(e)
 
@@ -173,12 +173,12 @@ func TestRenameCommandWithNameSkipsPopup(t *testing.T) {
 // 커서를 그 이름의 첫 글자로 옮긴다. 서버에 묻는 자리가 커서라 화면과 맞아야 한다.
 func TestRenamePopupMovesCursorToWord(t *testing.T) {
 	e := newTestEditorFile("a.go", "package p\n\n\tvar Greet = 1\n", 80, 6).editor
-	e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 0
+	e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 0
 
 	m, _ := renameInputMode(e)
 
 	require.IsType(t, viewRenameInput{}, m)
-	assert.Equal(t, len("\t"), e.buffers[0].cursorCol, "낱말 첫 글자로 옮겼다")
+	assert.Equal(t, len("\t"), e.buffers[0].cursor.col, "낱말 첫 글자로 옮겼다")
 	assert.Equal(t, "var", m.(viewRenameInput).old,
 		"커서가 들여쓰기 위면 그 줄의 첫 낱말이다 — vim 의 `*` 와 같다(search.go)")
 }
@@ -186,7 +186,7 @@ func TestRenamePopupMovesCursorToWord(t *testing.T) {
 // 바꿀 이름이 없는 줄에서는 열리지 않는다.
 func TestRenamePopupNeedsWord(t *testing.T) {
 	e := newTestEditorFile("a.go", "package p\n\n\n", 80, 6).editor
-	e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 0
+	e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 0
 
 	m, _ := renameInputMode(e)
 
@@ -197,7 +197,7 @@ func TestRenamePopupNeedsWord(t *testing.T) {
 // 창에서 치고 지우고 그만둘 수 있다.
 func TestRenamePopupTyping(t *testing.T) {
 	e := newTestEditorFile("a.go", "package p\n\nvar Greet = 1\n", 80, 6).editor
-	e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 4
+	e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 4
 
 	m, _ := renameInputMode(e)
 
@@ -211,7 +211,7 @@ func TestRenamePopupTyping(t *testing.T) {
 // 커서가 창 밖으로 나가 화면 끝에서 다음 줄로 감긴다 — 실제로 그렇게 되었다.
 func TestRenamePopupKeepsTailVisible(t *testing.T) {
 	e := newTestEditorFile("a.go", "package p\n\nvar Greet = 1\n", 80, 6).editor
-	e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 4
+	e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 4
 
 	m, _ := renameInputMode(e)
 	require.IsType(t, viewRenameInput{}, m)
@@ -230,7 +230,7 @@ func TestRenamePopupKeepsTailVisible(t *testing.T) {
 // 짧은 이름은 접지 않는다. 옛 이름이 그대로 보인다.
 func TestRenamePopupShowsBothNamesWhenShort(t *testing.T) {
 	e := newTestEditorFile("a.go", "package p\n\nvar Greet = 1\n", 80, 6).editor
-	e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 4
+	e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 4
 
 	m, _ := renameInputMode(e)
 
@@ -243,7 +243,7 @@ func TestRenamePopupShowsBothNamesWhenShort(t *testing.T) {
 // 옛 이름 그대로 enter 를 누르면 아무 일도 하지 않는다.
 func TestRenamePopupKeepsSameName(t *testing.T) {
 	e := newTestEditorFile("a.go", "package p\n\nvar Greet = 1\n", 80, 6).editor
-	e.buffers[0].cursorLine, e.buffers[0].cursorCol = 2, 4
+	e.buffers[0].cursor.line, e.buffers[0].cursor.col = 2, 4
 
 	m, _ := renameInputMode(e)
 	m = send(m, "enter")

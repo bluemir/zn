@@ -253,7 +253,7 @@ func TestViewEditorCursorAfterScroll(t *testing.T) {
 	buf.moveDownRow(20, m.width)
 	buf.scrollTo(m.width, m.textHeight())
 
-	require.Equal(t, 11, buf.top)
+	require.Equal(t, 11, buf.top.line)
 	assert.Equal(t, 10, m.View().Cursor.Position.Y, "커서는 편집 영역 맨 아래 줄")
 }
 
@@ -293,11 +293,11 @@ func TestViewEditorArrowKeysMoveCursor(t *testing.T) {
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	moved := updated.(viewEditorNormal)
-	assert.Equal(t, 1, moved.buffers[0].cursorCol)
+	assert.Equal(t, 1, moved.buffers[0].cursor.col)
 
 	updated, _ = moved.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	moved = updated.(viewEditorNormal)
-	assert.Equal(t, 1, moved.buffers[0].cursorLine)
+	assert.Equal(t, 1, moved.buffers[0].cursor.line)
 }
 
 // expandedRow 는 줄 하나를 화면 글자로 펼친 것이다. 색은 빼고 글자만 본다.

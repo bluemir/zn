@@ -16,14 +16,14 @@ package core
 // 부르는 쪽이 그 차례로 한다(action.go, ADR-0100).
 func (buf Buffer) yankRange(area motionRange) (register, bool) {
 	if area.linewise {
-		return register{lines: append([][]byte(nil), buf.lines[area.startLine:area.endLine+1]...), linewise: true}, true
+		return register{lines: append([][]byte(nil), buf.lines[area.start.line:area.end.line+1]...), linewise: true}, true
 	}
 
-	if area.startLine == area.endLine && area.startCol == area.endCol {
+	if area.start.line == area.end.line && area.start.col == area.end.col {
 		return register{}, false
 	}
 
-	return register{lines: buf.textBetween(area.startLine, area.startCol, area.endLine, area.endCol)}, true
+	return register{lines: buf.textBetween(area.start, area.end)}, true
 }
 
 // yankLines 는 [from, to] 줄을 register 에 담는다. `:[범위]y` 가 쓴다.

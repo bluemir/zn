@@ -15,15 +15,15 @@ package core
 // 「앞이 아니면 안 옮긴다」가 곧 「앞으로 가는 이동은 제자리」이고, `yy` 처럼 시작이 지금
 // 자리인 것도 같은 조건에 걸려 안 움직인다(ADR-0100).
 func (buf *viewport) moveToRangeStart(area motionRange, width int) {
-	if area.startLine > buf.cursorLine ||
-		(area.startLine == buf.cursorLine && area.startCol >= buf.cursorCol) {
+	if area.start.line > buf.cursor.line ||
+		(area.start.line == buf.cursor.line && area.start.col >= buf.cursor.col) {
 		return
 	}
 
-	buf.cursorLine, buf.cursorCol = area.startLine, area.startCol
+	buf.cursor.line, buf.cursor.col = area.start.line, area.start.col
 
-	// 줄 단위 motion 의 칸은 desiredCol 을 이미 따라간 값이라 다시 잡지 않는다.
-	// 글자 단위는 좌우로 움직인 것이라 이동 키와 같이 desiredCol 을 갱신한다.
+	// 줄 단위 motion 의 칸은 desiredX 을 이미 따라간 값이라 다시 잡지 않는다.
+	// 글자 단위는 좌우로 움직인 것이라 이동 키와 같이 desiredX 을 갱신한다.
 	if !area.linewise {
 		buf.updateDesiredCol(width)
 	}

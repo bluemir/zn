@@ -132,7 +132,7 @@ func (m *viewEditorSearch) preview() {
 
 	buf := m.activeBuffer()
 
-	result, ok := buf.find(pattern, m.direction, m.origin.place.cursorLine, m.origin.place.cursorCol)
+	result, ok := buf.find(pattern, m.direction, m.origin.place.cursor.line, m.origin.place.cursor.col)
 	if !ok {
 		return
 	}
@@ -217,7 +217,7 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 	buf := e.activeBuffer()
 	width := e.contentWidth()
 
-	line, col := buf.cursorLine, buf.cursorCol
+	line, col := buf.cursor.line, buf.cursor.col
 	wrapped := false
 
 	for range n {
@@ -271,7 +271,7 @@ func (e *editor) searchWord(direction searchDirection, n int) {
 
 	// 커서를 단어 앞으로 옮기고 거기서 찾는다. 옮기지 않으면 커서 오른쪽에 있던 그 단어가
 	// 첫 매칭이 되어, `*` 를 눌렀는데 제자리에서 한 칸 옆으로 가는 것으로 끝난다. vim 과 같다.
-	buf.moveTo(buf.cursorLine, col, e.contentWidth())
+	buf.moveTo(buf.cursor.line, col, e.contentWidth())
 
 	// QuoteMeta 를 거친 글자와 `\b` 뿐이라 정규식이 될 수 없는 경우가 없다.
 	input := wordSearchPattern(word)

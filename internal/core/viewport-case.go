@@ -31,24 +31,24 @@ const (
 // **줄을 넘지 않는다.** 이것도 vim 과 같다. 커서는 마지막으로 바꾼 글자 **다음** 이고,
 // 줄 끝을 넘으면 normal 커서 자리로 당겨진다(clampToNormal).
 func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
-	line := buf.lines[buf.cursorLine]
+	line := buf.lines[buf.cursor.line]
 
-	end := clusterEndClamped(line, buf.cursorCol, max(count, 1))
-	changed := applyCase(line[buf.cursorCol:end], kind)
+	end := clusterEndClamped(line, buf.cursor.col, max(count, 1))
+	changed := applyCase(line[buf.cursor.col:end], kind)
 
-	if !bytes.Equal(changed, line[buf.cursorCol:end]) {
-		next := concat(concat(line[:buf.cursorCol], changed), line[end:])
+	if !bytes.Equal(changed, line[buf.cursor.col:end]) {
+		next := concat(concat(line[:buf.cursor.col], changed), line[end:])
 
 		// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. `r` 과 같은 자리다.
 		buf.endEdit()
-		buf.beginEdit(buf.cursorLine, 1)
-		buf.replaceLines(buf.cursorLine, 1, [][]byte{next})
+		buf.beginEdit(buf.cursor.line, 1)
+		buf.replaceLines(buf.cursor.line, 1, [][]byte{next})
 		buf.endEdit()
 	}
 
 	// 커서는 바뀐 것이 없어도 옮긴다. `~` 는 훑어 가는 키라 대소문자가 없는 글자
 	// (한글·문장부호) 위에서도 오른쪽으로 간다. vim 과 같다.
-	buf.cursorCol += len(changed)
+	buf.cursor.col += len(changed)
 	buf.updateDesiredCol(width)
 	buf.clampToNormal(width)
 }
@@ -58,19 +58,19 @@ func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
 // 줄 단위면 걸친 줄 전체이고 글자 단위면 고른 자리만이다. 커서는 범위의 시작으로 간다 —
 // 복사(`y`) 와 같은 길이다(moveToRangeStart).
 func (buf *viewport) changeCaseRange(area motionRange, kind caseKind, width int) {
-	next := make([][]byte, 0, area.endLine-area.startLine+1)
+	next := make([][]byte, 0, area.end.line-area.start.line+1)
 	same := true
 
-	for i := area.startLine; i <= area.endLine; i++ {
+	for i := area.start.line; i <= area.end.line; i++ {
 		line := buf.lines[i]
 
 		start, end := 0, len(line)
 		if !area.linewise {
-			if i == area.startLine {
-				start = area.startCol
+			if i == area.start.line {
+				start = area.start.col
 			}
-			if i == area.endLine {
-				end = min(area.endCol, len(line))
+			if i == area.end.line {
+				end = min(area.end.col, len(line))
 			}
 		}
 
@@ -89,10 +89,10 @@ func (buf *viewport) changeCaseRange(area motionRange, kind caseKind, width int)
 	}
 
 	buf.endEdit()
-	buf.beginEdit(area.startLine, len(next))
+	buf.beginEdit(area.start.line, len(next))
 
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
-	buf.replaceLines(area.startLine, len(next), next)
+	buf.replaceLines(area.start.line, len(next), next)
 	buf.endEdit()
 }
 

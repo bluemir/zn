@@ -28,7 +28,7 @@ func TestStickyIsInertWithoutLanguage(t *testing.T) {
 	assert.Nil(t, stickyLinesOf(t, "test.txt", data, 4, 10), "언어를 모르면 붙일 것이 없다")
 
 	m := newTestEditor(strings.Repeat("본문\n", 40), 40, 5)
-	m.activeBuffer().top = 20
+	m.activeBuffer().top.line = 20
 
 	assert.Equal(t, strings.Repeat("본문\n", 5)[:len("본문\n")*5-1], textOf(t, m),
 		"강조 없는 파일의 화면은 예전과 같다")
@@ -133,7 +133,7 @@ func TestStickyShowsAncestorWhenScrolledPast(t *testing.T) {
 	data := "# 문서 제목\n## 두째 절\n" + strings.Repeat("본문\n", 40)
 
 	m := newTestEditorFile("doc.md", data, 40, 5)
-	m.activeBuffer().top = 20
+	m.activeBuffer().top.line = 20
 	rows := contentRowsOf(t, m)
 
 	assert.Contains(t, rows[0], "문서 제목", "맨 윗줄에 h1 이 붙는다")
@@ -150,10 +150,10 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 
 	t.Run("커서를 화면 맨 위로 올린다", func(t *testing.T) {
 		buf := newBuffer("doc.md", []byte(data))
-		buf.top, buf.cursorLine = 30, 30
+		buf.top.line, buf.cursor.line = 30, 30
 		buf.scrollTo(40, 10)
 
-		sticky := buf.stickyAt(buf.top, 10)
+		sticky := buf.stickyAt(buf.top.line, 10)
 		require.NotEmpty(t, sticky, "감싸는 제목이 있어야 시험이 뜻을 가진다")
 
 		_, y, ok := buf.cursorScreenPos(40, 10)
@@ -173,7 +173,7 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 
 			_, y, ok := buf.cursorScreenPos(editor.contentWidth(), editor.textHeight())
 			require.True(t, ok, "커서가 화면 안이다")
-			assert.GreaterOrEqual(t, y, len(buf.stickyAt(buf.top, editor.textHeight())),
+			assert.GreaterOrEqual(t, y, len(buf.stickyAt(buf.top.line, editor.textHeight())),
 				"커서가 머리줄에 덮였다")
 		}
 	})
@@ -184,14 +184,14 @@ func TestStickyScrollToConverges(t *testing.T) {
 	data := "func alpha() {\n\tif y {\n\t\tp()\n\t\tq()\n"
 
 	buf := newBuffer("main.go", []byte(data))
-	buf.cursorLine = 3
+	buf.cursor.line = 3
 	buf.scrollTo(40, 4)
 
-	top, topRow := buf.top, buf.topRow
+	top, topRow := buf.top.line, buf.top.row
 	buf.scrollTo(40, 4)
 
-	assert.Equal(t, top, buf.top, "두 번째 부름이 화면을 또 옮기면 안 된다")
-	assert.Equal(t, topRow, buf.topRow)
+	assert.Equal(t, top, buf.top.line, "두 번째 부름이 화면을 또 옮기면 안 된다")
+	assert.Equal(t, topRow, buf.top.row)
 }
 
 // 편집 영역보다 긴 머리줄도 **한 행**이다. 두 행이 되면 그 아래가 통째로 밀린다.
@@ -199,7 +199,7 @@ func TestStickyRowIsOneRow(t *testing.T) {
 	data := "# " + strings.Repeat("아주 긴 제목 ", 20) + "\n" + strings.Repeat("본문\n", 40)
 
 	m := newTestEditorFile("doc.md", data, 40, 5)
-	m.activeBuffer().top = 20
+	m.activeBuffer().top.line = 20
 	rows := contentRowsOf(t, m)
 
 	assert.Len(t, rows, 5, "행 수는 그대로다")
@@ -219,7 +219,7 @@ func TestStickyGutterDoesNotOverflow(t *testing.T) {
 
 	m := newTestEditorFile("doc.md", data, 40, 6)
 	buf := m.activeBuffer()
-	buf.top, buf.cursorLine = 200, 203
+	buf.top.line, buf.cursor.line = 200, 203
 
 	rows := contentRowsOf(t, m)
 	require.Contains(t, rows[0], "aaa", "맨 윗줄이 머리줄이다")

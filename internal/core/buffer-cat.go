@@ -12,8 +12,8 @@ package core
 // moveToRangeStart 때문인데, 커서를 옮길지는 부르는 쪽마다 다르다(visual 만 옮긴다).
 func (buf Buffer) catLines(area motionRange) [][]byte {
 	if area.linewise {
-		return buf.lines[area.startLine : area.endLine+1]
+		return buf.lines[area.start.line : area.end.line+1]
 	}
 
-	return buf.textBetween(area.startLine, area.startCol, area.endLine, area.endCol)
+	return buf.textBetween(area.start, area.end)
 }

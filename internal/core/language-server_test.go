@@ -121,8 +121,8 @@ func TestFinishDefinitionMovesCursor(t *testing.T) {
 	// nil 이다 — 답을 받았다는 것이 곧 서버가 있다는 뜻이다.
 	assert.NotNil(t, cmd)
 
-	assert.Equal(t, 2, e.activeBuffer().cursorLine)
-	assert.Equal(t, 13, e.activeBuffer().cursorCol)
+	assert.Equal(t, 2, e.activeBuffer().cursor.line)
+	assert.Equal(t, 13, e.activeBuffer().cursor.col)
 	assert.Empty(t, e.notice)
 }
 
@@ -147,8 +147,8 @@ func TestFinishDefinitionOpensNewTab(t *testing.T) {
 
 	require.Len(t, e.buffers, 2)
 	assert.Equal(t, there, e.activeBuffer().path)
-	assert.Equal(t, 2, e.activeBuffer().cursorLine)
-	assert.Equal(t, 5, e.activeBuffer().cursorCol)
+	assert.Equal(t, 2, e.activeBuffer().cursor.line)
+	assert.Equal(t, 5, e.activeBuffer().cursor.col)
 }
 
 // 후보가 여럿이면 고르는 화면이 열린다. 커서는 물어본 자리에 그대로 있다(ADR-0051).
@@ -172,7 +172,7 @@ func TestFinishDefinitionOpensList(t *testing.T) {
 	require.True(t, ok, "고르는 화면이 열려야 한다")
 	assert.Len(t, list.locations, 3)
 	assert.Equal(t, 0, list.selected)
-	assert.Equal(t, 0, e.activeBuffer().cursorLine, "고르기 전에는 커서가 움직이지 않는다")
+	assert.Equal(t, 0, e.activeBuffer().cursor.line, "고르기 전에는 커서가 움직이지 않는다")
 	assert.Empty(t, e.notice)
 }
 

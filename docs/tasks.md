@@ -439,6 +439,7 @@
 	- [ ] 화면 버퍼(cell 배열) 를 둘지 정한다. 지금은 사는 것이 「grep 이 같은 길을 쓴다」 하나뿐이라 시험으로 막았는데, 화면 분할이나 가로 스크롤이 오면 「이 칸이 어디서 왔나」를 자주 묻게 되어 매핑이 화면 상태가 된다 (ADR-0120)
 	- [x] `Buffer` 를 composite 로 볼지 정한다 (ADR-0100, ADR-0120)
 	- [x] 「보는 자리」를 `Buffer` 밖으로 낼지 정한다 (ADR-0100, ADR-0121)
+	- [ ] `rowHighlight.cursorCol` 과 `inputLine.visible` 의 `cursorCol` 을 좌표 type 으로 옮길지 정한다. 앞엣것은 렌더 쪽 type 이고 뒤엣것은 한 줄짜리 글이라 좌표계가 또 다르다 (ADR-0122)
 	- [ ] 메서드 예순 남짓이 받는 화면 폭(`width`) 을 viewport 로 모을지 정한다. 화면 행 이동과 `desiredCol` 이 줄바꿈에 걸려 있어서인데, 그 둘이 이제 viewport 에 있다 (ADR-0108, ADR-0121)
 	- [ ] viewport 메서드 88 개의 receiver 이름이 `buf` 인 것을 다듬을지 정한다. 옮길 때 본문을 안 건드리려고 타입만 바꿨다 (ADR-0121)
 	- [ ] `editor.buffers`(285 곳)·`activeBuffer`(317)·`bufferByPath`(3) 의 이름이 낡은 것을 언제 고칠지 정한다. 타입은 `viewport` 인데 이름은 「buffer」라 그 낱말이 글과 창 둘을 가리킨다. 화면 분할이 오면 `editor` 가 글과 창을 따로 들게 되어 이름이 그때 저절로 정해지므로, 지금 고르면 두 번 고치게 된다 (ADR-0121)
