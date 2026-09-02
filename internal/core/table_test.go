@@ -23,6 +23,26 @@ func tableBuffer(t *testing.T, name string, lines ...string) *viewport {
 	return &buf
 }
 
+// formatTablesTo 는 창 하나를 editor 에 얹고 표를 맞춘다.
+//
+// **맞춘 줄을 짓는 일이 창 밖으로 갔다**(formattedTables). 갈아끼우는 것은 부르는 쪽이라,
+// 창만 세운 시험도 그 길을 지나야 같은 것을 본다 (ADR-0126).
+func formatTablesTo(t *testing.T, buf *viewport, from, to int) (found, changed int) {
+	t.Helper()
+
+	at, next, found, changed := formattedTables(buf.lines, buf.language.State(), from, to)
+	if changed > 0 {
+		buf.endEdit()
+		buf.beginEdit(at, len(next))
+		buf.replaceLines(at, len(next), next)
+		buf.cursor.Col = min(buf.cursor.Col, len(buf.lines[buf.cursor.Line]))
+		buf.updateDesiredCol()
+		buf.endEdit()
+	}
+
+	return found, changed
+}
+
 // bufferLines 는 지금 buffer 의 줄들이다.
 func bufferLines(buf *viewport) []string {
 	out := make([]string, 0, len(buf.lines))
@@ -44,7 +64,7 @@ func TestFormatTablesAlignsColumns(t *testing.T) {
 		"| setext 제목 | 없다 |",
 	)
 
-	found, changed := buf.formatTables(0, len(buf.lines))
+	found, changed := formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, 1, found)
 	assert.Equal(t, 1, changed)
@@ -63,7 +83,7 @@ func TestFormatTablesKeepsAlignment(t *testing.T) {
 		"| a | b | c | d |",
 	)
 
-	buf.formatTables(0, len(buf.lines))
+	formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, []string{
 		"| 왼쪽 | 가운데 | 오른쪽 | 없음 |",
@@ -81,7 +101,7 @@ func TestFormatTablesSkipsFencedBlock(t *testing.T) {
 		"```",
 	)
 
-	found, changed := buf.formatTables(0, len(buf.lines))
+	found, changed := formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, 0, found)
 	assert.Equal(t, 0, changed)
@@ -101,7 +121,7 @@ func TestFormatTablesKeepsPipeInCodeSpan(t *testing.T) {
 		"| `a | b` | 파이프 |",
 	)
 
-	buf.formatTables(0, len(buf.lines))
+	formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, []string{
 		"| 명령    | 뜻     |",
@@ -118,7 +138,7 @@ func TestFormatTablesFillsMissingCells(t *testing.T) {
 		"| a |",
 	)
 
-	buf.formatTables(0, len(buf.lines))
+	formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, []string{
 		"| 하나 | 둘 | 셋 |",
@@ -135,13 +155,13 @@ func TestFormatTablesIsIdempotent(t *testing.T) {
 		"| a | b |",
 	)
 
-	found, changed := buf.formatTables(0, len(buf.lines))
+	found, changed := formatTablesTo(t, buf, 0, len(buf.lines))
 	require.Equal(t, 1, found)
 	require.Equal(t, 1, changed)
 
 	before := bufferLines(buf)
 
-	found, changed = buf.formatTables(0, len(buf.lines))
+	found, changed = formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, 1, found)
 	assert.Equal(t, 0, changed, "두 번째는 바꿀 것이 없다")
@@ -157,7 +177,7 @@ func TestFormatTablesOnlyMarkdown(t *testing.T) {
 		"// |---|---|",
 	)
 
-	found, changed := buf.formatTables(0, len(buf.lines))
+	found, changed := formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, 0, found)
 	assert.Equal(t, 0, changed)
@@ -175,7 +195,7 @@ func TestFormatTablesKeepsIndent(t *testing.T) {
 		"\t| 표 | 쓴다 |",
 	)
 
-	found, changed := buf.formatTables(0, len(buf.lines))
+	found, changed := formatTablesTo(t, buf, 0, len(buf.lines))
 
 	assert.Equal(t, 1, found)
 	assert.Equal(t, 1, changed)
@@ -200,7 +220,7 @@ func TestFormatTablesInRange(t *testing.T) {
 		"| c | d |",
 	)
 
-	found, changed := buf.formatTables(4, 7)
+	found, changed := formatTablesTo(t, buf, 4, 7)
 
 	assert.Equal(t, 1, found)
 	assert.Equal(t, 1, changed)
@@ -224,7 +244,7 @@ func TestFormatTablesTakesWholeTable(t *testing.T) {
 	)
 
 	// 마지막 줄만 골랐다.
-	buf.formatTables(2, 3)
+	formatTablesTo(t, buf, 2, 3)
 
 	assert.Equal(t, []string{
 		"| 항목 | 값 |",
@@ -303,7 +323,7 @@ func TestFormatTablesUndoesInOneStep(t *testing.T) {
 
 	before := bufferLines(buf)
 
-	found, changed := buf.formatTables(0, len(buf.lines))
+	found, changed := formatTablesTo(t, buf, 0, len(buf.lines))
 	require.Equal(t, 2, found)
 	require.Equal(t, 2, changed)
 	require.NotEqual(t, before, bufferLines(buf))

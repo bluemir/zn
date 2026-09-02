@@ -32,7 +32,7 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
-	found, changed := buf.formatTables(from, to)
+	at, next, found, changed := formattedTables(buf.lines, buf.language.State(), from, to)
 
 	switch {
 	case found == 0:
@@ -40,6 +40,18 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 	case changed == 0:
 		return normalModeMessage(e, "표가 이미 맞춰져 있습니다")
 	}
+
+	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
+	// 줄 수가 그대로라 growEdit 은 부르지 않는다(trimTrailingSpace 와 같은 손이다).
+	buf.endEdit()
+	buf.beginEdit(at, len(next))
+	buf.replaceLines(at, len(next), next)
+
+	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
+	buf.cursor.Col = min(buf.cursor.Col, len(buf.lines[buf.cursor.Line]))
+	buf.updateDesiredCol()
+
+	buf.endEdit()
 
 	buf.clampToNormal()
 	e.scrollToCursor()
@@ -60,36 +72,40 @@ const (
 	tableCenter
 )
 
-// formatTables 는 [from, to) 에 걸친 markdown 표를 다 맞춘다.
+// formattedTables 는 [from, to) 에 걸친 표를 맞춘 줄들이다.
 //
-// found 는 찾은 표의 수이고 changed 는 그중 모양이 달라진 것의 수다. 둘을 가르는 것은
+// at 은 갈아끼울 첫 줄이고 next 는 그 자리에 넣을 줄들이다. 바꿀 것이 없으면 next 가 비어
+// 있다. found 는 찾은 표의 수이고 changed 는 그중 모양이 달라진 것의 수다 — 둘을 가르는 것은
 // 「표가 없다」와 「이미 맞춰져 있다」가 다른 말이기 때문이다.
+//
+// **창의 메서드가 아니다.** 표를 맞추는 일은 markdown 만의 것인데, 창 쪽에서 보면 그것은
+// 그냥 줄 여럿을 한 번에 바꾸는 일이다. 창이 markdown 을 알 이유가 없다 — 새 줄을 짓는
+// 여기까지가 언어의 일이고, 갈아끼우는 것은 부르는 쪽이 한다 (ADR-0126).
 //
 // **범위에 걸치기만 하면 그 표를 통째로 맞춘다.** 고른 범위가 표의 가운데를 자를 때
 // 그 안쪽만 맞추면 한 표의 위아래가 서로 다른 폭이 된다. 표는 칸이 세로로 서야 표다.
-func (buf *viewport) formatTables(from, to int) (found, changed int) {
+func formattedTables(lines [][]byte, state syntax.State, from, to int) (at int, next [][]byte, found, changed int) {
 	// **담아둔 문맥을 쓰지 않고 여기서 다시 훑는다.** 담아둔 것은 화면 아래를 비워 두고
 	// (lexSyntaxTo) 편집 뒤에는 수렴한 자리에서 멈춰서, 파일 끝까지 차 있다는 보장이 없다.
 	// 없는 자리를 「표가 아니다」로 읽으면 아래쪽 표가 조용히 빠진다. 사람이 한 번 부르는
 	// 명령이라 파일을 한 번 더 훑는 값이 눈에 띄지 않는다.
-	state := buf.language.State()
 	if state == nil {
-		return 0, 0
+		return 0, nil, 0, 0
 	}
 
-	states := make([]syntax.State, len(buf.lines))
-	for at, line := range buf.lines {
-		states[at] = state
+	states := make([]syntax.State, len(lines))
+	for i, line := range lines {
+		states[i] = state
 		_, state = state.Lex(line)
 	}
 
-	next := make([][]byte, len(buf.lines))
-	copy(next, buf.lines)
+	formatted := make([][]byte, len(lines))
+	copy(formatted, lines)
 
 	first, last := -1, -1
 
-	for at := 0; at < len(buf.lines); {
-		rows, delimiter, end := tableAt(buf.lines, states, at)
+	for at := 0; at < len(lines); {
+		rows, delimiter, end := tableAt(lines, states, at)
 		if end == at {
 			at++
 
@@ -109,16 +125,16 @@ func (buf *viewport) formatTables(from, to int) (found, changed int) {
 		// tab 으로 들여쓴다 — 빈 칸만 떼면 tab 이 칸 글에 딸려 들어가 폭이 어긋난다.
 		//
 		// 덩이의 첫 줄 것을 모든 행에 쓴다. 행마다 다르면 칸이 세로로 서지 않는다.
-		head := buf.lines[at]
+		head := lines[at]
 		indent := head[:len(head)-len(bytes.TrimLeft(head, " \t"))]
 
 		moved := false
 		for i, line := range renderTable(rows, delimiter, string(indent)) {
-			if bytes.Equal(line, buf.lines[at+i]) {
+			if bytes.Equal(line, lines[at+i]) {
 				continue
 			}
 
-			next[at+i] = line
+			formatted[at+i] = line
 			moved = true
 
 			if first < 0 {
@@ -135,22 +151,10 @@ func (buf *viewport) formatTables(from, to int) (found, changed int) {
 	}
 
 	if first < 0 {
-		return found, 0
+		return 0, nil, found, 0
 	}
 
-	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
-	// 줄 수가 그대로라 growEdit 은 부르지 않는다(trimTrailingSpace 와 같은 손이다).
-	buf.endEdit()
-	buf.beginEdit(first, last-first+1)
-	buf.replaceLines(first, last-first+1, next[first:last+1])
-
-	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
-	buf.cursor.Col = min(buf.cursor.Col, len(buf.lines[buf.cursor.Line]))
-	buf.updateDesiredCol()
-
-	buf.endEdit()
-
-	return found, changed
+	return first, formatted[first : last+1], found, changed
 }
 
 // tableAt 은 at 에서 시작하는 표다. 표가 아니면 end 가 at 그대로다.
