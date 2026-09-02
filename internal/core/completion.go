@@ -174,7 +174,25 @@ func (e *editor) applyCompletion() {
 	}
 
 	item := e.completion.items[e.completion.selected]
-	e.activeBuffer().insertCompletion(item)
+
+	// **여기서 창의 말로 옮긴다.** 서버가 준 범위(TextEdit) 를 그대로 쓴다 — 이미 친 접두를
+	// 그 범위가 덮고 있어서(`rand.IntN` 에서 `IntN` 넉 자였다) 우리가 접두를 셀 일이 없다.
+	// 범위가 없거나 여러 줄에 걸치면 커서 자리에 넣는다 — 여러 줄짜리는 snippet 쪽 이야기이고
+	// 우리는 그것을 켜지 않았다(lsp/client.go 의 initialize 가 능력을 비워 둔다).
+	//
+	// 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go). 그러려면 그 줄의 글자가 필요하고,
+	// 그 줄을 든 것이 창이다 — 창을 손에 쥔 이 자리가 옮기기에 맞다 (ADR-0125).
+	buf := e.activeBuffer()
+	line := buf.cursor.Line
+	start, end := buf.cursor.Col, buf.cursor.Col
+
+	if edit := item.TextEdit; edit != nil &&
+		edit.Range.Start.Line == line && edit.Range.End.Line == line {
+		start = lsp.ByteColumn(buf.lines[line], edit.Range.Start.Character)
+		end = lsp.ByteColumn(buf.lines[line], edit.Range.End.Character)
+	}
+
+	buf.insertCompletion(start, end, []byte(item.Text()))
 	e.closeCompletion()
 	e.scrollToCursor()
 }

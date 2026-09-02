@@ -1,36 +1,21 @@
 package core
 
-import "github.com/bluemir/zn/internal/lsp"
-
 // 자동완성이 고른 것을 buffer 에 넣는다.
-//
-// **viewport 표면에서 `internal/lsp` 를 아는 유일한 자리**라 파일을 따로 두어 그 import 를 여기
-// 가둔다. 밖으로 뺄지는 아직 정하지 않았다 (ADR-0066, docs/tasks.md).
 
-// insertCompletion 은 후보 하나를 커서 자리에 넣는다.
+// insertCompletion 은 커서 줄의 [start, end) 를 고른 글로 갈아끼우고 커서를 그 뒤에 둔다.
 //
-// **서버가 준 범위(TextEdit) 를 그대로 쓴다.** 이미 친 접두를 그 범위가 덮고 있어서
-// (`rand.IntN` 에서 `IntN` 넉 자였다) 우리가 접두를 셀 일이 없다. 범위가 없거나 여러 줄에
-// 걸치면 커서 자리에 넣는다 — 여러 줄짜리는 snippet 쪽 이야기이고 우리는 그것을 켜지 않았다
-// (lsp/client.go 의 initialize 가 능력을 비워 둔다).
+// **자리는 이미 byte 로 옮겨져 있다**(editor 의 applyCompletion). 서버가 주는 범위는 UTF-16
+// 열이라 이 줄의 글자를 봐야 byte 로 옮길 수 있는데, 그 옮김을 여기서 하면 창이 언어 서버를
+// 알게 된다. 창은 「이 줄의 이 자리를 이 글로 바꾼다」만 받는다 (ADR-0125).
 //
 // **되돌리기 구간을 닫지 않는다.** insert 에서 친 글자와 한 구간에 있어야 `u` 한 번으로
-// 그 insert 가 통째로 돌아간다. vim 과 같다.
-func (buf *viewport) insertCompletion(item lsp.CompletionItem) {
+// 「자동완성으로 넣은 것까지」 돌아간다. 닫는 것은 insert 를 나갈 때다(ADR-0033, ADR-0066).
+func (buf *viewport) insertCompletion(start, end int, text []byte) {
 	line := buf.cursor.Line
-	start, end := buf.cursor.Col, buf.cursor.Col
-
-	if edit := item.TextEdit; edit != nil &&
-		edit.Range.Start.Line == line && edit.Range.End.Line == line {
-		start = lsp.ByteColumn(buf.lines[line], edit.Range.Start.Character)
-		end = lsp.ByteColumn(buf.lines[line], edit.Range.End.Character)
-	}
 
 	// 서버가 보던 판과 지금 판이 어긋났으면 범위가 줄 밖을 가리킬 수 있다.
 	start = min(max(start, 0), len(buf.lines[line]))
 	end = min(max(end, start), len(buf.lines[line]))
-
-	text := []byte(item.Text())
 
 	next := make([]byte, 0, len(buf.lines[line])-(end-start)+len(text))
 	next = append(next, buf.lines[line][:start]...)

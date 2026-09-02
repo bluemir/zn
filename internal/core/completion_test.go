@@ -35,12 +35,25 @@ func TestCompletionTriggers(t *testing.T) {
 	}
 }
 
+// applyCompletionTo 는 창 하나를 editor 에 얹고 후보를 고르게 한다.
+//
+// **범위를 byte 로 옮기는 일이 editor 쪽으로 갔다**(applyCompletion). 서버가 준 UTF-16 열을
+// 옮기는 것을 보는 시험은 그 길을 지나야 한다 (ADR-0125).
+func applyCompletionTo(t *testing.T, buf *viewport, chosen lsp.CompletionItem) {
+	t.Helper()
+
+	e := &editor{buffers: []viewport{*buf}, width: 80, height: 20}
+	e.completion = completion{items: []lsp.CompletionItem{chosen}, line: buf.cursor.Line}
+	e.applyCompletion()
+	*buf = e.buffers[0]
+}
+
 // 서버가 준 범위가 이미 친 접두를 덮는다. 우리가 접두를 세지 않는다.
 func TestInsertCompletionReplacesPrefix(t *testing.T) {
 	buf := newBuffer("a.go", []byte("x := strings.Con\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, len("x := strings.Con")
 
-	buf.insertCompletion(item("Contains", 0, 13, 16))
+	applyCompletionTo(t, &buf, item("Contains", 0, 13, 16))
 
 	assert.Equal(t, "x := strings.Contains", string(buf.lines[0]))
 	assert.Equal(t, len("x := strings.Contains"), buf.cursor.Col, "커서가 넣은 글자 뒤에 선다")
@@ -51,7 +64,7 @@ func TestInsertCompletionWithoutRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, 2
 
-	buf.insertCompletion(lsp.CompletionItem{Label: "cd"})
+	applyCompletionTo(t, &buf, lsp.CompletionItem{Label: "cd"})
 
 	assert.Equal(t, "abcd", string(buf.lines[0]))
 }
@@ -61,7 +74,7 @@ func TestInsertCompletionClampsRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, 2
 
-	buf.insertCompletion(item("Z", 0, 100, 200))
+	applyCompletionTo(t, &buf, item("Z", 0, 100, 200))
 
 	assert.Equal(t, "abZ", string(buf.lines[0]))
 }
@@ -71,7 +84,7 @@ func TestInsertCompletionKeepsUndoChunkOpen(t *testing.T) {
 	buf := newBuffer("a.go", []byte("\n"))
 	buf.insert([]byte("st"))
 
-	buf.insertCompletion(item("strings", 0, 0, 2))
+	applyCompletionTo(t, &buf, item("strings", 0, 0, 2))
 	buf.insert([]byte("."))
 
 	require.True(t, buf.applyUndo())
@@ -83,7 +96,7 @@ func TestInsertCompletionIgnoresMultilineRange(t *testing.T) {
 	buf := newBuffer("a.go", []byte("ab\ncd\n"))
 	buf.cursor.Line, buf.cursor.Col = 0, 1
 
-	buf.insertCompletion(lsp.CompletionItem{
+	applyCompletionTo(t, &buf, lsp.CompletionItem{
 		Label: "Z",
 		TextEdit: &lsp.TextEdit{NewText: "Z", Range: lsp.Range{
 			Start: lsp.Position{Line: 0, Character: 0},
