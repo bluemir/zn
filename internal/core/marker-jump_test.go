@@ -6,8 +6,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/bluemir/zn/internal/lsp"
 )
 
 // markerFixture 는 열 줄짜리 파일에 git 마커와 진단을 심어 둔 화면이다.
@@ -26,10 +24,10 @@ func markerFixture(t *testing.T) tea.Model {
 		7: gitLineRemoved,
 	}
 
-	buf.setDiagnostics([]lsp.Diagnostic{
-		{Range: lsp.Range{Start: lsp.Position{Line: 2}}, Severity: lsp.SeverityError, Message: "x"},
-		{Range: lsp.Range{Start: lsp.Position{Line: 3}}, Severity: lsp.SeverityWarning, Message: "y"},
-		{Range: lsp.Range{Start: lsp.Position{Line: 8}}, Severity: lsp.SeverityError, Message: "z"},
+	buf.setDiagnostics([]diagnostic{
+		{line: 2, severity: severityError, message: "x"},
+		{line: 3, severity: severityWarning, message: "y"},
+		{line: 8, severity: severityError, message: "z"},
 	})
 
 	return m

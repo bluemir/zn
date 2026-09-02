@@ -8,7 +8,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/bluemir/zn/internal/lsp"
 	"github.com/bluemir/zn/internal/scheme"
 	"github.com/bluemir/zn/internal/syntax"
 )
@@ -190,7 +189,7 @@ type Buffer struct {
 	// 파일 내용에서 나온 것이라 커서·스크롤·문법 토큰과 같이 이 파일에 딸려 있다(위 주석).
 	// 값 필드라 Reload 가 buffer 를 통째로 갈아끼울 때(`*buf = next`) 저절로 비워진다 —
 	// 다시 읽은 내용의 진단은 서버가 새로 보내온다(ADR-0086).
-	diagnostics map[int][]lsp.Diagnostic
+	diagnostics map[int][]diagnostic
 
 	// git 은 HEAD 와 견줘 낸 것이다. 아래 gitCache 에 무엇이 왜 드는지 있다.
 	git gitCache
