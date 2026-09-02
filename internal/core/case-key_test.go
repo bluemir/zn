@@ -105,3 +105,20 @@ func TestChangeCaseKeepsClean(t *testing.T) {
 	buf = pressFrom(t, "한글", 0, 0, "~")
 	assert.False(t, buf.Dirty, "한 글자도 같다")
 }
+
+// 빈 줄에서 친 `~` 는 아무것도 하지 않는다. **기억한 칸도 지우지 않는다.**
+//
+// vim 9.1 로 쟀다(ADR-0018). `abcdef` 의 넷째 칸에서 `j` 로 빈 줄에 내려가 `~` 를 쳐도
+// curswant 가 4 그대로이고, `~` 자체가 실패해서 뒤에 붙인 키가 버려진다.
+//
+//	lll     1:4:cw4
+//	lllj    2:1:cw4
+//	lllj~   2:1:cw4   ← 그대로다
+//
+// 전에는 `~` 가 빈 줄에서도 기억한 칸을 0 으로 지워서, 내려간 줄의 첫 칸에 섰다.
+func TestTildeOnEmptyLineKeepsDesiredCol(t *testing.T) {
+	buf := pressFrom(t, "abcdef\n\nabcdef", 0, 0, "l", "l", "l", "j", "~", "j")
+
+	assert.Equal(t, 2, buf.Cursor.Line)
+	assert.Equal(t, 3, buf.Cursor.Col, "빈 줄의 `~` 가 기억한 칸을 지우지 않는다")
+}

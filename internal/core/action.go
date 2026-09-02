@@ -254,6 +254,10 @@ func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
 //
 // **operator 갈래(`g~`·`gu`·`gU`) 는 두지 않았다.** 대문자·소문자로 맞추는 것은 visual 의
 // `U`·`u` 로 간다 — 범위를 눈으로 고른 뒤에 치는 길이다 (ADR-0083).
+//
+// **바꿀 범위를 motion 이 낸다.** 창에는 「이 범위의 대소문자를 바꿔라」 하나만 있고
+// (ChangeCaseRange) 「어느 범위인가」는 이 키의 규칙이라 여기서 정한다. `3~` 가 잡는 것은
+// `3l`·`d3l` 이 잡는 것과 같은 범위다 — 줄을 넘지 않고 줄 끝에서 멈추는 것까지 같다.
 type actionChangeCase struct {
 	kind  caseKind
 	count int
@@ -265,7 +269,20 @@ func (c actionChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().ChangeCaseChars(c.kind, c.count)
+	buf := e.activeBuffer()
+
+	if area, ok := (motionRight{}).span(*buf, c.count); ok {
+		buf.ChangeCaseRange(area, c.kind)
+	}
+
+	// **바꾼 뒤에 옮긴다.** `~` 는 훑어 가는 키라 바뀐 것이 없어도(한글·문장부호 위) 오른쪽으로
+	// 간다. vim 과 같다.
+	//
+	// 바꾸기 전 범위의 끝을 쓰지 않고 **바뀐 줄 위에서 다시 세는** 것이 요점이다. 대소문자가
+	// 바뀌면 byte 길이가 달라진다 — `ı`(2 byte) 가 `I`(1) 이 되고 `İ`(2) 가 `i`(1) 이 된다.
+	buf.MoveRight(max(c.count, 1))
+	buf.ClampToNormal()
+
 	e.scrollToCursor()
 
 	return nil, nil
