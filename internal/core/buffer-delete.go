@@ -9,7 +9,7 @@ package core
 // 지우기와 복사가 같은 모양으로 register 를 채운다.
 //
 // 줄은 제자리에서 바뀌지 않으므로(ADR-0001) 잘라낸 조각을 그대로 들고 있어도 된다.
-func (buf Buffer) textBetween(start, end cursor) [][]byte {
+func (buf Buffer) textBetween(start, end Cursor) [][]byte {
 	count := end.line - start.line + 1
 
 	text := make([][]byte, 0, count)

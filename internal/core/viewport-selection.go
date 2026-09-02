@@ -12,9 +12,9 @@ package core
 //
 // **커서가 선 글자를 범위에 넣는다.** vim 의 visual 은 inclusive 라 `vd` 가 `x` 와 같다.
 // `e` 가 span 에서 includeCursorCluster 를 부르는 것과 같은 자리다(ADR-0013).
-func (buf viewport) selectionRange() (motionRange, bool) {
+func (buf viewport) selectionRange() (MotionRange, bool) {
 	if !buf.selection.active {
-		return motionRange{}, false
+		return MotionRange{}, false
 	}
 
 	startLine, startCol := buf.selection.line, buf.selection.col
@@ -28,7 +28,7 @@ func (buf viewport) selectionRange() (motionRange, bool) {
 	// 범위의 시작으로 옮길 때 그 칸이 필요하다 — 어느 쪽 끝에서 골랐든 처음 짚은 자리로
 	// 돌아가는 것이 vim 의 visual `y` 다(buffer-yank.go 의 moveToRangeStart, ADR-0100).
 	if buf.selection.linewise {
-		return motionRange{start: cursor{line: startLine, col: startCol}, end: cursor{line: endLine, col: endCol}, linewise: true}, true
+		return MotionRange{start: Cursor{line: startLine, col: startCol}, end: Cursor{line: endLine, col: endCol}, linewise: true}, true
 	}
 
 	// 줄 끝에서는 밀 글자가 없다. 빈 줄을 고른 것이라 범위가 비어 있는 그대로다.
@@ -36,7 +36,7 @@ func (buf viewport) selectionRange() (motionRange, bool) {
 		endCol += glyphSize(line, endCol)
 	}
 
-	return motionRange{start: cursor{line: startLine, col: startCol}, end: cursor{line: endLine, col: endCol}}, true
+	return MotionRange{start: Cursor{line: startLine, col: startCol}, end: Cursor{line: endLine, col: endCol}}, true
 }
 
 // startSelection 은 커서 자리를 anchor 로 삼아 범위를 연다. `v`·`V` 와 드래그가 여기로 온다.

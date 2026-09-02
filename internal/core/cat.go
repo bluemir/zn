@@ -79,7 +79,7 @@ func (c *catRun) Run() error {
 // 돌아온 뒤에 할 일이 없어서 tea.Exec 에 콜백을 주지 않는다. `:!` 는 종료 코드를 알리고
 // 바깥 파일 검사를 다시 걸지만, 이쪽은 남의 프로세스도 아니고 파일을 건드리지도 않았다.
 // 돌아갈 곳은 언제나 normal 이다 — 셸에 다녀오는 길과 같은 태도다(ADR-0011, ADR-0045).
-func runCat(e *editor, area motionRange) (tea.Model, tea.Cmd) {
+func runCat(e *editor, area MotionRange) (tea.Model, tea.Cmd) {
 	buf := *e.activeBuffer()
 
 	run := tea.Exec(&catRun{header: catHeader(buf, area), lines: buf.catLines(area)}, nil)
@@ -93,7 +93,7 @@ func runCat(e *editor, area motionRange) (tea.Model, tea.Cmd) {
 //
 // `:!` 가 친 명령을 먼저 찍는 것과 같은 자리다 — 주 화면에는 지난 출력이 그대로 남아 있어서,
 // 머리말이 없으면 어느 것의 글인지 갈리지 않는다. 줄 번호는 사람이 세는 대로 1 부터다.
-func catHeader(buf viewport, area motionRange) string {
+func catHeader(buf viewport, area MotionRange) string {
 	path := "[No Name]"
 	if buf.path != "" {
 		// 트리나 팔레트로 연 파일은 절대 경로라 그대로 두면 한 줄을 다 먹는다.
@@ -111,16 +111,16 @@ func catHeader(buf viewport, area motionRange) string {
 //
 // 감싸는 머리줄(ADR-0049) 이 덮은 위 몇 행은 눈에 안 보이지만 그대로 든다. 내는 것은
 // 「이어진 한 덩이」여야 하고, 머리줄이 든 줄은 화면 밖에 있어서 붙이면 사이가 끊긴다.
-func (e *editor) visibleRange() motionRange {
+func (e *editor) visibleRange() MotionRange {
 	buf := e.activeBuffer()
 
 	rows := buf.visibleRows(e.contentWidth(), e.textHeight())
 	if len(rows) == 0 {
 		// 그릴 행이 없을 만큼 좁은 화면이다. 커서 줄 하나를 낸다.
-		return motionRange{start: cursor{line: buf.cursor.line}, end: cursor{line: buf.cursor.line}, linewise: true}
+		return MotionRange{start: Cursor{line: buf.cursor.line}, end: Cursor{line: buf.cursor.line}, linewise: true}
 	}
 
 	first, last := rows[0].line, rows[len(rows)-1].line
 
-	return motionRange{start: cursor{line: first}, end: cursor{line: last}, linewise: true}
+	return MotionRange{start: Cursor{line: first}, end: Cursor{line: last}, linewise: true}
 }

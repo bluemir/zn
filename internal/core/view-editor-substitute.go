@@ -16,9 +16,9 @@ type viewEditorSubstitute struct {
 
 	// area 는 훑을 자리다. 바꾸어도 줄 수가 늘지 않아서 시작할 때 정한 끝이 끝까지 맞다.
 	//
-	// 줄 범위가 아니라 motionRange 인 것은 글자로 고른 범위를 그대로 받기 때문이다.
+	// 줄 범위가 아니라 MotionRange 인 것은 글자로 고른 범위를 그대로 받기 때문이다.
 	// 줄마다 볼 구간은 selectionOn 이 잘라 준다 — 일괄 치환과 같은 자리다(ADR-0089).
-	area motionRange
+	area MotionRange
 
 	// 지금 보고 있는 줄과 그 줄에서 바꿀 자리들이다.
 	//
@@ -44,7 +44,7 @@ type viewEditorSubstitute struct {
 //
 // 범위 안에 하나도 없으면 mode 를 열지 않는다 — 물어볼 것이 없는 자리에 사람을 세우고
 // `q` 를 치게 할 이유가 없다.
-func substituteMode(e *editor, sub substitution, area motionRange) (tea.Model, tea.Cmd) {
+func substituteMode(e *editor, sub substitution, area MotionRange) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	m := viewEditorSubstitute{

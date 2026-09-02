@@ -10,7 +10,7 @@ package core
 //
 // 커서도 파일도 건드리지 않는다. 그래서 값 receiver 다 — yankRange 가 포인터인 것은
 // moveToRangeStart 때문인데, 커서를 옮길지는 부르는 쪽마다 다르다(visual 만 옮긴다).
-func (buf Buffer) catLines(area motionRange) [][]byte {
+func (buf Buffer) catLines(area MotionRange) [][]byte {
 	if area.linewise {
 		return buf.lines[area.start.line : area.end.line+1]
 	}

@@ -14,7 +14,7 @@ package core
 // `y` 가 커서를 옮기는 것은 그 위에 얹힌 별개의 걸음이다 — `yb` 는 앞으로 가고 `yw` 는
 // 제자리인데, 그 규칙은 복사의 성질이 아니라 키의 규칙이다. 「복사하고, 커서를 옮긴다」를
 // 부르는 쪽이 그 차례로 한다(action.go, ADR-0100).
-func (buf Buffer) yankRange(area motionRange) (register, bool) {
+func (buf Buffer) yankRange(area MotionRange) (register, bool) {
 	if area.linewise {
 		return register{lines: append([][]byte(nil), buf.lines[area.start.line:area.end.line+1]...), linewise: true}, true
 	}

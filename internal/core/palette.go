@@ -255,12 +255,12 @@ type runOptions struct {
 	//
 	// **사본이다.** 팔레트는 명령을 돌리기 직전에 buffer 가 든 것을 놓는다(view-palette.go).
 	// 그래서 명령이 tab 을 옮기거나 커서를 움직여도 이 값은 그대로다.
-	area    motionRange
+	area    MotionRange
 	hasArea bool
 }
 
 // withRange 는 고른 범위를 싣는다. visual 에서 연 팔레트만 붙인다.
-func withRange(area motionRange) runOption {
+func withRange(area MotionRange) runOption {
 	return func(o *runOptions) {
 		o.area, o.hasArea = area, true
 	}

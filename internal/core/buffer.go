@@ -24,7 +24,7 @@ import (
 // `viewport-delete.go`) 은 「글을 고치는 쪽」과 「커서를 옮기며 그것을 부르는 쪽」이다.
 //
 // 여러 갈래가 나눠 쓰는 type·도우미와 다른 receiver 의 메서드는 접두 없는 파일에 남는다
-// `register` 는 register.go, `motionRange` 는 range.go, `screenRow` 는 row.go 에 있다.
+// `register` 는 register.go, `MotionRange` 는 range.go, `screenRow` 는 row.go 에 있다.
 //
 // **줄 하나를 재고 가르는 것도 접두 없는 파일이다.** 화면에서 재고 그릴 글자로 바꾸는 것은
 // cluster.go, 무엇이 한 단어인지는 glyph-class.go 다 (ADR-0119).
@@ -39,7 +39,7 @@ import (
 //
 // **안 하는 것이 셋이다.**
 //
-//   - **커서를 모른다.** 어디를 고칠지는 범위(`motionRange`) 로 받는다. 그 범위를 만드는 것도
+//   - **커서를 모른다.** 어디를 고칠지는 범위(`MotionRange`) 로 받는다. 그 범위를 만드는 것도
 //     고치고 나서 커서를 어디 둘지도 viewport 가 한다
 //   - **키가 무엇을 뜻하는지 모른다.** `motion` 을 받지 않는다. 「`dw` 가 어디까지인가」를
 //     정하는 것은 motion.go 다
@@ -227,7 +227,7 @@ type edit struct {
 	//
 	// **담는 것은 `Buffer` 이고 뜻을 아는 것은 창이다.** 여기서는 int 둘일 뿐이고, 담고 읽는
 	// 것은 viewport 의 beginEdit·revert 다 (ADR-0121).
-	cursor cursor
+	cursor Cursor
 }
 
 // newEmptyBuffer 는 파일 없이 시작하는 빈 창을 만든다.

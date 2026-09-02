@@ -10,7 +10,7 @@ import (
 )
 
 // catOf 는 범위를 내보내고 터미널에 찍힌 것을 준다. shellRun 을 보는 손과 같다.
-func catOf(t *testing.T, buf viewport, area motionRange) string {
+func catOf(t *testing.T, buf viewport, area MotionRange) string {
 	t.Helper()
 
 	out := &bytes.Buffer{}
@@ -28,7 +28,7 @@ func catOf(t *testing.T, buf viewport, area motionRange) string {
 func TestCatRunPrintsFileBytes(t *testing.T) {
 	buf := newBuffer("a.go", []byte("package main\n\tif x {\n"))
 
-	text := catOf(t, buf, motionRange{start: cursor{line: 0}, end: cursor{line: 1}, linewise: true})
+	text := catOf(t, buf, MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
 
 	assert.Contains(t, text, "package main\n")
 	assert.Contains(t, text, "\tif x {\n", "tab 이 칸으로 펼쳐지지 않는다")
@@ -42,7 +42,7 @@ func TestCatRunPrintsFileBytes(t *testing.T) {
 func TestCatRunEndsBodyLinesWithLF(t *testing.T) {
 	buf := newBuffer("a.go", []byte("aaa\nbbb\n"))
 
-	text := catOf(t, buf, motionRange{start: cursor{line: 0}, end: cursor{line: 1}, linewise: true})
+	text := catOf(t, buf, MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
 
 	assert.Contains(t, text, "aaa\nbbb\n", "본문 줄 사이에 `\\r` 이 없다")
 	assert.True(t, strings.HasPrefix(text, "\r\n"), "머리말은 `\\r\\n` 으로 두른다")
@@ -53,7 +53,7 @@ func TestCatRunEndsBodyLinesWithLF(t *testing.T) {
 func TestCatRunEchoesHeaderAndWaitsForEnter(t *testing.T) {
 	buf := newBuffer("a.go", []byte("aaa\nbbb\n"))
 
-	text := catOf(t, buf, motionRange{start: cursor{line: 0}, end: cursor{line: 1}, linewise: true})
+	text := catOf(t, buf, MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
 
 	assert.Less(t, strings.Index(text, ":cat"), strings.Index(text, "aaa"), "머리말이 본문보다 먼저다")
 	assert.Less(t, strings.Index(text, "bbb"), strings.Index(text, "계속하려면 Enter"), "묻는 것은 맨 나중이다")
@@ -64,15 +64,15 @@ func TestCatHeader(t *testing.T) {
 	tests := []struct {
 		name string
 		path string
-		area motionRange
+		area MotionRange
 		want string
 	}{
 		{name: "줄 범위는 1 부터다", path: "a.go",
-			area: motionRange{start: cursor{line: 0}, end: cursor{line: 6}, linewise: true}, want: ":cat a.go 1-7"},
+			area: MotionRange{start: Cursor{line: 0}, end: Cursor{line: 6}, linewise: true}, want: ":cat a.go 1-7"},
 		{name: "한 줄", path: "a.go",
-			area: motionRange{start: cursor{line: 2}, end: cursor{line: 2}, linewise: true}, want: ":cat a.go 3-3"},
+			area: MotionRange{start: Cursor{line: 2}, end: Cursor{line: 2}, linewise: true}, want: ":cat a.go 3-3"},
 		{name: "이름 없는 buffer", path: "",
-			area: motionRange{start: cursor{line: 0}, end: cursor{line: 0}, linewise: true}, want: ":cat [No Name] 1-1"},
+			area: MotionRange{start: Cursor{line: 0}, end: Cursor{line: 0}, linewise: true}, want: ":cat [No Name] 1-1"},
 	}
 
 	for _, test := range tests {
@@ -90,16 +90,16 @@ func TestCatLines(t *testing.T) {
 
 	tests := []struct {
 		name string
-		area motionRange
+		area MotionRange
 		want []string
 	}{
-		{name: "줄 단위", area: motionRange{start: cursor{line: 0}, end: cursor{line: 1}, linewise: true},
+		{name: "줄 단위", area: MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true},
 			want: []string{"abcdef", "ghijkl"}},
-		{name: "줄 하나", area: motionRange{start: cursor{line: 2}, end: cursor{line: 2}, linewise: true},
+		{name: "줄 하나", area: MotionRange{start: Cursor{line: 2}, end: Cursor{line: 2}, linewise: true},
 			want: []string{"mnopqr"}},
-		{name: "한 줄 안의 글자", area: motionRange{start: cursor{line: 0, col: 1}, end: cursor{line: 0, col: 4}},
+		{name: "한 줄 안의 글자", area: MotionRange{start: Cursor{line: 0, col: 1}, end: Cursor{line: 0, col: 4}},
 			want: []string{"bcd"}},
-		{name: "여러 줄에 걸친 글자", area: motionRange{start: cursor{line: 0, col: 4}, end: cursor{line: 1, col: 2}},
+		{name: "여러 줄에 걸친 글자", area: MotionRange{start: Cursor{line: 0, col: 4}, end: Cursor{line: 1, col: 2}},
 			want: []string{"ef", "gh"}},
 	}
 
@@ -120,7 +120,7 @@ func TestCatLinesTouchesNothing(t *testing.T) {
 	buf := newBuffer("a.go", []byte("abc\ndef\n"))
 	buf.cursor.line, buf.cursor.col = 1, 2
 
-	buf.catLines(motionRange{start: cursor{line: 0}, end: cursor{line: 1}, linewise: true})
+	buf.catLines(MotionRange{start: Cursor{line: 0}, end: Cursor{line: 1}, linewise: true})
 
 	assert.Equal(t, []string{"abc", "def"}, linesOf(buf))
 	assert.Equal(t, 1, buf.cursor.line)

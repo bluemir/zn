@@ -9,7 +9,7 @@ package core
 //
 // toEnd 는 개행까지 든 줄인지다. 그리는 쪽이 줄 끝에 빈 칸 하나를 더 칠한다 —
 // `V` 로 고른 빈 줄은 칠할 글자가 없어서 그 칸이 없으면 아무것도 보이지 않는다.
-func (buf Buffer) selectionOn(area motionRange, line int) (span []int, toEnd, ok bool) {
+func (buf Buffer) selectionOn(area MotionRange, line int) (span []int, toEnd, ok bool) {
 	if line < area.start.line || line > area.end.line {
 		return nil, false, false
 	}

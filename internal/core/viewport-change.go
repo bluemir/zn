@@ -16,7 +16,7 @@ package core
 //   - `cw` 는 단어 뒤 공백을 남긴다. vim 의 예외다
 //
 // 바꿀 것이 없어도(빈 줄에서 친 `cw`) true 다 — vim 처럼 그 자리에서 넣기 시작한다.
-func (buf *viewport) changeRange(area motionRange, width int) (register, bool) {
+func (buf *viewport) changeRange(area MotionRange, width int) (register, bool) {
 	if area.linewise {
 		removed := buf.changeLines(area.start.line, area.end.line, width)
 		buf.resumeEdit()

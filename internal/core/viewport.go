@@ -79,25 +79,39 @@ type viewport struct {
 // **`desiredX` 과 `selection` 은 여기 없다.** 앞엣것은 담는 것이 아니라 되돌린 뒤 다시
 // 재는 파생값이고, 뒤엣것은 고른 범위라 「어디를 보고 있나」와 갈래가 다르다.
 type viewPlace struct {
-	cursor cursor
+	cursor Cursor
 	top    viewTop
 }
 
-// cursor 는 파일 안의 자리다.
+// 아래 셋(Cursor·Cell·MotionRange) 만 대문자다. **겹 사이를 오가는 자료**이기 때문이다.
+//
+// 이 저장소는 대문자를 「나중에 패키지를 가를 때 그 경계를 넘을 것」이라는 표시로 쓴다.
+// 무엇이 넘을지는 「지금 누가 부르나」가 아니라 **「이 말이 어디까지 통용되나」**로 가른다.
+//
+//   - **오가는 자료.** 값만 들고 아무 일도 하지 않는다. 키가 MotionRange 를 지어 글에
+//     건네고, 글이 그 Cursor 로 자르고, 창이 그리며 Cell 로 옮긴다. 누구의 것도 아니다
+//   - **한 겹의 상태.** viewTop·selection·edit 은 메서드가 없어도 오가지 않는다. 자기 겹이
+//     들고 있을 뿐이라 소문자다
+//   - **뜻을 아는 물건.** register 는 「몇 자인가」·「무엇을 알릴까」를 스스로 안다. 값만 든
+//     것이 아니라 소문자다
+//
+// 「메서드가 없다」는 필요조건이고 「겹을 넘나든다」가 그 위에 있다 (ADR-0122).
+
+// Cursor 는 파일 안의 자리다.
 //
 // **col 은 화면 칸이 아니라 byte offset 이다.** 이 저장소에는 `col` 이라는 낱말이 두 단위로
 // 있어서 type 으로 가른다 — 여기는 줄 안의 byte 이고, 화면에 그려진 칸은 cell 이다.
 // 그냥 `int` 둘이던 때는 바꿔 넣어도 컴파일이 되었다 (ADR-0122).
-type cursor struct {
+type Cursor struct {
 	line int // lines 의 index
 	col  int // 그 줄 안의 byte offset
 }
 
-// cell 은 화면에 그려진 자리다. 터미널 셀 격자의 칸이라 둘 다 화면 칸으로 센다.
+// Cell 은 화면에 그려진 자리다. 터미널 셀 격자의 칸이라 둘 다 화면 칸으로 센다.
 //
 // x, y 로 세는 것은 받는 쪽(`tea.NewCursor`) 의 어휘이기도 하고, `col` 을 쓰면 cursor 의
 // byte offset 과 같은 낱말이 되어 다시 헷갈린다.
-type cell struct {
+type Cell struct {
 	x int // 왼쪽에서 몇 번째 칸
 	y int // 위에서 몇 번째 행
 }

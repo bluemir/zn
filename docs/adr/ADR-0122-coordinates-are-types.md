@@ -10,7 +10,7 @@ ADR-0121 로 커서가 viewport 로 나온 뒤 「(line, col) 쌍이 여기저�
 
 | 이름 | 단위 |
 |---|---|
-| `cursorCol`·`motionRange` 의 col·`selection.col` | **줄 안 byte offset** |
+| `cursorCol`·`MotionRange` 의 col·`selection.col` | **줄 안 byte offset** |
 | `desiredCol` | **화면 행 안에서 센 칸** (ADR-0108) |
 | `screenColAt` 이 주는 값 | **줄 시작에서 센 화면 칸** |
 
@@ -22,16 +22,16 @@ ADR-0121 로 커서가 viewport 로 나온 뒤 「(line, col) 쌍이 여기저�
 
 ```go
 // 파일 안의 자리. col 은 byte offset 이다
-type cursor struct{ line, col int }
+type Cursor struct{ line, col int }
 
 // 화면에 그려진 자리. 터미널 셀 격자의 칸이다
-type cell struct{ x, y int }
+type Cell struct{ x, y int }
 
 // 화면 맨 위에 그릴 자리
 type viewTop struct{ line, row int }
 ```
 
-`cursor.col` 과 `cell.x` 는 이제 서로 대입되지 않는다. **컴파일러가 단위를 지킨다.**
+`Cursor.col` 과 `Cell.x` 는 이제 서로 대입되지 않는다. **컴파일러가 단위를 지킨다.**
 
 화면 쪽을 `col` 이 아니라 `x, y` 로 둔 것은, `col` 을 쓰면 byte 쪽과 같은 낱말이 되어 다시 헷갈리기 때문이다. 받는 쪽(`tea.NewCursor`) 의 어휘이기도 하다. 그래픽 좌표처럼 보이지만 **터미널에서는 그 x, y 가 곧 칸**이라 뜻이 어긋나지 않는다.
 
@@ -45,15 +45,15 @@ type viewTop struct{ line, row int }
 
 ## 3. `desiredCol` 은 `desiredX` 가 되었다
 
-「화면 행 안에서 센 칸」이라 단위가 `cell.x` 와 같다. 이름에 `col` 이 있으면 옆의 `cursor.col`(byte) 과 같은 것으로 읽힌다.
+「화면 행 안에서 센 칸」이라 단위가 `Cell.x` 와 같다. 이름에 `col` 이 있으면 옆의 `Cursor.col`(byte) 과 같은 것으로 읽힌다.
 
 행이 없는 홀몸이라 type 을 주지 않았다. **다음에 위아래로 갈 때 서고 싶은 x** 하나다.
 
-## 4. `motionRange` 가 cursor 쌍이 되었다
+## 4. `MotionRange` 가 Cursor 쌍이 되었다
 
 ```go
-type motionRange struct {
-	start, end cursor
+type MotionRange struct {
+	start, end Cursor
 	linewise   bool
 }
 ```
@@ -68,16 +68,36 @@ ADR-0100 이 `target` 을 걷어내 「좌표 다섯」으로 줄인 위에 얹�
 |---|---|
 | `cursorLine`·`cursorCol` → `cursor.line`·`cursor.col` | 720 |
 | `top`·`topRow` → `top.line`·`top.row` | 244 |
-| `motionRange` 의 좌표 넷 → `start`·`end` | 87 |
+| `motionRange` 의 좌표 넷 → `start`·`end Cursor` | 87 |
 | `desiredCol` → `desiredX` | 40 남짓 |
 
 전부 기계적이고 동작은 하나도 안 바뀐다.
+
+## 5. 셋만 대문자다
+
+`Cursor`·`Cell`·`MotionRange` 만 대문자이고 `viewTop`·`selection`·`edit` 은 소문자다. 대문자를 **「나중에 패키지를 가를 때 그 경계를 넘을 것」** 이라는 표시로 쓰기로 했다.
+
+무엇이 넘을지를 처음에는 「지금 몇 겹이 부르나」로 재려 했다. 그 잣대로는 `viewport`(5 겹)·`editor`(3 겹, 613 회) 가 위에 오는데, 그것들은 경계가 아니라 중심이다.
+
+**잣대는 「이 말이 어디까지 통용되나」였다.**
+
+| | 무엇 | 예 |
+|---|---|---|
+| 오가는 자료 | 값만 들고 아무 일도 안 한다 | `Cursor`·`Cell`·`MotionRange` |
+| 한 겹의 상태 | 메서드가 없어도 오가지 않는다 | `viewTop`·`selection`·`edit` |
+| 뜻을 아는 물건 | 행동이 붙어 있다 | `register`(`charCount`·`copiedMessage`) |
+
+`Cell` 은 지금 `cursorScreenPos` 한 자리에서만 쓰이는데도 여기 든다. **화면 칸이라는 개념 자체가 공용**이라서다. 반대로 `viewTop` 은 여러 곳에서 읽히지만 「이 창이 어디부터 그리나」라 창 밖에서는 할 말이 없다.
+
+**이 잣대는 경계가 정해지기 전에도 쓸 수 있다.** 어디로 가르든 오가는 자료는 그 선을 넘고 상태는 자기 겹에 남는다.
+
+`Buffer` 가 대문자인 것은 이 잣대와 별개다. ADR-0100 §8 이 「헛것이지만 두기로 한다」고 적어 둔 자리다.
 
 ## 남는 것
 
 - **`rowHighlight.cursorCol`** 은 그대로다. 다른 type 의 필드이고 byte offset 인데, 그 type 이 렌더 쪽이라 이번에 안 건드렸다
 - **`inputLine.visible` 이 돌려주는 `cursorCol`** 도 남았다. 입력줄은 파일이 아니라 한 줄짜리 글이라 좌표계가 또 다르다
-- **`cell` 을 쓰는 자리가 아직 `cursorScreenPos` 하나뿐**이다. 화면 좌표를 다루는 자리가 늘면 그때 더 쓰인다
+- **`Cell` 을 쓰는 자리가 아직 `cursorScreenPos` 하나뿐**이다. 화면 좌표를 다루는 자리가 늘면 그때 더 쓰인다
 
 ## 되짚은 것
 

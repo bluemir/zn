@@ -57,7 +57,7 @@ func (buf *viewport) changeCaseChars(kind caseKind, count, width int) {
 //
 // 줄 단위면 걸친 줄 전체이고 글자 단위면 고른 자리만이다. 커서는 범위의 시작으로 간다 —
 // 복사(`y`) 와 같은 길이다(moveToRangeStart).
-func (buf *viewport) changeCaseRange(area motionRange, kind caseKind, width int) {
+func (buf *viewport) changeCaseRange(area MotionRange, kind caseKind, width int) {
 	next := make([][]byte, 0, area.end.line-area.start.line+1)
 	same := true
 

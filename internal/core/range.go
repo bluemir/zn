@@ -9,7 +9,7 @@ package core
 // 앞서 `motion.go` 에 있었다. 한 패키지 안에서는 안 보였지만 `Buffer` 가 열세 곳에서 쓰고
 // `motion` 도 `Buffer` 를 쓰므로, 겹을 패키지로 가르면 그 자리가 곧 순환이었다.
 
-// motionRange 는 operator 가 잡은 범위다. `d` 와 `y` 가 같이 쓴다.
+// MotionRange 는 operator 가 잡은 범위다. `d` 와 `y` 가 같이 쓴다.
 //
 // 글자 단위면 (startLine, startCol) 부터 (endLine, endCol) **앞까지** 이고,
 // 줄 단위면 [startLine, endLine] 줄 전체다.
@@ -26,7 +26,7 @@ package core
 // **좌표를 cursor 로 든다.** 넷이 전부 쌍으로만 쓰여서(`textBetween(start, end)` 같은 자리)
 // 따로 두면 부르는 쪽이 매번 짝을 맞춰야 하고, `col` 이 byte 인지 화면 칸인지도 이름만으로는
 // 갈리지 않았다 (ADR-0122).
-type motionRange struct {
-	start, end cursor
+type MotionRange struct {
+	start, end Cursor
 	linewise   bool
 }

@@ -14,7 +14,7 @@ package core
 //
 // 「앞이 아니면 안 옮긴다」가 곧 「앞으로 가는 이동은 제자리」이고, `yy` 처럼 시작이 지금
 // 자리인 것도 같은 조건에 걸려 안 움직인다(ADR-0100).
-func (buf *viewport) moveToRangeStart(area motionRange, width int) {
+func (buf *viewport) moveToRangeStart(area MotionRange, width int) {
 	if area.start.line > buf.cursor.line ||
 		(area.start.line == buf.cursor.line && area.start.col >= buf.cursor.col) {
 		return

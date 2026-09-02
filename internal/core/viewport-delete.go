@@ -9,7 +9,7 @@ package core
 //
 // **범위를 잡는 것은 부르는 쪽이다.** motion 이 잡은 것(`dw`) 도 visual 이 고른 것(`d`) 도
 // 여기로 온다 — 둘이 범위를 얻는 길만 다르고 그다음은 같다(action.go, ADR-0037).
-func (buf *viewport) deleteRange(area motionRange, width int) (register, bool) {
+func (buf *viewport) deleteRange(area MotionRange, width int) (register, bool) {
 	if area.linewise {
 		return buf.deleteLines(area.start.line, area.end.line, width), true
 	}
@@ -35,7 +35,7 @@ func (buf *viewport) includeCursorCluster() {
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 // deleteText 는 (start.line, start.col) 부터 (end.line, end.col) 앞까지 지운다.
 // 지울 것이 없으면 아무것도 하지 않고 false 다.
-func (buf *viewport) deleteText(start, end cursor, width int) (register, bool) {
+func (buf *viewport) deleteText(start, end Cursor, width int) (register, bool) {
 	if start.line == end.line && start.col == end.col {
 		return register{}, false
 	}
