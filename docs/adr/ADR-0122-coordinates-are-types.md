@@ -109,7 +109,69 @@ ADR-0100 이 `target` 을 걷어내 「좌표 다섯」으로 줄인 위에 얹�
 
 - **`rowHighlight.cursorCol`** 은 그대로다. 다른 type 의 필드이고 byte offset 인데, 그 type 이 렌더 쪽이라 이번에 안 건드렸다
 - **`inputLine.visible` 이 돌려주는 `cursorCol`** 도 남았다. 입력줄은 파일이 아니라 한 줄짜리 글이라 좌표계가 또 다르다
-- **`Cell` 을 쓰는 자리가 아직 `cursorScreenPos` 하나뿐**이다. 화면 좌표를 다루는 자리가 늘면 그때 더 쓰인다
+- ~~**`Cell` 을 쓰는 자리가 아직 `cursorScreenPos` 하나뿐**이다~~ → `PositionAt` 이 그것을 받게 되어 둘이 되었다. 아래를 보라
+
+## 7. type 을 준 뒤에도 문 앞에서 `int` 둘로 풀고 있었다
+
+`internal/textarea` 를 가른 뒤(ADR-0128) 문들을 훑다가 나온 자리다. **여기서 세운 셋이 있는데도 창의 문 열둘이 그 앞에서 좌표를 맨 `int` 로 되돌려 받고 있었다.**
+
+```go
+MoveTo(Line, Col int)                        // (줄, 칸) 인가 (x, y) 인가
+PositionAt(x, y, H int) (Line, Col, ok bool) // 화면 자리를 파일 자리로 옮기는데 양쪽이 다 int
+nextPos(Line, Col int) (int, int, bool)      // 이름조차 없다
+rowBefore(line1, row1, line2, row2 int)      // int 넷
+```
+
+**여기 적은 잣대가 문에서 끊긴 것이다.** `Cursor` 를 만든 값은 「틀린 대입이 컴파일에서 막히는 것」인데, 문이 그것을 풀어 받으면 그 문을 지나는 동안 보호가 없다.
+
+| 전 | 후 |
+|---|---|
+| `MoveTo(Line, Col int)` | `MoveTo(at scheme.Cursor)` |
+| `PositionAt(x, y, H int) (Line, Col int, ok bool)` | `PositionAt(at scheme.Cell, height int) (scheme.Cursor, bool)` |
+| `CursorScreenPos(H int) (x, y int, ok bool)` | `CursorScreenPos(height int) (scheme.Cell, bool)` |
+| `Find(pattern, direction, fromLine, fromCol int)` | `Find(pattern, direction, from scheme.Cursor)` |
+| `ClassAt`·`nextPos`·`prevPos` | `scheme.Cursor` 를 받고 낸다 |
+| `AroundWord(Line, Start, End int, kind) (int, int)` | `AroundWord(area scheme.MotionRange, kind) scheme.MotionRange` |
+| `retreatRows`·`advanceRows`·`rowBefore`·`placeCursorInRow` | `ViewTop` 을 주고받는다 |
+| `searchResult{Line, Col, Wrapped}` | `SearchResult{scheme.Cursor, Wrapped}` |
+
+### 잣대를 한 번 갈아탔다
+
+처음에는 **「부르는 쪽이 이미 그 물건을 들고 있나」**로 쟀다. 그 잣대로는 `MoveTo` 가 42 자리 중 5 뿐이라 남기는 쪽이 답이었다. 시험 서른이 `MoveTo(2, 0)` 처럼 숫자 짝이라는 것도 근거로 들었다.
+
+**그 잣대도 「글이 짧아지나」의 다른 얼굴이었다.** 부르는 쪽이 편한지는 이 type 이 있는 까닭이 아니다. `MoveTo(2, 0)` 은 짧지만 **그 둘이 무엇인지 서명만 보고 알 수 없고**, 그것이 이 ADR 이 처음에 잘못 쟀다가 바로잡은 바로 그 지점이다.
+
+### `PositionAt` 이 가장 나빴다
+
+화면 자리를 파일 자리로 옮기는 함수인데 **받는 것도 내놓는 것도 맨 `int`** 였다. 이 ADR 이 `Cursor` 와 `Cell` 을 가른 까닭이 그 둘이 섞이는 것을 막으려는 것인데, 그 변환을 하는 문 하나에서 둘 다 `int` 로 풀려 있었다.
+
+이제 서명이 방향을 말한다 — `PositionAt` 이 `Cell → Cursor` 이고 `CursorScreenPos` 가 그 반대다.
+
+### `ViewTop` 도 문을 얻었다
+
+§2 가 `viewTop` 을 「한 겹의 상태」로 두어 소문자로 남겼는데, **같은 패키지 안에서도 문이 그것을 `int` 둘로 풀고 있었다.** 부르는 11 자리 중 9 가 이미 `Top` 을 손으로 풀었다 담는 꼴이었다.
+
+```go
+// 전
+buf.Top.Line, buf.Top.Row = buf.retreatRows(buf.Top.Line, buf.Top.Row, -n, Width)
+// 후
+viewport.Top = viewport.retreatRows(viewport.Top, -n, width)
+```
+
+대문자로 낼 일은 아니다. §5 의 잣대대로 창 밖에서는 할 말이 없는 상태이고, 지금 고친 것은 **패키지 안의 문**이다.
+
+### 아직 남은 단위 섞임
+
+`cluster.go` 는 손대지 않았다. 거기 `Line` 은 줄 번호가 아니라 **줄의 바이트**(`[]byte`) 라 `Cursor` 가 낄 자리가 아니다.
+
+다만 같은 갈래의 문제가 따로 있다.
+
+```go
+func GlyphAt(line []byte, offset, col, tab int) (size, width int)
+//                        ↑ byte   ↑ 화면 칸
+```
+
+맥락의 표에 적은 「줄 안 byte offset」과 「줄 시작에서 센 화면 칸」이 한 서명에 맨 `int` 로 나란히 있다. `Cell` 은 2차원 점이라 여기 쓸 수 없다. **1차원 화면 칸 type 을 둘지가 남은 물음**이다.
 
 ## 되짚은 것
 
