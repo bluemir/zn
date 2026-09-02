@@ -14,7 +14,7 @@ func normalMode(e *editor) (tea.Model, tea.Cmd) {
 	// 판에서 판으로 넘어가는 길(정의 후보를 보다 사용처 답이 오는 자리) 은 여기를 지나지
 	// 않는다 — 그쪽은 새 판이 자기 높이를 잡는다.
 	if e.drawerHeight != 0 {
-		e.drawerHeight = 0
+		e.setDrawerHeight(0)
 
 		if e.hasTab() {
 			e.scrollToCursor()

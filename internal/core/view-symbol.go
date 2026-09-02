@@ -74,7 +74,7 @@ func symbolMode(e *editor) (tea.Model, tea.Cmd) {
 		cmd = e.startJob("유니코드 훑기", nil, indexSymbols)
 	}
 
-	e.drawerHeight = e.symbolDrawerHeight()
+	e.setDrawerHeight(e.symbolDrawerHeight())
 
 	e.activeBuffer().moveRight(1, e.contentWidth())
 	e.scrollToCursor()
@@ -108,7 +108,7 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.leave()
 		}
 
-		m.drawerHeight = m.symbolDrawerHeight()
+		m.setDrawerHeight(m.symbolDrawerHeight())
 		m.scrollToCursor()
 		m.scrollTo()
 

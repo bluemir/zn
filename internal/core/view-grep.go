@@ -55,7 +55,7 @@ func grepMode(e *editor) (tea.Model, tea.Cmd) {
 	// 옮기려 해도 적중이 아직 하나도 안 왔다.
 	m.preview = startPreview(e)
 
-	e.drawerHeight = m.grepDrawerHeight()
+	e.setDrawerHeight(m.grepDrawerHeight())
 	e.scrollToCursor()
 
 	return m, nil
@@ -164,7 +164,7 @@ func (m viewGrep) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // reframe 은 목록 길이가 바뀐 뒤 판 높이와 화면을 다시 맞춘다.
 func (m *viewGrep) reframe() {
-	m.drawerHeight = m.grepDrawerHeight()
+	m.setDrawerHeight(m.grepDrawerHeight())
 	m.scrollToCursor()
 	m.scrollTo()
 }

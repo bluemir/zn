@@ -48,7 +48,7 @@ func jumpsMode(e *editor) (tea.Model, tea.Cmd) {
 	m.selected = min(e.jumps.at, max(len(e.jumps.places)-1, 0))
 	m.scrollTo()
 
-	e.drawerHeight = m.jumpsDrawerHeight()
+	e.setDrawerHeight(m.jumpsDrawerHeight())
 	e.scrollToCursor()
 
 	return m, nil
@@ -89,7 +89,7 @@ func (m viewJumps) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.resize(msg)
 
-		m.drawerHeight = m.jumpsDrawerHeight()
+		m.setDrawerHeight(m.jumpsDrawerHeight())
 		m.scrollToCursor()
 		m.scrollTo()
 

@@ -375,6 +375,28 @@ func TestBufferReloadKeepsCursorColumn(t *testing.T) {
 	assert.Equal(t, "글", string(buf.lines[1][buf.cursor.Col:]), "글자 경계에 선다")
 }
 
+// **다시 읽어도 창이 받은 크기는 그대로다.**
+//
+// Reload 는 `newBuffer` 로 새 창을 지어 갈아끼우는데, 그 창은 editor 를 지나오지 않아서
+// 자기 크기를 모른다. adopt 이 이어받지 않으면 폭이 0 이 되어 다시 읽은 순간 본문이 사라진다
+// (ADR-0123).
+func TestBufferReloadKeepsPane(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
+
+	buf, err := OpenBuffer(path)
+	require.NoError(t, err)
+
+	setContentWidth(&buf, 40, 12)
+	want := buf.size
+
+	require.NoError(t, os.WriteFile(path, []byte("abcdef\n"), 0644))
+	require.NoError(t, buf.Reload())
+
+	assert.Equal(t, want, buf.size)
+	assert.Equal(t, 40, buf.contentWidth(), "본문 폭이 살아 있다")
+}
+
 // 파일이 짧아졌으면 커서를 범위 안으로 끌어온다.
 func TestBufferReloadClampsCursorToShorterFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.txt")

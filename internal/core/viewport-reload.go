@@ -59,6 +59,12 @@ func (buf viewport) adopt(next viewport) viewport {
 	next.top.line = min(buf.top.line, len(next.lines)-1)
 	next.top.row = buf.top.row
 
+	// **editor 가 배정한 크기도 이어받는다.** 새 창은 newBuffer 가 만든 것이라 editor 를
+	// 지나오지 않았고, 그대로 두면 폭이 0 이 되어 다시 읽은 순간 본문이 사라진다.
+	// 다시 읽기는 editor 가 창을 새로 끼우는 길이 아니라서 layoutViews 가 닿지 않는다
+	// (ADR-0123).
+	next.size = buf.size
+
 	// 문법 캐시는 새 내용의 것으로 비워지지만 **갈린 횟수는 이어 간다.** 새 Buffer 라 0 에서
 	// 다시 세는데, 그러면 다시 읽기 전에 물어 둔 언어 서버의 답이 새 내용에 맞아 보인다
 	// (syntaxCache.revision, ADR-0103).

@@ -70,13 +70,17 @@ func (e editor) textWidth() int {
 	return max(0, e.width-e.sidebarLeft())
 }
 
-// contentWidth 는 파일 내용을 그릴 너비다. 줄을 어디서 접을지가 이 값으로 정해진다.
-// 편집 영역에서 gutter 를 뗀 나머지다.
+// contentWidth 는 활성 창이 파일 내용을 그릴 너비다. 편집 영역에서 gutter 를 뗀 나머지다.
 //
-// 줄바꿈·스크롤·커서 계산은 모두 이 값을 써야 한다. textWidth 를 쓰면 gutter 만큼
-// 넓게 잡아서 줄이 화면 오른쪽으로 삐져나간다.
+// **재는 것은 창이 한다**(viewport.contentWidth). 여기는 화면 밖에서 그 값이 필요한
+// 자리(커서 좌표를 옮기고 sticky 머리줄을 그리는 곳) 를 위해 남겨 둔 문이다. tab 이 없으면
+// 물어볼 창이 없어서 편집 영역을 통째로 쓴다(ADR-0064).
 func (e editor) contentWidth() int {
-	return max(0, e.textWidth()-e.gutterWidth())
+	if !e.hasTab() {
+		return e.textWidth()
+	}
+
+	return e.buffers[e.active].contentWidth()
 }
 
 // contentLeft 는 파일 내용이 시작하는 화면 칸이다. 커서 좌표를 옮길 때 쓴다.
@@ -117,7 +121,7 @@ func (e editor) lineNumberDigits() (absolute, relative int) {
 		return minAbsoluteDigits, max(digits(e.textHeight()), minRelativeDigits)
 	}
 
-	return e.buffers[e.active].lineNumberDigits(e.textHeight())
+	return e.buffers[e.active].lineNumberDigits()
 }
 
 // gutterWidth 는 본문 앞에 붙는 칸이 차지하는 폭이다. 마커 칸과 줄번호 칸을 합친 것이고,
@@ -132,8 +136,42 @@ func (e editor) gutterWidth() int {
 		return 0
 	}
 
-	// **재는 것은 창이 한다**(viewport.gutterWidth). 여기는 창에 준 칸만 알려 준다.
-	return e.buffers[e.active].gutterWidth(e.textWidth(), e.textHeight())
+	// **재는 것은 창이 한다**(viewport.gutterWidth). 창은 자기가 받은 크기를 이미 알고 있다.
+	return e.buffers[e.active].gutterWidth()
+}
+
+// layoutViews 는 지금 화면에서 창들이 받는 크기를 다시 배정한다.
+//
+// **크기가 바뀌는 자리마다 이것을 부른다.** 화면 크기(resize)·판 높이(setDrawerHeight)·
+// sidebar 여닫기(toggleTree), 그리고 창을 새로 끼우는 자리(newTab·openTab·replaceTab)
+// 여섯이다. 크기가 필드가 되면서 「누가 언제 그것을 넣는가」가 새로 생긴 짐인데, 그 짐을
+// 여기 모았다 (ADR-0123).
+//
+// 일곱 번째는 이 길로 안 온다. 다시 읽기가 창을 새로 지어 갈아끼우므로 `adopt` 이 직접
+// 이어받는다(viewport-reload.go).
+//
+// **활성 창만이 아니라 전부에 넣는다.** 이름 바꾸기와 여러 파일 치환이 보고 있지 않은 창을
+// 직접 고치고(rename.go·replace.go), 그때 그 창도 자기 폭으로 줄을 다시 접어야 한다.
+// 지금은 tab 이 화면을 나눠 쓰지 않아서 전부 같은 크기를 받는다.
+//
+// **줄 수는 여기서 안 본다.** 자릿수가 늘어 본문이 좁아지는 것은 창이 스스로 재므로
+// (viewport.contentWidth) 편집할 때마다 다시 부를 일이 없다.
+func (e *editor) layoutViews() {
+	size := viewSize{width: e.textWidth(), height: e.textHeight()}
+
+	for i := range e.buffers {
+		e.buffers[i].size = size
+	}
+}
+
+// setDrawerHeight 는 아래 판이 가져가는 높이를 정한다. 0 이면 판이 닫힌 것이다.
+//
+// **대입 대신 이것을 쓴다.** 판이 열리고 닫히고 목록 길이가 바뀔 때마다 편집 영역 높이가
+// 달라지는데, 그 자리가 열세 곳이라 하나만 빠뜨려도 창이 낡은 크기를 든 채로 남는다.
+// 판들이 전부 `*editor` 를 embed 하므로 `m.setDrawerHeight(...)` 로 그대로 선다 (ADR-0123).
+func (e *editor) setDrawerHeight(height int) {
+	e.drawerHeight = height
+	e.layoutViews()
 }
 
 // digits 는 십진수 자릿수다.

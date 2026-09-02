@@ -272,6 +272,7 @@ func (e *editor) scrollToCursor() {
 func (e *editor) resize(msg tea.WindowSizeMsg) {
 	e.width = msg.Width
 	e.height = msg.Height
+	e.layoutViews()
 	e.scrollToCursor()
 	e.scrollTabsTo()
 }
@@ -374,6 +375,7 @@ func (e *editor) scrollSidebar() {
 func (e *editor) newTab() {
 	e.buffers = slices.Insert(e.buffers, e.active+1, newEmptyBuffer(""))
 	e.active++
+	e.layoutViews()
 	e.scrollTabsTo()
 }
 
@@ -397,6 +399,7 @@ func (e *editor) openTab(path string) (tea.Cmd, error) {
 
 		e.buffers = slices.Insert(e.buffers, e.active+1, buf)
 		e.active++
+		e.layoutViews()
 	}
 
 	e.scrollTabsTo()
@@ -436,6 +439,7 @@ func (e *editor) replaceTab(path string) (tea.Cmd, error) {
 	}
 
 	e.buffers[e.active] = buf
+	e.layoutViews()
 
 	return tea.Batch(e.revealInSidebar(path), e.startServerForOpenFile(path)), nil
 }
@@ -718,6 +722,9 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 		cmd = e.startTree()
 	}
 
+	// 편집 영역 너비가 32 칸 달라진다. 창들이 그 폭으로 줄을 다시 접어야 하므로
+	// 자리를 먼저 배정하고 화면을 맞춘다(ADR-0123).
+	e.layoutViews()
 	e.scrollToCursor()
 	// 편집 영역 너비가 32 칸 달라져서 tabline 에 들어가는 tab 수도 달라진다.
 	e.scrollTabsTo()

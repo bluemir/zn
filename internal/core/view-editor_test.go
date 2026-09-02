@@ -26,7 +26,7 @@ func newTestEditor(data string, width, height int) viewEditorNormal {
 // newTestEditorFile 은 경로를 정해 여는 편집기다.
 // 문법 강조는 경로로 갈리므로(syntax.Detect) 강조를 보는 시험이 이것을 쓴다.
 func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
-	return viewEditorNormal{
+	m := viewEditorNormal{
 		editor: &editor{
 			// 테두리는 unicode 로 둔다. 폭 눈금은 시험에서 정하지 못한다 — 시작할 때
 			// 터미널에 맞추는 것이고(ADR-0072) 시험은 tty 가 아니라서 늘 한 칸 쪽이다.
@@ -36,6 +36,13 @@ func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
 			height:   height + tablineHeight + statusBarHeight,
 		},
 	}
+
+	// 창은 자기 크기를 editor 에게서 받는다. 앱에서는 첫 WindowSizeMsg 가 이 일을 하는데
+	// 시험은 그것을 지나지 않으므로 여기서 배정한다. 빠뜨리면 폭이 0 이라 아무것도 안 그려진다
+	// (ADR-0123).
+	m.layoutViews()
+
+	return m
 }
 
 // textOf 는 tabline·statusBar 와 sidebar·줄번호 칸을 뺀 파일 내용만 돌려준다.
@@ -498,4 +505,18 @@ func TestLineNumbersNarrowContentWrapsEarlier(t *testing.T) {
 
 	assert.Equal(t, 34-m.gutterWidth(), m.contentWidth())
 	assert.Equal(t, strings.Repeat("a", 25)+"\naaaaa\n", textOf(t, m), "본문 너비에서 접힌다")
+}
+
+// setContentWidth 는 본문 폭이 want 가 되도록 창의 크기를 정한다. **시험 전용이다.**
+//
+// 앱에서는 editor 가 편집 영역을 통째로 배정하고 창이 거기서 본문 앞 칸을 뗀다(layoutViews).
+// 그런데 창 하나만 세워서 이동과 줄바꿈을 보는 시험은 **본문 폭**을 정하고 싶어 하므로,
+// 뗄 만큼을 도로 얹어 준다.
+//
+// 두 번 재는 것은 앞 칸의 폭이 자리에 따라 달라지기 때문이다 — 좁으면 0 이고 넓으면 아홉
+// 칸이라, 얹고 나서 넓어지면 답이 달라진다(ADR-0086, ADR-0123).
+func setContentWidth(buf *viewport, want, height int) {
+	buf.size = viewSize{width: want, height: height}
+	buf.size.width = want + buf.gutterWidth()
+	buf.size.width = want + buf.gutterWidth()
 }

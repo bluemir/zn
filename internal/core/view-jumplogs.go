@@ -41,7 +41,7 @@ func jumplogsMode(e *editor) (tea.Model, tea.Cmd) {
 	// **여는 것만으로는 옮기지 않는다.** 미리보기는 `j`/`k` 를 쳐야 시작한다.
 	m.preview = startPreview(e)
 
-	e.drawerHeight = m.jumplogsDrawerHeight()
+	e.setDrawerHeight(m.jumplogsDrawerHeight())
 	e.scrollToCursor()
 
 	return m, nil
@@ -77,7 +77,7 @@ func (m viewJumplogs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.resize(msg)
 
-		m.drawerHeight = m.jumplogsDrawerHeight()
+		m.setDrawerHeight(m.jumplogsDrawerHeight())
 		m.scrollToCursor()
 		m.scrollTo()
 

@@ -29,14 +29,16 @@ import "github.com/bluemir/zn/internal/scheme"
 //
 //   - **글.** Buffer 를 embed 한다
 //   - **그 글의 어디를 보고 있나.** 커서·`top`·`topRow`·`desiredX`·고른 범위
+//   - **받은 크기.** editor 가 배정한 편집 영역의 폭과 높이다(viewSize)
 //   - **본문 앞 칸의 폭.** gutterWidth·lineNumberDigits 다. 마커 두 칸과 번호 칸을 합친
 //     것이고, 자릿수가 이 파일의 줄 수에서 나오므로 창이 잰다
+//   - **본문 폭.** 받은 크기에서 그 칸을 뺀 나머지다(contentWidth). 줄을 어디서 접을지가
+//     이 값으로 정해진다
 //
 // **안 드는 것**
 //
-//   - **창의 크기.** editor 가 정한다 — sidebar 를 열면 좁아지고 판이 열리면 낮아지는데,
-//     그것은 화면 전체를 나누는 결정이라 창이 알 수 없다. 그래서 width·height 를 인자로
-//     받는다. 화면 분할이 오면 레이아웃이 창마다 배정하게 되고 그때 필드가 된다
+//   - **크기를 정하는 일.** sidebar 를 열면 좁아지고 판이 열리면 낮아지는데, 그것은 화면
+//     전체를 나누는 결정이라 창이 알 수 없다. editor 가 정해서 밀어 넣는다(layoutViews)
 //   - **본문 앞 칸을 그리는 일.** 무엇을 그릴지는 색과 마커 내용이 필요해서 layout.go 의
 //     renderGutter 가 한다. 창은 **몇 칸인지**만 안다
 //   - **tabline·statusBar·sidebar·판.** 편집 영역 밖이라 editor 의 것이다
@@ -50,6 +52,9 @@ import "github.com/bluemir/zn/internal/scheme"
 // 메서드 88 개는 갈래별로 `viewport-*.go` 에 나뉘어 있다(buffer.go 의 머리글과 같은 손이다).
 type viewport struct {
 	Buffer
+
+	// size 는 editor 가 이 창에 준 편집 영역이다. 그것이 바뀔 때 밀려 들어온다(layoutViews).
+	size viewSize
 
 	// viewPlace 는 커서와 화면 자리다. 담아 두었다가 되돌리는 단위이기도 하다(place·moveToPlace).
 	viewPlace
@@ -99,6 +104,30 @@ type viewTop struct {
 	row  int // 그 줄의 몇 번째 wrap 행부터 그리는지
 }
 
+// viewSize 는 editor 가 창에 배정한 크기다. **본문 앞 칸을 아직 떼지 않은 편집 영역 전체**다.
+//
+// **`textAndDrawerHeight` 와 딱 `drawerHeight` 만큼 다르다.** 그쪽은 아래 판을 아직 안고
+// 있고 이쪽은 뗀 나머지다. 판이 닫혀 있는 동안은 둘이 같아서 어긋남이 안 보인다.
+//
+// # 왜 필드인가
+//
+// 창은 이미 폭에서 나온 값을 들고 있다. `viewTop.row`(그 줄의 몇 번째 wrap 행) 도
+// `desiredX`(화면 행 안에서 센 칸) 도 폭이 없으면 뜻이 없는 값인데, 정작 그 값들을 만든 폭만
+// 밖에 있었다. 메서드 71 개가 그것을 인자로 이어 날랐고 **그중 52 개는 쓰지도 않고 아래로
+// 넘기기만 했다** (ADR-0123).
+//
+// # 누가 넣나
+//
+// **editor 다.** sidebar 를 열면 좁아지고 판이 열리면 낮아지는데, 그것은 화면 전체를 나누는
+// 결정이라 창이 알 수 없다. 바뀌는 자리에서 `layoutViews` 로 밀어 넣는다(layout.go).
+//
+// **줄 수는 여기 없다.** 자릿수가 늘면 본문 폭이 줄지만 그것은 창이 스스로 아는 것이라
+// `contentWidth` 가 그때그때 잰다. 편집할 때마다 밀어 넣을 것이 없다.
+type viewSize struct {
+	width  int // 편집 영역 너비. 화면에서 sidebar 를 뗀 나머지다
+	height int // 편집 내용을 그릴 높이. tabline·statusBar·판을 뗀 나머지다
+}
+
 // place 는 지금 보고 있는 자리다. 무르는 자리가 이것을 담아 두었다가 moveToPlace 로 되돌린다.
 //
 // `Buffer` 가 viewPlace 를 embed 하므로 그 덩어리를 그대로 돌려주면 된다. 값 receiver 라
@@ -117,7 +146,7 @@ func (buf *viewport) moveToPlace(at viewPlace, width int) {
 	buf.updateDesiredCol(width)
 }
 
-// lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다. height 는 이 창의 높이다.
+// lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.
 //
 // 절대번호는 이 파일의 줄 수까지, 상대번호는 창 높이까지만 커진다. 상대번호는 화면 밖으로
 // 나가면 볼 수 없으므로 줄 수와 무관하다.
@@ -125,12 +154,12 @@ func (buf *viewport) moveToPlace(at viewPlace, width int) {
 // **줄 수를 아는 것이 창이라 여기서 센다.** 전에는 editor 가 `e.buffers[e.active].lines` 를
 // 들여다봐 세고 그만큼 뗀 폭을 창에 돌려주었는데, 의존이 거꾸로 가는 자리였다. 화면 분할이
 // 오면 창마다 파일이 달라 자릿수도 달라진다 (ADR-0121).
-func (buf viewport) lineNumberDigits(height int) (absolute, relative int) {
+func (buf viewport) lineNumberDigits() (absolute, relative int) {
 	return max(digits(len(buf.lines)), minAbsoluteDigits),
-		max(digits(height), minRelativeDigits)
+		max(digits(buf.size.height), minRelativeDigits)
 }
 
-// gutterWidth 는 이 창에서 본문 앞에 붙는 칸의 폭이다. width, height 는 창에 주어진 칸이다.
+// gutterWidth 는 이 창에서 본문 앞에 붙는 칸의 폭이다.
 //
 // 드는 것이 넷이다. **마커 두 칸**(진단·git, ADR-0086·ADR-0094), **절대번호**, **상대번호**,
 // 그리고 그 둘 뒤의 빈 칸 하나씩이다. `    1  0 ` 처럼 보인다.
@@ -138,16 +167,27 @@ func (buf viewport) lineNumberDigits(height int) (absolute, relative int) {
 // **폭이 한 항이다.** 마커 칸과 번호 칸을 따로 재면 좁은 화면에서 한쪽만 사라질 수 있고,
 // 폭을 보는 자리(contentWidth·contentLeft·sticky·시험의 gutterWidthOf) 가 둘을 각각
 // 더해야 한다. 한 군데라도 어긋나면 화면 절반만 밀린 상태가 된다(ADR-0086).
-func (buf viewport) gutterWidth(width, height int) int {
-	absolute, relative := buf.lineNumberDigits(height)
+func (buf viewport) gutterWidth() int {
+	absolute, relative := buf.lineNumberDigits()
 
 	// 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
 	// 마커 칸도 여기서 같이 사라진다 — 번호가 없는데 마커만 남으면 그것이 어느 줄의 것인지
 	// 셀 수 없다(ADR-0086).
 	gutter := markerWidth + absolute + 1 + relative + 1
-	if width-gutter < minTextWidth {
+	if buf.size.width-gutter < minTextWidth {
 		return 0
 	}
 
 	return gutter
+}
+
+// contentWidth 는 이 창에서 파일 내용을 그릴 너비다. 받은 크기에서 본문 앞 칸을 뗀 나머지다.
+//
+// **줄바꿈·스크롤·커서 계산이 모두 이 값을 쓴다.** 창이 하는 일 대부분이 「이 폭으로 접으면
+// 어디에 서나」라서, 전에는 이것이 메서드 71 개에 인자로 실려 다녔다 (ADR-0123).
+//
+// **그때그때 잰다.** 자릿수가 이 파일의 줄 수에서 나오므로 편집할 때마다 달라질 수 있다.
+// 담아 두면 999 줄에서 1000 줄로 넘어가는 순간부터 조용히 한 칸 틀린다.
+func (buf viewport) contentWidth() int {
+	return max(0, buf.size.width-buf.gutterWidth())
 }

@@ -62,7 +62,7 @@ func locationsMode(e *editor, title string, locations []lsp.Location) (tea.Model
 	// **여는 것만으로는 옮기지 않는다.** 미리보기는 `j`/`k` 를 쳐야 시작한다.
 	m.preview = startPreview(e)
 
-	e.drawerHeight = m.locationsDrawerHeight()
+	e.setDrawerHeight(m.locationsDrawerHeight())
 	e.scrollToCursor()
 
 	return m, nil
@@ -108,7 +108,7 @@ func (m viewLocations) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.resize(msg)
 
-		m.drawerHeight = m.locationsDrawerHeight()
+		m.setDrawerHeight(m.locationsDrawerHeight())
 		m.scrollToCursor()
 		m.scrollTo()
 

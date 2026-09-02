@@ -55,7 +55,7 @@ func registersMode(e *editor) (tea.Model, tea.Cmd) {
 
 	m := viewRegisters{editor: e}
 
-	e.drawerHeight = m.registersDrawerHeight()
+	e.setDrawerHeight(m.registersDrawerHeight())
 	e.scrollToCursor()
 
 	return m, nil
@@ -109,7 +109,7 @@ func (m viewRegisters) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.resize(msg)
 
-		m.drawerHeight = m.registersDrawerHeight()
+		m.setDrawerHeight(m.registersDrawerHeight())
 		m.scrollToCursor()
 		m.scrollTo()
 
