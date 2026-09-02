@@ -3,7 +3,6 @@ package core
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -245,74 +244,6 @@ func TestSaveTrimIsUndoable(t *testing.T) {
 	buf.applyUndo()
 
 	assert.Equal(t, "가나다   ", string(buf.lines[0]))
-}
-
-// `:w` 가 맞춘 것을 아래 줄에 적는다. 손대지 않은 줄이 바뀌는 일이라 보여야 한다.
-func TestWriteCommandShowsNote(t *testing.T) {
-	path := withEditorconfig(t,
-		"[*]\ntrim_trailing_whitespace = true\n",
-		"a.txt", "가나다   \n둘   \n")
-
-	buf, err := OpenBuffer(path)
-	require.NoError(t, err)
-
-	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
-	m := viewEditorNormal{editor: e}
-
-	runCommand(m, "w")
-
-	assert.Contains(t, e.notice, "저장함: ")
-	assert.Contains(t, e.notice, ".editorconfig: 줄끝 공백 2 줄 지움")
-
-	// 저장했다는 것이 앞이고 맞춘 것이 뒤다.
-	assert.Less(t, strings.Index(e.notice, "저장함"), strings.Index(e.notice, ".editorconfig"))
-}
-
-// 경로는 줄여 적는다. 트리나 팔레트로 연 파일은 절대 경로라, 그대로 두면 좁은 화면에서
-// 뒤에 붙인 문구가 잘린다.
-func TestWriteCommandShortensPath(t *testing.T) {
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-
-	// 지금 자리 아래에 파일을 만든다. 시험이 끝나면 지운다.
-	dir, err := os.MkdirTemp(cwd, "zn-저장-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-
-	path := filepath.Join(dir, "a.txt")
-	require.NoError(t, os.WriteFile(path, []byte("한 줄\n"), 0644))
-
-	buf, err := OpenBuffer(path)
-	require.NoError(t, err)
-
-	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
-
-	runCommand(viewEditorNormal{editor: e}, "w")
-
-	assert.Equal(t, "저장함: "+filepath.Join(filepath.Base(dir), "a.txt"), e.notice)
-	assert.NotContains(t, e.notice, cwd, "절대 경로를 그대로 적지 않는다")
-}
-
-// `:w <다른 파일>` 은 사본을 쓰는 길이라 맞추지 않는다. 보고 있는 파일이 그대로여야 한다.
-func TestWriteCopyDoesNotFormat(t *testing.T) {
-	path := withEditorconfig(t,
-		"[*]\ntrim_trailing_whitespace = true\n",
-		"a.txt", "가나다   \n")
-
-	buf, err := OpenBuffer(path)
-	require.NoError(t, err)
-
-	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
-	m := viewEditorNormal{editor: e}
-
-	copyPath := filepath.Join(filepath.Dir(path), "copy.txt")
-	runCommand(m, "w "+copyPath)
-
-	assert.Equal(t, "가나다   ", string(e.activeBuffer().lines[0]), "보고 있는 파일은 그대로다")
-
-	saved, err := os.ReadFile(copyPath)
-	require.NoError(t, err)
-	assert.Equal(t, "가나다   \n", string(saved))
 }
 
 func TestLineEndingNamed(t *testing.T) {

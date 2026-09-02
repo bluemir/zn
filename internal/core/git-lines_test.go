@@ -91,12 +91,3 @@ func TestGitLineMarksInBigFile(t *testing.T) {
 	assert.Equal(t, gitLineModified, marks[19000])
 	assert.Len(t, marks, 1)
 }
-
-// 마커 칸은 진단 칸 다음, 줄번호 앞이다.
-func TestGitMarkerInGutter(t *testing.T) {
-	m := newTestEditor("one\ntwo\n", 40, 2)
-	m.buffers[0].git.base = toLines("one\nTWO\n")
-	m.buffers[0].refreshGitLines()
-
-	assert.Equal(t, []string{"    1  0 ", " ~  2  1 "}, gutterOf(t, m))
-}

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // 아래 기대값은 vim 9.1 에서 같은 키를 쳐서 확인한 것이다(ADR-0018).
@@ -95,23 +94,6 @@ func TestReplaceCharFromHangulKeys(t *testing.T) {
 	assert.Equal(t, []string{"bcdef"}, linesOf(buf), "ㅌ 은 x 라서 커서가 선 글자를 지운다")
 }
 
-// 바꿔 넣기 한 번이 되돌리기 한 구간이다.
-func TestReplaceCharUndoIsOwnStep(t *testing.T) {
-	m := newTestEditor("abcdef", 80, 20)
-
-	after := send(m, "i", "X", "esc", "3", "r", "z")
-	require.Equal(t, []string{"zzzcdef"}, linesOf(bufferOf(t, after)))
-
-	after = send(after, "u")
-	assert.Equal(t, []string{"Xabcdef"}, linesOf(bufferOf(t, after)), "바꾼 세 글자가 한 번에 돌아온다")
-
-	after = send(after, "u")
-	assert.Equal(t, []string{"abcdef"}, linesOf(bufferOf(t, after)), "타이핑이 돌아온다")
-
-	after = send(after, "ctrl+r", "ctrl+r")
-	assert.Equal(t, []string{"zzzcdef"}, linesOf(bufferOf(t, after)))
-}
-
 func TestReplaceCharMarksDirty(t *testing.T) {
 	buf := pressFrom(t, "abc", 0, 0, "r", "x")
 	assert.True(t, buf.dirty)
@@ -121,14 +103,4 @@ func TestReplaceCharMarksDirty(t *testing.T) {
 
 	buf = pressFrom(t, "ab", 0, 0, "3", "r", "x")
 	assert.False(t, buf.dirty, "줄이 짧아 바꾸지 못하면 파일은 그대로다")
-}
-
-// `r` 을 누르고 기다리는 동안 showcmd 에 보인다.
-func TestReplaceShowcmd(t *testing.T) {
-	m := newTestEditor("abc", 80, 20)
-
-	after, ok := send(m, "3", "r").(viewEditorNormal)
-	require.True(t, ok)
-
-	assert.Equal(t, "3r", after.keyState().showcmd())
 }

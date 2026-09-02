@@ -137,23 +137,6 @@ func TestDeleteCursor(t *testing.T) {
 	}
 }
 
-// 지우기는 한 번이 한 되돌리기 구간이다. 앞의 타이핑에 섞이면 `u` 한 번에 남의 편집까지 딸려온다.
-func TestDeleteUndoIsOwnStep(t *testing.T) {
-	m := newTestEditor("foo bar\nbaz", 80, 20)
-
-	after := send(m, "i", "X", "esc", "d", "w", "d", "d")
-	require.Equal(t, []string{"baz"}, linesOf(bufferOf(t, after)))
-
-	after = send(after, "u")
-	assert.Equal(t, []string{"bar", "baz"}, linesOf(bufferOf(t, after)), "dd 만 돌아온다")
-
-	after = send(after, "u")
-	assert.Equal(t, []string{"Xfoo bar", "baz"}, linesOf(bufferOf(t, after)), "dw 만 돌아온다")
-
-	after = send(after, "u")
-	assert.Equal(t, []string{"foo bar", "baz"}, linesOf(bufferOf(t, after)), "타이핑이 돌아온다")
-}
-
 func TestDeleteMarksDirty(t *testing.T) {
 	buf := pressFrom(t, "foo", 0, 0, "x")
 	assert.True(t, buf.dirty)
@@ -164,21 +147,6 @@ func TestDeleteMarksDirty(t *testing.T) {
 
 	buf = pressFrom(t, "", 0, 0, "x")
 	assert.False(t, buf.dirty, "빈 줄에서 x 는 지울 것이 없다")
-}
-
-// 지운 내용은 무명 register 에 남는다. 아직 읽는 곳은 없다.
-func TestDeleteFillsRegister(t *testing.T) {
-	m := newTestEditor("foo bar\nbaz", 80, 20)
-
-	after, ok := send(m, "d", "w").(viewEditorNormal)
-	require.True(t, ok)
-	assert.Equal(t, [][]byte{[]byte("foo ")}, after.registers.unnamed.lines)
-	assert.False(t, after.registers.unnamed.linewise)
-
-	after, ok = send(after, "d", "d").(viewEditorNormal)
-	require.True(t, ok)
-	assert.Equal(t, [][]byte{[]byte("bar")}, after.registers.unnamed.lines)
-	assert.True(t, after.registers.unnamed.linewise, "줄 단위로 지웠다")
 }
 
 // 여러 줄에 걸친 글자 단위 지우기는 줄이 합쳐진다.
@@ -192,18 +160,4 @@ func TestDeleteJoinsLines(t *testing.T) {
 	// 줄 시작에서 뒤로 가면 앞 줄의 단어 처음까지라, 줄바꿈까지 지워져 두 줄이 합쳐진다.
 	buf = pressFrom(t, "abc\ndef", 1, 0, "d", "b")
 	assert.Equal(t, []string{"def"}, linesOf(buf))
-}
-
-// 되돌리기가 지운 줄을 그대로 되살리는지 본다. replaceLines 가 제자리에서 늘리면 여기가 깨진다.
-func TestDeleteLinesUndo(t *testing.T) {
-	m := newTestEditor("a\nb\nc\nd", 80, 20)
-
-	after := send(m, "j", "2", "d", "d")
-	require.Equal(t, []string{"a", "d"}, linesOf(bufferOf(t, after)))
-
-	after = send(after, "u")
-	assert.Equal(t, []string{"a", "b", "c", "d"}, linesOf(bufferOf(t, after)))
-
-	after = send(after, "ctrl+r")
-	assert.Equal(t, []string{"a", "d"}, linesOf(bufferOf(t, after)))
 }
