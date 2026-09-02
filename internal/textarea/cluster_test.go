@@ -32,15 +32,15 @@ func TestControlText(t *testing.T) {
 }
 
 func TestGlyphAtControl(t *testing.T) {
-	Size, Width := GlyphAt([]byte("\x1b"), 0, 0, 4)
+	size, width := GlyphAt([]byte("\x1b"), 0, 0, 4)
 
-	assert.Equal(t, 1, Size, "파일에서는 1 byte 다")
-	assert.Equal(t, 2, Width, "화면에서는 `^[` 두 칸이다")
+	assert.Equal(t, 1, size, "파일에서는 1 byte 다")
+	assert.Equal(t, 2, width, "화면에서는 `^[` 두 칸이다")
 }
 
 // screenColAt 은 byte offset 을 화면 칸으로 옮긴다. 글자 경계가 아니면 그 글자를 다 센다.
 func TestColAt(t *testing.T) {
-	Line := []byte("한글\tx")
+	line := []byte("한글\tx")
 
 	tests := []struct {
 		name   string
@@ -58,17 +58,17 @@ func TestColAt(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, ScreenColAt(Line, test.offset, 4))
+			assert.Equal(t, test.want, ScreenColAt(line, test.offset, 4))
 		})
 	}
 }
 
 // offsetAtScreenCol 은 그 반대다. 여러 칸을 쓰는 글자의 가운데면 그 글자의 시작으로 맞춘다.
 func TestOffsetAtCol(t *testing.T) {
-	Line := []byte("한글")
+	line := []byte("한글")
 
-	assert.Equal(t, 0, OffsetAtScreenCol(Line, 0, 4))
-	assert.Equal(t, 0, OffsetAtScreenCol(Line, 1, 4), "「한」의 둘째 칸은 그 시작으로")
-	assert.Equal(t, 3, OffsetAtScreenCol(Line, 2, 4))
-	assert.Equal(t, len(Line), OffsetAtScreenCol(Line, 100, 4), "줄을 넘으면 줄 끝")
+	assert.Equal(t, 0, OffsetAtScreenCol(line, 0, 4))
+	assert.Equal(t, 0, OffsetAtScreenCol(line, 1, 4), "「한」의 둘째 칸은 그 시작으로")
+	assert.Equal(t, 3, OffsetAtScreenCol(line, 2, 4))
+	assert.Equal(t, len(line), OffsetAtScreenCol(line, 100, 4), "줄을 넘으면 줄 끝")
 }

@@ -13,10 +13,10 @@ func wordStops(buf Viewport, move func(*Viewport)) []string {
 	stops := []string{}
 
 	for range 20 {
-		Line, Col := buf.Cursor.Line, buf.Cursor.Col
+		line, col := buf.Cursor.Line, buf.Cursor.Col
 		move(&buf)
 
-		if buf.Cursor.Line == Line && buf.Cursor.Col == Col {
+		if buf.Cursor.Line == line && buf.Cursor.Col == col {
 			break
 		}
 

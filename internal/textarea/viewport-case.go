@@ -33,13 +33,13 @@ const (
 // **줄을 넘지 않는다.** 이것도 vim 과 같다. 커서는 마지막으로 바꾼 글자 **다음** 이고,
 // 줄 끝을 넘으면 normal 커서 자리로 당겨진다(clampToNormal).
 func (viewport *Viewport) ChangeCaseChars(kind CaseKind, count int) {
-	Line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.Lines[viewport.Cursor.Line]
 
-	End := clusterEndClamped(Line, viewport.Cursor.Col, max(count, 1))
-	changed := applyCase(Line[viewport.Cursor.Col:End], kind)
+	end := clusterEndClamped(line, viewport.Cursor.Col, max(count, 1))
+	changed := applyCase(line[viewport.Cursor.Col:end], kind)
 
-	if !bytes.Equal(changed, Line[viewport.Cursor.Col:End]) {
-		next := concat(concat(Line[:viewport.Cursor.Col], changed), Line[End:])
+	if !bytes.Equal(changed, line[viewport.Cursor.Col:end]) {
+		next := concat(concat(line[:viewport.Cursor.Col], changed), line[end:])
 
 		// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. `r` 과 같은 자리다.
 		viewport.EndEdit()
@@ -64,24 +64,24 @@ func (viewport *Viewport) ChangeCaseRange(area scheme.MotionRange, kind CaseKind
 	same := true
 
 	for i := area.Start.Line; i <= area.End.Line; i++ {
-		Line := viewport.Lines[i]
+		line := viewport.Lines[i]
 
-		Start, End := 0, len(Line)
+		start, end := 0, len(line)
 		if !area.Linewise {
 			if i == area.Start.Line {
-				Start = area.Start.Col
+				start = area.Start.Col
 			}
 			if i == area.End.Line {
-				End = min(area.End.Col, len(Line))
+				end = min(area.End.Col, len(line))
 			}
 		}
 
-		changed := applyCase(Line[Start:End], kind)
-		if !bytes.Equal(changed, Line[Start:End]) {
+		changed := applyCase(line[start:end], kind)
+		if !bytes.Equal(changed, line[start:end]) {
 			same = false
 		}
 
-		next = append(next, concat(concat(Line[:Start], changed), Line[End:]))
+		next = append(next, concat(concat(line[:start], changed), line[end:]))
 	}
 
 	// 바뀐 것이 없으면 손대지 않는다. 그냥 갈아끼우면 dirty 가 서고 redo 가 날아간다 —
@@ -112,16 +112,16 @@ func applyCase(text []byte, kind CaseKind) []byte {
 	next := make([]byte, 0, len(text))
 
 	for i := 0; i < len(text); {
-		char, Size := utf8.DecodeRune(text[i:])
-		if char == utf8.RuneError && Size == 1 {
+		char, size := utf8.DecodeRune(text[i:])
+		if char == utf8.RuneError && size == 1 {
 			next = append(next, text[i])
-			i += Size
+			i += size
 
 			continue
 		}
 
 		next = utf8.AppendRune(next, caseOf(char, kind))
-		i += Size
+		i += size
 	}
 
 	return next
@@ -148,14 +148,14 @@ func caseOf(char rune, kind CaseKind) rune {
 //
 // 모자라면 false 를 주는 clusterEnd(buffer-replace.go) 와 갈리는 자리다. `r` 은 모자라면
 // 아무것도 하지 않아야 하고 `~` 는 있는 만큼 해야 한다 — 어느 쪽인지는 부르는 키가 정한다.
-func clusterEndClamped(Line []byte, Col, n int) int {
+func clusterEndClamped(line []byte, col, n int) int {
 	for range n {
-		if Col >= len(Line) {
+		if col >= len(line) {
 			break
 		}
 
-		Col += GlyphSize(Line, Col)
+		col += GlyphSize(line, col)
 	}
 
-	return Col
+	return col
 }

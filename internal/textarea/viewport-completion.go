@@ -10,21 +10,21 @@ package textarea
 //
 // **되돌리기 구간을 닫지 않는다.** insert 에서 친 글자와 한 구간에 있어야 `u` 한 번으로
 // 「자동완성으로 넣은 것까지」 돌아간다. 닫는 것은 insert 를 나갈 때다(ADR-0033, ADR-0066).
-func (viewport *Viewport) InsertCompletion(Start, End int, text []byte) {
-	Line := viewport.Cursor.Line
+func (viewport *Viewport) InsertCompletion(start, end int, text []byte) {
+	line := viewport.Cursor.Line
 
 	// 서버가 보던 판과 지금 판이 어긋났으면 범위가 줄 밖을 가리킬 수 있다.
-	Start = min(max(Start, 0), len(viewport.Lines[Line]))
-	End = min(max(End, Start), len(viewport.Lines[Line]))
+	start = min(max(start, 0), len(viewport.Lines[line]))
+	end = min(max(end, start), len(viewport.Lines[line]))
 
-	next := make([]byte, 0, len(viewport.Lines[Line])-(End-Start)+len(text))
-	next = append(next, viewport.Lines[Line][:Start]...)
+	next := make([]byte, 0, len(viewport.Lines[line])-(end-start)+len(text))
+	next = append(next, viewport.Lines[line][:start]...)
 	next = append(next, text...)
-	next = append(next, viewport.Lines[Line][End:]...)
+	next = append(next, viewport.Lines[line][end:]...)
 
-	viewport.BeginEdit(Line, 1)
-	viewport.ReplaceLines(Line, 1, [][]byte{next})
+	viewport.BeginEdit(line, 1)
+	viewport.ReplaceLines(line, 1, [][]byte{next})
 
-	viewport.Cursor.Col = Start + len(text)
+	viewport.Cursor.Col = start + len(text)
 	viewport.UpdateDesiredCol()
 }

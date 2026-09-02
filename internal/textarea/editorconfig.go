@@ -31,12 +31,12 @@ import (
 //
 // 경로는 절대 경로여야 한다. 라이브러리가 위로 훑어 올라가며 `.editorconfig` 를 찾는데
 // 상대 경로로는 어디서 시작할지 정하지 못한다.
-func editorconfigFor(Path string) *editorconfig.Definition {
-	if Path == "" {
+func editorconfigFor(path string) *editorconfig.Definition {
+	if path == "" {
 		return nil
 	}
 
-	full, err := filepath.Abs(Path)
+	full, err := filepath.Abs(path)
 	if err != nil {
 		return nil
 	}

@@ -26,12 +26,12 @@ type indentUnit struct {
 // 새로 만드는 파일이나 아직 한 줄도 들여쓰지 않은 파일에서는 아무것도 알아낼 수 없다.
 // 인자 셋이 근거 셋이다 — `.editorconfig` 는 경로를 거슬러 올라가며 찾고, 재는 것은 내용을
 // 보고, 마지막이 언어 규칙이다. 앞의 둘이 path 하나에 실려 있던 것을 갈랐다 (ADR-0080).
-func resolveIndentUnit(Path string, lang *syntax.Language, Lines [][]byte) []byte {
-	if unit := editorconfigUnit(Path); unit != nil {
+func resolveIndentUnit(path string, lang *syntax.Language, lines [][]byte) []byte {
+	if unit := editorconfigUnit(path); unit != nil {
 		return unit
 	}
 
-	if unit := measureIndentUnit(Lines); unit != nil {
+	if unit := measureIndentUnit(lines); unit != nil {
 		return unit
 	}
 
@@ -48,8 +48,8 @@ func resolveIndentUnit(Path string, lang *syntax.Language, Lines [][]byte) []byt
 //
 // 여기서 보는 키는 셋이다 — `indent_style` `indent_size` `tab_width`. 저장할 때의 모습을
 // 정하는 셋은 다른 자리가 본다(editorconfig.go, ADR-0052). 읽어 오는 자리는 그 파일 하나다.
-func editorconfigUnit(Path string) []byte {
-	def := editorconfigFor(Path)
+func editorconfigUnit(path string) []byte {
+	def := editorconfigFor(path)
 	if def == nil {
 		return nil
 	}
@@ -58,16 +58,16 @@ func editorconfigUnit(Path string) []byte {
 	case "tab":
 		return []byte{'\t'}
 	case "space":
-		Size, err := strconv.Atoi(def.IndentSize)
-		if err != nil || Size < 1 {
+		size, err := strconv.Atoi(def.IndentSize)
+		if err != nil || size < 1 {
 			// `indent_size = tab` 이면 tab_width 가 칸 수다. 라이브러리가 이미 풀어 준다.
-			Size = def.TabWidth
+			size = def.TabWidth
 		}
-		if Size < 1 {
+		if size < 1 {
 			return nil
 		}
 
-		return bytes.Repeat([]byte{' '}, Size)
+		return bytes.Repeat([]byte{' '}, size)
 	}
 
 	return nil
@@ -100,8 +100,8 @@ const DefaultTabWidth = 4
 // **위로는 상한을 두지 않는다.** `tab_width = 200` 이면 tab 하나가 화면을 넘는데, 적어 둔
 // 사람의 뜻이 그렇다면 그대로 보이는 것이 맞다. 상한을 두면 적힌 것과 보이는 것이 갈리고
 // 그것이 이 값을 읽기로 한 까닭을 지운다. 줄바꿈은 그런 폭에서도 버틴다(`col > 0`).
-func resolveTabWidth(Path string) int {
-	def := editorconfigFor(Path)
+func resolveTabWidth(path string) int {
+	def := editorconfigFor(path)
 	if def == nil || def.TabWidth < 1 {
 		return DefaultTabWidth
 	}
@@ -118,18 +118,18 @@ const measureIndentUnitLimit = 500
 // tab 은 세기만 하면 된다 — tab 으로 들여쓴 줄이 하나라도 더 많으면 그 파일은 tab 이다.
 // space 는 칸 수를 알아야 해서 **이웃한 두 줄의 들여쓰기 차이**를 본다. 들여쓰기의 절대값을
 // 세면 깊이 들어간 줄이 답을 흐린다 — space 네 칸 파일에서 세 단계 들어간 줄은 12 다.
-func measureIndentUnit(Lines [][]byte) []byte {
+func measureIndentUnit(lines [][]byte) []byte {
 	tabs, spaces := 0, 0
 	steps := map[int]int{}
 
 	seen, prev := 0, -1
-	for _, Line := range Lines {
+	for _, line := range lines {
 		if seen >= measureIndentUnitLimit {
 			break
 		}
 
-		blank := leadingBlank(Line)
-		if len(blank) == len(Line) {
+		blank := leadingBlank(line)
+		if len(blank) == len(line) {
 			// 빈 줄과 공백뿐인 줄은 들여쓰기가 아니다. 이어짐도 끊지 않는다.
 			continue
 		}
@@ -236,11 +236,11 @@ func makeBlank(cols int, useTab bool, tab int) []byte {
 // leadingBlank 는 줄 앞의 공백과 tab 이다.
 //
 // 줄은 제자리에서 바뀌지 않으므로(ADR-0001) 잘라낸 조각을 그대로 새 줄로 써도 된다.
-func leadingBlank(Line []byte) []byte {
-	Col := 0
-	for Col < len(Line) && (Line[Col] == ' ' || Line[Col] == '\t') {
-		Col++
+func leadingBlank(line []byte) []byte {
+	col := 0
+	for col < len(line) && (line[col] == ' ' || line[col] == '\t') {
+		col++
 	}
 
-	return Line[:Col]
+	return line[:col]
 }

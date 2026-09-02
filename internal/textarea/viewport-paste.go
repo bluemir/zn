@@ -22,13 +22,13 @@ func (viewport *Viewport) PasteAfter(block TextBlock, count int) {
 	}
 
 	// 커서가 선 글자 뒤다. 빈 줄이나 줄 끝이면 그 자리가 곧 줄 끝이다.
-	Line := viewport.Lines[viewport.Cursor.Line]
-	Col := viewport.Cursor.Col
-	if Col < len(Line) {
-		Col += GlyphSize(Line, Col)
+	line := viewport.Lines[viewport.Cursor.Line]
+	col := viewport.Cursor.Col
+	if col < len(line) {
+		col += GlyphSize(line, col)
 	}
 
-	viewport.pasteText(Col, block, count)
+	viewport.pasteText(col, block, count)
 }
 
 // pasteBefore 는 register 를 커서 앞에 붙인다. vim 의 `P` 다.
@@ -49,15 +49,15 @@ func (viewport *Viewport) PasteBefore(block TextBlock, count int) {
 // pasteLines 는 at 자리에 register 의 줄을 count 번 끼운다.
 // 커서는 붙인 첫 줄의 첫 비공백이다. vim 과 같다.
 func (viewport *Viewport) pasteLines(at int, block TextBlock, count int) {
-	Lines := make([][]byte, 0, len(block.Lines)*count)
+	lines := make([][]byte, 0, len(block.Lines)*count)
 	for range count {
-		Lines = append(Lines, block.Lines...)
+		lines = append(lines, block.Lines...)
 	}
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 붙여넣기는 언제나 제 구간이다.
 	// `3p` 도 한 구간이라 `u` 한 번에 전부 사라진다.
 	viewport.EndEdit()
-	viewport.insertLines(at, Lines)
+	viewport.insertLines(at, lines)
 	viewport.EndEdit()
 
 	viewport.Cursor.Line = at
@@ -68,16 +68,16 @@ func (viewport *Viewport) pasteLines(at int, block TextBlock, count int) {
 // pasteText 는 지금 줄의 col 칸에 register 를 글자로 끼운다.
 //
 // 줄바꿈을 가르는 곳은 insert 하나뿐이라(ADR-0001) 여러 줄 register 도 그대로 먹는다.
-func (viewport *Viewport) pasteText(Col int, block TextBlock, count int) {
+func (viewport *Viewport) pasteText(col int, block TextBlock, count int) {
 	text := bytes.Repeat(bytes.Join(block.Lines, []byte{'\n'}), count)
 	if len(text) == 0 {
 		return
 	}
 
-	startLine, startCol := viewport.Cursor.Line, Col
+	startLine, startCol := viewport.Cursor.Line, col
 
 	viewport.EndEdit()
-	viewport.Cursor.Col = Col
+	viewport.Cursor.Col = col
 	viewport.Insert(text)
 	viewport.EndEdit()
 

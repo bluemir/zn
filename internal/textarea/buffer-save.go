@@ -24,31 +24,31 @@ import (
 //
 // 다른 파일에 쓰는 것은 ADR-0015 의 해시 비교로 막을 수 없다 — 읽은 적이 없는 파일이라
 // 맞춰 볼 기준이 아예 없다. 그래서 내용이 아니라 있는지 없는지만 본다 (ADR-0024).
-func checkNotExist(Path string) error {
-	_, err := os.Stat(Path)
+func checkNotExist(path string) error {
+	_, err := os.Stat(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return nil
 	case err != nil:
-		return errors.Wrapf(err, "cannot check %s", Path)
+		return errors.Wrapf(err, "cannot check %s", path)
 	}
 
-	return errors.Errorf("파일이 이미 있습니다: %s. 덮어쓰려면 `:w!` 입니다", Path)
+	return errors.Errorf("파일이 이미 있습니다: %s. 덮어쓰려면 `:w!` 입니다", path)
 }
 
 // SaveTo 는 buffer 를 다른 파일에 쓴다. `:w <파일>` 이다.
 // 그 자리에 이미 파일이 있으면 쓰지 않고 알린다 (ADR-0024).
-func (buf *Buffer) SaveTo(Path string) error {
-	if err := checkNotExist(Path); err != nil {
+func (buf *Buffer) SaveTo(path string) error {
+	if err := checkNotExist(path); err != nil {
 		return err
 	}
 
-	return buf.saveTo(Path)
+	return buf.saveTo(path)
 }
 
 // SaveToForce 는 이미 있는 파일도 덮어쓴다. `:w! <파일>` 이다.
-func (buf *Buffer) SaveToForce(Path string) error {
-	return buf.saveTo(Path)
+func (buf *Buffer) SaveToForce(path string) error {
+	return buf.saveTo(path)
 }
 
 // saveTo 는 검사 없이 path 에 쓴다.
@@ -56,10 +56,10 @@ func (buf *Buffer) SaveToForce(Path string) error {
 // 이름 있는 buffer 는 사본만 쓴다. 이름도 dirty 도 그대로 두어서 이어지는 `:w` 는 여전히
 // 원래 파일에 쓴다. 이름 없는 buffer 만 이 저장으로 그 파일의 buffer 가 된다 — vim 과 같은
 // 나눔이고, 이름을 갈아치우는 것은 `:saveas` 의 몫이다 (ADR-0024).
-func (buf *Buffer) saveTo(Path string) error {
+func (buf *Buffer) saveTo(path string) error {
 	out := buf.Contents()
 
-	if err := os.WriteFile(Path, out, 0644); err != nil {
+	if err := os.WriteFile(path, out, 0644); err != nil {
 		return errors.Mark(err, ErrWriteFile)
 	}
 
@@ -68,7 +68,7 @@ func (buf *Buffer) saveTo(Path string) error {
 		// 자기가 쓴 것을 남의 변경으로 보지 않는다 (ADR-0015).
 		sum := sha256.Sum256(out)
 
-		buf.Path = Path
+		buf.Path = path
 		buf.Disk.Hash = sum[:]
 		buf.Dirty = false
 		buf.Disk.outside = OutsideSame
@@ -80,8 +80,8 @@ func (buf *Buffer) saveTo(Path string) error {
 		//
 		// tab 폭도 경로가 정한다 — `.editorconfig` 가 경로별이라 이름이 붙으면서 답이 바뀐다.
 		// 한 단계(indent) 는 게을러서 다음에 물을 때 알아서 다시 정한다.
-		buf.Language = syntax.LanguageFor(Path)
-		buf.tab = resolveTabWidth(Path)
+		buf.Language = syntax.LanguageFor(path)
+		buf.tab = resolveTabWidth(path)
 		buf.syntax = syntaxCache{}
 	}
 
@@ -93,17 +93,17 @@ func (buf *Buffer) saveTo(Path string) error {
 func (buf Buffer) Contents() []byte {
 	eol := buf.lineEnding.bytes()
 
-	Size := 0
-	for _, Line := range buf.Lines {
-		Size += len(Line) + len(eol)
+	size := 0
+	for _, line := range buf.Lines {
+		size += len(line) + len(eol)
 	}
 
-	out := make([]byte, 0, Size)
-	for i, Line := range buf.Lines {
+	out := make([]byte, 0, size)
+	for i, line := range buf.Lines {
 		if i > 0 {
 			out = append(out, eol...)
 		}
-		out = append(out, Line...)
+		out = append(out, line...)
 	}
 	if buf.finalLineEnding {
 		out = append(out, eol...)

@@ -48,10 +48,10 @@ func (viewport *Viewport) Reload() error {
 func (viewport Viewport) Adopt(next Viewport) Viewport {
 	// 커서 자리를 화면 칸으로 옮겨 둔다. byte offset 은 새 내용에서 다른 글자의 중간일 수 있다.
 	// statusBar 가 보여주는 `줄:칸` 이 이 칸이라, 유지되는 것이 눈에 보이는 값과 같다.
-	Col := ScreenColAt(viewport.Lines[viewport.Cursor.Line], viewport.Cursor.Col, viewport.TabWidth())
+	col := ScreenColAt(viewport.Lines[viewport.Cursor.Line], viewport.Cursor.Col, viewport.TabWidth())
 
 	next.Cursor.Line = min(viewport.Cursor.Line, len(next.Lines)-1)
-	next.Cursor.Col = OffsetAtScreenCol(next.Lines[next.Cursor.Line], Col, viewport.TabWidth())
+	next.Cursor.Col = OffsetAtScreenCol(next.Lines[next.Cursor.Line], col, viewport.TabWidth())
 	next.desiredX = viewport.desiredX
 
 	// 화면도 보고 있던 자리를 유지한다. topRow 는 폭에 따라 있을 수도 없을 수도 있는 행이라

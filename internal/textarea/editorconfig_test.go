@@ -23,34 +23,34 @@ func withEditorconfig(t *testing.T, config, name, content string) string {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".editorconfig"),
 		[]byte("root = true\n\n"+config), 0644))
 
-	Path := filepath.Join(dir, name)
-	require.NoError(t, os.WriteFile(Path, []byte(content), 0644))
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0644))
 
-	return Path
+	return path
 }
 
 // saveWithNote 는 저장하고 맞춘 문구까지 준다. 이 파일의 시험들이 보는 것이 그 문구다.
-func saveWithNote(t *testing.T, Path string) (string, string) {
+func saveWithNote(t *testing.T, path string) (string, string) {
 	t.Helper()
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	note, err := buf.Save(nil)
 	require.NoError(t, err)
 
-	saved, err := os.ReadFile(Path)
+	saved, err := os.ReadFile(path)
 	require.NoError(t, err)
 
 	return note, string(saved)
 }
 
 func TestSaveTrimsTrailingWhitespace(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.txt", "첫 줄   \n두 번째\t\n셋째\n")
 
-	note, saved := saveWithNote(t, Path)
+	note, saved := saveWithNote(t, path)
 
 	assert.Equal(t, "첫 줄\n두 번째\n셋째\n", saved)
 	assert.Equal(t, ".editorconfig: 줄끝 공백 2 줄 지움", note)
@@ -63,9 +63,9 @@ func TestSaveKeepsTrailingWhitespaceWhenNotAsked(t *testing.T) {
 		"[*]\nindent_style = tab\n",
 	} {
 		t.Run(config, func(t *testing.T) {
-			Path := withEditorconfig(t, config, "a.txt", "첫 줄   \n")
+			path := withEditorconfig(t, config, "a.txt", "첫 줄   \n")
 
-			note, saved := saveWithNote(t, Path)
+			note, saved := saveWithNote(t, path)
 
 			assert.Equal(t, "첫 줄   \n", saved)
 			assert.Empty(t, note)
@@ -94,22 +94,22 @@ func TestSaveHonoursGlobs(t *testing.T) {
 }
 
 func TestSaveInsertsFinalNewline(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ninsert_final_newline = true\n",
 		"a.txt", "줄끝이 없다")
 
-	note, saved := saveWithNote(t, Path)
+	note, saved := saveWithNote(t, path)
 
 	assert.Equal(t, "줄끝이 없다\n", saved)
 	assert.Equal(t, ".editorconfig: 마지막 줄바꿈 넣음", note)
 }
 
 func TestSaveRemovesFinalNewline(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ninsert_final_newline = false\n",
 		"a.txt", "줄끝이 있다\n")
 
-	note, saved := saveWithNote(t, Path)
+	note, saved := saveWithNote(t, path)
 
 	assert.Equal(t, "줄끝이 있다", saved)
 	assert.Equal(t, ".editorconfig: 마지막 줄바꿈 뗌", note)
@@ -117,11 +117,11 @@ func TestSaveRemovesFinalNewline(t *testing.T) {
 
 // 이미 그 모습이면 아무 말도 하지 않는다. 저장할 때마다 문구가 뜨면 알림이 뜻을 잃는다.
 func TestSaveSaysNothingWhenAlreadyMatching(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ntrim_trailing_whitespace = true\ninsert_final_newline = true\nend_of_line = lf\n",
 		"a.txt", "깨끗한 줄\n")
 
-	note, saved := saveWithNote(t, Path)
+	note, saved := saveWithNote(t, path)
 
 	assert.Equal(t, "깨끗한 줄\n", saved)
 	assert.Empty(t, note)
@@ -129,22 +129,22 @@ func TestSaveSaysNothingWhenAlreadyMatching(t *testing.T) {
 
 func TestSaveConvertsLineEnding(t *testing.T) {
 	t.Run("lf 로", func(t *testing.T) {
-		Path := withEditorconfig(t,
+		path := withEditorconfig(t,
 			"[*]\nend_of_line = lf\n",
 			"a.txt", "한\r\n둘\r\n")
 
-		note, saved := saveWithNote(t, Path)
+		note, saved := saveWithNote(t, path)
 
 		assert.Equal(t, "한\n둘\n", saved)
 		assert.Equal(t, ".editorconfig: 줄끝 LF 로 맞춤", note)
 	})
 
 	t.Run("crlf 로", func(t *testing.T) {
-		Path := withEditorconfig(t,
+		path := withEditorconfig(t,
 			"[*]\nend_of_line = crlf\n",
 			"a.txt", "한\n둘\n")
 
-		note, saved := saveWithNote(t, Path)
+		note, saved := saveWithNote(t, path)
 
 		assert.Equal(t, "한\r\n둘\r\n", saved)
 		assert.Equal(t, ".editorconfig: 줄끝 CRLF 로 맞춤", note)
@@ -152,11 +152,11 @@ func TestSaveConvertsLineEnding(t *testing.T) {
 
 	// `cr` 은 zn 의 줄끝에 없다. 못 맞추는 것을 조용히 LF 로 바꿔 쓰지 않는다.
 	t.Run("cr 은 건드리지 않는다", func(t *testing.T) {
-		Path := withEditorconfig(t,
+		path := withEditorconfig(t,
 			"[*]\nend_of_line = cr\n",
 			"a.txt", "한\r\n둘\r\n")
 
-		note, saved := saveWithNote(t, Path)
+		note, saved := saveWithNote(t, path)
 
 		assert.Equal(t, "한\r\n둘\r\n", saved)
 		assert.Empty(t, note)
@@ -165,11 +165,11 @@ func TestSaveConvertsLineEnding(t *testing.T) {
 
 // 여럿을 맞췄으면 한 줄에 이어 적는다.
 func TestSaveNoteJoinsChanges(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ntrim_trailing_whitespace = true\ninsert_final_newline = true\nend_of_line = crlf\n",
 		"a.txt", "한 줄  \n둘")
 
-	note, saved := saveWithNote(t, Path)
+	note, saved := saveWithNote(t, path)
 
 	assert.Equal(t, "한 줄\r\n둘\r\n", saved)
 	assert.Equal(t,
@@ -179,17 +179,17 @@ func TestSaveNoteJoinsChanges(t *testing.T) {
 // 저장이 막히면 buffer 를 건드리지 않는다. 「저장하지 못했는데 파일이 달라졌다」가 되면
 // 무엇을 잃었는지 셀 수 없다.
 func TestSaveRefusedDoesNotFormat(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.txt", "첫 줄   \n")
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
 
 	// 밖에서 바뀌었다. `:w` 는 막힌다(ADR-0015).
-	require.NoError(t, os.WriteFile(Path, []byte("남이 쓴 것\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	note, err := buf.Save(nil)
 	require.Error(t, err)
@@ -202,10 +202,10 @@ func TestSaveRefusedDoesNotFormat(t *testing.T) {
 // `.editorconfig` 가 없으면 지금까지와 같다. 읽은 대로 되돌린다.
 func TestSaveWithoutEditorconfigKeepsShape(t *testing.T) {
 	dir := t.TempDir()
-	Path := filepath.Join(dir, "a.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("공백이 있다   \r\n줄끝 없음"), 0644))
+	path := filepath.Join(dir, "a.txt")
+	require.NoError(t, os.WriteFile(path, []byte("공백이 있다   \r\n줄끝 없음"), 0644))
 
-	note, saved := saveWithNote(t, Path)
+	note, saved := saveWithNote(t, path)
 
 	assert.Equal(t, "공백이 있다   \r\n줄끝 없음", saved)
 	assert.Empty(t, note)
@@ -213,11 +213,11 @@ func TestSaveWithoutEditorconfigKeepsShape(t *testing.T) {
 
 // 다듬은 뒤 커서가 줄 밖에 서 있으면 안 된다. trimTrailingSpace 가 당겨 두는 자리다.
 func TestSaveTrimPullsCursorIn(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.txt", "가나다      \n")
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	// 공백 위에 커서를 둔다.
@@ -232,11 +232,11 @@ func TestSaveTrimPullsCursorIn(t *testing.T) {
 
 // 다듬은 것은 `u` 로 되돌아온다. 줄을 고치는 일이라 되돌리기 구간에 들어간다.
 func TestSaveTrimIsUndoable(t *testing.T) {
-	Path := withEditorconfig(t,
+	path := withEditorconfig(t,
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.txt", "가나다   \n")
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	_, err = buf.Save(nil)
@@ -276,10 +276,10 @@ func TestReadOnlyFileIsNotFormatted(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".editorconfig"),
 		[]byte("root = true\n\n[*]\ntrim_trailing_whitespace = true\n"), 0644))
 
-	Path := filepath.Join(dir, "locked.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("가나다   \n"), 0444))
+	path := filepath.Join(dir, "locked.txt")
+	require.NoError(t, os.WriteFile(path, []byte("가나다   \n"), 0444))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 	require.True(t, buf.ReadOnly)
 

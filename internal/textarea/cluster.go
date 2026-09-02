@@ -46,19 +46,19 @@ import (
 // NFD 한글(ᄒ+ᅡ+ᆫ), 결합 악센트(e+́), 이모지 조합(가족 이모지, 국기) 은 rune 여러 개가 한 글자다.
 // 폭과 경계를 같은 함수에서 얻어야 "한 글자" 와 "그 폭" 이 어긋나지 않는다.
 // lipgloss.Width 도 결국 이 경로를 쓴다.
-func GlyphAt(Line []byte, offset, Col, tab int) (Size, Width int) {
+func GlyphAt(line []byte, offset, col, tab int) (size, width int) {
 	// ansi 는 tab 을 폭 0 으로 본다. 그대로 두면 들여쓰기가 화면에서 사라진다.
-	if Line[offset] == '\t' {
-		return 1, tab - Col%tab
+	if line[offset] == '\t' {
+		return 1, tab - col%tab
 	}
 
 	// 제어문자는 `^[` 두 글자로 보인다. 폭을 여기서 정하고 그 글자는 controlText 가 준다
 	// (ADR-0118).
-	if ControlText(Line[offset]) != "" {
+	if ControlText(line[offset]) != "" {
 		return 1, 2
 	}
 
-	cluster, w := ansi.FirstGraphemeCluster(Line[offset:], ansi.GraphemeWidth)
+	cluster, w := ansi.FirstGraphemeCluster(line[offset:], ansi.GraphemeWidth)
 
 	// 깨진 UTF-8 에서 0 이 나오면 진행하지 못하고 무한 반복한다.
 	if len(cluster) < 1 {
@@ -96,61 +96,61 @@ func ControlText(b byte) string {
 //
 // 그리는 자리가 둘이라(편집 영역의 expandRow, grep 목록) 규칙이 흩어지면 한쪽이 빠진다.
 // 실제로 제어문자가 grep 쪽에서 빠져 있었다.
-func ScreenText(Line []byte, offset, Col, tab int) string {
-	if Line[offset] == '\t' {
-		_, Width := GlyphAt(Line, offset, Col, tab)
+func ScreenText(line []byte, offset, col, tab int) string {
+	if line[offset] == '\t' {
+		_, width := GlyphAt(line, offset, col, tab)
 
-		return strings.Repeat(" ", Width)
+		return strings.Repeat(" ", width)
 	}
 
-	return ControlText(Line[offset])
+	return ControlText(line[offset])
 }
 
 // glyphSize 는 폭이 필요 없을 때 쓴다. byte 길이는 시작 칸과 무관하다.
 //
 // 그래서 tab 폭을 받지 않는다 — tab 은 어느 폭으로 그리든 1 byte 다. 넘기는 1 은 나머지
 // 연산이 0 으로 나누지 않게 하는 자리 채움이고 답에 닿지 않는다.
-func GlyphSize(Line []byte, offset int) int {
-	Size, _ := GlyphAt(Line, offset, 0, 1)
-	return Size
+func GlyphSize(line []byte, offset int) int {
+	size, _ := GlyphAt(line, offset, 0, 1)
+	return size
 }
 
 // screenColAt 은 offset 까지의 화면 칸 수다.
 // 한글은 두 칸, tab 은 다음 tab stop 까지라서 byte offset 과 다르다.
-func ScreenColAt(Line []byte, offset, tab int) int {
-	Col := 0
-	for i := 0; i < offset && i < len(Line); {
-		Size, w := GlyphAt(Line, i, Col, tab)
-		Col += w
-		i += Size
+func ScreenColAt(line []byte, offset, tab int) int {
+	col := 0
+	for i := 0; i < offset && i < len(line); {
+		size, w := GlyphAt(line, i, col, tab)
+		col += w
+		i += size
 	}
-	return Col
+	return col
 }
 
 // offsetAtScreenCol 은 화면 칸 col 에 해당하는 byte offset 을 찾는다.
 // col 이 여러 칸을 쓰는 글자의 중간이면 그 글자의 시작으로 맞춘다.
-func OffsetAtScreenCol(Line []byte, Col, tab int) int {
-	Width := 0
-	for offset := 0; offset < len(Line); {
-		Size, w := GlyphAt(Line, offset, Width, tab)
-		if Width+w > Col {
+func OffsetAtScreenCol(line []byte, col, tab int) int {
+	width := 0
+	for offset := 0; offset < len(line); {
+		size, w := GlyphAt(line, offset, width, tab)
+		if width+w > col {
 			return offset
 		}
-		Width += w
-		offset += Size
+		width += w
+		offset += size
 	}
-	return len(Line)
+	return len(line)
 }
 
 // prevGlyphStart 는 offset 직전 글자의 시작을 돌려준다. from 은 글자 경계여야 한다.
 //
 // grapheme cluster 는 뒤에서 앞으로 읽을 수 없어서 알려진 경계에서부터 훑는다.
 // 행 시작이 항상 경계이므로 훑는 범위는 화면 한 행으로 묶인다.
-func PrevGlyphStart(Line []byte, from, offset int) int {
+func PrevGlyphStart(line []byte, from, offset int) int {
 	prev := from
-	for i := from; i < offset && i < len(Line); {
+	for i := from; i < offset && i < len(line); {
 		prev = i
-		i += GlyphSize(Line, i)
+		i += GlyphSize(line, i)
 	}
 	return prev
 }
@@ -158,25 +158,25 @@ func PrevGlyphStart(Line []byte, from, offset int) int {
 // wrapOffsets 는 줄이 width 칸에서 끊기는 지점, 즉 각 화면 행의 시작 byte offset 을 돌려준다.
 // 가로 스크롤 대신 줄바꿈으로 보여주므로 화면보다 긴 줄은 화면 행 여러 개가 된다.
 // 빈 줄도 행 하나를 차지하므로 항상 최소 하나를 돌려준다.
-func WrapOffsets(Line []byte, Width, tab int) []int {
-	if Width < 1 {
+func WrapOffsets(line []byte, width, tab int) []int {
+	if width < 1 {
 		return []int{0}
 	}
 
 	offsets := []int{0}
-	Col := 0
-	for offset := 0; offset < len(Line); {
+	col := 0
+	for offset := 0; offset < len(line); {
 		// col 은 행이 바뀔 때 0 으로 돌아간다. 화면 행이 왼쪽 끝에서 시작하므로 tab stop 도 거기부터다.
-		Size, w := GlyphAt(Line, offset, Col, tab)
+		size, w := GlyphAt(line, offset, col, tab)
 
 		// col > 0 조건이 없으면 width 보다 넓은 글자에서 같은 지점을 계속 끊는다.
-		if Col > 0 && Col+w > Width {
+		if col > 0 && col+w > width {
 			offsets = append(offsets, offset)
-			Col = 0
+			col = 0
 		}
 
-		Col += w
-		offset += Size
+		col += w
+		offset += size
 	}
 
 	return offsets
@@ -193,10 +193,10 @@ func rowIndexAt(offsets []int, offset int) int {
 }
 
 // rowRange 는 화면 행 하나가 담는 byte 범위를 돌려준다.
-func rowRange(Line []byte, offsets []int, Row int) (int, int) {
-	Start := offsets[Row]
-	if Row+1 < len(offsets) {
-		return Start, offsets[Row+1]
+func rowRange(line []byte, offsets []int, row int) (int, int) {
+	start := offsets[row]
+	if row+1 < len(offsets) {
+		return start, offsets[row+1]
 	}
-	return Start, len(Line)
+	return start, len(line)
 }

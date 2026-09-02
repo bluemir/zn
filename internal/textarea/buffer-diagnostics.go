@@ -63,8 +63,8 @@ func (b *Buffer) SetDiagnostics(list []Diagnostic) {
 	//
 	// 숫자가 작은 것이 심하다(diagnosticSeverity). 같은 갈래끼리는 서버가 준 순서, 곧 파일에
 	// 나오는 순서를 지킨다.
-	for Line := range byLine {
-		slices.SortStableFunc(byLine[Line], func(a, b Diagnostic) int {
+	for line := range byLine {
+		slices.SortStableFunc(byLine[line], func(a, b Diagnostic) int {
 			return int(a.Severity) - int(b.Severity)
 		})
 	}
@@ -77,8 +77,8 @@ func (b *Buffer) SetDiagnostics(list []Diagnostic) {
 // **줄이 어긋나 있을 수 있다.** 서버에 보내는 것은 마지막 키에서 250ms 뒤라(language-server.go 의
 // editIdleDelay) 줄을 넣거나 지운 직후에는 진단이 낡은 판 기준이다. 그것을 보정하지 않고
 // 그대로 두는 것이 결정이다 — 다음 publish 가 갈아치운다(ADR-0086).
-func (b *Buffer) DiagnosticAt(Line int) []Diagnostic {
-	return b.diagnostics[Line]
+func (b *Buffer) DiagnosticAt(line int) []Diagnostic {
+	return b.diagnostics[line]
 }
 
 // diagnosticLines 는 진단이 있는 줄들이다(ADR-0086).
@@ -90,12 +90,12 @@ func (buf *Buffer) DiagnosticLines() []int {
 		return nil
 	}
 
-	Lines := make([]int, 0, len(buf.diagnostics))
-	for Line := range buf.diagnostics {
-		Lines = append(Lines, Line)
+	lines := make([]int, 0, len(buf.diagnostics))
+	for line := range buf.diagnostics {
+		lines = append(lines, line)
 	}
 
-	slices.Sort(Lines)
+	slices.Sort(lines)
 
-	return Lines
+	return lines
 }

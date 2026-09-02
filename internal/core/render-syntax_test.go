@@ -320,8 +320,8 @@ func TestSyntaxCacheKeepsGoingWhenContextChanges(t *testing.T) {
 }
 
 // syntaxToken 은 시험에서 토큰을 짧게 적는 손이다.
-func syntaxToken(Start, End int, kind syntax.Kind) syntax.Token {
-	return syntax.Token{Start: Start, End: End, Kind: kind}
+func syntaxToken(start, end int, kind syntax.Kind) syntax.Token {
+	return syntax.Token{Start: start, End: end, Kind: kind}
 }
 
 // emittedKinds 는 lexer 가 실제로 내보내는 갈래 전부다.
@@ -346,11 +346,11 @@ func emittedKinds(t *testing.T) map[syntax.Kind]bool {
 		state := syntax.LanguageFor(sample.Path).State()
 		require.NotNil(t, state, "%s 를 알아보지 못했습니다", sample.Path)
 
-		for _, Line := range strings.Split(sample.data, "\n") {
+		for _, line := range strings.Split(sample.data, "\n") {
 			var tokens []syntax.Token
-			tokens, state = state.Lex([]byte(Line))
-			for _, Token := range tokens {
-				kinds[Token.Kind] = true
+			tokens, state = state.Lex([]byte(line))
+			for _, token := range tokens {
+				kinds[token.Kind] = true
 			}
 		}
 	}

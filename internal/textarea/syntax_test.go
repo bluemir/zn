@@ -13,8 +13,8 @@ import (
 )
 
 // syntaxToken 은 시험에서 토큰을 짧게 적는 손이다.
-func SyntaxToken(Start, End int, kind syntax.Kind) syntax.Token {
-	return syntax.Token{Start: Start, End: End, Kind: kind}
+func SyntaxToken(start, end int, kind syntax.Kind) syntax.Token {
+	return syntax.Token{Start: start, End: end, Kind: kind}
 }
 
 // emittedKinds 는 lexer 가 실제로 내보내는 갈래 전부다.
@@ -39,11 +39,11 @@ func emittedKinds(t *testing.T) map[syntax.Kind]bool {
 		state := syntax.LanguageFor(sample.Path).State()
 		require.NotNil(t, state, "%s 를 알아보지 못했습니다", sample.Path)
 
-		for _, Line := range strings.Split(sample.data, "\n") {
+		for _, line := range strings.Split(sample.data, "\n") {
 			var tokens []syntax.Token
-			tokens, state = state.Lex([]byte(Line))
-			for _, Token := range tokens {
-				kinds[Token.Kind] = true
+			tokens, state = state.Lex([]byte(line))
+			for _, token := range tokens {
+				kinds[token.Kind] = true
 			}
 		}
 	}
@@ -54,10 +54,10 @@ func emittedKinds(t *testing.T) map[syntax.Kind]bool {
 }
 
 // goSource 는 줄 수를 정해 만드는 Go 소스다. 화면보다 긴 파일이 필요한 캐시 시험에서 쓴다.
-func goSource(Lines int) string {
+func goSource(lines int) string {
 	out := strings.Builder{}
 	out.WriteString("package main\n")
-	for i := 1; i < Lines; i++ {
+	for i := 1; i < lines; i++ {
 		out.WriteString("var x int = 1\n")
 	}
 
@@ -65,11 +65,11 @@ func goSource(Lines int) string {
 }
 
 // mdSource 는 코드펜스가 든 markdown 이다. 위임된 문맥이 캐시를 지나가는지 보는 데 쓴다.
-func mdSource(Lines int) string {
+func mdSource(lines int) string {
 	out := strings.Builder{}
 	out.WriteString("# 제목\n")
 	out.WriteString("```go\n")
-	for i := 2; i < Lines-1; i++ {
+	for i := 2; i < lines-1; i++ {
 		out.WriteString("var x int = 1\n")
 	}
 	out.WriteString("```\n")

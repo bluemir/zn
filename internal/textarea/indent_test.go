@@ -51,10 +51,10 @@ func TestEditorconfigDecidesTheUnit(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Path := writeEditorconfig(t, test.body, test.file)
+			path := writeEditorconfig(t, test.body, test.file)
 
 			// 파일 안은 비워 둔다. 잴 것이 없어야 `.editorconfig` 와 언어 기본값이 갈린다.
-			assert.Equal(t, test.want, string(resolveIndentUnit(Path, syntax.LanguageFor(Path), [][]byte{{}})))
+			assert.Equal(t, test.want, string(resolveIndentUnit(path, syntax.LanguageFor(path), [][]byte{{}})))
 		})
 	}
 }
@@ -151,16 +151,16 @@ func TestIndentUnitFallsBackToTheLanguage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Path := writeEditorconfig(t, "", test.file)
-			assert.Equal(t, test.want, string(resolveIndentUnit(Path, syntax.LanguageFor(Path), [][]byte{{}})))
+			path := writeEditorconfig(t, "", test.file)
+			assert.Equal(t, test.want, string(resolveIndentUnit(path, syntax.LanguageFor(path), [][]byte{{}})))
 		})
 	}
 }
 
 func TestIndentTextIsDecidedOncePerPath(t *testing.T) {
 	// 빈 `.editorconfig` 를 놓아 적힌 것이 없게 만든다. 그래야 재는 쪽이 시험된다.
-	Path := writeEditorconfig(t, "", "a.js")
-	buf := NewBuffer(Path, []byte("function f() {\n  a()\n}\n"))
+	path := writeEditorconfig(t, "", "a.js")
+	buf := NewBuffer(path, []byte("function f() {\n  a()\n}\n"))
 
 	assert.Equal(t, "  ", string(buf.indentText()), "파일이 space 두 칸이다")
 
@@ -169,15 +169,15 @@ func TestIndentTextIsDecidedOncePerPath(t *testing.T) {
 	assert.Equal(t, "  ", string(buf.indentText()))
 
 	// 이름이 바뀌면(`:w foo.go`) 다시 정한다. 지금 줄은 tab 이다.
-	buf.Path = filepath.Join(filepath.Dir(Path), "b.js")
+	buf.Path = filepath.Join(filepath.Dir(path), "b.js")
 	assert.Equal(t, "\t", string(buf.indentText()))
 }
 
 func TestEditorconfigBeatsMeasuring(t *testing.T) {
 	// 이 저장소의 `.editorconfig` 가 `[*] indent_style = tab` 이다. 파일이 space 로 쓰였어도
 	// 적힌 것이 이긴다.
-	Path := writeEditorconfig(t, "[*]\nindent_style = tab\n", "a.js")
-	buf := NewBuffer(Path, []byte("function f() {\n  a()\n}\n"))
+	path := writeEditorconfig(t, "[*]\nindent_style = tab\n", "a.js")
+	buf := NewBuffer(path, []byte("function f() {\n  a()\n}\n"))
 
 	assert.Equal(t, "\t", string(buf.indentText()))
 }

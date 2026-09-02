@@ -21,12 +21,12 @@ func (viewport *Viewport) DeleteRange(area scheme.MotionRange) (TextBlock, bool)
 
 // includeCursorCluster 는 커서가 선 글자까지 범위에 넣는다. inclusive motion 이 쓴다.
 func (viewport *Viewport) IncludeCursorCluster() {
-	Line := viewport.Lines[viewport.Cursor.Line]
-	if viewport.Cursor.Col >= len(Line) {
+	line := viewport.Lines[viewport.Cursor.Line]
+	if viewport.Cursor.Col >= len(line) {
 		return
 	}
 
-	viewport.Cursor.Col += GlyphSize(Line, viewport.Cursor.Col)
+	viewport.Cursor.Col += GlyphSize(line, viewport.Cursor.Col)
 }
 
 // wordForwardToDelete 는 `dw` 가 지울 끝 자리로 간다. 마지막 한 걸음은 줄을 넘지 않는다.
@@ -37,28 +37,28 @@ func (viewport *Viewport) IncludeCursorCluster() {
 // 「지금 자리가 단어 끝인가」만 답한다(ADR-0100).
 // deleteText 는 (start.line, start.col) 부터 (end.line, end.col) 앞까지 지운다.
 // 지울 것이 없으면 아무것도 하지 않고 false 다.
-func (viewport *Viewport) deleteText(Start, End scheme.Cursor) (TextBlock, bool) {
-	if Start.Line == End.Line && Start.Col == End.Col {
+func (viewport *Viewport) deleteText(start, end scheme.Cursor) (TextBlock, bool) {
+	if start.Line == end.Line && start.Col == end.Col {
 		return TextBlock{}, false
 	}
 
-	count := End.Line - Start.Line + 1
-	removed := viewport.textBetween(Start, End)
+	count := end.Line - start.Line + 1
+	removed := viewport.textBetween(start, end)
 
-	head, tail := viewport.Lines[Start.Line][:Start.Col], viewport.Lines[End.Line][End.Col:]
+	head, tail := viewport.Lines[start.Line][:start.Col], viewport.Lines[end.Line][end.Col:]
 	joined := make([]byte, 0, len(head)+len(tail))
 	joined = append(joined, head...)
 	joined = append(joined, tail...)
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 지우기는 언제나 제 구간이다.
 	viewport.EndEdit()
-	viewport.BeginEdit(Start.Line, count)
-	viewport.ReplaceLines(Start.Line, count, [][]byte{joined})
+	viewport.BeginEdit(start.Line, count)
+	viewport.ReplaceLines(start.Line, count, [][]byte{joined})
 	viewport.growEdit(1 - count)
 	viewport.EndEdit()
 
 	// 지운 자리가 곧 커서 자리다. 줄 끝을 지웠으면 마지막 글자 위로 당겨진다.
-	viewport.Cursor.Line, viewport.Cursor.Col = Start.Line, Start.Col
+	viewport.Cursor.Line, viewport.Cursor.Col = start.Line, start.Col
 	viewport.ClampToNormal()
 	viewport.UpdateDesiredCol()
 

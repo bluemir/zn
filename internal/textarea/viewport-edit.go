@@ -41,10 +41,10 @@ func (viewport *Viewport) BeginEdit(at, count int) {
 		open.count += open.at - at
 		open.at = at
 	}
-	if End := at + count; End > open.at+open.count {
-		tail := viewport.Lines[open.at+open.count : End]
+	if end := at + count; end > open.at+open.count {
+		tail := viewport.Lines[open.at+open.count : end]
 		open.before = append(open.before, tail...)
-		open.count = End - open.at
+		open.count = end - open.at
 	}
 }
 
@@ -59,14 +59,14 @@ func (viewport *Viewport) Insert(text []byte) {
 		return
 	}
 
-	Line := viewport.Lines[viewport.Cursor.Line]
-	head, tail := Line[:viewport.Cursor.Col], Line[viewport.Cursor.Col:]
+	line := viewport.Lines[viewport.Cursor.Line]
+	head, tail := line[:viewport.Cursor.Col], line[viewport.Cursor.Col:]
 	pieces := bytes.Split(text, []byte{'\n'})
 
 	viewport.BeginEdit(viewport.Cursor.Line, 1)
 
 	if len(pieces) == 1 {
-		merged := make([]byte, 0, len(Line)+len(text))
+		merged := make([]byte, 0, len(line)+len(text))
 		merged = append(merged, head...)
 		merged = append(merged, text...)
 		merged = append(merged, tail...)
@@ -108,22 +108,22 @@ func (viewport *Viewport) Insert(text []byte) {
 //
 // 끼우는 자리 옆의 줄 하나를 붙잡고 replaceLines 로 갈아끼운다. 되돌리기 구간은 건드린 줄을
 // 담아야 열리는데(beginEdit), 새로 끼우는 줄은 아직 없는 줄이라 붙잡을 것이 없다.
-func (viewport *Viewport) insertLines(at int, Lines [][]byte) {
+func (viewport *Viewport) insertLines(at int, lines [][]byte) {
 	anchor := min(at, len(viewport.Lines)-1)
 
-	next := make([][]byte, 0, len(Lines)+1)
+	next := make([][]byte, 0, len(lines)+1)
 	if at > anchor {
 		// 마지막 줄 뒤다. 앞 줄을 붙잡고 그 뒤에 잇는다.
 		next = append(next, viewport.Lines[anchor])
-		next = append(next, Lines...)
+		next = append(next, lines...)
 	} else {
-		next = append(next, Lines...)
+		next = append(next, lines...)
 		next = append(next, viewport.Lines[anchor])
 	}
 
 	viewport.BeginEdit(anchor, 1)
 	viewport.ReplaceLines(anchor, 1, next)
-	viewport.growEdit(len(Lines))
+	viewport.growEdit(len(lines))
 }
 
 // openLineBelow 는 지금 줄 아래에 줄을 만들고 커서를 그 줄로 옮긴다. `o` 가 쓴다.
@@ -162,13 +162,13 @@ func (viewport *Viewport) OpenLineAbove() {
 // deleteBackward 는 커서 앞 글자를 지운다. 줄 시작이면 앞 줄과 합친다.
 func (viewport *Viewport) DeleteBackward() {
 	if viewport.Cursor.Col > 0 {
-		Line := viewport.Lines[viewport.Cursor.Line]
+		line := viewport.Lines[viewport.Cursor.Line]
 		from := viewport.prevOffset(viewport.Cursor.Col)
 
 		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. prevOffset 이 글자 경계를 준다.
-		rest := make([]byte, 0, len(Line)-(viewport.Cursor.Col-from))
-		rest = append(rest, Line[:from]...)
-		rest = append(rest, Line[viewport.Cursor.Col:]...)
+		rest := make([]byte, 0, len(line)-(viewport.Cursor.Col-from))
+		rest = append(rest, line[:from]...)
+		rest = append(rest, line[viewport.Cursor.Col:]...)
 
 		viewport.BeginEdit(viewport.Cursor.Line, 1)
 		viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{rest})
@@ -183,11 +183,11 @@ func (viewport *Viewport) DeleteBackward() {
 	}
 
 	prev := viewport.Lines[viewport.Cursor.Line-1]
-	Line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.Lines[viewport.Cursor.Line]
 
-	joined := make([]byte, 0, len(prev)+len(Line))
+	joined := make([]byte, 0, len(prev)+len(line))
 	joined = append(joined, prev...)
-	joined = append(joined, Line...)
+	joined = append(joined, line...)
 
 	// 두 줄을 건드리므로 열린 구간이 있으면 범위가 넓어진다.
 	viewport.BeginEdit(viewport.Cursor.Line-1, 2)
@@ -204,15 +204,15 @@ func (viewport *Viewport) DeleteBackward() {
 //
 // normal 에는 걸지 않았다. 그 자리에는 `x` 가 이미 있고 register 에 담는 것까지 정해져 있다.
 func (viewport *Viewport) DeleteForward() {
-	Line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.Lines[viewport.Cursor.Line]
 
-	if viewport.Cursor.Col < len(Line) {
+	if viewport.Cursor.Col < len(line) {
 		// 한글 3 byte, 이모지 18 byte 도 한 번에 지운다. lines.Size 가 글자 경계를 준다.
-		to := viewport.Cursor.Col + GlyphSize(Line, viewport.Cursor.Col)
+		to := viewport.Cursor.Col + GlyphSize(line, viewport.Cursor.Col)
 
-		rest := make([]byte, 0, len(Line)-(to-viewport.Cursor.Col))
-		rest = append(rest, Line[:viewport.Cursor.Col]...)
-		rest = append(rest, Line[to:]...)
+		rest := make([]byte, 0, len(line)-(to-viewport.Cursor.Col))
+		rest = append(rest, line[:viewport.Cursor.Col]...)
+		rest = append(rest, line[to:]...)
 
 		viewport.BeginEdit(viewport.Cursor.Line, 1)
 		viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{rest})
@@ -228,8 +228,8 @@ func (viewport *Viewport) DeleteForward() {
 
 	next := viewport.Lines[viewport.Cursor.Line+1]
 
-	joined := make([]byte, 0, len(Line)+len(next))
-	joined = append(joined, Line...)
+	joined := make([]byte, 0, len(line)+len(next))
+	joined = append(joined, line...)
 	joined = append(joined, next...)
 
 	// 두 줄을 건드리므로 열린 구간이 있으면 범위가 넓어진다. deleteBackward 와 같다.
@@ -255,8 +255,8 @@ func (viewport *Viewport) TrimTrailingSpace(from, to int) int {
 	// 바꿀 것이 없는데 beginEdit 를 부르면 dirty 가 서고 redo 가 날아간다. 먼저 훑기만 한다.
 	first, last, count := -1, -1, 0
 	for i := from; i < to; i++ {
-		Line := viewport.Lines[i]
-		if len(Line) == len(trimLineEnd(Line)) {
+		line := viewport.Lines[i]
+		if len(line) == len(trimLineEnd(line)) {
 			continue
 		}
 
@@ -276,8 +276,8 @@ func (viewport *Viewport) TrimTrailingSpace(from, to int) int {
 
 	// 사이에 낀 안 바뀐 줄은 원본 그대로 담는다. 범위를 파일 전체로 넓히지 않으려는 것뿐이다.
 	next := make([][]byte, 0, last-first+1)
-	for _, Line := range viewport.Lines[first : last+1] {
-		next = append(next, trimLineEnd(Line))
+	for _, line := range viewport.Lines[first : last+1] {
+		next = append(next, trimLineEnd(line))
 	}
 
 	// 줄 수가 그대로라 growEdit 은 부르지 않는다.
@@ -378,10 +378,10 @@ func (viewport *Viewport) SqueezeSpaces(from, to int) int {
 	// first·last 가 줄 번호라 자리를 옮겨 셈하면 잘라내는 자리에서 어긋나기 쉽다.
 	next := make([][]byte, len(viewport.Lines))
 	for i := from; i < to; i++ {
-		Line := viewport.Lines[i]
+		line := viewport.Lines[i]
 
-		next[i] = squeezeInnerSpaces(Line)
-		if len(next[i]) == len(Line) {
+		next[i] = squeezeInnerSpaces(line)
+		if len(next[i]) == len(line) {
 			continue
 		}
 

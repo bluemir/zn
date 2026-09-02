@@ -29,10 +29,10 @@ const pageOverlapRows = 2
 //
 // 반 화면은 vim 의 `scroll` 기본값과 같이 높이의 절반이다. 어느 쪽이든 한 행 아래로는
 // 내려가지 않는다 — 0 으로 두면 좁은 화면에서 키가 안 먹는 것처럼 보인다.
-func PageRows(span PageSpan, Height int) int {
+func PageRows(span PageSpan, height int) int {
 	if span == PageFull {
-		return max(Height-pageOverlapRows, 1)
+		return max(height-pageOverlapRows, 1)
 	}
 
-	return max(Height/2, 1)
+	return max(height/2, 1)
 }

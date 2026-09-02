@@ -41,18 +41,18 @@ func ReplacementText(key string) ([]byte, bool) {
 func (viewport *Viewport) ReplaceChar(text []byte, count int) bool {
 	n := max(count, 1)
 
-	Line := viewport.Lines[viewport.Cursor.Line]
-	End, ok := clusterEnd(Line, viewport.Cursor.Col, n)
+	line := viewport.Lines[viewport.Cursor.Line]
+	end, ok := clusterEnd(line, viewport.Cursor.Col, n)
 	if !ok {
 		return false
 	}
 
-	next := make([]byte, 0, len(Line)-(End-viewport.Cursor.Col)+len(text)*n)
-	next = append(next, Line[:viewport.Cursor.Col]...)
+	next := make([]byte, 0, len(line)-(end-viewport.Cursor.Col)+len(text)*n)
+	next = append(next, line[:viewport.Cursor.Col]...)
 	for range n {
 		next = append(next, text...)
 	}
-	next = append(next, Line[End:]...)
+	next = append(next, line[end:]...)
 
 	// 앞의 타이핑 구간에 섞이면 `u` 한 번에 남의 편집까지 딸려온다. 바꿔 넣기는 언제나 제 구간이다.
 	viewport.EndEdit()
@@ -71,20 +71,20 @@ func (viewport *Viewport) ReplaceChar(text []byte, count int) bool {
 //
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다. `o` 와 같다(indent.go).
 func (viewport *Viewport) ReplaceWithNewline(count int) bool {
-	Line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.Lines[viewport.Cursor.Line]
 
-	End, ok := clusterEnd(Line, viewport.Cursor.Col, max(count, 1))
+	end, ok := clusterEnd(line, viewport.Cursor.Col, max(count, 1))
 	if !ok {
 		return false
 	}
 
 	// 자르기 전에 정한다. 자른 뒤의 앞 줄은 커서 앞까지라 줄 끝의 여는 괄호가 사라질 수 있다.
-	indent := viewport.indentForNewLine(viewport.Cursor.Line, Line[:viewport.Cursor.Col])
-	below := concat(indent, Line[End:])
+	indent := viewport.indentForNewLine(viewport.Cursor.Line, line[:viewport.Cursor.Col])
+	below := concat(indent, line[end:])
 
 	viewport.EndEdit()
 	viewport.BeginEdit(viewport.Cursor.Line, 1)
-	viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{Line[:viewport.Cursor.Col], below})
+	viewport.ReplaceLines(viewport.Cursor.Line, 1, [][]byte{line[:viewport.Cursor.Col], below})
 	viewport.growEdit(1)
 	viewport.EndEdit()
 

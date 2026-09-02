@@ -13,8 +13,8 @@ import (
 // linesOf 는 buffer 의 줄들을 비교하기 쉽게 문자열로 바꾼다.
 func linesOf(buf Viewport) []string {
 	out := make([]string, len(buf.Lines))
-	for i, Line := range buf.Lines {
-		out[i] = string(Line)
+	for i, line := range buf.Lines {
+		out[i] = string(line)
 	}
 	return out
 }
@@ -273,17 +273,17 @@ func TestSaveAfterEdit(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Path := filepath.Join(t.TempDir(), "test.txt")
-			require.NoError(t, os.WriteFile(Path, []byte(test.data), 0644))
+			path := filepath.Join(t.TempDir(), "test.txt")
+			require.NoError(t, os.WriteFile(path, []byte(test.data), 0644))
 
-			buf, err := OpenBuffer(Path)
+			buf, err := OpenBuffer(path)
 			require.NoError(t, err)
 
 			buf.Cursor.Col = 2
 			buf.Insert([]byte("X"))
 			require.NoError(t, saveBuffer(t, &buf))
 
-			saved, err := os.ReadFile(Path)
+			saved, err := os.ReadFile(path)
 			require.NoError(t, err)
 			assert.Equal(t, test.want, string(saved))
 		})
@@ -292,17 +292,17 @@ func TestSaveAfterEdit(t *testing.T) {
 
 // 줄이 늘어나도 저장이 맞아야 한다.
 func TestSaveAfterNewline(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abcd\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abcd\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Cursor.Col = 2
 	buf.Insert([]byte("\n"))
 	require.NoError(t, saveBuffer(t, &buf))
 
-	saved, err := os.ReadFile(Path)
+	saved, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "ab\ncd\n", string(saved))
 }

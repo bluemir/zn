@@ -107,12 +107,12 @@ func TestNewBuffer(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			buf := NewBuffer("test.txt", []byte(test.data))
 
-			Lines := make([]string, len(buf.Lines))
-			for i, Line := range buf.Lines {
-				Lines[i] = string(Line)
+			lines := make([]string, len(buf.Lines))
+			for i, line := range buf.Lines {
+				lines[i] = string(line)
 			}
 
-			assert.Equal(t, test.Lines, Lines)
+			assert.Equal(t, test.Lines, lines)
 			assert.Equal(t, test.lineEnding, buf.lineEnding)
 			assert.Equal(t, test.finalLineEnding, buf.finalLineEnding)
 		})
@@ -145,14 +145,14 @@ func TestBufferSaveRoundTrip(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Path := filepath.Join(t.TempDir(), "test.txt")
-			require.NoError(t, os.WriteFile(Path, []byte(test.data), 0644))
+			path := filepath.Join(t.TempDir(), "test.txt")
+			require.NoError(t, os.WriteFile(path, []byte(test.data), 0644))
 
-			buf, err := OpenBuffer(Path)
+			buf, err := OpenBuffer(path)
 			require.NoError(t, err)
 			require.NoError(t, saveBuffer(t, &buf))
 
-			saved, err := os.ReadFile(Path)
+			saved, err := os.ReadFile(path)
 			require.NoError(t, err)
 			assert.Equal(t, test.data, string(saved))
 		})
@@ -160,40 +160,40 @@ func TestBufferSaveRoundTrip(t *testing.T) {
 }
 
 func TestOpenBufferMissingFile(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "not-exist.txt")
+	path := filepath.Join(t.TempDir(), "not-exist.txt")
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	assert.Equal(t, Path, buf.Path)
+	assert.Equal(t, path, buf.Path)
 	assert.Equal(t, []string{""}, []string{string(buf.Lines[0])})
 	assert.Len(t, buf.Lines, 1)
 }
 
 // 저장할 때 이미 있는 파일의 권한을 떨어뜨리면 안 된다. 실행 스크립트를 열었다 저장하는 경우다.
 func TestBufferSaveKeepsFileMode(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "script.sh")
-	require.NoError(t, os.WriteFile(Path, []byte("#!/bin/sh\n"), 0755))
+	path := filepath.Join(t.TempDir(), "script.sh")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), 0755))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 	require.NoError(t, saveBuffer(t, &buf))
 
-	info, err := os.Stat(Path)
+	info, err := os.Stat(path)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
 }
 
 // 읽은 뒤에 밖에서 바뀐 파일은 덮어쓰지 않는다. 남의 편집을 조용히 날리지 않기 위해서다.
 func TestBufferSaveRefusesWhenFileChangedOutside(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.WriteFile(Path, []byte("남이 쓴 것\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	err = saveBuffer(t, &buf)
 
@@ -201,25 +201,25 @@ func TestBufferSaveRefusesWhenFileChangedOutside(t *testing.T) {
 	assert.Contains(t, err.Error(), "바뀌었습니다")
 	assert.True(t, buf.Dirty, "저장되지 않았으므로 변경 표시가 남는다")
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "남이 쓴 것\n", string(after), "파일을 건드리지 않는다")
 }
 
 // `:w!` 는 알고도 덮어쓰겠다는 뜻이다.
 func TestBufferSaveForceOverwritesChangedFile(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.WriteFile(Path, []byte("남이 쓴 것\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	require.NoError(t, saveBufferForce(t, &buf))
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "Xabc\n", string(after))
 	assert.False(t, buf.Dirty)
@@ -227,28 +227,28 @@ func TestBufferSaveForceOverwritesChangedFile(t *testing.T) {
 
 // 내용이 같으면 밖에서 되쓰였어도 헛경고를 내지 않는다. mtime 이 아니라 내용을 보는 이유다.
 func TestBufferSaveAllowsRewriteWithSameContent(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
 	require.NoError(t, saveBuffer(t, &buf))
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "Xabc\n", string(after))
 }
 
 // 저장한 뒤에는 방금 쓴 것이 기준이다. 이어지는 저장이 자기가 쓴 것을 남의 변경으로 보면 안 된다.
 func TestBufferSaveTwice(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
@@ -257,77 +257,77 @@ func TestBufferSaveTwice(t *testing.T) {
 	buf.Insert([]byte("Y"))
 	require.NoError(t, saveBuffer(t, &buf))
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "XYabc\n", string(after))
 }
 
 // 열 때 없던 파일이 저장 시점에 생겨 있으면 남이 만든 것이다.
 func TestBufferSaveRefusesWhenFileAppeared(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "new.txt")
+	path := filepath.Join(t.TempDir(), "new.txt")
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.WriteFile(Path, []byte("남이 만든 것\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("남이 만든 것\n"), 0644))
 
 	err = saveBuffer(t, &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "새로 생겼습니다")
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "남이 만든 것\n", string(after))
 }
 
 // 열 때도 없었고 지금도 없으면 그냥 새로 만든다.
 func TestBufferSaveCreatesNewFile(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "new.txt")
+	path := filepath.Join(t.TempDir(), "new.txt")
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
 	require.NoError(t, saveBuffer(t, &buf))
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "X\n", string(after))
 }
 
 // 밖에서 지워진 파일도 알린다. 조용히 되살아나면 지운 쪽이 모른다.
 func TestBufferSaveRefusesWhenFileRemoved(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.Remove(Path))
+	require.NoError(t, os.Remove(path))
 
 	err = saveBuffer(t, &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "사라졌습니다")
-	assert.NoFileExists(t, Path)
+	assert.NoFileExists(t, path)
 
 	require.NoError(t, saveBufferForce(t, &buf), "`:w!` 로 다시 만들 수 있다")
-	assert.FileExists(t, Path)
+	assert.FileExists(t, path)
 }
 
 // 다시 읽으면 바깥 내용이 들어오고 저장하지 않은 변경과 undo 이력은 사라진다 (ADR-0016).
 func TestBufferReloadTakesOutsideChange(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.WriteFile(Path, []byte("남이 쓴 것\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 
 	require.NoError(t, buf.Reload())
 
@@ -339,29 +339,29 @@ func TestBufferReloadTakesOutsideChange(t *testing.T) {
 
 // 다시 읽은 뒤 바로 저장해도 막히지 않는다. 방금 읽은 것이 새 기준이다.
 func TestBufferReloadResetsDiskHash(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	require.NoError(t, os.WriteFile(Path, []byte("남이 쓴 것\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("남이 쓴 것\n"), 0644))
 	require.NoError(t, buf.Reload())
 
 	buf.Insert([]byte("X"))
 	require.NoError(t, saveBuffer(t, &buf))
 
-	after, err := os.ReadFile(Path)
+	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, "X남이 쓴 것\n", string(after))
 }
 
 // 커서는 줄 번호와 화면 칸을 유지한다. byte offset 이 아니라 칸이라 두 칸 글자 중간에 서지 않는다.
 func TestBufferReloadKeepsCursorColumn(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\ndef\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\ndef\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.MoveDownLine(1)
@@ -369,7 +369,7 @@ func TestBufferReloadKeepsCursorColumn(t *testing.T) {
 	require.Equal(t, 2, ScreenColAt(buf.Lines[buf.Cursor.Line], buf.Cursor.Col, DefaultTabWidth))
 
 	// 둘째 줄이 두 칸 글자로 바뀐다. 2 칸은 두 번째 글자의 시작이다.
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n한글\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("abc\n한글\n"), 0644))
 	require.NoError(t, buf.Reload())
 
 	assert.Equal(t, 1, buf.Cursor.Line)
@@ -383,16 +383,16 @@ func TestBufferReloadKeepsCursorColumn(t *testing.T) {
 // 자기 크기를 모른다. adopt 이 이어받지 않으면 폭이 0 이 되어 다시 읽은 순간 본문이 사라진다
 // (ADR-0123).
 func TestBufferReloadKeepsPane(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	setContentWidth(&buf, 40, 12)
 	want := buf.Size
 
-	require.NoError(t, os.WriteFile(Path, []byte("abcdef\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("abcdef\n"), 0644))
 	require.NoError(t, buf.Reload())
 
 	assert.Equal(t, want, buf.Size)
@@ -401,16 +401,16 @@ func TestBufferReloadKeepsPane(t *testing.T) {
 
 // 파일이 짧아졌으면 커서를 범위 안으로 끌어온다.
 func TestBufferReloadClampsCursorToShorterFile(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("a\nb\nc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("a\nb\nc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.MoveDownLine(2)
 	require.Equal(t, 2, buf.Cursor.Line)
 
-	require.NoError(t, os.WriteFile(Path, []byte("a\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("a\n"), 0644))
 	require.NoError(t, buf.Reload())
 
 	assert.Equal(t, 0, buf.Cursor.Line, "한 줄만 남았으므로 그 줄로 끌려온다")
@@ -419,14 +419,14 @@ func TestBufferReloadClampsCursorToShorterFile(t *testing.T) {
 
 // 밖에서 지워진 파일은 다시 읽지 않는다. 손에 든 것이 마지막 사본이다.
 func TestBufferReloadRefusesWhenFileRemoved(t *testing.T) {
-	Path := filepath.Join(t.TempDir(), "test.txt")
-	require.NoError(t, os.WriteFile(Path, []byte("abc\n"), 0644))
+	path := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(Path)
+	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.Insert([]byte("X"))
-	require.NoError(t, os.Remove(Path))
+	require.NoError(t, os.Remove(path))
 
 	err = buf.Reload()
 
@@ -601,22 +601,22 @@ func TestCursorMoveHangul(t *testing.T) {
 // 커서가 화면 안에 있으면 화면은 움직이지 않아야 한다.
 func TestScrollTo(t *testing.T) {
 	buf := NewBuffer("test.txt", []byte(strings.Repeat("line\n", 100)))
-	Height := 10
+	height := 10
 
 	buf.MoveDownRow(5)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 0, buf.Top.Line, "화면 안이면 안 움직인다")
 
 	buf.MoveDownRow(5) // 10 번째 줄, 화면 아래로 한 줄 초과
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 1, buf.Top.Line, "아래로 벗어나면 한 줄만 밀린다")
 
 	buf.MoveDownRow(50)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 51, buf.Top.Line)
 
 	buf.MoveUpRow(20)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 40, buf.Top.Line, "위로 벗어나면 커서 줄이 최상단")
 }
 
@@ -703,11 +703,11 @@ func TestCursorKeepsDesiredColAcrossWrappedRows(t *testing.T) {
 // **그대로 두기로 정한 것을 여기서 못 박는다.** 「vim 과 다르다」가 아니라 「이 편집기는
 // 이렇게 움직인다」라서, 표현을 바꾸면 이 시험이 먼저 걸려야 한다.
 func TestDesiredColIsRowRelativeAcrossLines(t *testing.T) {
-	const Width = 20
+	const width = 20
 
 	long := "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMN" // 50 글자, 화면 행 셋
 	buf := NewBuffer("test.txt", []byte(long+"\n"+long+"\n"))
-	setContentWidth(&buf, Width, 10)
+	setContentWidth(&buf, width, 10)
 
 	// 첫 줄 offset 25 는 둘째 화면 행(행 시작 20) 의 6 번째 칸이다.
 	buf.Cursor.Line = 0
@@ -722,7 +722,7 @@ func TestDesiredColIsRowRelativeAcrossLines(t *testing.T) {
 	assert.Equal(t, 5, buf.Cursor.Col, "줄 시작에서 5 칸. vim 은 25 로 간다")
 	assert.Equal(t, byte('f'), buf.Lines[1][buf.Cursor.Col])
 
-	offsets := WrapOffsets(buf.Lines[1], Width, buf.TabWidth())
+	offsets := WrapOffsets(buf.Lines[1], width, buf.TabWidth())
 	assert.Equal(t, 0, rowIndexAt(offsets, buf.Cursor.Col), "언제나 첫 화면 행이다")
 
 	// 셋째 행에서 눌렀으면 두 행 몫이 당겨진다. 같은 규칙의 더 센 모습이다.
@@ -737,26 +737,26 @@ func TestDesiredColIsRowRelativeAcrossLines(t *testing.T) {
 
 // wrap 된 줄이 화면을 넘으면 그 줄 중간부터 그려야 한다.
 func TestScrollToWithinWrappedLine(t *testing.T) {
-	Width, Height := 4, 3
+	width, height := 4, 3
 	buf := NewBuffer("test.txt", []byte(strings.Repeat("x", 40)+"\n"))
-	require.Len(t, WrapOffsets(buf.Lines[0], Width, DefaultTabWidth), 10)
-	setContentWidth(&buf, Width, Height)
+	require.Len(t, WrapOffsets(buf.Lines[0], width, DefaultTabWidth), 10)
+	setContentWidth(&buf, width, height)
 
 	buf.MoveDownRow(2)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 0, buf.Top.Row, "화면 안이면 안 움직인다")
 
 	buf.MoveDownRow(1)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 0, buf.Top.Line, "같은 줄이다")
 	assert.Equal(t, 1, buf.Top.Row, "행 하나만 밀린다")
 
 	buf.MoveDownRow(5)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 6, buf.Top.Row)
 
 	buf.MoveUpRow(4)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	assert.Equal(t, 4, buf.Top.Row, "위로 벗어나면 커서 행이 최상단")
 }
 
@@ -766,67 +766,67 @@ func TestScrollToWithinWrappedLine(t *testing.T) {
 // 커서가 top 보다 아래 줄에 있어야 재현된다. 커서가 top 보다 위면 scrollTo 의
 // "위로 벗어났으면" 갈래가 top 을 커서 자리로 새로 잡아서 우연히 나아버린다.
 func TestScrollToClampsTopRowWhenWidened(t *testing.T) {
-	narrow, wide, Height := 4, 40, 3
+	narrow, wide, height := 4, 40, 3
 	buf := NewBuffer("test.txt", []byte(strings.Repeat("x", 40)+"\na\nb\nc\n"))
 	require.Len(t, WrapOffsets(buf.Lines[0], narrow, DefaultTabWidth), 10)
 	require.Len(t, WrapOffsets(buf.Lines[0], wide, DefaultTabWidth), 1, "넓히면 한 행으로 준다")
 
 	// 긴 줄 끝까지 내려가서 그 줄 깊숙이 스크롤한 뒤, 아래 줄들로 커서를 옮긴다.
-	setContentWidth(&buf, narrow, Height)
+	setContentWidth(&buf, narrow, height)
 	buf.MoveDownRow(9)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	buf.MoveDownRow(1)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 	buf.MoveDownRow(1)
-	buf.ScrollTo(Height)
+	buf.ScrollTo(height)
 
 	require.Equal(t, 2, buf.Cursor.Line, "커서는 top 보다 아래 줄")
 	require.Equal(t, 0, buf.Top.Line)
 	require.Equal(t, 9, buf.Top.Row, "긴 줄의 마지막 행부터 그리고 있다")
 
 	// 창을 넓힌다. 앱에서는 resize 가 layoutViews 로 하는 일이다(ADR-0123).
-	setContentWidth(&buf, wide, Height)
-	buf.ScrollTo(Height)
+	setContentWidth(&buf, wide, height)
+	buf.ScrollTo(height)
 
 	assert.Equal(t, 0, buf.Top.Line)
 	assert.Equal(t, 0, buf.Top.Row, "넓어진 뒤에는 그 줄에 행이 하나뿐이다")
 
-	rows := buf.VisibleRows(Height)
+	rows := buf.VisibleRows(height)
 	require.NotEmpty(t, rows)
 	assert.Equal(t, 0, rows[0].Line, "첫 줄이 통째로 사라지면 안 된다")
 }
 
 // 줄이 지워져서 top 이 파일 끝을 넘어가도 죽지 않아야 한다.
 func TestScrollToClampsTopBeyondEnd(t *testing.T) {
-	Height := 3
+	height := 3
 	buf := NewBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
 
 	buf.Top.Line, buf.Top.Row = 4, 0
 	buf.Lines = buf.Lines[:2]
 	buf.Cursor.Line, buf.Cursor.Col = 0, 0
 
-	assert.NotPanics(t, func() { buf.ScrollTo(Height) })
+	assert.NotPanics(t, func() { buf.ScrollTo(height) })
 	assert.Less(t, buf.Top.Line, len(buf.Lines))
 }
 
 func TestCursorScreenPos(t *testing.T) {
-	Height := 5
+	height := 5
 	buf := NewBuffer("test.txt", []byte("abcdefgh\nnext\n"))
-	setContentWidth(&buf, 4, Height)
+	setContentWidth(&buf, 4, height)
 
-	at, ok := buf.CursorScreenPos(Height)
+	at, ok := buf.CursorScreenPos(height)
 	require.True(t, ok)
 	assert.Equal(t, scheme.Cell{X: 0, Y: 0}, at)
 
 	// 두 번째 행 시작
 	buf.MoveDownRow(1)
-	at, ok = buf.CursorScreenPos(Height)
+	at, ok = buf.CursorScreenPos(height)
 	require.True(t, ok)
 	assert.Equal(t, scheme.Cell{X: 0, Y: 1}, at, "wrap 된 행도 화면 행을 차지한다")
 
 	// 다음 줄
 	buf.MoveDownRow(1)
-	at, ok = buf.CursorScreenPos(Height)
+	at, ok = buf.CursorScreenPos(height)
 	require.True(t, ok)
 	assert.Equal(t, scheme.Cell{X: 0, Y: 2}, at)
 }
@@ -850,10 +850,10 @@ func TestClusterAt(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Size, Width := GlyphAt([]byte(test.text), 0, 0, DefaultTabWidth)
+			size, width := GlyphAt([]byte(test.text), 0, 0, DefaultTabWidth)
 
-			assert.Equal(t, test.Size, Size, "글자 하나의 byte 길이")
-			assert.Equal(t, test.Width, Width, "화면 폭")
+			assert.Equal(t, test.Size, size, "글자 하나의 byte 길이")
+			assert.Equal(t, test.Width, width, "화면 폭")
 			assert.Equal(t, test.Width, WidthOf(test.text))
 		})
 	}
@@ -861,8 +861,8 @@ func TestClusterAt(t *testing.T) {
 
 // 깨진 UTF-8 에서도 진행해야 한다. 0 을 돌려주면 무한 반복이다.
 func TestClusterAtInvalidUTF8(t *testing.T) {
-	Size, _ := GlyphAt([]byte{0xff, 0xfe}, 0, 0, DefaultTabWidth)
-	assert.Positive(t, Size)
+	size, _ := GlyphAt([]byte{0xff, 0xfe}, 0, 0, DefaultTabWidth)
+	assert.Positive(t, size)
 
 	assert.NotPanics(t, func() {
 		buf := NewBuffer("test.txt", []byte{0xff, 0xfe, '\n'})
@@ -921,10 +921,10 @@ func TestWrapDoesNotSplitCluster(t *testing.T) {
 func TestMoveLeftAcrossWrappedRowWithClusters(t *testing.T) {
 	emoji := "\U0001F468‍\U0001F469‍\U0001F466"
 	buf := NewBuffer("test.txt", []byte(strings.Repeat(emoji, 3)+"\n"))
-	Width := 5
+	width := 5
 
 	buf.Cursor.Col = 36 // 두 번째 행의 시작
-	require.Equal(t, 1, rowIndexAt(WrapOffsets(buf.Lines[0], Width, DefaultTabWidth), buf.Cursor.Col))
+	require.Equal(t, 1, rowIndexAt(WrapOffsets(buf.Lines[0], width, DefaultTabWidth), buf.Cursor.Col))
 
 	buf.MoveLeft(1)
 	assert.Equal(t, 18, buf.Cursor.Col, "앞 행 마지막 글자의 시작")
@@ -945,10 +945,10 @@ func TestClusterAtTab(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("col=%d", test.Col), func(t *testing.T) {
-			Size, Width := GlyphAt([]byte("\t"), 0, test.Col, DefaultTabWidth)
+			size, width := GlyphAt([]byte("\t"), 0, test.Col, DefaultTabWidth)
 
-			assert.Equal(t, 1, Size, "tab 은 1 byte")
-			assert.Equal(t, test.Width, Width)
+			assert.Equal(t, 1, size, "tab 은 1 byte")
+			assert.Equal(t, test.Width, width)
 		})
 	}
 }

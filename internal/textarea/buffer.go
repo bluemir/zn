@@ -237,11 +237,11 @@ type edit struct {
 //
 // **창(viewport) 까지 만들어 준다.** 지금은 tab 과 파일이 1:1 이라 「파일을 열면 그것을 볼
 // 창이 하나 생긴다」가 사실이다. 화면 분할이 오면 그때 갈린다(viewport.go).
-func NewEmptyBuffer(Path string) Viewport {
+func NewEmptyBuffer(path string) Viewport {
 	return Viewport{Buffer: Buffer{
-		Path:            Path,
-		Language:        syntax.LanguageFor(Path),
-		tab:             resolveTabWidth(Path),
+		Path:            path,
+		Language:        syntax.LanguageFor(path),
+		tab:             resolveTabWidth(path),
 		Lines:           [][]byte{{}},
 		finalLineEnding: true, // 새 파일은 줄끝으로 끝낸다
 	}}
@@ -252,10 +252,10 @@ func NewEmptyBuffer(Path string) Viewport {
 
 // OpenBuffer 는 파일을 읽어서 창으로 만든다(newEmptyBuffer 의 주석을 같이 본다).
 // 파일이 없으면 빈 줄 하나짜리 새 창을 만든다.
-func OpenBuffer(Path string) (Viewport, error) {
-	data, err := os.ReadFile(Path)
+func OpenBuffer(path string) (Viewport, error) {
+	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return NewEmptyBuffer(Path), nil
+		return NewEmptyBuffer(path), nil
 	}
 	if err != nil {
 		// **무엇을 하려 했는지만 표시하고 문구는 짓지 않는다.** 경로와 까닭은 os 가 준
@@ -264,19 +264,19 @@ func OpenBuffer(Path string) (Viewport, error) {
 		return Viewport{}, errors.Mark(err, ErrOpenFile)
 	}
 
-	return NewBuffer(Path, data), nil
+	return NewBuffer(path, data), nil
 }
 
-func NewBuffer(Path string, data []byte) Viewport {
+func NewBuffer(path string, data []byte) Viewport {
 	sum := sha256.Sum256(data)
 	buf := Buffer{
-		Path:       Path,
-		Language:   syntax.LanguageFor(Path),
-		tab:        resolveTabWidth(Path),
+		Path:       path,
+		Language:   syntax.LanguageFor(path),
+		tab:        resolveTabWidth(path),
 		data:       data,
 		lineEnding: detectLineEnding(data),
 		Disk:       diskSeen{Hash: sum[:]},
-		ReadOnly:   DetectReadOnly(Path),
+		ReadOnly:   DetectReadOnly(path),
 	}
 
 	buf.Lines, buf.finalLineEnding = SplitLines(data)
@@ -301,14 +301,14 @@ func SplitLines(data []byte) ([][]byte, bool) {
 		}
 	}
 
-	Lines := bytes.Split(rest, []byte{'\n'})
-	for i, Line := range Lines {
-		if len(Line) > 0 && Line[len(Line)-1] == '\r' {
-			Lines[i] = Line[:len(Line)-1]
+	lines := bytes.Split(rest, []byte{'\n'})
+	for i, line := range lines {
+		if len(line) > 0 && line[len(line)-1] == '\r' {
+			lines[i] = line[:len(line)-1]
 		}
 	}
 
-	return Lines, finalLineEnding
+	return lines, finalLineEnding
 }
 
 // detectLineEnding 은 첫 줄의 줄끝으로 파일 전체의 형식을 판정한다.
@@ -325,12 +325,12 @@ func detectLineEnding(data []byte) lineEnding {
 // **권한 비트만 본다.** 소유자·그룹·ACL 을 따지지 않는다. 정확한 답은 실제로 열어 보는 것뿐인데,
 // 그러면 파일을 열 때마다 쓰기로 한 번 더 여는 일이 붙는다. 여기서 놓치는 것(남의 파일이지만
 // 비트는 열려 있는 경우) 은 저장할 때 오류로 잡히고, 그 자리에는 이미 문구가 있다.
-func DetectReadOnly(Path string) bool {
-	if Path == "" {
+func DetectReadOnly(path string) bool {
+	if path == "" {
 		return false
 	}
 
-	info, err := os.Stat(Path)
+	info, err := os.Stat(path)
 	if err != nil {
 		return false
 	}
@@ -356,14 +356,14 @@ var (
 // 하나씩 낸다. 창을 새 패키지로 낼 때 열 면이 그만큼 좁아진다 (ADR-0127).
 
 // diskSeenAt 은 마지막으로 읽거나 쓴 그 파일의 자국이다. 바깥 변경 검사가 기준으로 쓴다.
-func (buf Buffer) DiskSeenAt() (Hash []byte, Size int64, mtime time.Time) {
+func (buf Buffer) DiskSeenAt() (hash []byte, size int64, mtime time.Time) {
 	return buf.Disk.Hash, buf.Disk.Size, buf.Disk.mtime
 }
 
 // markDiskStamp 는 크기와 시각만 새로 적는다. 해시는 그대로다 — 다음 검사가 읽지 않고
 // 끝나게 해 주는 앞잡이라, 내용이 같다고 판정한 뒤에도 갱신한다(outside.go).
-func (buf *Buffer) MarkDiskStamp(Size int64, mtime time.Time) {
-	buf.Disk.Size, buf.Disk.mtime = Size, mtime
+func (buf *Buffer) MarkDiskStamp(size int64, mtime time.Time) {
+	buf.Disk.Size, buf.Disk.mtime = size, mtime
 }
 
 // outsideState 는 마지막 검사에서 바깥이 어떠했는지다. statusBar 의 `[!]` 가 이것을 본다.
@@ -379,7 +379,7 @@ func (buf Buffer) HasGitBase() bool { return len(buf.git.base) > 0 }
 func (buf Buffer) GitHead() string { return buf.git.head }
 
 // gitMarkAt 은 그 줄이 HEAD 와 어떻게 다른지다. 그리는 자리가 행마다 묻는다.
-func (buf Buffer) GitMarkAt(Line int) GitLineMark { return buf.git.marks[Line] }
+func (buf Buffer) GitMarkAt(line int) GitLineMark { return buf.git.marks[line] }
 
 // setGitBase 는 견줄 원본을 갈아끼우고 줄 마커를 다시 잰다.
 func (buf *Buffer) SetGitBase(base [][]byte, head string) {

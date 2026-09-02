@@ -71,16 +71,16 @@ func (buf *Buffer) LexSyntaxTo(lastLine int) {
 //
 // 담아 두는 것은 줄을 끝낸 문맥이라(syntaxLine.after) 앞 줄의 것을 꺼낸다. 첫 줄은 파일이
 // 시작하는 문맥이다.
-func (buf Buffer) syntaxStateAt(Line int) syntax.State {
-	if Line <= 0 {
+func (buf Buffer) syntaxStateAt(line int) syntax.State {
+	if line <= 0 {
 		return buf.syntax.Start
 	}
 
-	if Line-1 >= len(buf.syntax.Lines) || Line-1 >= buf.syntax.valid {
+	if line-1 >= len(buf.syntax.Lines) || line-1 >= buf.syntax.valid {
 		return nil
 	}
 
-	return buf.syntax.Lines[Line-1].after
+	return buf.syntax.Lines[line-1].after
 }
 
 // indentRuleAt 은 그 줄이 따르는 들여쓰기 규칙이다.
@@ -126,8 +126,8 @@ func (buf *Buffer) SetSemanticTokens(from, to int, tokens []SemanticToken) {
 	from = max(0, from)
 	to = min(len(buf.syntax.Lines), to)
 
-	for Line := from; Line < to; Line++ {
-		buf.syntax.Lines[Line].semantic = nil
+	for line := from; line < to; line++ {
+		buf.syntax.Lines[line].semantic = nil
 	}
 
 	for _, item := range tokens {

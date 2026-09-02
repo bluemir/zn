@@ -29,8 +29,8 @@ const (
 // **`w` 와 `W` 를 여기서 가르지 않는다.** 큰 단어(`W`) 는 공백이 아닌 셋을 한 부류로 접는데,
 // 그것은 글자가 무엇인지가 아니라 그 키의 규칙이다. 접는 일은 core 가 한다
 // (`Buffer.classAt`, ADR-0100 §3, ADR-0117).
-func glyphClass(Line []byte, offset int) charClass {
-	r, _ := utf8.DecodeRune(Line[offset:])
+func glyphClass(line []byte, offset int) charClass {
+	r, _ := utf8.DecodeRune(line[offset:])
 
 	if r == ' ' || r == '\t' {
 		return ClassBlank

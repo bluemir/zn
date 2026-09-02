@@ -87,7 +87,7 @@ func gitLineMarks(base, now [][]byte) map[int]GitLineMark {
 	// 줄 하나를 글자 하나로 바꿔서 견준다. go-diff 는 글자 단위 diff 라 이 변환이 곧 줄 diff 다.
 	left, right, _ := dmp.DiffLinesToRunes(JoinLines(base), JoinLines(now))
 
-	Line := head
+	line := head
 
 	diffs := dmp.DiffMainRunes(left, right, false)
 	for i := 0; i < len(diffs); i++ {
@@ -95,11 +95,11 @@ func gitLineMarks(base, now [][]byte) map[int]GitLineMark {
 
 		switch diffs[i].Type {
 		case diffmatchpatch.DiffEqual:
-			Line += count
+			line += count
 		case diffmatchpatch.DiffInsert:
 			for range count {
-				marks[Line] = GitLineAdded
-				Line++
+				marks[line] = GitLineAdded
+				line++
 			}
 		case diffmatchpatch.DiffDelete:
 			// 지운 것 바로 뒤에 넣은 것이 붙어 있으면 그 겹치는 만큼이 「고친 줄」이다.
@@ -111,19 +111,19 @@ func gitLineMarks(base, now [][]byte) map[int]GitLineMark {
 			}
 
 			for range min(count, inserted) {
-				marks[Line] = GitLineModified
-				Line++
+				marks[line] = GitLineModified
+				line++
 			}
 
 			// 넣은 것이 더 많으면 남는 줄은 새로 생긴 줄이다.
 			for range inserted - min(count, inserted) {
-				marks[Line] = GitLineAdded
-				Line++
+				marks[line] = GitLineAdded
+				line++
 			}
 
 			// 지운 것이 더 많으면 그만큼은 화면에 없다. 앞 줄에 표시를 남긴다.
 			if count > inserted {
-				markGitRemoved(marks, Line-1)
+				markGitRemoved(marks, line-1)
 			}
 		}
 	}
@@ -132,17 +132,17 @@ func gitLineMarks(base, now [][]byte) map[int]GitLineMark {
 }
 
 // markGitRemoved 는 지워진 자리를 그 앞 줄에 남긴다. 앞 줄이 없으면 첫 줄이다.
-func markGitRemoved(marks map[int]GitLineMark, Line int) {
-	Line = max(Line, 0)
+func markGitRemoved(marks map[int]GitLineMark, line int) {
+	line = max(line, 0)
 
-	if marks[Line] == gitLineNone {
-		marks[Line] = GitLineRemoved
+	if marks[line] == gitLineNone {
+		marks[line] = GitLineRemoved
 	}
 }
 
 // joinLines 는 줄들을 다시 한 덩이로 잇는다. go-diff 가 문자열을 받는다.
-func JoinLines(Lines [][]byte) string {
-	return string(bytes.Join(Lines, []byte{'\n'}))
+func JoinLines(lines [][]byte) string {
+	return string(bytes.Join(lines, []byte{'\n'}))
 }
 
 // refreshGitLines 는 이 buffer 의 줄 마커를 다시 낸다.
@@ -163,14 +163,14 @@ func (buf *Buffer) GitChangeLines() []int {
 		return nil
 	}
 
-	Lines := make([]int, 0, len(buf.git.marks))
-	for Line := range buf.git.marks {
-		if buf.git.marks[Line-1] == gitLineNone {
-			Lines = append(Lines, Line)
+	lines := make([]int, 0, len(buf.git.marks))
+	for line := range buf.git.marks {
+		if buf.git.marks[line-1] == gitLineNone {
+			lines = append(lines, line)
 		}
 	}
 
-	slices.Sort(Lines)
+	slices.Sort(lines)
 
-	return Lines
+	return lines
 }

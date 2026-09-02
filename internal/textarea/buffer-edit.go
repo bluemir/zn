@@ -52,12 +52,12 @@ func squeezeInnerSpaces(line []byte) []byte {
 // trimLineEnd 는 줄 끝의 공백과 tab 을 뗀 부분이다.
 // 자르기만 하므로 새로 할당하지 않는다(ADR-0001).
 func trimLineEnd(line []byte) []byte {
-	End := len(line)
-	for End > 0 && (line[End-1] == ' ' || line[End-1] == '\t') {
-		End--
+	end := len(line)
+	for end > 0 && (line[end-1] == ' ' || line[end-1] == '\t') {
+		end--
 	}
 
-	return line[:End]
+	return line[:end]
 }
 
 // replaceLines 는 lines 의 [at, at+count) 를 with 로 갈아끼우고 원래 있던 줄들을 돌려준다.
