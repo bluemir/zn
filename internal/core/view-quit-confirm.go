@@ -10,9 +10,9 @@ import (
 	"github.com/bluemir/zn/internal/textarea"
 )
 
-// ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
+// confirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
 // confirm 은 Yes 를 눌렀을 때 갈 곳이다. 종료일 수도, tab 닫기일 수도, 다시 읽기일 수도 있다.
-func ConfirmDiscard(parent tea.Model, e *editor, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
+func confirmDiscard(parent tea.Model, e *editor, question string, confirm func() (tea.Model, tea.Cmd)) tea.Model {
 	return viewConfirmDiscard{editor: e, parent: parent, question: question, confirm: confirm}
 }
 
@@ -83,7 +83,7 @@ func (m viewConfirmDiscard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
-		return Exit()
+		return exit()
 	case "left", "y":
 		m.cursor = 0
 		return m, nil
@@ -185,7 +185,7 @@ func (m viewConfirmDiscard) View() tea.View {
 	return view
 }
 
-func Exit() (tea.Model, tea.Cmd) {
+func exit() (tea.Model, tea.Cmd) {
 	return finalExit{}, tea.Quit
 }
 
@@ -204,10 +204,10 @@ func pickMark(cond bool, str string) string {
 // parent 는 확인창에서 취소했을 때 돌아갈 화면이다.
 func quitAll(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	if e.anyDirty() {
-		return ConfirmDiscard(parent, e, "정말 종료 하시겠습니까?", Exit), nil
+		return confirmDiscard(parent, e, "정말 종료 하시겠습니까?", exit), nil
 	}
 
-	return Exit()
+	return exit()
 }
 
 // closeTab 은 `:q` 가 쓰는 경로다. 지금 보고 있는 tab 만 닫는다.
@@ -224,7 +224,7 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	if e.activeBuffer().Dirty {
-		return ConfirmDiscard(parent, e, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return confirmDiscard(parent, e, "이 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return forceCloseTab(e)
 		}), nil
 	}
@@ -237,7 +237,7 @@ func closeTab(parent tea.Model, e *editor) (tea.Model, tea.Cmd) {
 // 닫을 tab 이 없으면 종료다. `:q` 와 같은 자리다(closeTab, ADR-0064).
 func forceCloseTab(e *editor) (tea.Model, tea.Cmd) {
 	if !e.hasTab() {
-		return Exit()
+		return exit()
 	}
 
 	e.closeTab()
@@ -275,7 +275,7 @@ func closeTabAt(parent tea.Model, e *editor, index int) (tea.Model, tea.Cmd) {
 	if e.buffers[index].Dirty {
 		question := fmt.Sprintf("%s tab 을 닫으시겠습니까?", e.tabName(index))
 
-		return ConfirmDiscard(parent, e, question, func() (tea.Model, tea.Cmd) {
+		return confirmDiscard(parent, e, question, func() (tea.Model, tea.Cmd) {
 			return forceCloseTabAt(parent, e, index)
 		}), nil
 	}

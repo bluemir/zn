@@ -213,7 +213,7 @@ func TestWindowTitleSurvivesOverlays(t *testing.T) {
 	require.Equal(t, "zn main.go", want)
 
 	back, _ := normalMode(m.editor)
-	confirm := ConfirmDiscard(back, m.editor, "물음", func() (tea.Model, tea.Cmd) { return nil, nil })
+	confirm := confirmDiscard(back, m.editor, "물음", func() (tea.Model, tea.Cmd) { return nil, nil })
 	assert.Equal(t, want, confirm.View().WindowTitle, "종료 확인창")
 
 	palette, _ := paletteMode(m.editor)
@@ -481,15 +481,21 @@ func TestLineNumbersBlankOnWrappedRows(t *testing.T) {
 }
 
 // 자릿수는 줄 수와 화면 높이를 따라간다. 짧은 파일에서도 최소 폭은 지킨다.
+//
+// **값을 그대로 적는다.** 전에는 `markerWidth+minAbsoluteDigits+1+...` 로 적었는데, 그것은
+// 구현의 식을 다시 쓴 것이라 식이 바뀌면 양쪽이 같이 바뀌어 아무것도 못 잡는다. 창의 상수를
+// 시험이 알 까닭도 없어진다(ADR-0129).
+//
+//	마커 2 + 절대 3 + 빈칸 1 + 상대 2 + 빈칸 1 = 9
 func TestLineNumberWidthFollowsFileSize(t *testing.T) {
 	short := newTestEditor("a\n", 80, 5)
-	assert.Equal(t, textarea.MarkerWidth+textarea.MinAbsoluteDigits+1+textarea.MinRelativeDigits+1, short.gutterWidth())
+	assert.Equal(t, 9, short.gutterWidth())
 
 	long := newTestEditor(strings.Repeat("a\n", 1200), 80, 5)
-	assert.Equal(t, textarea.MarkerWidth+4+1+textarea.MinRelativeDigits+1, long.gutterWidth(), "1200 줄이면 절대번호가 네 자리")
+	assert.Equal(t, 10, long.gutterWidth(), "1200 줄이면 절대번호가 네 자리라 한 칸 는다")
 
 	tall := newTestEditor("a\n", 80, 120)
-	assert.Equal(t, textarea.MarkerWidth+textarea.MinAbsoluteDigits+1+3+1, tall.gutterWidth(), "화면이 높으면 상대번호가 세 자리")
+	assert.Equal(t, 10, tall.gutterWidth(), "화면이 높으면 상대번호가 세 자리라 한 칸 는다")
 }
 
 // 번호 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다.

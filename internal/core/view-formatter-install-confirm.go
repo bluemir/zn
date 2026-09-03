@@ -77,7 +77,7 @@ func (m viewFormatterInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m viewFormatterInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
-		return Exit()
+		return exit()
 	case "left", "y":
 		m.cursor = 0
 		return m, nil
@@ -106,7 +106,7 @@ func (m viewFormatterInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
 // lines 는 창에 적는 두 줄이다. 폭을 재는 자리와 그리는 자리가 같은 글을 보아야 한다.
 func (m viewFormatterInstallConfirm) lines() (string, string) {
 	return m.spec.name + " 가 설치되어 있지 않습니다.",
-		"지금 설치하시겠습니까? (" + m.spec.InstallHint() + ")"
+		"지금 설치하시겠습니까? (" + m.spec.installHint() + ")"
 }
 
 func (m viewFormatterInstallConfirm) boxWidth() int {

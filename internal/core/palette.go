@@ -576,7 +576,7 @@ func runReloadFile(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 	back, _ := normalMode(e)
 
-	return ConfirmDiscard(back, e, "다시 읽으시겠습니까?", func() (tea.Model, tea.Cmd) {
+	return confirmDiscard(back, e, "다시 읽으시겠습니까?", func() (tea.Model, tea.Cmd) {
 		return reloadFile(e)
 	}), nil
 }
@@ -614,7 +614,7 @@ func runCloseOtherTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 	back, _ := normalMode(e)
 
-	return ConfirmDiscard(back, e, "다른 tab 을 모두 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+	return confirmDiscard(back, e, "다른 tab 을 모두 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 		return closeOtherTabs(e)
 	}), nil
 }
@@ -731,7 +731,7 @@ func runCloseRightTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	// 취소하면 팔레트가 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 	back, _ := normalMode(e)
 
-	return ConfirmDiscard(back, e, "오른쪽 tab 을 모두 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+	return confirmDiscard(back, e, "오른쪽 tab 을 모두 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 		return closeRightTabs(e)
 	}), nil
 }
@@ -758,7 +758,7 @@ func runCloseAllTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 
 	back, _ := normalMode(e)
 
-	return ConfirmDiscard(back, e, "모든 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
+	return confirmDiscard(back, e, "모든 tab 을 닫으시겠습니까?", func() (tea.Model, tea.Cmd) {
 		return closeAllTabs(e)
 	}), nil
 }

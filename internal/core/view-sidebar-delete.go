@@ -49,7 +49,7 @@ func removeTreeEntry(e *editor, path string, isDir bool) (tea.Model, tea.Cmd) {
 // 안의 것까지 통째로 사라지고 그 안에 무엇이 있었는지 화면에 드러나지 않기 때문이다 —
 // 접혀 있으면 트리는 이름 한 줄만 보여준다.
 //
-// 확인창(ConfirmDiscard) 을 띄우지 않고 statusBar 아래 줄에서 묻는다. 무엇을 지우는지 보여주는
+// 확인창(confirmDiscard) 을 띄우지 않고 statusBar 아래 줄에서 묻는다. 무엇을 지우는지 보여주는
 // 것이 트리 그 자리이므로, 화면을 덮어 그 자리를 가리면 무엇을 고르고 있었는지가 사라진다.
 //
 // 노드 포인터가 아니라 경로를 든다. 묻는 사이에 디렉터리 읽기가 끝나면 그 포인터는 이미

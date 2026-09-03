@@ -121,7 +121,7 @@ func TestJobProgressReachesEveryMode(t *testing.T) {
 			e := newTestEditor("abc\n", 80, 5)
 			e.activeBuffer().Insert([]byte("X"))
 
-			return ConfirmDiscard(e, e.editor, "정말 종료 하시겠습니까?", Exit)
+			return confirmDiscard(e, e.editor, "정말 종료 하시겠습니까?", exit)
 		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestJobSurvivesConfirmDialog(t *testing.T) {
 	parent := newTestEditor("abc\n", 80, 5)
 	parent.activeBuffer().Insert([]byte("X"))
 
-	var confirm tea.Model = ConfirmDiscard(parent, parent.editor, "이 tab 을 닫으시겠습니까?", Exit)
+	var confirm tea.Model = confirmDiscard(parent, parent.editor, "이 tab 을 닫으시겠습니까?", exit)
 
 	confirm, cmd := confirm.Update(progressOf("파일 인덱싱", 42, 100))
 	require.NotNil(t, cmd, "다음 조각을 받을 고리를 잇는다")

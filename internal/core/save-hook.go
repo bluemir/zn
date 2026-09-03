@@ -107,8 +107,8 @@ func formatterFor(path string) *formatter {
 	return nil
 }
 
-// InstallHint 는 설치 명령을 사람이 셸에 칠 수 있는 한 줄이다.
-func (f *formatter) InstallHint() string {
+// installHint 는 설치 명령을 사람이 셸에 칠 수 있는 한 줄이다.
+func (f *formatter) installHint() string {
 	return strings.Join(f.install, " ")
 }
 

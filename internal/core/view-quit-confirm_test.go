@@ -14,7 +14,7 @@ func TestQuitConfirmKeepsParentAltScreen(t *testing.T) {
 	editor := newTestEditor("a\nb\n", 40, 5)
 	require.True(t, editor.View().AltScreen, "편집 화면은 대체 화면이다")
 
-	confirm := ConfirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", Exit)
+	confirm := confirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", exit)
 
 	assert.True(t, confirm.View().AltScreen, "종료 확인창도 대체 화면을 유지한다")
 }
@@ -35,7 +35,7 @@ func TestOverlaysKeepEveryTerminalSetting(t *testing.T) {
 	back, _ := normalMode(m.editor)
 
 	overlays := map[string]tea.Model{
-		"종료 확인창":   ConfirmDiscard(back, m.editor, "물음", func() (tea.Model, tea.Cmd) { return nil, nil }),
+		"종료 확인창":   confirmDiscard(back, m.editor, "물음", func() (tea.Model, tea.Cmd) { return nil, nil }),
 		"이름 바꾸기 창": must(renameInputMode(m.editor)),
 		"팔레트":      must(paletteMode(m.editor)),
 	}
@@ -53,7 +53,7 @@ func must(model tea.Model, _ tea.Cmd) tea.Model {
 func TestQuitConfirmEscapeReturnsToParent(t *testing.T) {
 	editor := newTestEditor("a\nb\n", 40, 5)
 
-	confirm := ConfirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", Exit)
+	confirm := confirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", exit)
 	back, _ := confirm.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 
 	assert.IsType(t, viewEditorNormal{}, back, "Escape 는 편집 화면으로 돌아간다")
@@ -62,7 +62,7 @@ func TestQuitConfirmEscapeReturnsToParent(t *testing.T) {
 // 확인창은 부모 화면 위에 overlay 로 얹힌다. 부모의 내용과 확인창 상자가 함께 있어야 한다.
 func TestConfirmDiscardRendersAsModalOverlay(t *testing.T) {
 	editor := newTestEditor("hello world\nsecond line\n", 80, 20)
-	confirm := ConfirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", Exit)
+	confirm := confirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", exit)
 
 	content := confirm.View().Content
 	assert.Contains(t, content, "저장하지 않은 변경이 있습니다.")

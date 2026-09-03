@@ -74,7 +74,7 @@ func (m viewServerInstallConfirm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m viewServerInstallConfirm) press(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
-		return Exit()
+		return exit()
 	case "left", "y":
 		m.cursor = 0
 		return m, nil

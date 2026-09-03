@@ -373,7 +373,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "qa":
 		// 전체 종료다. `!` 는 묻지 않고, 그냥 `:qa` 는 어느 tab 이든 변경이 남아 있으면 묻는다.
 		if cmd.force {
-			return Exit()
+			return exit()
 		}
 		back, _ := normalMode(m.editor)
 
@@ -684,7 +684,7 @@ func (m viewEditorCommand) edit(cmd command) (tea.Model, tea.Cmd) {
 		// 취소하면 명령줄이 아니라 normal 로 돌아간다. `:q` 의 확인창과 같다.
 		back, _ := normalMode(m.editor)
 
-		return ConfirmDiscard(back, m.editor, "이 tab 에 다른 파일을 여시겠습니까?", func() (tea.Model, tea.Cmd) {
+		return confirmDiscard(back, m.editor, "이 tab 에 다른 파일을 여시겠습니까?", func() (tea.Model, tea.Cmd) {
 			return editFile(m.editor, path)
 		}), nil
 	}

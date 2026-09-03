@@ -142,29 +142,13 @@ func TestGoInstallDirsWhenGobinEmpty(t *testing.T) {
 	}
 }
 
-func TestSplitFormatted(t *testing.T) {
-	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, textarea.SplitFormatted([]byte("a\nb\n")))
-	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, textarea.SplitFormatted([]byte("a\nb")),
-		"마지막 줄바꿈이 없어도 같다")
-	assert.Equal(t, [][]byte{{}}, textarea.SplitFormatted(nil), "buffer 에는 줄이 적어도 하나 있어야 한다")
-}
-
-func TestCountChangedLines(t *testing.T) {
-	old := [][]byte{[]byte("a"), []byte("b")}
-
-	assert.Equal(t, 0, textarea.CountChangedLines(old, old))
-	assert.Equal(t, 1, textarea.CountChangedLines(old, [][]byte{[]byte("a"), []byte("B")}))
-	assert.Equal(t, 1, textarea.CountChangedLines(old, [][]byte{[]byte("a"), []byte("b"), []byte("c")}),
-		"늘어난 줄도 달라진 것이다")
-}
-
 // python 파일은 ruff 를 통과한다. 표에 줄이 하나 는 것이 python 지원의 이 몫이다(ADR-0107).
 func TestFormatterTableHasPython(t *testing.T) {
 	spec := formatterFor("app.py")
 	require.NotNil(t, spec)
 
 	assert.Equal(t, "ruff", spec.name)
-	assert.Equal(t, "uv tool install ruff", spec.InstallHint())
+	assert.Equal(t, "uv tool install ruff", spec.installHint())
 
 	assert.Equal(t, "goimports", formatterFor("main.go").name)
 	assert.Nil(t, formatterFor("notes.md"))

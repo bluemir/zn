@@ -136,7 +136,7 @@ func TestSidebarHangulMovesSelection(t *testing.T) {
 func TestQuitConfirmHangulSelectsNo(t *testing.T) {
 	editor := newTestEditor("a\n", 40, 5)
 
-	var confirm tea.Model = ConfirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", Exit)
+	var confirm tea.Model = confirmDiscard(editor, editor.editor, "정말 종료 하시겠습니까?", exit)
 	confirm, _ = confirm.Update(key("ㅜ"))
 
 	require.IsType(t, viewConfirmDiscard{}, confirm)
