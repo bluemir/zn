@@ -139,7 +139,7 @@ func (buf *Buffer) Write() error {
 // (editorconfig.go 의 insert_final_newline, ADR-0052).
 //
 // 아무것도 안 나왔으면 빈 줄 하나다. buffer 에는 줄이 적어도 하나 있어야 한다.
-func SplitFormatted(out []byte) [][]byte {
+func splitFormatted(out []byte) [][]byte {
 	out = bytes.TrimSuffix(out, []byte{'\n'})
 	if len(out) == 0 {
 		return [][]byte{{}}
@@ -167,7 +167,7 @@ func equalLines(a, b [][]byte) bool {
 //
 // 참 diff 가 아니다. 줄이 하나 늘면 그 아래가 전부 다른 줄로 세어진다 — 여기서 세는 것은
 // 「이만큼 달라졌다」는 눈짐작이고, 정확한 자리는 화면이 이미 보여주고 있다.
-func CountChangedLines(old, next [][]byte) int {
+func countChangedLines(old, next [][]byte) int {
 	changed := 0
 	for i := range max(len(old), len(next)) {
 		switch {

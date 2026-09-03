@@ -11,30 +11,6 @@ import (
 	"github.com/bluemir/zn/internal/textarea"
 )
 
-// 권한 비트가 닫힌 파일은 읽기 전용으로 연다. 정의로 뛰어 열리는 module cache 의 파일이
-// 이 모양이다(ADR-0051).
-func TestDetectReadOnly(t *testing.T) {
-	dir := t.TempDir()
-
-	writable := filepath.Join(dir, "writable.go")
-	require.NoError(t, os.WriteFile(writable, []byte("package main\n"), 0644))
-	assert.False(t, textarea.DetectReadOnly(writable))
-
-	locked := filepath.Join(dir, "locked.go")
-	require.NoError(t, os.WriteFile(locked, []byte("package main\n"), 0444))
-	assert.False(t, textarea.DetectReadOnly(writable))
-	assert.True(t, textarea.DetectReadOnly(locked))
-
-	// 없는 파일은 새로 만드는 것이라 읽기 전용이 아니다.
-	assert.False(t, textarea.DetectReadOnly(filepath.Join(dir, "없다.go")))
-
-	// 이름 없는 buffer 도 아니다.
-	assert.False(t, textarea.DetectReadOnly(""))
-
-	// 디렉터리는 buffer 가 되지 않지만, 되더라도 이 표시를 붙일 것은 아니다.
-	assert.False(t, textarea.DetectReadOnly(dir))
-}
-
 func TestOpenBufferMarksReadOnly(t *testing.T) {
 	dir := t.TempDir()
 	locked := filepath.Join(dir, "locked.go")

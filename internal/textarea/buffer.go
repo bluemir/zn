@@ -193,7 +193,7 @@ func NewBuffer(path string, data []byte) Viewport {
 		data:       data,
 		lineEnding: detectLineEnding(data),
 		disk:       lastDiskState{Hash: sum[:]},
-		ReadOnly:   DetectReadOnly(path),
+		ReadOnly:   detectReadOnly(path),
 	}
 
 	buf.lines, buf.finalLineEnding = SplitLines(data)
@@ -242,7 +242,7 @@ func detectLineEnding(data []byte) lineEnding {
 // **권한 비트만 본다.** 소유자·그룹·ACL 을 따지지 않는다. 정확한 답은 실제로 열어 보는 것뿐인데,
 // 그러면 파일을 열 때마다 쓰기로 한 번 더 여는 일이 붙는다. 여기서 놓치는 것(남의 파일이지만
 // 비트는 열려 있는 경우) 은 저장할 때 오류로 잡히고, 그 자리에는 이미 문구가 있다.
-func DetectReadOnly(path string) bool {
+func detectReadOnly(path string) bool {
 	if path == "" {
 		return false
 	}

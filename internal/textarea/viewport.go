@@ -152,8 +152,8 @@ func (viewport *Viewport) MoveToPlace(at ViewPlace) {
 // 포함한 총 폭이고 여기서는 자릿수라 하나 작다. 그래서 vim 과 같이 999 줄까지는 안 흔들리고
 // 1000 줄에서 한 칸 늘어난다(ADR-0007). 이 값을 올리면 그 지점이 vim 과 갈린다.
 const (
-	MinAbsoluteDigits = 3
-	MinRelativeDigits = 2
+	minAbsoluteDigits = 3
+	minRelativeDigits = 2
 )
 
 // markerWidth 는 줄번호 왼쪽 마커 칸의 폭이다. 진단 마커와 git 마커가 각각 한 칸씩 선다
@@ -168,7 +168,7 @@ const (
 //
 // **둘을 한 칸에 겹치지 않는다.** 오류가 있는 줄은 대개 방금 고친 줄이라, 한 칸을 나눠 쓰면
 // 정작 보고 싶을 때 git 표시가 가려진다(ADR-0094 §3).
-const MarkerWidth = 2
+const markerWidth = 2
 
 // lineNumberDigits 는 절대·상대 번호가 각각 쓰는 자릿수다.
 //
@@ -179,8 +179,8 @@ const MarkerWidth = 2
 // 들여다봐 세고 그만큼 뗀 폭을 창에 돌려주었는데, 의존이 거꾸로 가는 자리였다. 화면 분할이
 // 오면 창마다 파일이 달라 자릿수도 달라진다 (ADR-0121).
 func (viewport Viewport) LineNumberDigits() (absolute, relative int) {
-	return max(digits(len(viewport.lines)), MinAbsoluteDigits),
-		max(digits(viewport.Size.Height), MinRelativeDigits)
+	return max(digits(len(viewport.lines)), minAbsoluteDigits),
+		max(digits(viewport.Size.Height), minRelativeDigits)
 }
 
 // gutterWidth 는 이 창에서 본문 앞에 붙는 칸의 폭이다.
@@ -197,7 +197,7 @@ func (viewport Viewport) GutterWidth() int {
 	// 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다. sidebar 와 같은 규칙이다.
 	// 마커 칸도 여기서 같이 사라진다 — 번호가 없는데 마커만 남으면 그것이 어느 줄의 것인지
 	// 셀 수 없다(ADR-0086).
-	gutter := MarkerWidth + absolute + 1 + relative + 1
+	gutter := markerWidth + absolute + 1 + relative + 1
 	if viewport.Size.Width-gutter < MinTextWidth {
 		return 0
 	}

@@ -98,12 +98,12 @@ func (viewport *Viewport) applySaveHook(format *SaveFormat) string {
 		return format.Name + ": " + err.Error()
 	}
 
-	next := SplitFormatted(out)
+	next := splitFormatted(out)
 	if equalLines(viewport.lines, next) {
 		return ""
 	}
 
-	changed := CountChangedLines(viewport.lines, next)
+	changed := countChangedLines(viewport.lines, next)
 	grew := len(next) - len(viewport.lines)
 
 	viewport.ReplaceAll(next)
