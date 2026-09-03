@@ -72,13 +72,13 @@ type gitCache struct {
 	marks map[int]GitLineMark
 }
 
-// diskSeen 은 디스크와 마지막으로 맞춰 봤을 때 그 파일이 어떠했는지다.
+// lastDiskState 은 디스크와 마지막으로 맞춰 봤을 때 그 파일이 어떠했는지다.
 //
 // **지금 이 순간의 사실이 아니다.** 맞춰 보는 것은 포커스가 돌아올 때·셸에서 올라올 때뿐이라
 // 여기 든 것은 그때 본 것이다. 저장은 이것을 믿지 않고 그 자리에서 다시 읽는다 (ADR-0015).
 //
 // 넷을 묶은 것은 **같이 갱신되고 같이 낡기** 때문이다. 하나만 새것이면 판정이 어긋난다.
-type diskSeen struct {
+type lastDiskState struct {
 	// size, mtime 은 그때 파일의 크기와 mtime 이다.
 	//
 	// 다음 검사에서 이 둘이 그대로면 내용을 읽지 않는다 — 읽고 해시를 내는 것이 검사 값의
@@ -156,8 +156,8 @@ type Buffer struct {
 	// `r--r--r--` 이다(ADR-0051). 고치는 동작이 첫 줄에서 이것을 본다(readonly.go).
 	ReadOnly bool
 
-	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 diskSeen 에 무엇이 왜 드는지 있다.
-	disk diskSeen
+	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 lastDiskState 에 무엇이 왜 드는지 있다.
+	disk lastDiskState
 
 	// diagnostics 는 gopls 가 이 파일에 대해 보낸 진단이다. 줄번호로 모아 둔다(diagnostics.go).
 	//
@@ -250,7 +250,7 @@ func NewBuffer(path string, data []byte) Viewport {
 		tab:        resolveTabWidth(path),
 		data:       data,
 		lineEnding: detectLineEnding(data),
-		disk:       diskSeen{Hash: sum[:]},
+		disk:       lastDiskState{Hash: sum[:]},
 		ReadOnly:   DetectReadOnly(path),
 	}
 
