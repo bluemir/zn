@@ -53,54 +53,6 @@ import (
 // 이동과 `desiredX` 이 줄바꿈에 걸려 있어서인데, 그 둘이 viewport 로 갔으므로 이 인자도
 // 그쪽으로 모을 수 있다 (docs/tasks.md).
 
-// gitCache 는 HEAD 에 든 이 파일과 견줘 낸 것이다(git-lines.go, ADR-0094).
-//
-// 셋이 **같이 채워지고 같이 낡는다.** head 가 지금 HEAD 와 다르면 base 도 marks 도 낡은
-// 것이라 셋을 함께 다시 짓는다 — `git commit`·`checkout` 으로 기준이 통째로 움직이는 자리다.
-//
-// 값 필드라 Reload 가 buffer 를 통째로 갈아끼울 때(`*buf = next`) 저절로 비워진다. 다음 git
-// 갱신이 다시 채운다(진단·문법 캐시와 같은 자리다).
-type gitCache struct {
-	// base 는 HEAD 에 든 이 파일의 내용이다. 추적하지 않는 파일은 nil 이다.
-	base [][]byte
-
-	// head 는 base 를 읽어온 HEAD 해시다. 추적하지 않는 파일은 base 가 nil 인 채 이것만
-	// 적힌다 — 「없다」와 「아직 안 읽었다」를 이것이 가른다.
-	head string
-
-	// marks 는 base 와 지금 내용을 견줘 낸 줄별 마커다. 줄번호 칸과 트리가 이것을 그린다.
-	marks map[int]GitLineMark
-}
-
-// lastDiskState 은 디스크와 마지막으로 맞춰 봤을 때 그 파일이 어떠했는지다.
-//
-// **지금 이 순간의 사실이 아니다.** 맞춰 보는 것은 포커스가 돌아올 때·셸에서 올라올 때뿐이라
-// 여기 든 것은 그때 본 것이다. 저장은 이것을 믿지 않고 그 자리에서 다시 읽는다 (ADR-0015).
-//
-// 넷을 묶은 것은 **같이 갱신되고 같이 낡기** 때문이다. 하나만 새것이면 판정이 어긋난다.
-type lastDiskState struct {
-	// size, mtime 은 그때 파일의 크기와 mtime 이다.
-	//
-	// 다음 검사에서 이 둘이 그대로면 내용을 읽지 않는다 — 읽고 해시를 내는 것이 검사 값의
-	// 거의 전부여서, 유휴 상태의 값이 파일 크기와 무관해진다(ADR-0044).
-	//
-	// mtime 을 *판정* 으로 쓰지는 않는다. 내용이 같아도 mtime 이 바뀌는 일이 흔해서 그것으로
-	// 판정하면 헛경고가 잦다(ADR-0015). 여기서는 「그대로면 안 읽는다」 는 한쪽으로만 쓴다 —
-	// 틀리는 방향이 「괜히 한 번 더 읽는다」 라서 판정이 달라지지 않는다.
-	//
-	// mtime 이 zero 면 앞잡이가 없다는 뜻이고 그때는 읽어서 해시를 낸다.
-	Size  int64
-	mtime time.Time
-
-	// hash 는 마지막으로 읽거나 쓴 시점의 파일 내용 해시다. nil 이면 그때 파일이 없었다는 뜻이다.
-	// 저장하기 직전에 파일을 다시 읽어 이것과 맞춰 보고, 다르면 쓰지 않는다 (ADR-0015).
-	Hash []byte
-
-	// outside 는 그때 바깥이 어떻게 달라져 있었는지다. statusBar 의 `[!]` 가 이것이고,
-	// 알림과 달리 다음 키에 사라지지 않는다 (ADR-0031).
-	outside OutsideChange
-}
-
 // Buffer 는 파일 하나에 대응 한다.
 //
 // data 는 파일을 통째로 읽은 것으로 읽은 뒤에는 바꾸지 않는다.
@@ -112,13 +64,8 @@ type lastDiskState struct {
 type Buffer struct {
 	Path string
 
-	// language 는 이 파일의 언어다. 이름에서 한 번 골라 들고 있는다
-	// 강조·들여쓰기·머리줄의 동작 방식을 정한다.(syntax/detect.go).
-	//
-	// **경로와 나뉜 것이 요점이다.** path 는 「어디에 쓰는가」이고 이것은 「어떤 문법인가」라,
-	// 한 필드가 둘을 겸하면 캐시가 무엇 때문에 무효가 되는지 갈리지 않는다 (ADR-0080).
-	//
-	// nil 은 모르는 언어다. 세 칸을 꺼내는 것이 nil 인 채로도 되므로 검사를 앞세우지 않는다.
+	// language 는 이 파일의 언어다. 이름에서 한 번 골라 들고 있는다(ADR-0080)
+	// 강조·들여쓰기·머리줄의 동작 방식을 정한다.(syntax/detect.go). nil 은 모르는 언어다.
 	Language *syntax.Language
 
 	Dirty bool // 마지막 저장 이후 변경사항의 여부.
@@ -142,12 +89,7 @@ type Buffer struct {
 	indent indentUnit
 
 	// tab 은 이 파일에서 tab 하나가 미는 화면 칸 수다(indent.go).
-	//
-	// **파일마다 다르다.** `.editorconfig` 는 경로별이라 `tab_width = 8` 인 하위 디렉터리와
-	// 그렇지 않은 곳이 한 화면에 tab 으로 같이 열려 있을 수 있다 (ADR-0096).
-	//
-	// indent 와 달리 게으르지 않다. language 처럼 경로에서 한 번 골라 들고 있는다 — 까닭은
-	// resolveTabWidth 에 있다. 읽는 자리는 tabWidth() 하나다.
+	// .editorconfig 에 정의된 값을 존중 한다. 따라서 파일마다 다를수 있다.
 	tab int
 
 	// undo, redo 는 되돌리기 이력
@@ -156,7 +98,7 @@ type Buffer struct {
 	redo    []edit
 	editing bool
 
-	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 diskSeen 에 무엇이 왜 드는지 있다.
+	// disk 는 디스크에서 파일을 읽어왔을때의 정보이다. 파일 변경 감지 등에 쓰인다.
 	disk lastDiskState
 
 	// diagnostics 는 gopls 가 이 파일에 대해 보낸 진단이다. 줄번호로 모아 둔다(diagnostics.go).
@@ -344,7 +286,9 @@ func (buf Buffer) Line(n int) []byte {
 }
 
 // LineCount 는 줄 수다. 빈 파일도 빈 줄 하나라 0 이 되지 않는다.
-func (buf Buffer) LineCount() int { return len(buf.lines) }
+func (buf Buffer) LineCount() int {
+	return len(buf.lines)
+}
 
 // AllLines 는 글 전체다. 파일을 통째로 훑는 쪽이 쓴다 — 언어 서버에 보내는 자리와
 // 표 맞추기다.
@@ -372,32 +316,17 @@ func (buf *Buffer) MarkDiskStamp(size int64, mtime time.Time) {
 }
 
 // outsideState 는 마지막 검사에서 바깥이 어떠했는지다. statusBar 의 `[!]` 가 이것을 본다.
-func (buf Buffer) OutsideState() OutsideChange { return buf.disk.outside }
-
-// setOutsideState 는 그것을 적는다. 달라진 순간을 가리는 것은 부르는 쪽이 한다.
-func (buf *Buffer) SetOutsideState(change OutsideChange) { buf.disk.outside = change }
-
-// hasGitBase 는 견줄 HEAD 원본이 있는지다.
-func (buf Buffer) HasGitBase() bool { return len(buf.git.base) > 0 }
-
-// gitHead 는 이 파일이 견주고 있는 commit 이다. 없으면 빈 문자열이다.
-func (buf Buffer) GitHead() string { return buf.git.head }
-
-// gitMarkAt 은 그 줄이 HEAD 와 어떻게 다른지다. 그리는 자리가 행마다 묻는다.
-func (buf Buffer) GitMarkAt(line int) GitLineMark { return buf.git.marks[line] }
-
-// setGitBase 는 견줄 원본을 갈아끼우고 줄 마커를 다시 잰다.
-func (buf *Buffer) SetGitBase(base [][]byte, head string) {
-	buf.git.base, buf.git.head = base, head
-	buf.RefreshGitLines()
+func (buf Buffer) OutsideState() OutsideChange {
+	return buf.disk.outside
 }
 
-// clearGitBase 는 들고 있던 것을 전부 내린다. 저장소가 아닌 자리로 옮겨 갔을 때다 —
-// 표시가 남아 있으면 그것이 어느 저장소의 것인지 알 수 없다.
-func (buf *Buffer) ClearGitBase() {
-	buf.git.base, buf.git.head, buf.git.marks = nil, "", nil
+// setOutsideState 는 그것을 적는다. 달라진 순간을 가리는 것은 부르는 쪽이 한다.
+func (buf *Buffer) SetOutsideState(change OutsideChange) {
+	buf.disk.outside = change
 }
 
 // syntaxRevision 은 내용이 갈린 횟수다. 언어 서버의 답이 지금 내용의 것인지 가르는 데 쓴다
 // (semantic.go, ADR-0103).
-func (buf Buffer) SyntaxRevision() int { return buf.syntax.revision }
+func (buf Buffer) SyntaxRevision() int {
+	return buf.syntax.revision
+}
