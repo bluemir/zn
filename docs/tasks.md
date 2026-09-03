@@ -64,6 +64,7 @@
 - [x] sidebar(filetree) 를 구현한다 (ADR-0005)
 - [x] `scrollTo` 가 폭이 넓어졌을 때 `topRow` 를 다시 맞추지 않아 화면이 조용히 밀리던 것을 고친다
 - [ ] sidebar 에 새로고침 키(`R`) 를 넣는다. 지금은 접었다 펴야 다시 읽는다
+	- 일정 시간마다 자동으로 다시 읽거나 fsnotify 를 이용하는것은 어떨지
 - [ ] 항목이 백만 개쯤 되는 디렉터리를 펼쳐 두면 `rows()` 가 키마다 그만큼의 slice 를 새로 만드는 것이 보일 수 있다(자식 20 만 개에서 키 한 번이 4.5ms)
 	- 그때의 답은 파일을 감추는 것이 아니라 `rows()` 를 캐시하는 것이다. 어디서 무효화할지(펼치기·접기·작업 결과) 를 같이 정한다 (ADR-0032)
 - [ ] insert mode 의 `ctrl+w`(앞 단어 지우기) 를 넣는다. normal mode 에서 `ctrl+w` 를 쓰기 시작하면 insert 에서 눌렀을 때 아무 일도 안 나는 것이 헷갈린다
@@ -519,8 +520,12 @@
 	- [ ] rust
 - [ ] 새 버전 알림
 - [x] 오늘 날자 시간 넣는 기능 추가
-- [ ] tab에 열려있는 file 을 sidebar 에서 파일삭제하면 탭을 닫아 주기
+- [x] tab에 열려있는 file 을 sidebar 에서 파일삭제하면 탭을 닫아 주기
+	- [ ] 모달 물음 창 넷을 묶을지 정한다. `viewConfirmDiscard`·`viewSidebarDelete`·`viewServerInstallConfirm`·`viewFormatterInstallConfirm` 이 `boxWidth`·`renderBox`·`View` 를 거의 같은 글로 들고 있다 (ADR-0110, ADR-0130)
+		- 넷이 다 Yes/No 두 단추에 줄 몇 개다. 다른 것은 적는 글과 Yes 로 갈 곳뿐이다
+		- 팔레트(`viewPalette`)·grep 입력(`viewGrepInput`) 은 단추가 없고 입력을 받아서 갈래가 다르다
 - [ ] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기
 - [ ] '%' 로 괄호 쌍으로 가기
+	- html의 경우 태그 쌍으로도 갈수 있음.
 - [ ] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가
 - [ ] palette 에서 '/' 를 입력해서 프로젝트 검색으로 들어가기

@@ -461,22 +461,26 @@ func (e editor) tabOf(path string) (int, bool) {
 	return 0, false
 }
 
-// openTabUnder 는 그 자리에 딸린 파일 중 tab 에 열린 것을 준다. 없으면 ok 가 false 다.
+// tabsUnder 는 그 자리에 딸린 파일을 열어둔 tab 의 번호를 준다. 오름차순이다.
 //
-// 트리에서 지우기가 이것을 먼저 묻는다. 열려 있는 파일을 지우면 buffer 와 디스크가 어긋난
-// 채로 남아서, `:w` 한 번에 지운 것이 되살아나거나 tabline 이 없는 파일을 가리킨다.
-// 그 상태를 만들지 않고 먼저 닫으라고 돌려보낸다(ADR-0054).
+// 트리에서 지우기가 이것을 쓴다. 지운 파일의 tab 을 열어둔 채로 두면 buffer 와 디스크가
+// 어긋나서 `:w` 한 번에 지운 것이 되살아나고 tabline 이 없는 파일을 가리킨다.
+// 예전에는 그 상태를 「먼저 닫아 주세요」로 막았는데 이제 지우면서 같이 닫는다(ADR-0130).
 //
 // isDir 이면 그 아래 전부를 본다 — 디렉터리를 통째로 지우는 것은 안의 파일을 지우는 것이다.
-func (e editor) openTabUnder(path string, isDir bool) (string, bool) {
-	for _, buf := range e.buffers {
+func (e editor) tabsUnder(path string, isDir bool) []int {
+	var found []int
+
+	for i, buf := range e.buffers {
 		// 이름 없는 buffer 는 어느 파일도 아니다.
 		if buf.Path == "" {
 			continue
 		}
 
 		if samePath(buf.Path, path) {
-			return buf.Path, true
+			found = append(found, i)
+
+			continue
 		}
 		if !isDir {
 			continue
@@ -488,11 +492,40 @@ func (e editor) openTabUnder(path string, isDir bool) (string, bool) {
 			continue
 		}
 		if strings.HasPrefix(abs, path+string(filepath.Separator)) {
-			return buf.Path, true
+			found = append(found, i)
 		}
 	}
 
-	return "", false
+	return found
+}
+
+// dirtyTabsUnder 는 그 자리에 딸린 tab 중 저장하지 않은 변경이 있는 것의 수다.
+//
+// 디렉터리를 지우기 전에 묻는 문구가 이 수를 적는다. 묻는 것이 그 한 번뿐이라 무엇을
+// 잃는지를 그 문구가 다 말해야 한다(ADR-0130).
+func (e editor) dirtyTabsUnder(path string, isDir bool) int {
+	dirty := 0
+	for _, index := range e.tabsUnder(path, isDir) {
+		if e.buffers[index].Dirty {
+			dirty++
+		}
+	}
+
+	return dirty
+}
+
+// closeTabsUnder 는 그 자리에 딸린 파일을 열어둔 tab 을 모두 닫는다. 닫은 수를 준다.
+//
+// **뒤에서부터 닫는다.** 앞을 닫으면 뒤의 번호가 그만큼 당겨져서, 미리 받아 둔 다음 번호가
+// 다른 파일을 가리킨다. closeTabAt 이 활성 자리를 그때마다 맞춘다.
+func (e *editor) closeTabsUnder(path string, isDir bool) int {
+	tabs := e.tabsUnder(path, isDir)
+
+	for i := len(tabs) - 1; i >= 0; i-- {
+		e.closeTabAt(tabs[i])
+	}
+
+	return len(tabs)
 }
 
 // renameBuffers 는 이름이 바뀐 파일을 보고 있는 tab 들의 경로를 새 이름으로 맞춘다.
