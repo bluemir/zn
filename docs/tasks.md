@@ -527,5 +527,5 @@
 - [ ] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기
 - [ ] '%' 로 괄호 쌍으로 가기
 	- html의 경우 태그 쌍으로도 갈수 있음.
-- [ ] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가
+- [x] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가
 - [ ] palette 에서 '/' 를 입력해서 프로젝트 검색으로 들어가기

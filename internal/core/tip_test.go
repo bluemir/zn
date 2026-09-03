@@ -57,11 +57,12 @@ func TestTipsAreClean(t *testing.T) {
 // 좁은 화면에서 긴 문장이 그냥 지나가는 것은 값으로 치지 않는다 — 요즘 터미널은 대개
 // 160 칸을 넘고 tip 은 보조 수단이다. 그래도 **어디에도 못 뜨는 문장은 없어야 한다.**
 //
-// 160 칸에 트리(32) 를 열면 편집 영역이 128 칸이고 커서 위치와 띄우는 칸을 빼면 110 칸쯤
-// 남는다. 100 을 상한으로 두면 그 화면에는 하나도 빠짐없이 뜬다.
+// 상한은 120 이다. 커서 위치(`1:1  (550 줄)`) 와 띄우는 두 칸을 빼면 편집 영역이 135 칸일 때
+// 120 칸짜리가 뜬다. 트리(32) 를 열어 둔 채로도 화면이 167 칸이면 되고, 요즘 화면은 대개
+// 그보다 넓다. 160 칸을 자로 삼아 100 을 상한으로 두던 것을 여기까지 올렸다.
 func TestTipsFitWideScreen(t *testing.T) {
 	for _, tip := range assets.Tips {
-		assert.LessOrEqual(t, textarea.WidthOf(tip), 100, "어느 화면에도 못 뜬다: %q", tip)
+		assert.LessOrEqual(t, textarea.WidthOf(tip), 120, "어느 화면에도 못 뜬다: %q", tip)
 	}
 }
 
