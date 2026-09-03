@@ -31,6 +31,14 @@ type Language struct {
 	// outline 은 그 언어의 뼈대 규칙이다. state·indent 와 나란한 세 번째 언어별 값이다.
 	// 화면 위에 붙는 머리줄이 이것으로 정해진다(ADR-0049).
 	outline Outline
+
+	// pairsTags 는 tag 가 짝을 이루는 언어인지다. `%` 가 `<div>` 에서 `</div>` 로 간다
+	// (ADR-0132).
+	//
+	// **bool 한 칸이다.** tag 를 읽는 법은 HTMLTagAt 하나뿐이라 규칙을 담을 것이 없다 —
+	// 둘째 언어가 오면 그때 이 칸이 규칙으로 자란다. 지금 인터페이스로 열어 두면 구현이
+	// 하나뿐인 문이 생긴다.
+	pairsTags bool
 }
 
 // tabBraceIndent 와 spaceBraceIndent 는 indent 칸과 outline 칸이 **같은 값**을 보게 하는
@@ -51,7 +59,7 @@ var languageRules = []Language{
 	{exts: []string{".md", ".markdown"}, aliases: []string{"md", "markdown"}, state: mdNormal{},
 		indent: mdIndent{}, outline: mdOutline{}},
 	{exts: []string{".html", ".htm"}, aliases: []string{"html"}, state: htmlNormal{},
-		indent: htmlIndent{}, outline: blockOutline{opens: htmlIndent{}}},
+		indent: htmlIndent{}, outline: blockOutline{opens: htmlIndent{}}, pairsTags: true},
 	{exts: []string{".js", ".mjs", ".cjs"}, aliases: []string{"js", "javascript"}, state: jsNormal{},
 		indent: spaceBraceIndent, outline: blockOutline{opens: spaceBraceIndent}},
 	{exts: []string{".css"}, aliases: []string{"css"}, state: cssNormal{},
@@ -101,6 +109,13 @@ func (lang *Language) Outline() Outline {
 	}
 
 	return lang.outline
+}
+
+// PairsTags 는 tag 가 짝을 이루는 언어인지다. `%` 가 tag 쌍을 오갈지를 이것으로 가른다.
+//
+// nil 이면 거짓이다 — 모르는 언어에는 tag 가 없다(State·Indent·Outline 과 같은 자리다).
+func (lang *Language) PairsTags() bool {
+	return lang != nil && lang.pairsTags
 }
 
 // LanguageFor 는 이름에 맞는 표의 한 줄이다. 모르는 이름이면 nil 이다.

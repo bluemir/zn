@@ -181,6 +181,31 @@ func (m motionWordForward) span(buf textarea.Viewport, count int) (scheme.Motion
 	return charSpan(buf, moved)
 }
 
+// motionMatchPair 는 `%` 다. 커서가 든 짝의 반대쪽으로 간다 — 괄호 셋(`()` `[]` `{}`) 과
+// html 의 tag 쌍(`<div>`↔`</div>`) 이다(ADR-0132).
+//
+// **숫자를 보지 않는다.** vim 의 `50%` 는 「파일의 50% 자리」라 짝 찾기와 아예 다른 일인데,
+// 한 키가 숫자 유무로 그렇게 갈리면 눌러 보고 아는 키가 된다. `3%` 는 `%` 와 같다.
+//
+// 범위는 **양쪽을 다 담는다**. `d%` 가 여는 괄호와 닫는 괄호를 함께 지운다 — vim 의
+// inclusive motion 이다. 짝을 어디까지로 볼지는 글 쪽이 정한다(textarea/match-pair.go).
+type motionMatchPair struct{}
+
+func (motionMatchPair) move(buf *textarea.Viewport, count int) {
+	target, _, ok := buf.MatchPair(buf.Cursor)
+	if !ok {
+		return
+	}
+
+	buf.MoveTo(target)
+}
+
+func (motionMatchPair) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
+	_, area, ok := buf.MatchPair(buf.Cursor)
+
+	return area, ok
+}
+
 // ── 줄 단위로 잡히는 이동 ──
 
 // motionLineDown 은 `j` 다. wrap 된 줄도 한 번에 건넌다.

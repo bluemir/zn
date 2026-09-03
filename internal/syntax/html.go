@@ -249,7 +249,7 @@ func htmlScan(line []byte, from int, inTag bool) ([]Token, State) {
 			continue
 		}
 
-		name, end, closing, ok := htmlTagNameAt(line, at)
+		name, end, closing, ok := HTMLTagAt(line, at)
 		if !ok {
 			// `a < b` 의 `<` 다. tag 가 아니면 그냥 글이다.
 			at++
@@ -278,8 +278,11 @@ func htmlIndexFold(line, want []byte) int {
 	return bytes.Index(bytes.ToLower(line), bytes.ToLower(want))
 }
 
-// htmlTagNameAt 은 `<` 자리에서 tag 이름을 읽는다. tag 가 아니면 ok 가 false 다.
-func htmlTagNameAt(line []byte, at int) (name string, end int, closing, ok bool) {
+// HTMLTagAt 은 `<` 자리에서 tag 이름을 읽는다. tag 가 아니면 ok 가 false 다.
+//
+// **밖에서도 쓴다.** `%` 가 tag 쌍을 찾을 때 이 답을 그대로 쓴다(textarea/match-pair.go) —
+// tag 를 알아보는 법이 두 벌이면 강조가 tag 로 본 것을 짝 찾기가 아니라고 하는 날이 온다.
+func HTMLTagAt(line []byte, at int) (name string, end int, closing, ok bool) {
 	from := at + 1
 	if from < len(line) && line[from] == '/' {
 		from++
@@ -349,6 +352,13 @@ var htmlRawTextLanguages = map[string]State{"script": jsNormal{}, "style": cssNo
 // htmlIndent 는 html 의 들여쓰기 규칙이다. 블록을 여는 것은 같은 줄에서 닫히지 않은 tag 다.
 type htmlIndent struct{}
 
+// HTMLVoidTag 는 닫는 tag 가 없는 tag 인지다. 여는 것만으로 끝나므로 짝이 없다.
+//
+// 들여쓰기(htmlTagDepth) 와 `%` 의 짝 찾기가 같이 본다.
+func HTMLVoidTag(name string) bool {
+	return slices.Contains(htmlVoidTags, name)
+}
+
 // htmlVoidTags 는 닫는 tag 가 없는 것들이다. 여는 것만으로 끝나므로 안쪽이 없다.
 var htmlVoidTags = []string{
 	"area", "base", "br", "col", "embed", "hr", "img", "input",
@@ -415,7 +425,7 @@ func htmlTagDepth(tag []byte) int {
 	}
 
 	name := string(bytes.ToLower(inner[:identEnd(inner, 0, len(inner))]))
-	if name == "" || slices.Contains(htmlVoidTags, name) {
+	if name == "" || HTMLVoidTag(name) {
 		return 0
 	}
 

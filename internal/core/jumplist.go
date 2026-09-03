@@ -67,7 +67,7 @@ func (e *editor) here() (jumpPlace, bool) {
 // `ctrl+d`·`ctrl+f` 도 들지 않는다(그쪽은 애초에 motion 이 아니다, ADR-0062).
 func jumpMotion(mo moveMotion) bool {
 	switch mo.(type) {
-	case motionToLastLine, motionToFirstLine:
+	case motionToLastLine, motionToFirstLine, motionMatchPair:
 		return true
 	}
 

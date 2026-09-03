@@ -165,6 +165,8 @@ func motionFor(op, key string) (moveMotion, bool) {
 		return motionFirstNonBlank{}, true
 	case "$":
 		return motionLineEnd{}, true
+	case "%":
+		return motionMatchPair{}, true
 	case "b":
 		return motionWordBack{kind: textarea.WordSmall}, true
 	case "B":

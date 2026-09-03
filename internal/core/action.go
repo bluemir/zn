@@ -40,6 +40,18 @@ func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 	//
 	// **고르는 중이면 담지 않는다.** visual 의 `G` 는 뛰는 것이 아니라 범위를 늘리는 것이라
 	// `ctrl+o` 로 돌아갈 일이 아니다. 그 mode 를 물을 자리가 여기밖에 없어서 selection 을 본다.
+	// **`%` 만 갈 곳이 없는 것을 알린다.** 다른 이동은 갈 곳이 없으면 제자리가 답이라(줄 첫
+	// 칸의 `h`) 알릴 것이 없는데, 짝 찾기는 아무 일도 안 나면 키가 안 먹은 것으로 읽힌다 —
+	// 커서가 짝 위에 있는지, 그 짝이 닫혔는지가 눈으로 훑어야 아는 것이라서다. 마커가 하나도
+	// 없을 때 알리는 것과 같은 자리다(jumpToMarkerLines, ADR-0132).
+	if _, ok := c.motion.(motionMatchPair); ok {
+		if _, _, found := buf.MatchPair(buf.Cursor); !found {
+			e.notify("짝을 찾지 못했습니다")
+
+			return nil, nil
+		}
+	}
+
 	from, jumping := jumpPlace{}, false
 	if jumpMotion(c.motion) && !buf.Selection.Active {
 		from, jumping = e.here()
