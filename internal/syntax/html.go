@@ -392,7 +392,7 @@ func (htmlIndent) Close(head []byte) int {
 
 func (htmlIndent) Reindents() bool { return true }
 
-func (htmlIndent) TabIndentsLine([]byte) bool { return false }
+func (htmlIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 // Unit 은 space 두 칸이다.
 func (htmlIndent) Unit() []byte { return []byte("  ") }

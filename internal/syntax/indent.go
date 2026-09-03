@@ -46,7 +46,11 @@ type Indent interface {
 	// markdown 의 목록 줄만 참이다. 목록 안에서 tab 은 「이 항목을 한 단계 깊게」라는 뜻이고,
 	// 글 가운데 tab 글자는 markdown 에서 아무 뜻이 없다. 코드에서는 반대라 거짓이다 —
 	// tab 은 커서 자리에 넣는 것이다.
-	TabIndentsLine(line []byte) bool
+	//
+	// content 는 그 줄에서 **글이 시작하는 자리**다. 줄 전체가 움직이면 커서가 어디에 서야
+	// 하는지는 규칙만 아는 것이라 여기서 같이 낸다. 표시(`- `·`1. `·checklist 의 `[ ] `) 가
+	// 차지한 만큼을 지난 offset 이고, 거짓일 때는 0 이다 (ADR-0131).
+	TabIndentsLine(line []byte) (content int, indents bool)
 
 	// Unit 은 단서가 없을 때 이 언어가 관례로 쓰는 한 단계다.
 	Unit() []byte
@@ -184,7 +188,7 @@ func (rule braceIndent) Close(head []byte) int {
 
 func (braceIndent) Reindents() bool { return true }
 
-func (braceIndent) TabIndentsLine([]byte) bool { return false }
+func (braceIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 func (rule braceIndent) Unit() []byte { return []byte(rule.unit) }
 

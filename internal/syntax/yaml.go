@@ -372,7 +372,7 @@ func (yamlIndent) Reindents() bool { return false }
 
 // TabIndentsLine 은 거짓이다. yaml 은 들여쓰기에 tab 을 쓸 수 없어서 목록 줄에서도 tab 키로
 // 항목을 옮기지 않는다 — markdown 과 갈리는 자리다.
-func (yamlIndent) TabIndentsLine([]byte) bool { return false }
+func (yamlIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 // Unit 은 space 두 칸이다. yaml 은 tab 을 들여쓰기로 쓸 수 없어서 관례가 아니라 규칙이다.
 func (yamlIndent) Unit() []byte { return []byte("  ") }

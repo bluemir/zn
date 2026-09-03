@@ -86,9 +86,11 @@ func (viewport *Viewport) InsertIndent() {
 	// 지나는 자리라 채워도 된다 — reindentClosing 이 못 하는 것이 이것이다.
 	viewport.LexSyntaxTo(viewport.Cursor.Line)
 
-	if rule := viewport.indentRuleAt(viewport.Cursor.Line); rule != nil && rule.TabIndentsLine(line) {
-		viewport.ShiftLines(viewport.Cursor.Line, viewport.Cursor.Line, IndentRight)
-		return
+	if rule := viewport.indentRuleAt(viewport.Cursor.Line); rule != nil {
+		if content, indents := rule.TabIndentsLine(line); indents {
+			viewport.indentWholeLine(content)
+			return
+		}
 	}
 
 	unit, tab := viewport.indentText(), viewport.TabWidth()
@@ -101,6 +103,26 @@ func (viewport *Viewport) InsertIndent() {
 
 	col := ScreenColAt(line, viewport.Cursor.Col, tab)
 	viewport.Insert(makeBlank(step-col%step, false, tab))
+}
+
+// indentWholeLine 은 줄 전체가 움직이는 `tab` 이다. markdown 의 목록 줄이다 (ADR-0131).
+//
+// **치던 자리를 지킨다.** shiftLines 는 커서를 들여쓰기 다음에 세우는데(`>` 는 그것이 맞다)
+// insert 에서 tab 을 치는 손은 항목을 쓰던 중이라, 표시 앞으로 끌려가면 되돌려 놓아야 한다.
+// outdentLine 이 shift+tab 에서 하는 것과 같다.
+//
+// content 는 규칙이 낸 「글이 시작하는 자리」다. 표시 앞에 있었으면 거기까지 나온다 —
+// 빈 항목에서 tab 을 치는 손도 곧 그 항목을 쓸 손이다.
+func (viewport *Viewport) indentWholeLine(content int) {
+	col := viewport.Cursor.Col
+	before := len(leadingBlank(viewport.lines[viewport.Cursor.Line]))
+
+	viewport.ShiftLines(viewport.Cursor.Line, viewport.Cursor.Line, IndentRight)
+
+	grown := len(leadingBlank(viewport.lines[viewport.Cursor.Line])) - before
+
+	viewport.Cursor.Col = max(col, content) + grown
+	viewport.UpdateDesiredCol()
 }
 
 // outdentLine 은 `shift+tab` 이다. 지금 줄을 한 단계 내어쓴다.

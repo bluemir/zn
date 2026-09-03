@@ -496,26 +496,26 @@
 	- [ ] 빈 칸이 든 파일 이름을 채울지 정한다. 채운 글에 빈 칸이 들면 따옴표를 지어야 하고, 이미 친 따옴표와 겹치는 자리가 생긴다 (ADR-0099)
 	- [ ] 후보 창이 여덟 줄에서 끊기는 것을 넘겨 볼 길을 낼지 정한다. 더 있으면 `8/28` 로 적기만 한다. 고르는 화면이 아니라고 정한 것과 같이 본다 (ADR-0066, ADR-0099)
 - 언어 지원 추가. 강조 lexer 는 일부분일 뿐이고 언어 서버·자동완성·저장 hook 까지가 한 언어를 「지원한다」는 뜻이다. 지금 거기까지 간 것은 Go 하나다 (ADR-0051, ADR-0065, ADR-0066)
-	- [ ] python
+	- python
 		- [ ] f-string 보간과 세 겹 따옴표 안의 escape. 세 겹 따옴표 안에서 escape 를 보지 않아서 닫는 따옴표 앞에 `\` 가 오면 문맥이 일찍 닫힌다 (ADR-0039)
 		- [ ] `.pyi`(stub) 를 볼지 정한다. 언어 서버 표와 lexer 표의 확장자를 갈라야 하는 첫 자리다 (ADR-0107)
 		- [ ] 저장할 때 import 도 정리할지 정한다. `ruff check --select I --fix -` 라 명령이 둘이 되고, 저장 하나가 명령 둘을 지나는 길이 새로 생긴다 (ADR-0065, ADR-0107)
 		- [ ] ruff 의 `exclude` 를 따를지 정한다. stdin 으로는 따르지 않는다(재서 확인했다). 따르려면 파일 이름을 넘겨야 하고 그러면 폴더 단위 캐시가 깨진다 (ADR-0107)
 		- [ ] python 진단을 걸러 볼지 정한다. pyright 는 온건해서 지금 걸 것이 없다. basedpyright 로 옮기면 그때 같이 온다 (ADR-0086, ADR-0107)
-	- [ ] Javascript
+	- Javascript
 		- [ ] 정규식 리터럴(`/ab+/`) 을 모른다. `/` 가 나눗셈인지 정규식인지는 앞 토큰의 갈래를 봐야 갈리고, 반쯤 맞히면 정규식 안의 따옴표가 문자열을 연다 (ADR-0039)
 		- [ ] template 보간(`${...}`) 안을 가른다. 지금은 통째로 문자열이다 (ADR-0039)
-	- [ ] shell
+	- shell
 		- [ ] heredoc(`<<EOF`). `<<` 가 here-string(`<<<`) 과 산술 shift(`$((a << 2))`) 와 헷갈려 가장 틀리기 쉬운 자리다. dockerfile 의 `RUN <<EOF` 와 같이 본다 (ADR-0039, ADR-0040)
-	- [ ] makefile
+	- makefile
 		- [ ] 조리법 본문을 shell lexer 로 잇는다. 지금은 값 참조만 집는다. dockerfile 의 `RUN` 본문과 같이 본다 (ADR-0039, ADR-0040)
 		- [ ] `define`/`endef` 본문. 지금은 보통 줄로 읽는다 (ADR-0039)
-	- [ ] dockerfile
+	- dockerfile
 		- [ ] `RUN` 본문을 shell lexer 로 잇는다. makefile 의 조리법과 같이 본다 (ADR-0039, ADR-0040)
 		- [ ] heredoc(`RUN <<EOF`). 상태 하나가 늘고, shell 의 heredoc 과 같이 본다 (ADR-0039, ADR-0040)
-	- [ ] css
+	- css
 		- [ ] nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다 (ADR-0039)
-	- [ ] html
+	- html
 		- [ ] `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다 (ADR-0039, ADR-0040)
 	- [ ] rust
 - [ ] 새 버전 알림
@@ -524,7 +524,9 @@
 	- [ ] 모달 물음 창 넷을 묶을지 정한다. `viewConfirmDiscard`·`viewSidebarDelete`·`viewServerInstallConfirm`·`viewFormatterInstallConfirm` 이 `boxWidth`·`renderBox`·`View` 를 거의 같은 글로 들고 있다 (ADR-0110, ADR-0130)
 		- 넷이 다 Yes/No 두 단추에 줄 몇 개다. 다른 것은 적는 글과 Yes 로 갈 곳뿐이다
 		- 팔레트(`viewPalette`)·grep 입력(`viewGrepInput`) 은 단추가 없고 입력을 받아서 갈래가 다르다
-- [ ] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기
+- [x] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기 (ADR-0131)
+	- [ ] Enter 로 checklist 항목을 이을 때 `- [ ] ` 를 낼지 정한다. 지금은 `- ` 만 나오고, `- [ ] ` 만 있는 줄은 빈 항목으로 보지 않아 목록이 끊기지 않는다 (ADR-0131)
+	- [ ] `shift+tab` 도 표시 앞에 서 있었을 때 글이 시작하는 자리로 내보낼지 정한다. 지금은 줄 맨 앞에 둔다 (ADR-0131)
 - [ ] '%' 로 괄호 쌍으로 가기
 	- html의 경우 태그 쌍으로도 갈수 있음.
 - [x] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가

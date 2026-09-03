@@ -225,7 +225,10 @@ func TestYAMLIndent(t *testing.T) {
 // yaml 은 들여쓰기가 곧 뜻이라 `=` 로 되짚지 않는다. markdown 과 같은 까닭이다.
 func TestYAMLDoesNotReindent(t *testing.T) {
 	assert.False(t, LanguageFor("a.yaml").Indent().Reindents())
-	assert.False(t, LanguageFor("a.yaml").Indent().TabIndentsLine([]byte("  - 항목")))
+
+	_, indents := LanguageFor("a.yaml").Indent().TabIndentsLine([]byte("  - 항목"))
+	assert.False(t, indents)
+
 	assert.Equal(t, []byte("  "), LanguageFor("a.yaml").Indent().Unit())
 }
 

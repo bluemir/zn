@@ -284,6 +284,41 @@ func TestMarkdownListContinues(t *testing.T) {
 	}
 }
 
+// tab 이 줄 전체를 들여쓸 때 커서가 설 자리다. 표시와 checklist 칸을 지난 offset 이다 (ADR-0131).
+func TestMarkdownListContentStart(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want int
+	}{
+		{name: "빗금 목록", line: "- 첫째", want: 2},
+		{name: "빈 항목은 줄 끝", line: "- ", want: 2},
+		{name: "인용문", line: "> 남의 말", want: 2},
+		{name: "번호 목록", line: "1. 첫째", want: 3},
+		{name: "두 자리 번호", line: "10. 열째", want: 4},
+		{name: "들여쓴 항목은 그만큼 뒤", line: "\t- 깊은 것", want: 3},
+		{name: "checklist 는 칸까지 지난다", line: "- [ ] 할일", want: 6},
+		{name: "끝낸 checklist", line: "- [x] 한 일", want: 6},
+		{name: "대문자로 끝낸 것도 같다", line: "- [X] 한 일", want: 6},
+		{name: "칸처럼 생긴 글은 표시까지만", line: "- [열] 할일", want: 2},
+		{name: "닫는 괄호가 없으면 글이다", line: "- [ 할일", want: 2},
+		{name: "칸 뒤에 공백이 없으면 글이다", line: "- [ ]할일", want: 2},
+		{name: "번호 목록의 checklist", line: "1. [ ] 할일", want: 7},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			content, indents := LanguageFor("a.md").Indent().TabIndentsLine([]byte(test.line))
+
+			require.True(t, indents, "목록 줄이다")
+			assert.Equal(t, test.want, content)
+		})
+	}
+
+	_, indents := LanguageFor("a.md").Indent().TabIndentsLine([]byte("보통 글"))
+	assert.False(t, indents, "목록이 아닌 줄에서 tab 은 커서 자리에 든다")
+}
+
 func TestHTMLIndent(t *testing.T) {
 	tests := []struct {
 		name string

@@ -199,7 +199,7 @@ func (shIndent) Close(head []byte) int {
 
 func (shIndent) Reindents() bool { return true }
 
-func (shIndent) TabIndentsLine([]byte) bool { return false }
+func (shIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 // Unit 은 space 두 칸이다. shell 소스에 굳은 관례가 없어서 좁은 쪽을 고른다.
 func (shIndent) Unit() []byte { return []byte("  ") }

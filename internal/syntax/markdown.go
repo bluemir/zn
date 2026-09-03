@@ -626,6 +626,7 @@ type mdIndent struct{}
 type mdListMark struct {
 	mark    byte
 	number  int
+	size    int  // 표시가 차지한 byte 수. 뒤의 빈 칸까지다 — `- ` 는 2, `12. ` 는 4 다
 	content bool // 표시 뒤에 내용이 있는지. 빈 항목이면 거짓이다
 }
 
@@ -663,15 +664,41 @@ func (mdIndent) Reindents() bool { return false }
 // 통째로 한 단계 깊어진다 — 목록을 쓰다 「이건 하위 항목이다」 싶을 때의 손이다.
 //
 // 빈 항목(`- ` 만 있는 줄) 도 참이다. 표시를 치자마자 tab 으로 깊이를 잡는 것이 가장 흔하다.
-func (mdIndent) TabIndentsLine(line []byte) bool {
+//
+// content 는 표시와 checklist 칸을 지난 자리다. `o` 로 낸 빈 항목에서 tab 을 치면 커서가
+// 그리로 서서, 손을 더 옮기지 않고 바로 항목을 쓴다 (ADR-0131).
+func (mdIndent) TabIndentsLine(line []byte) (int, bool) {
 	indent := 0
 	for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
 		indent++
 	}
 
-	_, ok := mdParseListMark(line[indent:])
+	mark, ok := mdParseListMark(line[indent:])
+	if !ok {
+		return 0, false
+	}
 
-	return ok
+	body := indent + mark.size
+
+	return body + mdCheckboxSize(line[body:]), true
+}
+
+// mdCheckboxSize 는 목록 표시 다음의 checklist 칸(`[ ] `·`[x] `) 이 차지한 byte 수다.
+// 없으면 0 이다.
+//
+// **표시를 읽는 자리와 나눠 둔다.** 이것을 mdListMark 의 표시에 넣으면 `- [ ] ` 만 있는 줄이
+// 빈 항목이 되어 Enter 로 목록을 잇는 것까지 답이 바뀐다. 그것은 따로 정할 일이다.
+func mdCheckboxSize(rest []byte) int {
+	if len(rest) < 4 || rest[0] != '[' || rest[2] != ']' || rest[3] != ' ' {
+		return 0
+	}
+
+	switch rest[1] {
+	case ' ', 'x', 'X':
+		return 4
+	}
+
+	return 0
 }
 
 // Unit 은 space 두 칸이다. 목록 규칙이 level 을 내지 않아서 쓰이는 일이 없다.
@@ -694,6 +721,7 @@ func mdParseListMark(rest []byte) (mdListMark, bool) {
 
 		return mdListMark{
 			mark:    rest[0],
+			size:    2,
 			content: len(bytes.TrimSpace(rest[2:])) > 0,
 		}, true
 	}
@@ -720,6 +748,7 @@ func mdParseListMark(rest []byte) (mdListMark, bool) {
 	return mdListMark{
 		mark:    rest[digits],
 		number:  number,
+		size:    digits + 2,
 		content: len(bytes.TrimSpace(rest[digits+2:])) > 0,
 	}, true
 }

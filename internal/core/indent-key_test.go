@@ -124,6 +124,45 @@ func TestTabIndentsMarkdownListItem(t *testing.T) {
 	}
 }
 
+// 목록 줄에서 tab 을 친 뒤 커서는 바로 이어 칠 수 있는 자리에 선다 (ADR-0131).
+//
+// 줄 전체가 움직이므로 커서를 따로 세워야 하는데, 들여쓰기 다음에 세우면 표시 앞이라
+// 이어 치면 `x- 첫째` 가 된다. 이어 친 글자로 자리를 확인한다.
+func TestTabOnAListItemLeavesTheCursorWhereTypingGoes(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		keys []string
+		want []string
+	}{
+		{name: "빈 항목에서는 표시 다음", data: "- \n",
+			keys: []string{"$", "a", "tab", "x"}, want: []string{"  - x"}},
+		{name: "빈 checklist 항목에서는 칸 다음", data: "- [ ] \n",
+			keys: []string{"$", "a", "tab", "x"}, want: []string{"  - [ ] x"}},
+		{name: "번호 목록도 표시 다음", data: "1. \n",
+			keys: []string{"$", "a", "tab", "x"}, want: []string{"  1. x"}},
+		{name: "내용 가운데였으면 치던 자리를 지킨다", data: "- 첫째\n",
+			keys: []string{"0", "l", "l", "l", "i", "tab", "x"}, want: []string{"  - 첫x째"}},
+		{name: "줄 맨 앞이었으면 표시 다음까지 나온다", data: "- 첫째\n",
+			keys: []string{"0", "i", "tab", "x"}, want: []string{"  - x첫째"}},
+		{name: "checklist 는 칸 다음까지 나온다", data: "- [ ] 할일\n",
+			keys: []string{"0", "i", "tab", "x"}, want: []string{"  - [ ] x할일"}},
+		{name: "checklist 처럼 생긴 글은 표시까지만", data: "- [열] 할일\n",
+			keys: []string{"0", "i", "tab", "x"}, want: []string{"  - x[열] 할일"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := newIndentEditor(t, "a.md",
+				"indent_style = space\nindent_size = 2", test.data)
+
+			m = send(m, test.keys...)
+
+			assert.Equal(t, test.want, linesOf(bufferOf(t, m)))
+		})
+	}
+}
+
 // 코드펜스 안에서 `tab` 은 줄 전체가 아니라 커서 자리에 든다.
 //
 // 「목록 줄에서는 줄 전체」는 markdown 규칙인데(syntax.Indent 의 TabIndentsLine) 펜스 안은

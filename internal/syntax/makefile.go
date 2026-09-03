@@ -231,7 +231,7 @@ func (makeIndent) Close(_ []byte) int { return 0 }
 func (makeIndent) Reindents() bool { return true }
 
 // TabIndentsLine 은 거짓이다. 조리법 줄 안의 tab 은 셸에 그대로 가는 글자다.
-func (makeIndent) TabIndentsLine([]byte) bool { return false }
+func (makeIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 func (makeIndent) Unit() []byte { return []byte{'\t'} }
 

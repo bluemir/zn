@@ -265,7 +265,7 @@ func (jsonIndent) Close(head []byte) int {
 
 func (jsonIndent) Reindents() bool { return true }
 
-func (jsonIndent) TabIndentsLine([]byte) bool { return false }
+func (jsonIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 // Unit 은 space 두 칸이다. `npm`·`go mod` 가 내는 json 이 그렇고, 설정 파일은 깊어서 좁은
 // 쪽이 읽힌다.

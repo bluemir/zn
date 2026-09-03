@@ -182,7 +182,7 @@ func (dockerIndent) Close(_ []byte) int { return 0 }
 
 func (dockerIndent) Reindents() bool { return true }
 
-func (dockerIndent) TabIndentsLine([]byte) bool { return false }
+func (dockerIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 // Unit 은 space 네 칸이다. 이어지는 줄을 눈에 띄게 물리는 것이 dockerfile 의 흔한 모양이다.
 func (dockerIndent) Unit() []byte { return []byte("    ") }

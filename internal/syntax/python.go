@@ -263,7 +263,7 @@ func (pyIndent) Close(head []byte) int {
 
 func (pyIndent) Reindents() bool { return true }
 
-func (pyIndent) TabIndentsLine([]byte) bool { return false }
+func (pyIndent) TabIndentsLine([]byte) (int, bool) { return 0, false }
 
 // Unit 은 PEP 8 이 정한 space 네 칸이다.
 func (pyIndent) Unit() []byte { return []byte("    ") }
