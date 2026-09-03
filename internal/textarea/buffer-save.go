@@ -69,9 +69,9 @@ func (buf *Buffer) saveTo(path string) error {
 		sum := sha256.Sum256(out)
 
 		buf.Path = path
-		buf.Disk.Hash = sum[:]
+		buf.disk.Hash = sum[:]
 		buf.Dirty = false
-		buf.Disk.outside = OutsideSame
+		buf.disk.outside = OutsideSame
 
 		// **이름이 바뀌는 자리는 여기 하나뿐이다.** 그래서 언어와 tab 폭을 다시 고르는 것도
 		// 여기 두 줄이고, 담아둔 문법 토큰은 남의 언어의 것이라 버린다. `:saveas` 처럼 이름
@@ -123,11 +123,11 @@ func (buf *Buffer) Write() error {
 
 	// 방금 쓴 것이 새 기준이다. 이어서 저장할 때 자기가 쓴 것을 남의 변경으로 보지 않는다.
 	sum := sha256.Sum256(out)
-	buf.Disk.Hash = sum[:]
+	buf.disk.Hash = sum[:]
 	buf.Dirty = false
 
 	// 밖에서 바뀐 것을 `:w!` 로 덮어썼으면 이제 어긋난 것이 없다.
-	buf.Disk.outside = OutsideSame
+	buf.disk.outside = OutsideSame
 
 	return nil
 }

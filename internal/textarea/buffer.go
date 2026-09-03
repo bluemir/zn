@@ -101,31 +101,6 @@ type diskSeen struct {
 	outside OutsideChange
 }
 
-// lineEnding 은 파일의 줄끝 형식이다. 읽을 때 판정해서 저장할 때 그대로 되돌린다.
-type lineEnding int
-
-const (
-	lineEndingLF lineEnding = iota
-	lineEndingCRLF
-)
-
-func (e lineEnding) bytes() []byte {
-	if e == lineEndingCRLF {
-		return []byte("\r\n")
-	}
-	return []byte("\n")
-}
-
-// name 은 사람에게 보이는 이름이다. `.editorconfig` 의 `end_of_line` 값과 같은 글자다 —
-// 저장할 때 무엇으로 맞췄는지 알리는 자리가 쓴다(editorconfig.go, ADR-0052).
-func (e lineEnding) name() string {
-	if e == lineEndingCRLF {
-		return "CRLF"
-	}
-
-	return "LF"
-}
-
 // Buffer 는 파일 하나에 대응 한다.
 //
 // data 는 파일을 통째로 읽은 것으로 읽은 뒤에는 바꾸지 않는다.
@@ -182,7 +157,7 @@ type Buffer struct {
 	ReadOnly bool
 
 	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 diskSeen 에 무엇이 왜 드는지 있다.
-	Disk diskSeen
+	disk diskSeen
 
 	// diagnostics 는 gopls 가 이 파일에 대해 보낸 진단이다. 줄번호로 모아 둔다(diagnostics.go).
 	//
@@ -275,7 +250,7 @@ func NewBuffer(path string, data []byte) Viewport {
 		tab:        resolveTabWidth(path),
 		data:       data,
 		lineEnding: detectLineEnding(data),
-		Disk:       diskSeen{Hash: sum[:]},
+		disk:       diskSeen{Hash: sum[:]},
 		ReadOnly:   DetectReadOnly(path),
 	}
 
@@ -357,20 +332,20 @@ var (
 
 // diskSeenAt 은 마지막으로 읽거나 쓴 그 파일의 자국이다. 바깥 변경 검사가 기준으로 쓴다.
 func (buf Buffer) DiskSeenAt() (hash []byte, size int64, mtime time.Time) {
-	return buf.Disk.Hash, buf.Disk.Size, buf.Disk.mtime
+	return buf.disk.Hash, buf.disk.Size, buf.disk.mtime
 }
 
 // markDiskStamp 는 크기와 시각만 새로 적는다. 해시는 그대로다 — 다음 검사가 읽지 않고
 // 끝나게 해 주는 앞잡이라, 내용이 같다고 판정한 뒤에도 갱신한다(outside.go).
 func (buf *Buffer) MarkDiskStamp(size int64, mtime time.Time) {
-	buf.Disk.Size, buf.Disk.mtime = size, mtime
+	buf.disk.Size, buf.disk.mtime = size, mtime
 }
 
 // outsideState 는 마지막 검사에서 바깥이 어떠했는지다. statusBar 의 `[!]` 가 이것을 본다.
-func (buf Buffer) OutsideState() OutsideChange { return buf.Disk.outside }
+func (buf Buffer) OutsideState() OutsideChange { return buf.disk.outside }
 
 // setOutsideState 는 그것을 적는다. 달라진 순간을 가리는 것은 부르는 쪽이 한다.
-func (buf *Buffer) SetOutsideState(change OutsideChange) { buf.Disk.outside = change }
+func (buf *Buffer) SetOutsideState(change OutsideChange) { buf.disk.outside = change }
 
 // hasGitBase 는 견줄 HEAD 원본이 있는지다.
 func (buf Buffer) HasGitBase() bool { return len(buf.git.base) > 0 }

@@ -262,7 +262,12 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 
 	// 검사하는 동안 그 tab 이 닫혔거나, 저장·다시 읽기로 기준이 달라졌다. 지금 넣으면
 	// 낡은 것을 넣는 셈이라 물러난다 — 다음 tick 이 새 기준으로 다시 본다.
-	if buf == nil || !bytes.Equal(buf.Disk.Hash, seen) {
+	if buf == nil {
+		return
+	}
+
+	hash, _, _ := buf.DiskSeenAt()
+	if !bytes.Equal(hash, seen) {
 		return
 	}
 
