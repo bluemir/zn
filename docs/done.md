@@ -279,3 +279,37 @@
 - [x] wrap 된 줄의 둘째 행 이후에서 `j`/`k` 가 유지하는 칸이 vim 과 다르다. `desiredCol` 이 화면 행 안에서 센 칸이라 그렇다. 줄 기준으로 둘지 행 기준으로 둘지 다시 본다
 - [x] `dd` `dw` `x` 를 넣는다 (ADR-0013)
 - [x] 팔레트에서 고른 범위의 markdown 표를 맞추는 길을 낼지 정한다 (ADR-0037, ADR-0089, ADR-0106, ADR-0111)
+- [x] `0` `^` `$` `w` `b` `e` `W` `B` `E` `gg` `G` 를 넣는다 (ADR-0006)
+- [x] command parser (ADR-0034)
+- [x] 줄번호 앞에 마커용 공간 남겨 두기 (ADR-0086)
+	- [x] git 변경 표시가 이 칸에 들어올 때 두 마커 중 무엇이 이기는지 정한다 (ADR-0009, ADR-0042, ADR-0086, ADR-0094)
+- [x] 화면을 그리는 함수 이름을 `render~`/`~View` 규칙으로 옮긴다 (ADR-0036)
+- [x] `editorView` 가 `screenView` 를 부르는 층 순서가 이름과 반대로 읽히던 것을 고친다 (ADR-0036)
+- command palette 에 추가할 명령
+	- [x] go definition (ADR-0051)
+	- [x] close other tabs (ADR-0016)
+	- [x] close right tabs
+	- [x] close all tabs
+	- [x] search in project (ADR-0077)
+- [x] dirty reload 시 confirm 창 개선
+- [x] tailing whitespace 제거 기능 (ADR-0011)
+- [x] 검색으로 뛰기 전 자리로 돌아가는 것 (ADR-0010, ADR-0070)
+- [x] `:jobs` 의 이름 칸(16) 보다 `디렉터리 읽기 <경로>` 가 길어서 상태·시간 칸이 밀리던 것 (ADR-0027, ADR-0032, ADR-0075)
+- [x] 변경 검사 시점이 포커스만으로 부족하면 주기 검사를 얹는다 (ADR-0030, ADR-0031, ADR-0038)
+- [x] `:jobs` 의 끝난 목록에 펼친 디렉터리마다 한 줄이 쌓이던 것 (ADR-0030, ADR-0032, ADR-0053, ADR-0075)
+- [x] ~~tab 이 많을 때 `<n`·`n>` 대신 tab 목록을 열어 고르는 길을 둘지 정한다. 팔레트에 열린 tab 목록을 넣는 것과 같은 건이다 (ADR-0011, ADR-0029)~~
+	- 이 기능은 palette 에서 해당 파일로 가면 바로 가게 되므로 있을 필요가 적다.
+- [x] `editorconfig` 존중 (ADR-0048, ADR-0052)
+- [x] mac 에서 delete 키가 먹지 않음 (ADR-0076)
+- [x] hjson, json 지원 추가 (ADR-0055)
+- [x] 대소문자 전환 키 (ADR-0013, ADR-0018, ADR-0083)
+	- [x] 한글 입력 상태에서 낼 수 없는 키(`V`·`G`·`B`·`U`) 에 우회로를 붙일지 정한다 (ADR-0008, ADR-0083)
+- [x] terminal 제목줄에 현재 파일 표시
+	- [x] ~~나갈 때 원래 제목으로 되돌릴지 다시 본다. bubbletea 는 빈 제목을 쓰고, OSC 22/23 으로 되돌리려면 bubbletea 밖에서 escape 를 쓰는 자리가 생긴다. 셸이 제목을 다시 쓰지 않는 판에서 거슬리면 그때 본다 (ADR-0110)~~
+		- 되돌리지 않는다.
+	- [x] ~~제목에 tab 개수·mode·git branch 를 적을지 정한다. 지금은 「무엇을 고치고 있나」 하나다 (ADR-0110)~~
+		- 해당 내용까지는 필요치 않다.
+- [x] 오늘 날자 시간 넣는 기능 추가
+- [x] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가
+- [x] palette 에서 '/' 를 입력해서 프로젝트 검색으로 들어가기 (ADR-0133)
+- [x] `cc` 가 들여쓰기를 남기는데 `o` `O` 는 이어받지 않던 것을 맞춘다 (ADR-0033, ADR-0047)
