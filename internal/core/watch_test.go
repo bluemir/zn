@@ -512,3 +512,53 @@ func TestStartWatchTreeReportsCount(t *testing.T) {
 	assert.Equal(t, watchJobName, editor.finished[0].name)
 	assert.Contains(t, editor.finished[0].summary, "폴더")
 }
+
+// 밖에서 파일이 생기면 그 디렉터리가 저절로 다시 읽힌다. 키를 누르지 않는다(ADR-0134).
+func TestWatchReloadsTreeOnCreate(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "새.go"), []byte("x\n"), 0644))
+
+	settle(t, m, m.reloadWatchedDirs([]lsp.FileChange{
+		{Path: filepath.Join(root, "새.go"), Kind: lsp.FileCreated},
+	}))
+
+	assert.Contains(t, names(m.sidebar.rows()), "1:새.go")
+}
+
+// 사라진 것도 저절로 없어진다.
+func TestWatchReloadsTreeOnDelete(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	require.NoError(t, os.Remove(filepath.Join(root, "README.md")))
+
+	settle(t, m, m.reloadWatchedDirs([]lsp.FileChange{
+		{Path: filepath.Join(root, "README.md"), Kind: lsp.FileDeleted},
+	}))
+
+	assert.NotContains(t, names(m.sidebar.rows()), "1:README.md")
+}
+
+// **내용만 바뀐 것은 버린다.** 저장은 목록을 바꾸지 않으므로 다시 읽을 것이 없다.
+// 타이핑하며 저장하는 동안 트리가 계속 디스크를 읽게 되는 자리다.
+func TestWatchIgnoresWriteForTree(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	assert.Nil(t, m.reloadWatchedDirs([]lsp.FileChange{
+		{Path: filepath.Join(root, "README.md"), Kind: lsp.FileChanged},
+	}), "저장만으로는 다시 읽지 않는다")
+}
+
+// 트리에 없는 자리는 지나간다. `.git` 안과 아직 펼치지 않은 층 아래가 그렇다.
+func TestWatchSkipsDirsOutsideTree(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	assert.Nil(t, m.reloadWatchedDirs([]lsp.FileChange{
+		{Path: filepath.Join(root, ".git", "index"), Kind: lsp.FileCreated},
+		{Path: filepath.Join(root, "docs", "새.md"), Kind: lsp.FileCreated},
+	}), "`.git` 안도 접힌 docs 안도 다시 읽을 자리가 아니다")
+}

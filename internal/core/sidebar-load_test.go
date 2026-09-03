@@ -270,3 +270,107 @@ func TestSettleRunsBatchedCmds(t *testing.T) {
 	assert.Contains(t, names(m.sidebar.rows()), "2:spec.md")
 	assert.Contains(t, names(m.sidebar.rows()), "2:out")
 }
+
+// `R` 은 뿌리부터 펼친 것을 전부 다시 읽는다. 아래 펼쳐 둔 자리는 그대로 남는다(ADR-0134).
+func TestSidebarReloadKeepsExpanded(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "docs")
+	model = sendSync(t, model, "enter")
+	require.Contains(t, names(model.(viewSidebar).sidebar.rows()), "2:spec.md")
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "새.go"), []byte("x\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "docs", "새.md"), []byte("x\n"), 0644))
+
+	model = sendSync(t, model, "R")
+
+	rows := names(model.(viewSidebar).sidebar.rows())
+	assert.Contains(t, rows, "1:새.go", "뿌리에 생긴 것이 들어온다")
+	assert.Contains(t, rows, "2:spec.md", "펼쳐 둔 자리가 접히지 않는다")
+	assert.Contains(t, rows, "2:새.md", "펼쳐 둔 자리 안에 생긴 것도 들어온다")
+}
+
+// 사라진 것은 없어진다. 목록은 새것이 정한다.
+func TestSidebarReloadDropsGone(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "docs")
+	model = sendSync(t, model, "enter")
+	require.Contains(t, names(model.(viewSidebar).sidebar.rows()), "2:spec.md")
+
+	require.NoError(t, os.Remove(filepath.Join(root, "docs", "spec.md")))
+
+	model = sendSync(t, model, "R")
+
+	assert.NotContains(t, names(model.(viewSidebar).sidebar.rows()), "2:spec.md")
+}
+
+// 접힌 자리는 다시 읽지 않는다. 보이지 않는 것을 읽을 값이 없다.
+func TestSidebarReloadSkipsCollapsed(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+
+	docs := m.sidebar.rows()[2].node
+	require.Equal(t, "docs", docs.name)
+	require.False(t, docs.expanded)
+
+	assert.Nil(t, m.reloadNode(docs), "접힌 자리는 작업을 열지 않는다")
+}
+
+// 다시 읽는 동안 `… 읽는 중` 이 서지 않는다. 서면 그 아래 행이 한 칸 밀려 트리가 움찔한다.
+func TestSidebarReloadDoesNotShowPlaceholder(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+
+	cmd := m.reloadNode(m.sidebar.tree)
+	require.NotNil(t, cmd)
+	require.True(t, m.sidebar.tree.loading, "읽는 중인 것은 사실로 남는다")
+
+	assert.NotContains(t, names(m.sidebar.rows()), "1:… 읽는 중")
+
+	settle(t, m, cmd)
+
+	assert.False(t, m.sidebar.tree.loading)
+}
+
+// 고른 것은 행 번호가 아니라 그 파일이다. 위쪽에 무엇이 생겨도 미끄러지지 않는다(ADR-0134).
+//
+// 화면에서 잡았다. 밖에서 파일 하나가 생기자 고른 자리가 그 위 파일로 옮겨 갔고, 그대로
+// `md` 를 치면 엉뚱한 것을 지운다.
+func TestSidebarReloadKeepsSelectedFile(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "main.go")
+	require.Equal(t, filepath.Join(root, "main.go"), model.(viewSidebar).sidebar.selectedNode().path)
+
+	// `main.go` 보다 이름순으로 앞에 선다. 그 행이 밀린다.
+	require.NoError(t, os.WriteFile(filepath.Join(root, "aaa.go"), []byte("x\n"), 0644))
+
+	model = sendSync(t, model, "R")
+
+	v := model.(viewSidebar)
+	require.Contains(t, names(v.sidebar.rows()), "1:aaa.go", "새 파일이 위에 섰다")
+	assert.Equal(t, filepath.Join(root, "main.go"), v.sidebar.selectedNode().path,
+		"고른 자리는 그 파일에 그대로 있다")
+}
+
+// 고른 파일이 사라지면 그 자리(행 번호) 에 머문다. 되찾을 파일이 없으므로 아래 것이 그
+// 자리로 올라오고, 그것이 `md` 로 지운 뒤와 같은 자리다(ADR-0130).
+func TestSidebarReloadStaysWhenSelectedGone(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "README.md")
+	at := model.(viewSidebar).sidebar.selected
+
+	require.NoError(t, os.Remove(filepath.Join(root, "README.md")))
+
+	model = sendSync(t, model, "R")
+
+	v := model.(viewSidebar)
+	require.NotContains(t, names(v.sidebar.rows()), "1:README.md")
+	assert.Equal(t, at, v.sidebar.selected, "지운 자리에 머문다")
+	assert.Equal(t, filepath.Join(root, "main.go"), v.sidebar.selectedNode().path,
+		"아래 것이 그 자리로 올라온다")
+}

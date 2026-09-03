@@ -214,6 +214,15 @@ func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 		m.sidebar.movePage(textarea.PageUp, textarea.PageFull, act.count, m.sidebarHeight())
 	case "enter":
 		return m.enter()
+	case "R":
+		// 뿌리부터 펼쳐 둔 디렉터리를 전부 다시 읽는다. NERDTree 의 `R` 과 같은 자리다.
+		//
+		// 감시가 붙어 있어서 대개 손을 쓸 일이 없다(ADR-0093, ADR-0134). 남는 자리는 감시가
+		// 못 보는 곳이다 — 네트워크 파일 시스템, 감시 개수 상한에 걸린 큰 트리, cwd 위쪽.
+		//
+		// 고른 자리도 화면도 건드리지 않는다. 다시 읽는 것은 목록을 맞추는 일이고 어디를
+		// 보고 있는지를 옮기는 일이 아니다.
+		return m, m.reloadTree()
 	case "m c", "m a":
 		// `ma` 도 같은 자리다. NERDTree 의 파일 메뉴가 `a`(add) 로 만드는데(ADR-0054 가
 		// 그 메뉴를 이 자리에 두었다) 그 손버릇으로 온 손이 `mc` 를 찾지 않아도 되게 한다.

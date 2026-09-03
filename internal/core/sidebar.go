@@ -58,7 +58,12 @@ type treeNode struct {
 	expanded bool
 	children []*treeNode
 
-	// loading 은 자식을 읽는 작업이 도는 중인지다. 도는 동안 자식 자리에 `… 읽는 중` 이 표시된다.
+	// loading 은 자식을 읽는 작업이 도는 중인지다.
+	//
+	// **표시가 아니라 사실이다.** 보일 자식이 없을 때만 `… 읽는 중` 이 서고(rows), 이미 자식이
+	// 있는 자리를 다시 읽는 동안은 아무것도 서지 않는다. 그 대신 이 값은 두 경우 모두 켜져
+	// 있어야 한다 — 읽기를 겹쳐 열지 않는 것과 reveal 이 도착을 기다리는 것이 이것을 본다
+	// (ADR-0032, ADR-0134).
 	loading bool
 
 	// placeholder 는 `… 읽는 중` 처럼 파일이 아닌 안내 행인지다.
@@ -169,6 +174,10 @@ func (s sidebar) rows() []treeRow {
 }
 
 // 읽는 중인 디렉터리는 자식 자리에 안내 행이 한 줄 선다. 그것이 없으면 빈 디렉터리로 읽힌다(ADR-0032).
+//
+// **보일 자식이 있으면 세우지 않는다.** 안내 행이 있는 까닭이 「빈 디렉터리로 읽히는 것」을
+// 막는 것이라, 목록이 이미 서 있는 자리에는 막을 것이 없다. 다시 읽는 동안(reloadNode) 이
+// 행이 서면 그 아래 행들이 한 칸 밀려서, 아무 키도 누르지 않았는데 트리가 움찔한다(ADR-0134).
 func appendRows(rows []treeRow, node *treeNode, depth int) []treeRow {
 	rows = append(rows, treeRow{depth: depth, node: node})
 
@@ -180,7 +189,7 @@ func appendRows(rows []treeRow, node *treeNode, depth int) []treeRow {
 		rows = appendRows(rows, child, depth+1)
 	}
 
-	if node.loading {
+	if node.loading && len(node.children) == 0 {
 		rows = append(rows, treeRow{depth: depth + 1, node: &treeNode{
 			name:        "… 읽는 중",
 			placeholder: true,
@@ -198,6 +207,27 @@ func (s sidebar) selectedNode() *treeNode {
 	}
 
 	return rows[s.selected].node
+}
+
+// selectByPath 는 그 경로의 항목을 다시 고른다. 다시 읽어 행 번호가 밀린 뒤 고른 자리를
+// 그 파일에 되돌려 놓는 자리다(readDirJob).
+//
+// 없으면 자리를 그대로 둔다. 그 파일이 사라진 것이라 고를 것이 없고, **지운 자리에 머무는
+// 것이 맞다** — 트리는 지운 뒤 드러난 파일로 따라가지 않는다(ADR-0130).
+//
+// 빈 경로는 부르는 쪽이 걸러 오지만 여기서도 지나간다. `… 읽는 중` 행의 경로가 그것이다.
+func (s *sidebar) selectByPath(path string) {
+	if path == "" {
+		return
+	}
+
+	for i, row := range s.rows() {
+		if row.node.path == path {
+			s.selected = i
+
+			return
+		}
+	}
 }
 
 // selectedLabel 은 고른 항목을 statusBar 아래 줄에 보일 형태로 준다.

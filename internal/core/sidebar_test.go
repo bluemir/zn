@@ -237,7 +237,8 @@ func TestSidebarExpandAndCollapse(t *testing.T) {
 	assert.NotContains(t, names(s.rows()), "2:spec.md")
 }
 
-// 접었다 펴는 것이 곧 새로고침이다. watcher 없이 이걸로 충분하다.
+// 펼칠 때마다 그 디렉터리를 다시 읽는다. 접었다 펴는 것으로도 트리가 맞아야 한다 —
+// 감시와 `R` 이 있어도(ADR-0134) 이 길이 가장 짧다.
 func TestSidebarRereadsOnExpand(t *testing.T) {
 	root := newTreeFixture(t)
 	s := openSidebarSync(t, root)

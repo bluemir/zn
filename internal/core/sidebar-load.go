@@ -32,8 +32,9 @@ func dirJobArgs(root, path string) []string {
 // 자식은 바로 오지 않는다. 펼침 표시(▾) 는 지금 서고 자식 자리에는 `… 읽는 중` 이 한 행 선다.
 // 결과가 도착하면 조각의 apply 가 채운다(ADR-0025, ADR-0032).
 //
-// 펼칠 때마다 다시 읽으므로 접었다 펴는 것이 곧 새로고침이다. watcher 없이 이 정도면 충분하고,
-// 화면을 그릴 때마다 syscall 을 하지 않아도 된다.
+// **펼치는 것은 자식을 버리고 시작한다.** 접혀 있던 자리라 버릴 것이 없고, `… 읽는 중` 이
+// 서려면 자식 자리가 비어 있어야 한다. 이미 펼쳐 둔 것을 다시 읽는 길은 reloadNode 다
+// (ADR-0134).
 func (e *editor) expandNode(node *treeNode) tea.Cmd {
 	if !node.isDir || node.isSymlink || node.loading {
 		return nil
@@ -43,9 +44,35 @@ func (e *editor) expandNode(node *treeNode) tea.Cmd {
 	node.loading = true
 	node.children = nil
 
-	// 노드가 아니라 경로를 넘긴다. 결과가 도착할 때 이 포인터는 이미 없을 수 있다.
-	dir := node.path
+	return e.startDirRead(node.path)
+}
 
+// reloadNode 는 이미 펼쳐 둔 디렉터리를 자리를 지킨 채 다시 읽는다.
+//
+// **펼침 표시도 자식도 건드리지 않는다.** 지금 있는 것을 그대로 두고 읽어서, 도착한 목록과
+// 견줘 사라진 것만 빼고 새로 온 것만 넣는다(mergeTreeChildren). 그래서 아래 펼쳐 둔 자리가
+// 남고, 보일 자식이 있는 동안은 `… 읽는 중` 도 서지 않아 트리가 움찔하지 않는다(ADR-0134).
+//
+// **loading 은 켠다.** 화면에 보이지 않아도 읽는 중인 것은 사실이고, 그것을 보는 자리가 둘이다
+// 읽기를 겹쳐 열지 않는 것과, reveal 이 「지금 오는 중이니 도착하면 이어 걷자」로 물러나는
+// 것이다(continueReveal). 끄지 않으면 이름을 바꿔 옮긴 자리를 reveal 이 먼저 포기한다.
+//
+// 접힌 자리는 다시 읽지 않는다. 보이지 않는 것을 읽을 값이 없고, 펼칠 때 어차피 읽는다.
+func (e *editor) reloadNode(node *treeNode) tea.Cmd {
+	if !node.isDir || node.isSymlink || !node.expanded || node.loading {
+		return nil
+	}
+
+	node.loading = true
+
+	return e.startDirRead(node.path)
+}
+
+// startDirRead 는 디렉터리 하나를 읽는 작업을 연다. 펼치는 길과 다시 읽는 길이 나눠 쓴다.
+//
+// 노드가 아니라 경로를 받는다. 결과가 도착할 때 그 포인터는 이미 없을 수 있어서, 도착한
+// 자리에서 경로로 다시 찾는다(readDirJob).
+func (e *editor) startDirRead(dir string) tea.Cmd {
 	return e.startJob(dirJobName, dirJobArgs(e.sidebar.root, dir), func(ctx context.Context) <-chan jobProgress {
 		return readDirJob(ctx, dir)
 	})
@@ -70,9 +97,9 @@ func (e *editor) collapseNode(node *treeNode) {
 
 // refreshDir 은 그 디렉터리를 다시 읽는다. 파일을 만들거나 지운 뒤 트리를 맞추는 길이다.
 //
-// 접었다 펴는 것이 곧 새로고침이라(ADR-0032) 다시 읽는 것도 expandNode 하나다.
-// 접혀 있던 디렉터리는 이 길에 펼쳐진다 — 방금 그 안에 만든 파일을 보러 가는 자리라
-// 펼쳐지는 것이 맞다.
+// **접혀 있으면 펼치고, 펼쳐져 있으면 자리를 지킨 채 다시 읽는다.** 접힌 자리를 펼치는 것은
+// 방금 그 안에 만든 파일을 보러 가는 자리라 그것이 맞고, 펼쳐진 자리에서 아래 펼쳐 둔 것까지
+// 접을 이유는 없다(ADR-0032, ADR-0134).
 //
 // 트리에 아직 없는 자리(뿌리 밖, 읽지 않은 층 아래) 면 아무 일도 하지 않는다.
 // 그 자리는 나중에 펼칠 때 읽으므로 지금 맞출 것이 없다.
@@ -80,6 +107,9 @@ func (e *editor) refreshDir(dir string) tea.Cmd {
 	node := e.sidebar.nodeAt(dir)
 	if node == nil {
 		return nil
+	}
+	if node.expanded {
+		return e.reloadNode(node)
 	}
 
 	return e.expandNode(node)
@@ -132,15 +162,105 @@ func readDirJob(ctx context.Context, dir string) <-chan jobProgress {
 					return
 				}
 
-				node.children = children
+				// **고른 것은 행 번호가 아니라 그 파일이다.** 위쪽에 무엇이 생기면 행 번호가
+				// 한 칸씩 밀리는데, 그때 고른 자리를 번호로 두면 남의 파일로 미끄러진다.
+				// 아무 키도 누르지 않았는데 미끄러지고, 이어 치는 `md` 가 엉뚱한 것을
+				// 지운다(ADR-0134).
+				selected := ""
+				if node := e.sidebar.selectedNode(); node != nil {
+					selected = node.path
+				}
+
+				node.children = mergeTreeChildren(node.children, children)
 				node.loading = false
 
+				e.sidebar.selectByPath(selected)
 				e.scrollSidebar()
 			},
 		}
 	}()
 
 	return ch
+}
+
+// mergeTreeChildren 은 다시 읽어온 목록에 지금 펼쳐 둔 상태를 물려준다.
+//
+// **목록은 새것이 정하고 펼침은 옛것이 정한다.** 사라진 것은 없어지고 새로 온 것은 접힌 채로
+// 서고, 이름이 같은 디렉터리는 펼침과 그 아래 자식을 그대로 들고 있는다. 그래서 뿌리를 다시
+// 읽어도 세 층 아래 펼쳐 둔 자리가 남는다(ADR-0134).
+//
+// 읽는 중(loading) 도 같이 물려준다. 그 작업의 결과는 경로로 노드를 다시 찾아 들어오므로
+// 여기서 바꿔 놓은 새 노드에 제대로 앉는다 — 표시만 떨구면 자식은 오는데 `… 읽는 중` 이
+// 먼저 사라진다.
+//
+// 처음 펼치는 길에서는 옛것이 비어 있어(expandNode 가 지운다) 새것이 그대로 남는다.
+func mergeTreeChildren(was, now []*treeNode) []*treeNode {
+	for _, node := range now {
+		if !node.isDir || node.isSymlink {
+			continue
+		}
+
+		old := treeChild(was, node.name)
+		// 파일이 있던 자리에 같은 이름의 디렉터리가 생겼으면 물려받을 펼침이 없다.
+		if old == nil || !old.isDir || old.isSymlink {
+			continue
+		}
+
+		node.expanded = old.expanded
+		node.children = old.children
+		node.loading = old.loading
+	}
+
+	return now
+}
+
+// treeChild 는 목록에서 그 이름을 찾는다. treeNode.child 와 같은 일을 노드 없이 한다 —
+// 병합은 아직 어느 노드에도 붙지 않은 목록 둘을 견주는 자리다.
+func treeChild(nodes []*treeNode, name string) *treeNode {
+	for _, node := range nodes {
+		if node.name == name {
+			return node
+		}
+	}
+
+	return nil
+}
+
+// reloadTree 는 뿌리부터 펼쳐 둔 디렉터리를 전부 다시 읽는다. 트리의 `R` 이다.
+//
+// 접힌 자리는 건드리지 않는다. NERDTree 의 `R` 과 같은 자리이고, 펼친 것만 보는 것이라
+// 값이 화면에 보이는 만큼만 든다(ADR-0134).
+//
+// 디렉터리마다 작업이 따로 열린다. 신원에 경로가 들어 있어서(dirJobArgs) 나란히 돌고,
+// 도착 차례는 보지 않는다 — 각 조각이 경로로 자기 노드를 찾아 앉는다.
+func (e *editor) reloadTree() tea.Cmd {
+	if e.sidebar.tree == nil {
+		return nil
+	}
+
+	nodes := appendExpandedDirs(nil, e.sidebar.tree)
+
+	cmds := make([]tea.Cmd, 0, len(nodes))
+	for _, node := range nodes {
+		cmds = append(cmds, e.reloadNode(node))
+	}
+
+	return tea.Batch(cmds...)
+}
+
+// appendExpandedDirs 는 펼쳐진 디렉터리를 위에서부터 모은다. appendRows 와 같은 모양이다.
+func appendExpandedDirs(nodes []*treeNode, node *treeNode) []*treeNode {
+	if !node.expanded {
+		return nodes
+	}
+
+	nodes = append(nodes, node)
+
+	for _, child := range node.children {
+		nodes = appendExpandedDirs(nodes, child)
+	}
+
+	return nodes
 }
 
 // nodeAt 은 그 경로의 항목을 트리에서 찾는다. 없으면 nil 이다.

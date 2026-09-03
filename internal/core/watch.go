@@ -376,8 +376,9 @@ func waitWatch(w *watcher) tea.Cmd {
 
 // applyWatch 는 감시기가 모아 둔 것을 꺼내 갈 곳으로 보낸다. `Update` 안에서 불린다(job.go).
 //
-// 갈 곳이 둘이고 쓰는 법이 다르다. 언어 서버는 **이벤트를 그대로** 받아 자기가 디스크를 다시
+// 갈 곳이 셋이고 쓰는 법이 다르다. 언어 서버는 **이벤트를 그대로** 받아 자기가 디스크를 다시
 // 읽고(ADR-0092), buffer 는 **앞잡이로만** 받아 검사를 앞당길 뿐 판정은 해시가 한다(ADR-0015).
+// 트리는 **이름이 생기고 사라진 것만** 보고 그 디렉터리를 다시 읽는다(ADR-0134).
 func (e *editor) applyWatch() tea.Cmd {
 	if e.watch == nil {
 		return nil
@@ -391,7 +392,7 @@ func (e *editor) applyWatch() tea.Cmd {
 
 	e.serverWatchFiles(changes)
 
-	cmds := []tea.Cmd{waitWatch(e.watch)}
+	cmds := []tea.Cmd{waitWatch(e.watch), e.reloadWatchedDirs(changes)}
 
 	for _, change := range changes {
 		// 감시기는 절대 경로를 주는데 CLI 로 연 buffer 는 적힌 그대로(상대 경로) 를 든다.
@@ -403,6 +404,43 @@ func (e *editor) applyWatch() tea.Cmd {
 		}
 
 		cmds = append(cmds, e.startOutsideCheckFor(e.buffers[index].Path))
+	}
+
+	return tea.Batch(cmds...)
+}
+
+// reloadWatchedDirs 는 밖에서 생기거나 사라진 것의 부모 디렉터리를 다시 읽는다.
+//
+// **내용만 바뀐 것은 버린다.** 저장은 목록을 바꾸지 않으므로 다시 읽어도 같은 목록이 나온다.
+// 타이핑하며 저장하는 동안 트리가 계속 디스크를 읽게 되는 자리라 여기서 걸러야 한다.
+//
+// **부모를 읽는다.** 이벤트는 생긴 파일 자신을 가리키는데 트리가 다시 읽어야 하는 것은 그 이름이
+// 서는 자리, 곧 부모 디렉터리다. 새 디렉터리도 마찬가지다 — 부모를 읽으면 접힌 채로 선다.
+//
+// 트리에 없거나 접힌 자리는 reloadNode 가 그냥 지나간다. gitignore 된 자리는 감시에 올라가
+// 있지 않아서(addTree) 애초에 오지 않고, `.git` 안은 트리에 노드가 없어 여기서 걸린다.
+//
+// 짬은 이미 감시기가 둔다(watchQuiet). 한 번에 파일 수백 개를 만드는 빌드가 디렉터리 하나를
+// 한 번 읽게 되는 것이 그 덕이다.
+func (e *editor) reloadWatchedDirs(changes []lsp.FileChange) tea.Cmd {
+	dirs := map[string]struct{}{}
+
+	for _, change := range changes {
+		if change.Kind == lsp.FileChanged {
+			continue
+		}
+
+		dirs[filepath.Dir(change.Path)] = struct{}{}
+	}
+
+	cmds := make([]tea.Cmd, 0, len(dirs))
+	for dir := range dirs {
+		node := e.sidebar.nodeAt(dir)
+		if node == nil {
+			continue
+		}
+
+		cmds = append(cmds, e.reloadNode(node))
 	}
 
 	return tea.Batch(cmds...)
