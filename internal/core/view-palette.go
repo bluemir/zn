@@ -26,7 +26,7 @@ const paletteFrame = 4
 // viewPalette 는 `ctrl+p` 로 여는 command palette 다.
 //
 // 화면 위쪽 가운데에 박스를 띄우고 그 아래로 편집 화면이 그대로 비친다. 기본은 파일 찾기이고
-// 입력이 `>` 로 시작하면 명령 목록이 된다.
+// 맨 앞 글자가 갈래를 정한다 — `>` 는 명령 목록, `!` 는 셸, `/` 는 프로젝트 검색이다.
 //
 // 어디서 열렸는지 기억하지 않는다. sidebar 에서 열어도 끝나면 편집 영역으로 나온다 —
 // 돌아갈 곳을 들고 다니는 것은 ADR-0005 가 `:` 에서 이미 거절한 비용이다.
@@ -176,7 +176,16 @@ const (
 	paletteKindFile    paletteKind = iota // 접두 없음. 파일 찾기다
 	paletteKindCommand                    // `>`. 명령 목록이다
 	paletteKindShell                      // `!`. 고를 목록이 없고 친 것을 셸에 넘긴다
+	paletteKindGrep                       // `/`. 고를 목록이 없고 친 것으로 프로젝트를 뒤진다
 )
+
+// hasList 는 고를 후보가 있는 갈래인지다.
+//
+// 셸과 검색은 친 것을 그대로 넘기므로 후보가 없다. **목록·개수·Enter 셋이 같은 답을 봐야
+// 한다** — 하나만 갈라 두면 고를 것이 없는 자리에 「일치하는 것이 없습니다」가 뜬다.
+func (kind paletteKind) hasList() bool {
+	return kind == paletteKindFile || kind == paletteKindCommand
+}
 
 // kind 는 갈래와 접두를 뗀 나머지를 준다.
 func (m viewPalette) kind() (paletteKind, string) {
@@ -188,18 +197,25 @@ func (m viewPalette) kind() (paletteKind, string) {
 		// `:!` 도 뗀 적이 없다(ADR-0045).
 		return paletteKindShell, rest
 	}
+	if rest, ok := strings.CutPrefix(m.input.text, "/"); ok {
+		// `!` 와 같이 앞 공백을 떼지 않는다. 찾을 것은 정규식이라 공백도 패턴의 글자다.
+		return paletteKindGrep, rest
+	}
 
 	return paletteKindFile, m.input.text
 }
 
 // labels 는 지금 표에서 매칭 대상이 되는 글자들이다.
 //
-// 셸은 고를 것이 없어서 비어 있다. 그 덕에 filter 는 이 갈래를 몰라도 되고 hits 가 저절로 빈다.
+// 셸과 검색은 고를 것이 없어서 비어 있다. 그 덕에 filter 는 그 갈래들을 몰라도 되고 hits 가
+// 저절로 빈다.
 func (m viewPalette) labels() []string {
-	switch kind, _ := m.kind(); kind {
-	case paletteKindShell:
+	kind, _ := m.kind()
+
+	if !kind.hasList() {
 		return nil
-	case paletteKindFile:
+	}
+	if kind == paletteKindFile {
 		return m.files
 	}
 
@@ -282,12 +298,12 @@ func (m *viewPalette) scrollTo() {
 func (m viewPalette) run() (tea.Model, tea.Cmd) {
 	kind, line := m.kind()
 
-	// 셸은 고른 것이 아니라 친 것을 실행한다. 그래서 hits 를 보기 전에 갈린다.
+	// 셸과 검색은 고른 것이 아니라 친 것을 실행한다. 그래서 hits 를 보기 전에 갈린다.
 	// 아무것도 치지 않았으면 가만히 있는다 — 고를 것이 없을 때와 같다.
-	if kind == paletteKindShell && line == "" {
+	if !kind.hasList() && line == "" {
 		return m, nil
 	}
-	if kind != paletteKindShell && len(m.hits) == 0 {
+	if kind.hasList() && len(m.hits) == 0 {
 		return m, nil
 	}
 
@@ -320,6 +336,11 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 
 	if kind == paletteKindShell {
 		return runShell(m.editor, line)
+	}
+	if kind == paletteKindGrep {
+		// `:grep <패턴>` 과 팔레트의 「프로젝트 검색」이 오는 자리다. 패턴이 정규식으로 말이
+		// 되지 않으면 runGrep 이 알림만 적고 판을 열지 않는다(ADR-0078).
+		return runGrep(m.editor, line)
 	}
 
 	index := m.hits[m.selected].index
@@ -407,9 +428,9 @@ func (m viewPalette) View() tea.View {
 
 // renderCounter 는 statusBar 아래 줄이다. 몇 개 중 몇 개가 걸렸는지 보여준다.
 //
-// 셸은 셀 것이 없어서 비운다. `0/0` 은 아무것도 못 찾은 것처럼 보이는 거짓말이다.
+// 셸과 검색은 셀 것이 없어서 비운다. `0/0` 은 아무것도 못 찾은 것처럼 보이는 거짓말이다.
 func (m viewPalette) renderCounter() string {
-	if kind, _ := m.kind(); kind == paletteKindShell {
+	if kind, _ := m.kind(); !kind.hasList() {
 		return ""
 	}
 
@@ -460,7 +481,7 @@ func (m viewPalette) renderInputRow(inner int) string {
 	side := m.boxChars.vertical
 
 	if m.input.empty() {
-		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 명령, ! 셸", inner), inner)) + " " + side
+		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 명령, ! 셸, / 검색", inner), inner)) + " " + side
 	}
 
 	text, _ := m.inputText()
@@ -474,12 +495,22 @@ func (m viewPalette) renderListRows(inner int) []string {
 
 	kind, rest := m.kind()
 
-	// 셸은 목록이 아니라 안내를 놓는다. 고를 것이 없는데 「일치하는 것이 없습니다」가 뜨면
-	// 무엇을 잘못 쳤는지 찾게 된다.
-	if kind == paletteKindShell {
-		guide := "Enter 로 셸에서 실행합니다"
-		if rest == "" {
-			guide = "! 뒤에 셸 명령을 칩니다"
+	// 셸과 검색은 목록이 아니라 안내를 놓는다. 고를 것이 없는데 「일치하는 것이 없습니다」가
+	// 뜨면 무엇을 잘못 쳤는지 찾게 된다.
+	if !kind.hasList() {
+		guide := ""
+
+		switch kind {
+		case paletteKindShell:
+			guide = "Enter 로 셸에서 실행합니다"
+			if rest == "" {
+				guide = "! 뒤에 셸 명령을 칩니다"
+			}
+		case paletteKindGrep:
+			guide = "Enter 로 프로젝트를 검색합니다"
+			if rest == "" {
+				guide = "/ 뒤에 찾을 것을 칩니다"
+			}
 		}
 
 		return []string{side + " " + styleDetail.Render(padTo(truncateToWidth(guide, inner), inner)) + " " + side}

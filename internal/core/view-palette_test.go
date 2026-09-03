@@ -598,3 +598,76 @@ func TestPaletteHidesEditingCommandsOnReadOnly(t *testing.T) {
 	assert.NotContains(t, names, "오늘 날짜와 시각 넣기")
 	assert.Contains(t, names, "화면을 평문으로 내보내기", "내보내는 것은 파일을 안 건드린다")
 }
+
+// `/` 는 프로젝트 검색 갈래다. `!` 셸과 같은 결이라 고를 목록이 없고 친 것이 패턴이다.
+func TestPaletteGrepPrefix(t *testing.T) {
+	t.Run("안내를 놓고 counter 를 비운다", func(t *testing.T) {
+		var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
+
+		m = send(m, "/")
+
+		rows := strings.Join(boxRowsOf(t, m.(viewPalette)), "\n")
+		assert.Contains(t, rows, "/ 뒤에 찾을 것을 칩니다")
+		assert.Empty(t, m.(viewPalette).renderCounter())
+
+		m = send(m, "f", "u", "n", "c")
+
+		rows = strings.Join(boxRowsOf(t, m.(viewPalette)), "\n")
+		assert.Contains(t, rows, "Enter 로 프로젝트를 검색합니다")
+		assert.NotContains(t, rows, "a.go", "파일 목록은 나오지 않는다")
+	})
+
+	t.Run("`/` 를 지우면 파일 찾기로 돌아온다", func(t *testing.T) {
+		var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
+
+		m = send(m, "/", "backspace")
+
+		rows := strings.Join(boxRowsOf(t, m.(viewPalette)), "\n")
+		assert.Contains(t, rows, "a.go")
+	})
+
+	// 경로 가운데의 `/` 는 그대로 글자다. 갈래를 정하는 것은 맨 앞 글자뿐이다.
+	t.Run("가운데 `/` 는 파일 찾기다", func(t *testing.T) {
+		var m tea.Model = newPaletteView(t, 80, 20, "core/edit.go", "docs/spec.md")
+
+		m = typeInto(m, "core/e")
+
+		kind, _ := m.(viewPalette).kind()
+		assert.Equal(t, paletteKindFile, kind)
+		assert.Contains(t, strings.Join(boxRowsOf(t, m.(viewPalette)), "\n"), "core/edit.go")
+	})
+
+	// 검색 박스를 거치지 않고 곧바로 판이 열린다. 치는 자리가 이미 박스 안 입력줄이다.
+	t.Run("Enter 가 검색 판을 연다", func(t *testing.T) {
+		var m tea.Model = newPaletteView(t, 80, 20, "a.go")
+
+		m = typeInto(m, "/func")
+
+		m, cmd := m.Update(key("enter"))
+
+		assert.IsType(t, viewGrep{}, m)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("친 것이 없으면 Enter 가 아무 일도 하지 않는다", func(t *testing.T) {
+		var m tea.Model = newPaletteView(t, 80, 20, "a.go")
+
+		m = send(m, "/")
+
+		m, cmd := m.Update(key("enter"))
+
+		assert.IsType(t, viewPalette{}, m)
+		assert.Nil(t, cmd)
+	})
+
+	// 정규식으로 말이 되지 않으면 판을 열지 않는다. 판단은 runGrep 한 자리다(ADR-0078).
+	t.Run("말이 안 되는 패턴은 알리고 만다", func(t *testing.T) {
+		var m tea.Model = newPaletteView(t, 80, 20, "a.go")
+
+		m = typeInto(m, "/[")
+		m = send(m, "enter")
+
+		require.IsType(t, viewEditorNormal{}, m)
+		assert.NotEmpty(t, m.(viewEditorNormal).notice)
+	})
+}
