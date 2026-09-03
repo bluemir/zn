@@ -454,6 +454,7 @@
 		- [ ] `textarea` 의 대문자 면 169 개를 줄일지 본다. 컴파일러가 시켜서 연 것이라 「밖에서 쓰니까 열었다」 말고 다른 근거가 없는 이름이 섞여 있다 (ADR-0128)
 		- [x] `Viewport` 의 receiver 이름이 아직 `buf` 다. 88 개다 (ADR-0121)
 		- [ ] `ReplaceRun` 이 생겼으니 `trimTrailingSpace`·`sortLines`·`formatTablesIn` 이 되풀이하던 넉 줄을 그것으로 모을지 본다 (ADR-0100, ADR-0126, ADR-0128)
+		- [ ] 이동 문 일곱(`MoveLeft`·`MoveRight`·`MoveUpRow`·`MoveDownRow`·`MoveWordForward`·`MoveWordBackward`·`MoveWordEnd`) 의 `n` 을 밖으로 뺄지 다시 본다. 이 일곱만 진짜 되풀이(`for range n`) 다 — 붙여넣기·`r` 의 `count` 는 내용을 부풀리는 것이고 `J`·`3$`·`MovePage` 의 것은 폭이라 뺄 수 없다. 지금 유지하는 근거가 「`UpdateDesiredCol` 을 밖으로 내보내지 않는다」 하나뿐이라 약하다. 홑걸음인 `WordForward` 는 이미 열려 있고 `motion.go` 가 쓴다 (ADR-0013, ADR-0081, ADR-0108)
 		- [x] `register` 가 글을 다루는 겹에 섞여 있던 것 (ADR-0124)
 		- [x] 화면 배치 상수를 어떻게 할지 정한다 (ADR-0086, ADR-0123)
 		- [x] `editor.lineNumberDigits()` 의 「tab 없을 때」 갈래가 닿지 않던 것 (ADR-0007, ADR-0064)
@@ -519,3 +520,4 @@
 - [ ] markdown 에서 list 에서 tab을 눌러 들여쓰기를 할떄, 행의 가장 앞이 아닌 '- ' 다음으로 이동하기
 - [ ] '%' 로 괄호 쌍으로 가기
 - [ ] tips 에 ctrl+o 와 ctrl+i 에 대한 tip 추가
+- [ ] palette 에서 '/' 를 입력해서 프로젝트 검색으로 들어가기
