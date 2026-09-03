@@ -85,7 +85,7 @@ func gitLineMarks(base, now [][]byte) map[int]GitLineMark {
 	dmp.DiffTimeout = gitDiffTimeout
 
 	// 줄 하나를 글자 하나로 바꿔서 견준다. go-diff 는 글자 단위 diff 라 이 변환이 곧 줄 diff 다.
-	left, right, _ := dmp.DiffLinesToRunes(JoinLines(base), JoinLines(now))
+	left, right, _ := dmp.DiffLinesToRunes(joinLines(base), joinLines(now))
 
 	line := head
 
@@ -141,7 +141,7 @@ func markGitRemoved(marks map[int]GitLineMark, line int) {
 }
 
 // joinLines 는 줄들을 다시 한 덩이로 잇는다. go-diff 가 문자열을 받는다.
-func JoinLines(lines [][]byte) string {
+func joinLines(lines [][]byte) string {
 	return string(bytes.Join(lines, []byte{'\n'}))
 }
 
