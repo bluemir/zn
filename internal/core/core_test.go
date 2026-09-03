@@ -60,8 +60,8 @@ func TestOpenBuffersSkipsDuplicateMissingFile(t *testing.T) {
 
 // linesOf 는 buffer 의 줄들을 비교하기 쉽게 문자열로 바꾼다.
 func linesOf(buf viewport) []string {
-	out := make([]string, len(buf.Lines))
-	for i, line := range buf.Lines {
+	out := make([]string, buf.LineCount())
+	for i, line := range buf.AllLines() {
 		out[i] = string(line)
 	}
 	return out

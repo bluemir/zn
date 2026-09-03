@@ -241,7 +241,7 @@ func TestSymbolInsertsAfterCursor(t *testing.T) {
 	next, _ := m.Update(key("enter"))
 
 	assert.IsType(t, viewSymbol{}, next, "연달아 넣을 수 있게 열린 채다")
-	assert.Equal(t, "a"+entry.Char+"bc", string(bufferOf(t, next).Lines[0]))
+	assert.Equal(t, "a"+entry.Char+"bc", string(bufferOf(t, next).Line(0)))
 }
 
 // 연속으로 넣는 것이 이 mode 의 쓰임새다. enter 를 칠 때마다 이어 붙는다.
@@ -255,7 +255,7 @@ func TestSymbolInsertsRepeatedly(t *testing.T) {
 	model = send(model, "enter", "enter", "enter")
 
 	require.IsType(t, viewSymbol{}, model)
-	assert.Equal(t, "a"+strings.Repeat(entry.Char, 3)+"bc", string(bufferOf(t, model).Lines[0]))
+	assert.Equal(t, "a"+strings.Repeat(entry.Char, 3)+"bc", string(bufferOf(t, model).Line(0)))
 }
 
 // 연달아 넣은 것은 한 undo 단위다. insert mode 에서 이어 치는 것과 같다.
@@ -267,7 +267,7 @@ func TestSymbolInsertsUndoAsOne(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, model)
 
 	model = send(model, "u")
-	assert.Equal(t, "abc", string(bufferOf(t, model).Lines[0]))
+	assert.Equal(t, "abc", string(bufferOf(t, model).Line(0)))
 }
 
 // 아무것도 안 넣고 나가면 `a<Esc>` 처럼 제자리다.
@@ -281,7 +281,7 @@ func TestSymbolEscapeKeepsCursor(t *testing.T) {
 
 	assert.IsType(t, viewEditorNormal{}, next)
 	assert.Equal(t, 1, bufferOf(t, next).Cursor.Col, "열기 전 자리로 돌아온다")
-	assert.Equal(t, "abc", string(bufferOf(t, next).Lines[0]))
+	assert.Equal(t, "abc", string(bufferOf(t, next).Line(0)))
 	assert.Zero(t, e.drawerHeight)
 }
 
@@ -300,7 +300,7 @@ func TestSymbolRoundTripsFromInsert(t *testing.T) {
 
 	m = send(m, "i", "X")
 	require.IsType(t, viewEditorInsert{}, m)
-	require.Equal(t, "Xabc", string(bufferOf(t, m).Lines[0]))
+	require.Equal(t, "Xabc", string(bufferOf(t, m).Line(0)))
 
 	before := bufferOf(t, m).Cursor.Col
 
@@ -314,7 +314,7 @@ func TestSymbolRoundTripsFromInsert(t *testing.T) {
 
 	m = send(m, "esc")
 	assert.IsType(t, viewEditorNormal{}, m)
-	assert.Equal(t, "Xabc", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "Xabc", string(bufferOf(t, m).Line(0)))
 }
 
 // 커서가 줄 맨 앞일 때만 한 칸 오른쪽에서 시작한다.

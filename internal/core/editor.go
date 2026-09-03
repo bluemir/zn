@@ -793,7 +793,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 	for _, row := range rows {
 		if row.Line != matchLine {
-			matchLine, matches = row.Line, e.searchMatches(buf.Lines[row.Line])
+			matchLine, matches = row.Line, e.searchMatches(buf.Line(row.Line))
 		}
 
 		// 커서가 선 매칭만 색이 다르다. 다른 줄이면 그런 매칭이 없다.
@@ -813,7 +813,7 @@ func (e *editor) editorView(shape tea.CursorShape, mode, bottom string) tea.View
 
 		textRows = append(textRows,
 			e.renderGutter(buf, row)+
-				renderRow(buf.Lines[row.Line], row, e.contentWidth(), highlight, buf.TabWidth()))
+				renderRow(buf.Line(row.Line), row, e.contentWidth(), highlight, buf.TabWidth()))
 	}
 
 	// 감싸는 머리줄로 본문 위 몇 행을 덮는다(ADR-0049).

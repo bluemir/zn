@@ -112,8 +112,8 @@ type lastDiskState struct {
 type Buffer struct {
 	Path string
 
-	// language 는 이 파일의 언어다. 이름에서 한 번 골라 들고 있는다 — 강조·들여쓰기·머리줄이
-	// 이것의 세 칸에서 온다(syntax/detect.go).
+	// language 는 이 파일의 언어다. 이름에서 한 번 골라 들고 있는다
+	// 강조·들여쓰기·머리줄의 동작 방식을 정한다.(syntax/detect.go).
 	//
 	// **경로와 나뉜 것이 요점이다.** path 는 「어디에 쓰는가」이고 이것은 「어떤 문법인가」라,
 	// 한 필드가 둘을 겸하면 캐시가 무엇 때문에 무효가 되는지 갈리지 않는다 (ADR-0080).
@@ -121,8 +121,16 @@ type Buffer struct {
 	// nil 은 모르는 언어다. 세 칸을 꺼내는 것이 nil 인 채로도 되므로 검사를 앞세우지 않는다.
 	Language *syntax.Language
 
+	Dirty bool // 마지막 저장 이후 변경사항의 여부.
+
+	// readOnly 는 이 파일을 고칠 수 없다는 것이다. 열 때 권한을 보고 정하고 그 뒤로 바뀌지 않는다.
+	//
+	// 정의로 뛰어서 열리는 표준 라이브러리·의존 모듈의 파일이 이것이다 — module cache 는
+	// `r--r--r--` 이다(ADR-0051). 고치는 동작이 첫 줄에서 이것을 본다(readonly.go).
+	ReadOnly bool
+
 	data  []byte
-	Lines [][]byte
+	lines [][]byte
 
 	lineEnding      lineEnding
 	finalLineEnding bool //파일 마지막 줄이 줄끝 문자로 끝났는지
@@ -148,15 +156,7 @@ type Buffer struct {
 	redo    []edit
 	editing bool
 
-	Dirty bool //마지막 저장 이후 변경사항의 여부.
-
-	// readOnly 는 이 파일을 고칠 수 없다는 것이다. 열 때 권한을 보고 정하고 그 뒤로 바뀌지 않는다.
-	//
-	// 정의로 뛰어서 열리는 표준 라이브러리·의존 모듈의 파일이 이것이다 — module cache 는
-	// `r--r--r--` 이다(ADR-0051). 고치는 동작이 첫 줄에서 이것을 본다(readonly.go).
-	ReadOnly bool
-
-	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 lastDiskState 에 무엇이 왜 드는지 있다.
+	// disk 는 디스크와 마지막으로 맞춰 본 것이다. 아래 diskSeen 에 무엇이 왜 드는지 있다.
 	disk lastDiskState
 
 	// diagnostics 는 gopls 가 이 파일에 대해 보낸 진단이다. 줄번호로 모아 둔다(diagnostics.go).
@@ -217,7 +217,7 @@ func NewEmptyBuffer(path string) Viewport {
 		Path:            path,
 		Language:        syntax.LanguageFor(path),
 		tab:             resolveTabWidth(path),
-		Lines:           [][]byte{{}},
+		lines:           [][]byte{{}},
 		finalLineEnding: true, // 새 파일은 줄끝으로 끝낸다
 	}}
 }
@@ -254,7 +254,7 @@ func NewBuffer(path string, data []byte) Viewport {
 		ReadOnly:   DetectReadOnly(path),
 	}
 
-	buf.Lines, buf.finalLineEnding = SplitLines(data)
+	buf.lines, buf.finalLineEnding = SplitLines(data)
 
 	return Viewport{Buffer: buf}
 }
@@ -329,6 +329,36 @@ var (
 // `disk`·`git`·`syntax` 는 이 파일의 상태를 담아 둔 것이라 밖에서 속을 헤집을 것이 아니다.
 // 그런데 바깥 검사·git 갱신·언어 서버가 그 값을 알아야 해서, 필드를 여는 대신 물음마다 문을
 // 하나씩 낸다. 창을 새 패키지로 낼 때 열 면이 그만큼 좁아진다 (ADR-0127).
+
+// Line 은 그 줄의 내용이다. 범위 밖이면 빈 줄이다.
+//
+// **돌려주는 것을 고치지 말 것.** 이 저장소는 줄의 byte 를 제자리에서 고치는 자리가 하나도
+// 없다 — 편집은 언제나 새 []byte 를 지어 ReplaceLines 로 갈아끼운다. 제자리 수정은 되돌리기
+// 기록을 덮어서 돌릴 수 없게 만든다(buffer-edit.go).
+func (buf Buffer) Line(n int) []byte {
+	if n < 0 || n >= len(buf.lines) {
+		return nil
+	}
+
+	return buf.lines[n]
+}
+
+// LineCount 는 줄 수다. 빈 파일도 빈 줄 하나라 0 이 되지 않는다.
+func (buf Buffer) LineCount() int { return len(buf.lines) }
+
+// AllLines 는 글 전체다. 파일을 통째로 훑는 쪽이 쓴다 — 언어 서버에 보내는 자리와
+// 표 맞추기다.
+//
+// **겉 slice 는 사본이다.** 받은 쪽이 `lines[3] = ...` 로 창의 줄을 바꿔치기할 수 없다.
+// 안쪽 []byte 는 같은 것을 가리키므로 Line 과 같은 규칙이 걸린다 — 고치지 말 것.
+//
+// 한 줄만 필요하면 Line 을 쓴다. 이것은 부를 때마다 겉 slice 를 새로 만든다.
+func (buf Buffer) AllLines() [][]byte {
+	out := make([][]byte, len(buf.lines))
+	copy(out, buf.lines)
+
+	return out
+}
 
 // diskSeenAt 은 마지막으로 읽거나 쓴 그 파일의 자국이다. 바깥 변경 검사가 기준으로 쓴다.
 func (buf Buffer) DiskSeenAt() (hash []byte, size int64, mtime time.Time) {

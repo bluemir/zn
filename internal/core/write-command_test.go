@@ -165,7 +165,7 @@ func TestWriteCopyAllowsFileOpenInAnotherTab(t *testing.T) {
 
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Contains(t, barOf(t, m)[1], "사본을 씀")
-	assert.Equal(t, "b.txt", string(m.(viewEditorNormal).buffers[1].Lines[0]),
+	assert.Equal(t, "b.txt", string(m.(viewEditorNormal).buffers[1].Line(0)),
 		"그 tab 의 buffer 는 그대로다. 다시 읽는 것은 `:e` 다")
 }
 
@@ -284,7 +284,7 @@ func TestWriteCopyDoesNotFormat(t *testing.T) {
 	copyPath := filepath.Join(filepath.Dir(path), "copy.txt")
 	runCommand(m, "w "+copyPath)
 
-	assert.Equal(t, "가나다   ", string(e.activeBuffer().Lines[0]), "보고 있는 파일은 그대로다")
+	assert.Equal(t, "가나다   ", string(e.activeBuffer().Line(0)), "보고 있는 파일은 그대로다")
 
 	saved, err := os.ReadFile(copyPath)
 	require.NoError(t, err)

@@ -130,14 +130,14 @@ func TestHalfPageIsNotAMotion(t *testing.T) {
 	model := send(tea.Model(m), "d", "ctrl+d")
 
 	buf := bufferOf(t, model)
-	assert.Equal(t, len(m.activeBuffer().Lines), len(buf.Lines), "줄이 그대로다")
+	assert.Equal(t, m.activeBuffer().LineCount(), buf.LineCount(), "줄이 그대로다")
 	assert.Equal(t, 0, buf.Cursor.Line, "커서도 움직이지 않는다")
 }
 
 // 세는 것은 논리 줄이 아니라 화면 행이다. wrap 된 긴 줄은 그 안에서 여러 행을 지난다.
 func TestHalfPageCountsScreenRows(t *testing.T) {
 	m := newTestEditor("first\n"+strings.Repeat("x", 200)+"\nthird\nfourth\nfifth\nsixth\n", 80, 10)
-	require.Equal(t, 3, len(wrapOffsets(m.activeBuffer().Lines[1], m.contentWidth(), defaultTabWidth)), "긴 줄이 세 행이다")
+	require.Equal(t, 3, len(wrapOffsets(m.activeBuffer().Line(1), m.contentWidth(), defaultTabWidth)), "긴 줄이 세 행이다")
 
 	model := send(tea.Model(m), "ctrl+d")
 

@@ -73,10 +73,10 @@ func (e *editor) startRename(newName string) tea.Cmd {
 		return e.startServer(server)
 	}
 
-	lines := buf.Lines
+	lines := buf.AllLines()
 	position := lsp.Position{
 		Line:      buf.Cursor.Line,
-		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
+		Character: lsp.UTF16Column(buf.Line(buf.Cursor.Line), buf.Cursor.Col),
 	}
 
 	e.notify("이름을 바꾸는 중입니다")
@@ -165,7 +165,7 @@ func (e *editor) applyRenameTo(file lsp.FileEdits) (int, error) {
 	if index, ok := e.tabOf(file.Path); ok {
 		buf := &e.buffers[index]
 
-		next, done := applyEdits(buf.Lines, file.Edits)
+		next, done := applyEdits(buf.AllLines(), file.Edits)
 		if done == 0 {
 			return 0, nil
 		}
@@ -190,12 +190,12 @@ func (e *editor) applyRenameTo(file lsp.FileEdits) (int, error) {
 		return 0, errors.New("읽기 전용입니다")
 	}
 
-	next, done := applyEdits(buf.Lines, file.Edits)
+	next, done := applyEdits(buf.AllLines(), file.Edits)
 	if done == 0 {
 		return 0, nil
 	}
 
-	buf.Lines = next
+	buf.ReplaceAll(next)
 
 	return done, buf.Write()
 }

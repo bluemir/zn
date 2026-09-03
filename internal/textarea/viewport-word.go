@@ -38,7 +38,7 @@ func (viewport *Viewport) WordForward(kind WordKind) {
 
 	// 공백을 건너뛴다. 빈 줄은 그 자체로 단어라 거기서 멈춘다.
 	for viewport.ClassAt(at, kind) == ClassBlank {
-		if at.Col == 0 && len(viewport.Lines[at.Line]) == 0 && at.Line != viewport.Cursor.Line {
+		if at.Col == 0 && len(viewport.lines[at.Line]) == 0 && at.Line != viewport.Cursor.Line {
 			break
 		}
 
@@ -71,7 +71,7 @@ func (viewport *Viewport) wordBackward(kind WordKind) {
 	}
 
 	// 공백을 거꾸로 건너뛴다. 빈 줄은 그 자체로 단어다.
-	for viewport.ClassAt(at, kind) == ClassBlank && len(viewport.Lines[at.Line]) > 0 {
+	for viewport.ClassAt(at, kind) == ClassBlank && len(viewport.lines[at.Line]) > 0 {
 		prev, ok := viewport.prevPos(at)
 		if !ok {
 			break
@@ -79,7 +79,7 @@ func (viewport *Viewport) wordBackward(kind WordKind) {
 
 		at = prev
 	}
-	if len(viewport.Lines[at.Line]) == 0 {
+	if len(viewport.lines[at.Line]) == 0 {
 		viewport.Cursor = scheme.Cursor{Line: at.Line}
 
 		return

@@ -108,7 +108,7 @@ func TestNormalHangulDropsKeysAfterModeChange(t *testing.T) {
 	m = send(m, "마")
 
 	require.IsType(t, viewEditorInsert{}, m, "a 에서 insert mode 로 들어간다")
-	assert.Equal(t, "one", string(bufferOf(t, m).Lines[0]), "남은 k 는 버려진다")
+	assert.Equal(t, "one", string(bufferOf(t, m).Line(0)), "남은 k 는 버려진다")
 }
 
 // insert mode 는 한글을 글자로 받아야 한다. 여기서 자모를 키로 바꾸면 한글을 쓸 수 없다.
@@ -118,7 +118,7 @@ func TestInsertKeepsHangulAsText(t *testing.T) {
 	m = send(m, "i", "ㅁ", "화")
 
 	require.IsType(t, viewEditorInsert{}, m)
-	assert.Equal(t, "ㅁ화", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "ㅁ화", string(bufferOf(t, m).Line(0)))
 }
 
 // sidebar 도 같은 방식이다. `ㅓ` 가 `j` 로 트리를 내려간다.

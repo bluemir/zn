@@ -95,10 +95,10 @@ func (e *editor) startReferences() tea.Cmd {
 		return e.startServer(server)
 	}
 
-	lines := buf.Lines
+	lines := buf.AllLines()
 	position := lsp.Position{
 		Line:      buf.Cursor.Line,
-		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
+		Character: lsp.UTF16Column(buf.Line(buf.Cursor.Line), buf.Cursor.Col),
 	}
 
 	e.notify("사용처를 찾는 중입니다")

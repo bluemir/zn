@@ -35,21 +35,21 @@ func (buf Buffer) Find(pattern *regexp.Regexp, direction SearchDirection, from s
 // 줄을 한 바퀴 돌되 시작 줄은 두 번 본다. 처음에는 커서 뒤쪽만, 감싼 뒤에는 커서 앞쪽만이다.
 // 그래야 시작 줄 안에서 커서보다 앞에 있는 매칭도 빠지지 않는다.
 func (buf Buffer) findForward(pattern *regexp.Regexp, from scheme.Cursor) (SearchResult, bool) {
-	for i := 0; i <= len(buf.Lines); i++ {
-		line := (from.Line + i) % len(buf.Lines)
+	for i := 0; i <= len(buf.lines); i++ {
+		line := (from.Line + i) % len(buf.lines)
 
-		for _, match := range pattern.FindAllIndex(buf.Lines[line], -1) {
+		for _, match := range pattern.FindAllIndex(buf.lines[line], -1) {
 			// 커서 자리의 매칭에 다시 걸리면 `n` 이 제자리걸음을 한다.
 			if i == 0 && match[0] <= from.Col {
 				continue
 			}
-			if i == len(buf.Lines) && match[0] > from.Col {
+			if i == len(buf.lines) && match[0] > from.Col {
 				continue
 			}
 
 			return SearchResult{
 				Cursor:  scheme.Cursor{Line: line, Col: match[0]},
-				Wrapped: from.Line+i >= len(buf.Lines),
+				Wrapped: from.Line+i >= len(buf.lines),
 			}, true
 		}
 	}
@@ -59,18 +59,18 @@ func (buf Buffer) findForward(pattern *regexp.Regexp, from scheme.Cursor) (Searc
 
 // findBackward 는 커서 앞자리부터 위로 찾는다. 한 줄 안에서는 뒤에 있는 매칭이 먼저다.
 func (buf Buffer) findBackward(pattern *regexp.Regexp, from scheme.Cursor) (SearchResult, bool) {
-	for i := 0; i <= len(buf.Lines); i++ {
+	for i := 0; i <= len(buf.lines); i++ {
 		// i 는 줄 수까지만 커지므로 한 번 더해주면 음수가 나오지 않는다.
-		line := (from.Line - i + len(buf.Lines)) % len(buf.Lines)
+		line := (from.Line - i + len(buf.lines)) % len(buf.lines)
 
-		matches := pattern.FindAllIndex(buf.Lines[line], -1)
+		matches := pattern.FindAllIndex(buf.lines[line], -1)
 		for j := len(matches) - 1; j >= 0; j-- {
 			match := matches[j]
 
 			if i == 0 && match[0] >= from.Col {
 				continue
 			}
-			if i == len(buf.Lines) && match[0] < from.Col {
+			if i == len(buf.lines) && match[0] < from.Col {
 				continue
 			}
 

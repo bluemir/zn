@@ -17,7 +17,7 @@ import (
 // insert 를 **한 번**만 부른다. 그것이 여러 줄을 이미 한 되돌리기 구간으로 다루므로(edit.go)
 // Enter 와 들여쓰기가 `u` 한 번에 같이 사라지고, 커서도 들여쓰기 다음 칸에 알아서 선다.
 func (viewport *Viewport) InsertNewLine() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	indent := viewport.indentForNewLine(viewport.Cursor.Line, line[:viewport.Cursor.Col])
 
 	viewport.Insert(concat([]byte{'\n'}, indent))
@@ -42,7 +42,7 @@ func (viewport *Viewport) ReindentClosing(typed []byte) {
 		return
 	}
 
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	indent := leadingBlank(line)
 	if viewport.Cursor.Col < len(indent) || viewport.Cursor.Col > len(line) {
 		return
@@ -80,7 +80,7 @@ func (viewport *Viewport) ReindentClosing(typed []byte) {
 //
 // markdown 의 목록 줄에서는 커서 자리가 아니라 줄 전체가 한 단계 들어간다(syntax.Indent).
 func (viewport *Viewport) InsertIndent() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 
 	// 규칙이 문맥을 따라오므로 담아둔 것이 있어야 한다. 글자마다가 아니라 `tab` 을 칠 때만
 	// 지나는 자리라 채워도 된다 — reindentClosing 이 못 하는 것이 이것이다.
@@ -108,14 +108,14 @@ func (viewport *Viewport) InsertIndent() {
 // insert mode 에서 내어쓰는 유일한 길이다. 이것이 없으면 `esc` 로 나가 `<<` 를 치고 다시
 // 들어와야 한다.
 func (viewport *Viewport) OutdentLine() {
-	before := len(leadingBlank(viewport.Lines[viewport.Cursor.Line]))
+	before := len(leadingBlank(viewport.lines[viewport.Cursor.Line]))
 	col := viewport.Cursor.Col
 
 	viewport.ShiftLines(viewport.Cursor.Line, viewport.Cursor.Line, IndentLeft)
 
 	// shiftLines 는 커서를 들여쓰기 다음에 세운다. insert 에서는 치던 자리를 지켜야 하므로
 	// 줄어든 만큼 왼쪽으로 옮긴다. 들여쓰기 안에 있었으면 그 끝에 선다.
-	after := len(leadingBlank(viewport.Lines[viewport.Cursor.Line]))
+	after := len(leadingBlank(viewport.lines[viewport.Cursor.Line]))
 
 	viewport.Cursor.Col = max(col+after-before, after)
 	viewport.UpdateDesiredCol()
@@ -127,7 +127,7 @@ func (viewport *Viewport) OutdentLine() {
 // space 로 들여쓴 파일에서 tab 한 번이 넣은 것을 backspace 네 번으로 지우는 어긋남을 없앤다.
 // 커서 앞에 글자가 하나라도 있으면 걸리지 않는다 — 글 가운데 공백은 들여쓰기가 아니다.
 func (viewport *Viewport) DeleteIndentBackward() bool {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	if viewport.Cursor.Col < 1 || viewport.Cursor.Col > len(leadingBlank(line)) {
 		return false
 	}
@@ -172,7 +172,7 @@ func (viewport *Viewport) ShiftLines(from, to int, direction IndentDirection) {
 	}
 
 	next := make([][]byte, 0, to-from+1)
-	for _, line := range viewport.Lines[from : to+1] {
+	for _, line := range viewport.lines[from : to+1] {
 		indent := leadingBlank(line)
 		if len(indent) == len(line) {
 			next = append(next, line)
@@ -209,14 +209,14 @@ func (viewport *Viewport) ReindentLines(from, to int) {
 	var prevIndent []byte
 
 	if from > 0 {
-		prevLine = viewport.Lines[from-1]
+		prevLine = viewport.lines[from-1]
 		prevTokens = viewport.SyntaxTokens(from - 1)
 		prevIndent = leadingBlank(prevLine)
 	}
 
 	next := make([][]byte, 0, to-from+1)
 	for i := from; i <= to; i++ {
-		line := viewport.Lines[i]
+		line := viewport.lines[i]
 		body := line[len(leadingBlank(line)):]
 
 		// 빈 줄은 비운 채로 둔다. 들여쓰기를 붙이면 줄 끝 공백이 된다.
@@ -268,7 +268,7 @@ func (viewport *Viewport) ReindentLines(from, to int) {
 func (viewport *Viewport) replaceIndented(from, to int, next [][]byte) {
 	same := true
 	for i, line := range next {
-		if !bytes.Equal(line, viewport.Lines[from+i]) {
+		if !bytes.Equal(line, viewport.lines[from+i]) {
 			same = false
 			break
 		}
@@ -286,6 +286,6 @@ func (viewport *Viewport) replaceIndented(from, to int, next [][]byte) {
 	viewport.EndEdit()
 
 	viewport.Cursor.Line = from
-	viewport.Cursor.Col = len(leadingBlank(viewport.Lines[from]))
+	viewport.Cursor.Col = len(leadingBlank(viewport.lines[from]))
 	viewport.UpdateDesiredCol()
 }

@@ -154,12 +154,12 @@ func (m viewEditorSubstitute) press(key string) (tea.Model, tea.Cmd) {
 func (m viewEditorSubstitute) stale() bool {
 	buf := m.activeBuffer()
 
-	if m.area.End.Line >= len(buf.Lines) {
+	if m.area.End.Line >= buf.LineCount() {
 		return true
 	}
 
 	// 물어보는 자리는 늘 있다. seek 이 못 찾으면 그 자리에서 판이 끝난다.
-	return m.matches[m.at][1]+m.delta > len(buf.Lines[m.line])
+	return m.matches[m.at][1]+m.delta > len(buf.Line(m.line))
 }
 
 // seek 은 지금 자리부터 다음 물어볼 매칭을 찾는다. 범위 끝까지 없으면 false 다.
@@ -180,7 +180,7 @@ func (m *viewEditorSubstitute) seek() bool {
 			continue
 		}
 
-		m.origin = buf.Lines[m.line]
+		m.origin = buf.Line(m.line)
 		m.matches = m.sub.matchesIn(m.origin, span[0], span[1])
 		m.at, m.delta = 0, 0
 	}

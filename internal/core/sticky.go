@@ -19,7 +19,7 @@ package core
 // 검색 매칭과 고른 범위는 칠하지 않는다. 이 줄은 화면 밖에 있는 줄이고, 본문에 같이 보이지도
 // 않는 자리에서만 강조하면 어느 쪽이 지금 자리인지 흐려진다.
 func (e editor) renderStickyRow(buf *viewport, line int) string {
-	text := buf.Lines[line]
+	text := buf.Line(line)
 	width, tab := e.contentWidth(), buf.TabWidth()
 
 	end := len(text)

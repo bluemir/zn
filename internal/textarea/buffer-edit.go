@@ -65,13 +65,13 @@ func trimLineEnd(line []byte) []byte {
 // 반드시 새 slice 를 만들어 담는다. buf.lines 를 제자리에서 append 하면 옛 줄을 가리키던
 // undo 기록이 덮여서 되돌릴 수 없게 된다.
 func (buf *Buffer) ReplaceLines(at, count int, with [][]byte) [][]byte {
-	old := buf.Lines[at : at+count]
+	old := buf.lines[at : at+count]
 
-	next := make([][]byte, 0, len(buf.Lines)-count+len(with))
-	next = append(next, buf.Lines[:at]...)
+	next := make([][]byte, 0, len(buf.lines)-count+len(with))
+	next = append(next, buf.lines[:at]...)
 	next = append(next, with...)
-	next = append(next, buf.Lines[at+count:]...)
-	buf.Lines = next
+	next = append(next, buf.lines[at+count:]...)
+	buf.lines = next
 
 	// 문법 캐시도 같은 자리를 같은 수로 갈아끼운다. 줄과 index 가 나란해야 아래쪽에 담아둔
 	// 것을 그대로 쓸 수 있다(syntax.go).

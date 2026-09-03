@@ -66,7 +66,7 @@ func (viewport Viewport) AtWordEnd(kind WordKind) bool {
 // 아니라 있던 줄을 비우는 것이라 원래 들여쓰기가 그 줄의 것이다.
 func (viewport *Viewport) changeLines(from, to int) TextBlock {
 	count := to - from + 1
-	indent := leadingBlank(viewport.Lines[from])
+	indent := leadingBlank(viewport.lines[from])
 
 	viewport.EndEdit()
 	viewport.BeginEdit(from, count)

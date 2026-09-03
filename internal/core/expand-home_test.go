@@ -82,7 +82,7 @@ func TestTabnewExpandsHome(t *testing.T) {
 	require.IsType(t, viewEditorNormal{}, m)
 	assert.Len(t, m.(viewEditorNormal).buffers, 2, "새 tab 이 하나 늘어난다")
 	assert.Equal(t, filepath.Join(home, "b.txt"), bufferOf(t, m).Path)
-	assert.Equal(t, "bbb", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "bbb", string(bufferOf(t, m).Line(0)))
 
 	// 열려 있던 tab 은 그대로다.
 	assert.Equal(t, filepath.Join(dir, "a.txt"), m.(viewEditorNormal).buffers[0].Path)

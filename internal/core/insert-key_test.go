@@ -17,7 +17,7 @@ func TestTypingThroughKeys(t *testing.T) {
 
 	m = send(m, "i", "X", "Y")
 
-	assert.Equal(t, "XYabc", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "XYabc", string(bufferOf(t, m).Line(0)))
 	assert.Equal(t, 2, cursorColOf(t, m))
 }
 
@@ -26,7 +26,7 @@ func TestNormalModeDoesNotType(t *testing.T) {
 
 	m = send(m, "X")
 
-	assert.Equal(t, "abc", string(bufferOf(t, m).Lines[0]), "normal 에서는 글자가 안 들어간다")
+	assert.Equal(t, "abc", string(bufferOf(t, m).Line(0)), "normal 에서는 글자가 안 들어간다")
 }
 
 func TestEnterKeySplitsLine(t *testing.T) {
@@ -42,7 +42,7 @@ func TestBackspaceKey(t *testing.T) {
 
 	m = send(m, "a", "backspace")
 
-	assert.Equal(t, "bc", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "bc", string(bufferOf(t, m).Line(0)))
 }
 
 // tab 키는 tab 글자가 아니라 이 파일의 한 단계를 넣는다(indent.go).
@@ -52,7 +52,7 @@ func TestTabKeyInsertsOneIndentUnit(t *testing.T) {
 
 	m = send(m, "i", "tab")
 
-	assert.Equal(t, "\tab", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "\tab", string(bufferOf(t, m).Line(0)))
 }
 
 // modifier 조합은 Text 가 비어 있어서 글자로 들어가지 않는다.
@@ -62,7 +62,7 @@ func TestCtrlKeyDoesNotType(t *testing.T) {
 
 	next, _ := insert.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
 
-	assert.Equal(t, "abc", string(bufferOf(t, next).Lines[0]))
+	assert.Equal(t, "abc", string(bufferOf(t, next).Line(0)))
 }
 
 func TestPasteInsertsMultipleLines(t *testing.T) {
@@ -80,13 +80,13 @@ func TestUndoRedoThroughKeys(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 5)
 
 	m = send(m, "i", "X", "Y", "esc")
-	require.Equal(t, "XYabc", string(bufferOf(t, m).Lines[0]))
+	require.Equal(t, "XYabc", string(bufferOf(t, m).Line(0)))
 
 	m = send(m, "u")
-	assert.Equal(t, "abc", string(bufferOf(t, m).Lines[0]), "타이핑 구간 전체가 한 번에")
+	assert.Equal(t, "abc", string(bufferOf(t, m).Line(0)), "타이핑 구간 전체가 한 번에")
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
-	assert.Equal(t, "XYabc", string(bufferOf(t, updated).Lines[0]))
+	assert.Equal(t, "XYabc", string(bufferOf(t, updated).Line(0)))
 }
 
 // insert mode 에서 화살표로 움직이면 undo 구간이 끊긴다.
@@ -94,13 +94,13 @@ func TestArrowInInsertBreaksUndoRun(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 5)
 
 	m = send(m, "i", "X", "right", "Y", "esc")
-	require.Equal(t, "XaYbc", string(bufferOf(t, m).Lines[0]))
+	require.Equal(t, "XaYbc", string(bufferOf(t, m).Line(0)))
 
 	m = send(m, "u")
-	assert.Equal(t, "Xabc", string(bufferOf(t, m).Lines[0]), "한 번에 하나씩")
+	assert.Equal(t, "Xabc", string(bufferOf(t, m).Line(0)), "한 번에 하나씩")
 
 	m = send(m, "u")
-	assert.Equal(t, "abc", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "abc", string(bufferOf(t, m).Line(0)))
 }
 
 // undo 뒤 커서가 줄 끝을 넘지 않아야 한다. normal 커서는 글자 위에 있다.
@@ -110,6 +110,6 @@ func TestUndoClampsCursorInNormalMode(t *testing.T) {
 	m = send(m, "right", "a", "X", "Y", "esc", "u")
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, "ab", string(buf.Lines[0]))
-	assert.Less(t, buf.Cursor.Col, len(buf.Lines[0])+1)
+	assert.Equal(t, "ab", string(buf.Line(0)))
+	assert.Less(t, buf.Cursor.Col, len(buf.Line(0))+1)
 }

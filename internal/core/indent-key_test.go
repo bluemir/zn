@@ -152,10 +152,10 @@ func TestTabWidthFollowsEditorconfig(t *testing.T) {
 
 	require.Equal(t, 8, buf.TabWidth())
 
-	assert.Equal(t, 8, screenColAt(buf.Lines[0], 1, buf.TabWidth()), "tab 하나가 8 칸이다")
-	assert.Equal(t, []int{0, 1}, wrapOffsets(buf.Lines[0], 6, buf.TabWidth()),
+	assert.Equal(t, 8, screenColAt(buf.Line(0), 1, buf.TabWidth()), "tab 하나가 8 칸이다")
+	assert.Equal(t, []int{0, 1}, wrapOffsets(buf.Line(0), 6, buf.TabWidth()),
 		"8 칸짜리 tab 은 너비 6 을 넘어 그 뒤가 다음 행으로 간다")
 
-	_, col := expandRow(buf.Lines[0], 0, len(buf.Lines[0]), 0, markWhitespace(buf.Lines[0]), buf.TabWidth())
+	_, col := expandRow(buf.Line(0), 0, len(buf.Line(0)), 0, markWhitespace(buf.Line(0)), buf.TabWidth())
 	assert.Equal(t, 10, col, "그린 뒤의 칸도 8 + `ab` 다")
 }

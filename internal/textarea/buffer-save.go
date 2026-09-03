@@ -94,12 +94,12 @@ func (buf Buffer) Contents() []byte {
 	eol := buf.lineEnding.bytes()
 
 	size := 0
-	for _, line := range buf.Lines {
+	for _, line := range buf.lines {
 		size += len(line) + len(eol)
 	}
 
 	out := make([]byte, 0, size)
-	for i, line := range buf.Lines {
+	for i, line := range buf.lines {
 		if i > 0 {
 			out = append(out, eol...)
 		}

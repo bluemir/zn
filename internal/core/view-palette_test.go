@@ -305,7 +305,7 @@ func TestPaletteReloadsFile(t *testing.T) {
 	var next tea.Model = send(m, "enter")
 
 	require.IsType(t, viewEditorNormal{}, next)
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, next).Lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, next).Line(0)))
 	assert.Contains(t, barOf(t, next)[1], "다시 읽음")
 }
 
@@ -324,11 +324,11 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 	// No 로 취소하면 편집이 그대로 남고 팔레트가 아니라 normal 로 돌아간다.
 	cancelled := send(confirm, "n", "enter")
 	require.IsType(t, viewEditorNormal{}, cancelled)
-	assert.Equal(t, "Xabc", string(bufferOf(t, cancelled).Lines[0]))
+	assert.Equal(t, "Xabc", string(bufferOf(t, cancelled).Line(0)))
 
 	reloaded := send(confirm, "y", "enter")
 	require.IsType(t, viewEditorNormal{}, reloaded)
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, reloaded).Lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, reloaded).Line(0)))
 }
 
 // 이름 없는 buffer 는 읽을 곳이 없다. 변경이 있어도 묻지 않고 알리고 만다 —

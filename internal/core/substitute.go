@@ -266,12 +266,12 @@ func substituteIn(buf *textarea.Viewport, sub substitution, area scheme.MotionRa
 	for at := from; at <= to; at++ {
 		span, _, ok := buf.SelectionOn(area, at)
 		if !ok {
-			next = append(next, buf.Lines[at])
+			next = append(next, buf.Line(at))
 
 			continue
 		}
 
-		line, found := sub.applyRange(buf.Lines[at], span[0], span[1])
+		line, found := sub.applyRange(buf.Line(at), span[0], span[1])
 		next = append(next, line)
 
 		if found > 0 {

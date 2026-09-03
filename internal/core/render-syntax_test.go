@@ -290,7 +290,7 @@ func TestSyntaxKeepsColorBelowEdit(t *testing.T) {
 	contentRowsOf(t, m)
 
 	buf := m.activeBuffer()
-	buf.LexSyntaxTo(len(buf.Lines) - 1)
+	buf.LexSyntaxTo(buf.LineCount() - 1)
 
 	buf.ReplaceLines(1, 1, [][]byte{[]byte("var y int = 2")})
 	rows := contentRowsOf(t, m)

@@ -210,7 +210,7 @@ func (a lineAddress) resolve(buf viewport) (int, error) {
 		// 사람이 치는 줄 번호는 1 부터고 buffer 는 0 부터다.
 		base = a.line - 1
 	case addressLast:
-		base = len(buf.Lines) - 1
+		base = buf.LineCount() - 1
 	case addressSelectStart, addressSelectEnd:
 		// 고른 범위는 Buffer 가 든다(ADR-0037). 그래서 서명이 그대로다.
 		area, ok := buf.SelectionRange()
@@ -225,7 +225,7 @@ func (a lineAddress) resolve(buf viewport) (int, error) {
 	}
 
 	line := base + a.offset
-	if line < 0 || line >= len(buf.Lines) {
+	if line < 0 || line >= buf.LineCount() {
 		return 0, errors.Newf("그런 줄이 없습니다: %d", line+1)
 	}
 

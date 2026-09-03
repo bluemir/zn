@@ -15,8 +15,8 @@ import (
 // **Cursor 로 받는다.** `int` 둘로 두면 서명만 보고 그것이 (줄, 칸) 인지 (x, y) 인지 알 수
 // 없다. 화면 자리로 옮기는 것은 MoveToCell 이 아니라 PositionAt 을 지나야 한다.
 func (viewport *Viewport) MoveTo(at scheme.Cursor) {
-	viewport.Cursor.Line = min(max(at.Line, 0), len(viewport.Lines)-1)
-	viewport.Cursor.Col = min(max(at.Col, 0), len(viewport.Lines[viewport.Cursor.Line]))
+	viewport.Cursor.Line = min(max(at.Line, 0), len(viewport.lines)-1)
+	viewport.Cursor.Col = min(max(at.Col, 0), len(viewport.lines[viewport.Cursor.Line]))
 	viewport.UpdateDesiredCol()
 }
 
@@ -25,7 +25,7 @@ func (viewport *Viewport) MoveTo(at scheme.Cursor) {
 // 커서가 단어 위가 아니면 그 줄에서 오른쪽으로 첫 단어를 찾는다. 줄에 단어가 없으면 false 다.
 // vim 과 같다 — 들여쓰기 위에서 눌러도 그 줄의 첫 낱말을 찾아준다.
 func (viewport Viewport) WordUnderCursor() (string, int, bool) {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 
 	col := viewport.Cursor.Col
 	for col < len(line) && !isWordClass(glyphClass(line, col)) {

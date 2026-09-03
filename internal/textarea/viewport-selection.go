@@ -32,7 +32,7 @@ func (viewport Viewport) SelectionRange() (scheme.MotionRange, bool) {
 	}
 
 	// 줄 끝에서는 밀 글자가 없다. 빈 줄을 고른 것이라 범위가 비어 있는 그대로다.
-	if line := viewport.Lines[end.Line]; end.Col < len(line) {
+	if line := viewport.lines[end.Line]; end.Col < len(line) {
 		end.Col += GlyphSize(line, end.Col)
 	}
 

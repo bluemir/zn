@@ -339,7 +339,7 @@ func TestNewTabOpensEmptyBuffer(t *testing.T) {
 	assert.Equal(t, " 1 a.txt │ 2 [No Name]", tablineOf(t, m.(viewEditorNormal).View()))
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, [][]byte{{}}, buf.Lines, "빈 줄 하나로 시작한다")
+	assert.Equal(t, [][]byte{{}}, buf.AllLines(), "빈 줄 하나로 시작한다")
 	assert.False(t, buf.Dirty, "만들기만 한 것은 변경이 아니다")
 }
 
@@ -774,7 +774,7 @@ func TestQuitAllCancelKeepsAllBuffers(t *testing.T) {
 	v := m.(viewEditorNormal)
 	require.Len(t, v.buffers, 2)
 	assert.True(t, v.buffers[0].Dirty)
-	assert.Equal(t, "Xa", string(v.buffers[0].Lines[0]))
+	assert.Equal(t, "Xa", string(v.buffers[0].Line(0)))
 }
 
 func TestCloseTabAfterWriteQuit(t *testing.T) {

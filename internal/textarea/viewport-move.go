@@ -40,7 +40,7 @@ func (viewport Viewport) prevOffset(offset int) int {
 		return 0
 	}
 
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	offsets := WrapOffsets(line, viewport.ContentWidth(), viewport.TabWidth())
 	row := rowIndexAt(offsets, offset)
 
@@ -60,7 +60,7 @@ func (viewport Viewport) prevOffset(offset int) int {
 //
 // desiredX 는 건드리지 않는다. 짧은 줄을 지나가도 원래 칸으로 돌아와야 한다.
 func (viewport *Viewport) ClampToNormal() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	if len(line) == 0 || viewport.Cursor.Col < len(line) {
 		return
 	}
@@ -89,7 +89,7 @@ func (viewport *Viewport) MoveLeft(n int) {
 }
 
 func (viewport *Viewport) MoveRight(n int) {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	if viewport.Cursor.Col >= len(line) {
 		return
 	}
@@ -108,7 +108,7 @@ func (viewport *Viewport) MoveRight(n int) {
 // updateDesiredCol 은 좌우로 움직인 뒤 유지할 화면 칸을 갱신한다.
 // 화면 행 안에서의 칸이라 wrap 된 줄에서도 위아래 이동이 보이는 대로 움직인다.
 func (viewport *Viewport) UpdateDesiredCol() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	offsets := WrapOffsets(line, viewport.ContentWidth(), viewport.TabWidth())
 	start, _ := rowRange(line, offsets, rowIndexAt(offsets, viewport.Cursor.Col))
 
@@ -138,7 +138,7 @@ func (viewport *Viewport) MoveDownRow(n int) {
 }
 
 func (viewport *Viewport) moveUpRowOnce() {
-	offsets := WrapOffsets(viewport.Lines[viewport.Cursor.Line], viewport.ContentWidth(), viewport.TabWidth())
+	offsets := WrapOffsets(viewport.lines[viewport.Cursor.Line], viewport.ContentWidth(), viewport.TabWidth())
 
 	if row := rowIndexAt(offsets, viewport.Cursor.Col); row > 0 {
 		viewport.placeCursorInRow(ViewTop{Line: viewport.Cursor.Line, Row: row - 1}, offsets)
@@ -149,23 +149,23 @@ func (viewport *Viewport) moveUpRowOnce() {
 	}
 
 	prev := viewport.Cursor.Line - 1
-	prevOffsets := WrapOffsets(viewport.Lines[prev], viewport.ContentWidth(), viewport.TabWidth())
+	prevOffsets := WrapOffsets(viewport.lines[prev], viewport.ContentWidth(), viewport.TabWidth())
 	viewport.placeCursorInRow(ViewTop{Line: prev, Row: len(prevOffsets) - 1}, prevOffsets)
 }
 
 func (viewport *Viewport) moveDownRowOnce() {
-	offsets := WrapOffsets(viewport.Lines[viewport.Cursor.Line], viewport.ContentWidth(), viewport.TabWidth())
+	offsets := WrapOffsets(viewport.lines[viewport.Cursor.Line], viewport.ContentWidth(), viewport.TabWidth())
 
 	if row := rowIndexAt(offsets, viewport.Cursor.Col); row+1 < len(offsets) {
 		viewport.placeCursorInRow(ViewTop{Line: viewport.Cursor.Line, Row: row + 1}, offsets)
 		return
 	}
-	if viewport.Cursor.Line+1 >= len(viewport.Lines) {
+	if viewport.Cursor.Line+1 >= len(viewport.lines) {
 		return
 	}
 
 	next := viewport.Cursor.Line + 1
-	viewport.placeCursorInRow(ViewTop{Line: next}, WrapOffsets(viewport.Lines[next], viewport.ContentWidth(), viewport.TabWidth()))
+	viewport.placeCursorInRow(ViewTop{Line: next}, WrapOffsets(viewport.lines[next], viewport.ContentWidth(), viewport.TabWidth()))
 }
 
 // moveLineStart, moveLineFirstNonBlank 는 줄 안에서 왼쪽으로 간다. vim 의 0, ^ 다.
@@ -177,7 +177,7 @@ func (viewport *Viewport) MoveLineStart() {
 // moveLineFirstNonBlank 는 들여쓰기를 건너뛴 첫 글자로 간다.
 // 공백뿐인 줄은 줄 끝이 되고, clampToNormal 이 마지막 글자 위로 끌어온다. vim 과 같다.
 func (viewport *Viewport) MoveLineFirstNonBlank() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 
 	col := 0
 	for col < len(line) && (line[col] == ' ' || line[col] == '\t') {
@@ -191,8 +191,8 @@ func (viewport *Viewport) MoveLineFirstNonBlank() {
 // moveLineEnd 는 줄 끝으로 간다. vim 의 $ 다.
 // count 는 되풀이가 아니라 줄 수다 — `3$` 는 두 줄 아래의 줄 끝이다.
 func (viewport *Viewport) MoveLineEnd(n int) {
-	viewport.Cursor.Line = min(viewport.Cursor.Line+n-1, len(viewport.Lines)-1)
-	viewport.Cursor.Col = len(viewport.Lines[viewport.Cursor.Line])
+	viewport.Cursor.Line = min(viewport.Cursor.Line+n-1, len(viewport.lines)-1)
+	viewport.Cursor.Col = len(viewport.lines[viewport.Cursor.Line])
 	viewport.UpdateDesiredCol()
 }
 
@@ -206,15 +206,15 @@ func (viewport *Viewport) MoveLineEnd(n int) {
 // 첫 칸이라, 줄 끝에서 `$` 가 서는 자리(줄 길이) 와 결이 같다 — normal 에서는
 // clampToNormal 이 마지막 글자 위로 끌어온다.
 func (viewport *Viewport) MoveRowStart() {
-	offsets := WrapOffsets(viewport.Lines[viewport.Cursor.Line], viewport.ContentWidth(), viewport.TabWidth())
-	start, _ := rowRange(viewport.Lines[viewport.Cursor.Line], offsets, rowIndexAt(offsets, viewport.Cursor.Col))
+	offsets := WrapOffsets(viewport.lines[viewport.Cursor.Line], viewport.ContentWidth(), viewport.TabWidth())
+	start, _ := rowRange(viewport.lines[viewport.Cursor.Line], offsets, rowIndexAt(offsets, viewport.Cursor.Col))
 
 	viewport.Cursor.Col = start
 	viewport.UpdateDesiredCol()
 }
 
 func (viewport *Viewport) MoveRowEnd() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	offsets := WrapOffsets(line, viewport.ContentWidth(), viewport.TabWidth())
 	_, end := rowRange(line, offsets, rowIndexAt(offsets, viewport.Cursor.Col))
 
@@ -224,7 +224,7 @@ func (viewport *Viewport) MoveRowEnd() {
 
 // moveToLine 은 그 줄의 첫 글자로 간다. vim 의 gg, G 다. 범위를 넘으면 양끝으로 맞춘다.
 func (viewport *Viewport) MoveToLine(line int) {
-	viewport.Cursor.Line = min(max(line, 0), len(viewport.Lines)-1)
+	viewport.Cursor.Line = min(max(line, 0), len(viewport.lines)-1)
 	viewport.MoveLineFirstNonBlank()
 }
 
@@ -238,7 +238,7 @@ func (viewport *Viewport) MoveUpLine(n int) {
 }
 
 func (viewport *Viewport) MoveDownLine(n int) {
-	viewport.placeCursorInLine(min(viewport.Cursor.Line+n, len(viewport.Lines)-1))
+	viewport.placeCursorInLine(min(viewport.Cursor.Line+n, len(viewport.lines)-1))
 }
 
 // placeCursorInLine 은 커서를 그 줄의 desiredX 칸에 놓는다.
@@ -261,13 +261,13 @@ func (viewport *Viewport) MoveDownLine(n int) {
 // 쓰는 자리」와 「새로 정하는 자리」의 가름이 흐려진다(ADR-0108 §3).
 func (viewport *Viewport) placeCursorInLine(line int) {
 	viewport.Cursor.Line = line
-	viewport.Cursor.Col = OffsetAtScreenCol(viewport.Lines[line], viewport.desiredX, viewport.TabWidth())
+	viewport.Cursor.Col = OffsetAtScreenCol(viewport.lines[line], viewport.desiredX, viewport.TabWidth())
 }
 
 // placeCursorInRow 는 커서를 at 화면 행의 desiredX 칸으로 옮긴다.
 // offsets 는 at.Line 의 wrap 자리다. 부르는 쪽이 이미 재 두었으므로 다시 재지 않는다.
 func (viewport *Viewport) placeCursorInRow(at ViewTop, offsets []int) {
-	start, end := rowRange(viewport.Lines[at.Line], offsets, at.Row)
+	start, end := rowRange(viewport.lines[at.Line], offsets, at.Row)
 
 	// 행 끝 칸을 넘어가면 다음 행의 시작 offset 이 되어 한 행을 더 내려간 것처럼 보인다.
 	width := viewport.ContentWidth()
@@ -278,5 +278,5 @@ func (viewport *Viewport) placeCursorInRow(at ViewTop, offsets []int) {
 	}
 
 	viewport.Cursor.Line = at.Line
-	viewport.Cursor.Col = start + OffsetAtScreenCol(viewport.Lines[at.Line][start:end], col, viewport.TabWidth())
+	viewport.Cursor.Col = start + OffsetAtScreenCol(viewport.lines[at.Line][start:end], col, viewport.TabWidth())
 }

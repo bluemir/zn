@@ -297,7 +297,7 @@ func TestIndentNeverCutsAMultibyteCharacter(t *testing.T) {
 
 			buf := bufferOf(t, m)
 			assert.Equal(t, test.want, linesOf(buf))
-			for _, line := range buf.Lines {
+			for _, line := range buf.AllLines() {
 				assert.True(t, utf8.Valid(line), "%q 가 깨졌다", line)
 			}
 		})

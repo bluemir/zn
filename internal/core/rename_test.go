@@ -79,7 +79,7 @@ func TestRenameAppliesToOpenTab(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, done)
 
-	assert.Equal(t, "var Hello = 1", string(m.editor.buffers[0].Lines[2]), "buffer 가 바뀐다")
+	assert.Equal(t, "var Hello = 1", string(m.editor.buffers[0].Line(2)), "buffer 가 바뀐다")
 	assert.False(t, m.editor.buffers[0].Dirty, "저장까지 한다")
 
 	saved, err := os.ReadFile(path)

@@ -68,7 +68,7 @@ func TestSaveHookUndoesInOneStep(t *testing.T) {
 	buf := NewBuffer("a.go", []byte("첫 줄\n둘째\n셋째\n"))
 
 	buf.applySaveHook(pipe(func(in string) string { return strings.ReplaceAll(in, "줄", "칸") }))
-	require.NotEqual(t, "첫 줄", string(buf.Lines[0]))
+	require.NotEqual(t, "첫 줄", string(buf.lines[0]))
 
 	require.True(t, buf.ApplyUndo())
 	assert.Equal(t, "첫 줄\n둘째\n셋째", strings.Join(linesOf(buf), "\n"))
@@ -82,10 +82,10 @@ func TestSaveHookUndoDoesNotSwallowTyping(t *testing.T) {
 	buf.applySaveHook(pipe(strings.ToUpper))
 
 	require.True(t, buf.ApplyUndo(), "포매터가 한 것부터 돌아온다")
-	assert.Equal(t, "XYabc", string(buf.Lines[0]))
+	assert.Equal(t, "XYabc", string(buf.lines[0]))
 
 	require.True(t, buf.ApplyUndo(), "그 앞의 타이핑은 따로 남아 있다")
-	assert.Equal(t, "abc", string(buf.Lines[0]))
+	assert.Equal(t, "abc", string(buf.lines[0]))
 }
 
 // 파일이 짧아져도 커서는 범위 안에 남는다.
@@ -100,7 +100,7 @@ func TestSaveHookKeepsCursorInRange(t *testing.T) {
 	}))
 
 	assert.Equal(t, 0, buf.Cursor.Line)
-	assert.LessOrEqual(t, buf.Cursor.Col, len(buf.Lines[0]))
+	assert.LessOrEqual(t, buf.Cursor.Col, len(buf.lines[0]))
 }
 
 // 실패하면 buffer 를 건드리지 않는다. 저장은 그대로 가고 까닭만 아래 줄에 뜬다.
@@ -110,7 +110,7 @@ func TestSaveHookFailureKeepsBuffer(t *testing.T) {
 	note := buf.applySaveHook(failing("<standard input>:1:1: expected declaration"))
 
 	assert.Equal(t, "시험: <standard input>:1:1: expected declaration", note)
-	assert.Equal(t, "고치다 만 글", string(buf.Lines[0]))
+	assert.Equal(t, "고치다 만 글", string(buf.lines[0]))
 	assert.False(t, buf.Dirty)
 }
 
@@ -120,7 +120,7 @@ func TestSaveHookSkipsReadOnly(t *testing.T) {
 	buf.ReadOnly = true
 
 	assert.Empty(t, buf.applySaveHook(pipe(strings.ToUpper)))
-	assert.Equal(t, "abc", string(buf.Lines[0]))
+	assert.Equal(t, "abc", string(buf.lines[0]))
 }
 
 // 마지막 줄바꿈은 포매터가 정하지 않는다. 그것은 `.editorconfig` 의 몫이다(ADR-0052).
@@ -130,6 +130,6 @@ func TestSaveHookKeepsFinalNewlineFact(t *testing.T) {
 
 	buf.applySaveHook(pipe(strings.ToUpper))
 
-	assert.Equal(t, "ABC", string(buf.Lines[0]))
+	assert.Equal(t, "ABC", string(buf.lines[0]))
 	assert.False(t, buf.finalLineEnding, "포매터가 붙인 줄바꿈이 사실을 뒤집지 않는다")
 }

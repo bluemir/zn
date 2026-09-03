@@ -226,7 +226,7 @@ func (e *editor) replaceFile(full string, at []int, sub substitution) (changed, 
 			return 0, 0, errors.New("읽기 전용입니다")
 		}
 
-		next, changed, missed := replaceLinesIn(buf.Lines, at, sub)
+		next, changed, missed := replaceLinesIn(buf.AllLines(), at, sub)
 		if changed == 0 {
 			return 0, missed, nil
 		}
@@ -249,12 +249,12 @@ func (e *editor) replaceFile(full string, at []int, sub substitution) (changed, 
 		return 0, 0, errors.New("읽기 전용입니다")
 	}
 
-	next, changed, missed := replaceLinesIn(buf.Lines, at, sub)
+	next, changed, missed := replaceLinesIn(buf.AllLines(), at, sub)
 	if changed == 0 {
 		return 0, missed, nil
 	}
 
-	buf.Lines = next
+	buf.ReplaceAll(next)
 
 	return changed, missed, buf.Write()
 }

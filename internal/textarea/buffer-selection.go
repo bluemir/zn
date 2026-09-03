@@ -16,7 +16,7 @@ func (buf Buffer) SelectionOn(area scheme.MotionRange, line int) (span []int, to
 		return nil, false, false
 	}
 
-	end := len(buf.Lines[line])
+	end := len(buf.lines[line])
 
 	if area.Linewise {
 		return []int{0, end}, true, true

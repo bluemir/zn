@@ -21,7 +21,7 @@ func (viewport *Viewport) DeleteRange(area scheme.MotionRange) (TextBlock, bool)
 
 // includeCursorCluster 는 커서가 선 글자까지 범위에 넣는다. inclusive motion 이 쓴다.
 func (viewport *Viewport) IncludeCursorCluster() {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	if viewport.Cursor.Col >= len(line) {
 		return
 	}
@@ -45,7 +45,7 @@ func (viewport *Viewport) deleteText(start, end scheme.Cursor) (TextBlock, bool)
 	count := end.Line - start.Line + 1
 	removed := viewport.textBetween(start, end)
 
-	head, tail := viewport.Lines[start.Line][:start.Col], viewport.Lines[end.Line][end.Col:]
+	head, tail := viewport.lines[start.Line][:start.Col], viewport.lines[end.Line][end.Col:]
 	joined := make([]byte, 0, len(head)+len(tail))
 	joined = append(joined, head...)
 	joined = append(joined, tail...)
@@ -73,7 +73,7 @@ func (viewport *Viewport) deleteLines(from, to int) TextBlock {
 	count := to - from + 1
 
 	with := [][]byte(nil)
-	if count == len(viewport.Lines) {
+	if count == len(viewport.lines) {
 		with = [][]byte{{}}
 	}
 
@@ -85,7 +85,7 @@ func (viewport *Viewport) deleteLines(from, to int) TextBlock {
 
 	// 지운 자리를 메운 줄로 간다. 마지막 줄을 지웠으면 그 앞 줄이다.
 	// 칸은 첫 비공백이다 — 지운 줄의 칸을 지키는 것보다 들여쓴 코드에서 손이 덜 간다. vim 과 같다.
-	viewport.Cursor.Line = min(from, len(viewport.Lines)-1)
+	viewport.Cursor.Line = min(from, len(viewport.lines)-1)
 	viewport.MoveLineFirstNonBlank()
 	viewport.ClampToNormal()
 

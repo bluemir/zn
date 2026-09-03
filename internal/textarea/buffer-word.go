@@ -16,11 +16,11 @@ import (
 // **`W` 가 부류를 접는 자리가 여기다.** `glyphClass` 는 네 부류를 그대로 주고, 그것을
 // 둘로 접는 것은 그 키의 규칙이라 이 겹이 한다 (ADR-0117).
 func (buf Buffer) ClassAt(at scheme.Cursor, kind WordKind) charClass {
-	if at.Col >= len(buf.Lines[at.Line]) {
+	if at.Col >= len(buf.lines[at.Line]) {
 		return ClassBlank
 	}
 
-	class := glyphClass(buf.Lines[at.Line], at.Col)
+	class := glyphClass(buf.lines[at.Line], at.Col)
 	if kind == WordBig && class != ClassBlank {
 		// 큰 단어는 공백으로만 끊으므로 공백이 아닌 것은 전부 한 부류다.
 		return classWord
@@ -37,10 +37,10 @@ func (buf Buffer) ClassAt(at scheme.Cursor, kind WordKind) charClass {
 // **자리를 Cursor 하나로 주고받는다.** 이름 없는 `int` 둘을 돌려주던 때는 부르는 쪽이
 // 줄과 칸을 거꾸로 받아도 컴파일이 되었다(ADR-0122). 걷는 쪽도 짝을 손으로 굴리지 않는다.
 func (buf Buffer) nextPos(at scheme.Cursor) (scheme.Cursor, bool) {
-	if at.Col < len(buf.Lines[at.Line]) {
-		return scheme.Cursor{Line: at.Line, Col: at.Col + GlyphSize(buf.Lines[at.Line], at.Col)}, true
+	if at.Col < len(buf.lines[at.Line]) {
+		return scheme.Cursor{Line: at.Line, Col: at.Col + GlyphSize(buf.lines[at.Line], at.Col)}, true
 	}
-	if at.Line+1 >= len(buf.Lines) {
+	if at.Line+1 >= len(buf.lines) {
 		return at, false
 	}
 
@@ -50,13 +50,13 @@ func (buf Buffer) nextPos(at scheme.Cursor) (scheme.Cursor, bool) {
 func (buf Buffer) prevPos(at scheme.Cursor) (scheme.Cursor, bool) {
 	if at.Col > 0 {
 		// grapheme cluster 는 뒤에서 앞으로 읽을 수 없어서 줄 시작에서부터 훑는다.
-		return scheme.Cursor{Line: at.Line, Col: PrevGlyphStart(buf.Lines[at.Line], 0, at.Col)}, true
+		return scheme.Cursor{Line: at.Line, Col: PrevGlyphStart(buf.lines[at.Line], 0, at.Col)}, true
 	}
 	if at.Line == 0 {
 		return at, false
 	}
 
-	return scheme.Cursor{Line: at.Line - 1, Col: len(buf.Lines[at.Line-1])}, true
+	return scheme.Cursor{Line: at.Line - 1, Col: len(buf.lines[at.Line-1])}, true
 }
 
 // AroundWord 는 `aw` 가 단어에 더 먹는 공백까지 넓힌 범위다.
@@ -66,7 +66,7 @@ func (buf Buffer) prevPos(at scheme.Cursor) (scheme.Cursor, bool) {
 //
 // 넓히는 것이라 받는 것도 내놓는 것도 범위다. 단어는 줄 안의 것이라 양끝의 줄이 같다.
 func (buf Buffer) AroundWord(area scheme.MotionRange, kind WordKind) scheme.MotionRange {
-	text := buf.Lines[area.Start.Line]
+	text := buf.lines[area.Start.Line]
 
 	after := area.End.Col
 	for after < len(text) && buf.ClassAt(scheme.Cursor{Line: area.End.Line, Col: after}, kind) == ClassBlank {

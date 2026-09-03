@@ -425,7 +425,7 @@ func TestWatchStartsCheckForOpenFile(t *testing.T) {
 
 	settled := settle(t, next, cmd)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, settled).Lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, settled).Line(0)))
 }
 
 // 열려 있지 않은 파일이 바뀐 것은 gopls 만 듣는다. 읽을 buffer 가 없다.

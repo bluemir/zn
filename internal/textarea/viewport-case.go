@@ -37,7 +37,7 @@ func (viewport *Viewport) ChangeCaseRange(area scheme.MotionRange, kind CaseKind
 	same := true
 
 	for i := area.Start.Line; i <= area.End.Line; i++ {
-		line := viewport.Lines[i]
+		line := viewport.lines[i]
 
 		start, end := 0, len(line)
 		if !area.Linewise {

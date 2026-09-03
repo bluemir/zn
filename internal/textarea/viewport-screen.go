@@ -31,7 +31,7 @@ func (viewport *Viewport) ScrollTo(height int) {
 	// 커서가 선 화면 행이다. 여기서부터 위아래로 세므로 ViewTop 으로 든다.
 	cursor := ViewTop{
 		Line: viewport.Cursor.Line,
-		Row:  rowIndexAt(WrapOffsets(viewport.Lines[viewport.Cursor.Line], width, viewport.TabWidth()), viewport.Cursor.Col),
+		Row:  rowIndexAt(WrapOffsets(viewport.lines[viewport.Cursor.Line], width, viewport.TabWidth()), viewport.Cursor.Col),
 	}
 
 	// 커서에서 height-1 행 위로 올라간 지점이 top 의 하한이다.
@@ -74,8 +74,8 @@ func (viewport *Viewport) ScrollTo(height int) {
 // 폭이 바뀌는 경로가 여럿(터미널 리사이즈, tab 전환, sidebar 여닫기)이라
 // 부르는 쪽마다 챙기지 않고 scrollTo 안에서 한 번에 맞춘다.
 func (viewport *Viewport) clampTop() {
-	viewport.Top.Line = min(viewport.Top.Line, len(viewport.Lines)-1)
-	viewport.Top.Row = min(viewport.Top.Row, len(WrapOffsets(viewport.Lines[viewport.Top.Line], viewport.ContentWidth(), viewport.TabWidth()))-1)
+	viewport.Top.Line = min(viewport.Top.Line, len(viewport.lines)-1)
+	viewport.Top.Row = min(viewport.Top.Row, len(WrapOffsets(viewport.lines[viewport.Top.Line], viewport.ContentWidth(), viewport.TabWidth()))-1)
 }
 
 // scrollBy 는 화면을 n 행 굴린다. 위로 굴릴 때는 n 이 음수다.
@@ -118,7 +118,7 @@ func (viewport *Viewport) ScrollBy(n, height int) {
 	}
 
 	// 칸은 desiredX 를 살린다. j/k 로 그 행에 온 것과 같은 자리에 선다.
-	viewport.placeCursorInRow(at, WrapOffsets(viewport.Lines[at.Line], width, viewport.TabWidth()))
+	viewport.placeCursorInRow(at, WrapOffsets(viewport.lines[at.Line], width, viewport.TabWidth()))
 }
 
 // movePage 는 화면과 커서를 한 번에 **같이** 옮긴다. vim 의 `ctrl+d`·`ctrl+u`(반 화면) 와
@@ -149,14 +149,14 @@ func (viewport *Viewport) MovePage(direction PageDirection, span PageSpan, count
 	// 커질 수 있어서다. advanceRows·retreatRows 는 끝에서 곧바로 돌아온다.
 	cursor := ViewTop{
 		Line: viewport.Cursor.Line,
-		Row:  rowIndexAt(WrapOffsets(viewport.Lines[viewport.Cursor.Line], width, viewport.TabWidth()), viewport.Cursor.Col),
+		Row:  rowIndexAt(WrapOffsets(viewport.lines[viewport.Cursor.Line], width, viewport.TabWidth()), viewport.Cursor.Col),
 	}
 
 	if direction == PageUp {
 		viewport.Top = viewport.retreatRows(viewport.Top, rows, width)
 
 		at := viewport.retreatRows(cursor, rows, width)
-		viewport.placeCursorInRow(at, WrapOffsets(viewport.Lines[at.Line], width, viewport.TabWidth()))
+		viewport.placeCursorInRow(at, WrapOffsets(viewport.lines[at.Line], width, viewport.TabWidth()))
 
 		viewport.ScrollTo(height)
 
@@ -166,16 +166,16 @@ func (viewport *Viewport) MovePage(direction PageDirection, span PageSpan, count
 	viewport.Top = viewport.advanceRows(viewport.Top, rows, width)
 
 	at := viewport.advanceRows(cursor, rows, width)
-	viewport.placeCursorInRow(at, WrapOffsets(viewport.Lines[at.Line], width, viewport.TabWidth()))
+	viewport.placeCursorInRow(at, WrapOffsets(viewport.lines[at.Line], width, viewport.TabWidth()))
 
 	// 파일 끝을 지나서까지 굴리지 않는다. 마지막 행이 화면 맨 아래에 오는 자리가 끝이고
 	// 거기서부터는 커서만 내려간다 — vim 의 `ctrl+d`·`ctrl+f` 와 같다. 휠에는 이 한계가
 	// 없어서 마지막 줄을 화면 맨 위까지 올릴 수 있는데(vim 의 `ctrl+e`), 이동 키는 눌러도
 	// 아무것도 새로 보이지 않는 빈 행을 만들지 않는다.
-	lastLine := len(viewport.Lines) - 1
+	lastLine := len(viewport.lines) - 1
 	last := ViewTop{
 		Line: lastLine,
-		Row:  len(WrapOffsets(viewport.Lines[lastLine], width, viewport.TabWidth())) - 1,
+		Row:  len(WrapOffsets(viewport.lines[lastLine], width, viewport.TabWidth())) - 1,
 	}
 
 	limit := viewport.retreatRows(last, height-1, width)
@@ -195,14 +195,14 @@ func (viewport Viewport) VisibleRows(height int) []ScreenRow {
 	rows := make([]ScreenRow, 0, height)
 	at := viewport.Top
 
-	for len(rows) < height && at.Line < len(viewport.Lines) {
-		offsets := WrapOffsets(viewport.Lines[at.Line], viewport.ContentWidth(), viewport.TabWidth())
+	for len(rows) < height && at.Line < len(viewport.lines) {
+		offsets := WrapOffsets(viewport.lines[at.Line], viewport.ContentWidth(), viewport.TabWidth())
 		if at.Row >= len(offsets) {
 			at.Line, at.Row = at.Line+1, 0
 			continue
 		}
 
-		start, end := rowRange(viewport.Lines[at.Line], offsets, at.Row)
+		start, end := rowRange(viewport.lines[at.Line], offsets, at.Row)
 		rows = append(rows, ScreenRow{Line: at.Line, Start: start, End: end})
 		at.Row++
 	}
@@ -216,7 +216,7 @@ func (viewport Viewport) VisibleRows(height int) []ScreenRow {
 // 둘 다 정수 짝인데 단위가 다르고, 맨 `int` 로 두면 바꿔 넣어도 컴파일이 된다(ADR-0122).
 // PositionAt 이 이것의 반대 방향이다.
 func (viewport Viewport) CursorScreenPos(height int) (scheme.Cell, bool) {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 
 	for y, row := range viewport.VisibleRows(height) {
 		if row.Line != viewport.Cursor.Line || viewport.Cursor.Col < row.Start {
@@ -253,7 +253,7 @@ func (viewport Viewport) PositionAt(at scheme.Cell, height int) (scheme.Cursor, 
 
 	// 행 안에서 잘라서 센다. tab 이 다음 tab stop 까지 벌어지는 기준이 논리 줄이 아니라
 	// 화면 행의 시작이라(wrapOffsets 주석) 줄을 통째로 넘기면 tab 으로 들여쓴 줄에서 어긋난다.
-	col := row.Start + OffsetAtScreenCol(viewport.Lines[row.Line][row.Start:row.End], max(0, at.X), viewport.TabWidth())
+	col := row.Start + OffsetAtScreenCol(viewport.lines[row.Line][row.Start:row.End], max(0, at.X), viewport.TabWidth())
 
 	return scheme.Cursor{Line: row.Line, Col: col}, true
 }

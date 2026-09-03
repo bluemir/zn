@@ -41,7 +41,7 @@ func ReplacementText(key string) ([]byte, bool) {
 func (viewport *Viewport) ReplaceChar(text []byte, count int) bool {
 	n := max(count, 1)
 
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	end, ok := clusterEnd(line, viewport.Cursor.Col, n)
 	if !ok {
 		return false
@@ -71,7 +71,7 @@ func (viewport *Viewport) ReplaceChar(text []byte, count int) bool {
 //
 // 새 줄은 이 파일의 규칙이 정한 들여쓰기를 받는다. `o` 와 같다(indent.go).
 func (viewport *Viewport) ReplaceWithNewline(count int) bool {
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 
 	end, ok := clusterEnd(line, viewport.Cursor.Col, max(count, 1))
 	if !ok {

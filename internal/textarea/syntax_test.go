@@ -87,7 +87,7 @@ func TestSyntaxCacheFillsToWhereItWasDriven(t *testing.T) {
 	buf.LexSyntaxTo(4)
 
 	assert.Equal(t, 5, buf.syntax.valid, "다섯 줄까지만 훑는다")
-	assert.Len(t, buf.syntax.Lines, len(buf.Lines), "캐시가 줄과 나란하다")
+	assert.Len(t, buf.syntax.Lines, len(buf.lines), "캐시가 줄과 나란하다")
 }
 
 // **이 시험이 조기 중단의 증거다.**
@@ -98,13 +98,13 @@ func TestSyntaxCacheStopsAtConvergence(t *testing.T) {
 	buf := NewBuffer("main.go", []byte(goSource(100)))
 	setContentWidth(&buf, 40, 5)
 
-	buf.LexSyntaxTo(len(buf.Lines) - 1)
+	buf.LexSyntaxTo(len(buf.lines) - 1)
 	require.Equal(t, 100, buf.syntax.valid, "전체를 훑으면 파일 끝까지 찬다")
 
 	// 여러 줄에 걸치는 것을 열지 않는 편집이다. 한 글자만 넣는다.
 	buf.MoveTo(scheme.Cursor{Line: 1, Col: 1})
 	buf.Insert([]byte(" "))
-	require.Equal(t, "v ar x int = 1", string(buf.Lines[1]), "편집이 실제로 일어났다")
+	require.Equal(t, "v ar x int = 1", string(buf.lines[1]), "편집이 실제로 일어났다")
 
 	buf.LexSyntaxTo(4)
 
@@ -117,7 +117,7 @@ func TestSyntaxCacheKeepsGoingWhenContextChanges(t *testing.T) {
 	buf := NewBuffer("main.go", []byte(goSource(100)))
 	setContentWidth(&buf, 40, 5)
 
-	buf.LexSyntaxTo(len(buf.Lines) - 1)
+	buf.LexSyntaxTo(len(buf.lines) - 1)
 	require.Equal(t, 100, buf.syntax.valid)
 
 	// 첫 줄에 여는 블록 주석을 넣는다. 그 아래 전부가 주석이 된다.
@@ -178,10 +178,10 @@ func TestSyntaxCacheSurvivesEveryEdit(t *testing.T) {
 			buf.LexSyntaxTo(4)
 
 			test.edit(&buf)
-			buf.LexSyntaxTo(min(4, len(buf.Lines)-1))
+			buf.LexSyntaxTo(min(4, len(buf.lines)-1))
 
-			assert.Len(t, buf.syntax.Lines, len(buf.Lines), "캐시가 줄과 어긋났습니다")
-			assert.LessOrEqual(t, buf.syntax.valid, len(buf.Lines))
+			assert.Len(t, buf.syntax.Lines, len(buf.lines), "캐시가 줄과 어긋났습니다")
+			assert.LessOrEqual(t, buf.syntax.valid, len(buf.lines))
 		})
 	}
 }
@@ -195,7 +195,7 @@ func TestSyntaxCacheRebuildsWhenMisaligned(t *testing.T) {
 	buf.syntax.Lines = buf.syntax.Lines[:3]
 
 	assert.NotPanics(t, func() { buf.LexSyntaxTo(4) })
-	assert.Len(t, buf.syntax.Lines, len(buf.Lines), "통째로 다시 지었다")
+	assert.Len(t, buf.syntax.Lines, len(buf.lines), "통째로 다시 지었다")
 	assert.NotEmpty(t, buf.SyntaxTokens(0), "색이 다시 붙었다")
 }
 
@@ -209,7 +209,7 @@ func TestSyntaxCacheConvergesInsideFence(t *testing.T) {
 	buf := NewBuffer("doc.md", []byte(mdSource(100)))
 	setContentWidth(&buf, 40, 5)
 
-	assert.NotPanics(t, func() { buf.LexSyntaxTo(len(buf.Lines) - 1) },
+	assert.NotPanics(t, func() { buf.LexSyntaxTo(len(buf.lines) - 1) },
 		"위임된 문맥을 `==` 로 견줄 수 없습니다")
 	require.Equal(t, 100, buf.syntax.valid, "전체를 훑으면 파일 끝까지 찬다")
 

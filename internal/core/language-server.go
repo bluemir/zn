@@ -226,7 +226,7 @@ func (e *editor) syncServers() tea.Cmd {
 			continue
 		}
 
-		open[server.Name] = append(open[server.Name], snapshot{path: path, lines: e.buffers[i].Lines})
+		open[server.Name] = append(open[server.Name], snapshot{path: path, lines: e.buffers[i].AllLines()})
 	}
 
 	cmds := []tea.Cmd{}
@@ -426,10 +426,10 @@ func (e *editor) startDefinition() tea.Cmd {
 		return e.startServer(server)
 	}
 
-	lines := buf.Lines
+	lines := buf.AllLines()
 	position := lsp.Position{
 		Line:      buf.Cursor.Line,
-		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
+		Character: lsp.UTF16Column(buf.Line(buf.Cursor.Line), buf.Cursor.Col),
 	}
 
 	e.notify("정의를 찾는 중입니다")
@@ -506,8 +506,8 @@ func (e *editor) moveToLocation(target lsp.Location) {
 
 	line := target.Range.Start.Line
 	column := 0
-	if line >= 0 && line < len(buf.Lines) {
-		column = lsp.ByteColumn(buf.Lines[line], target.Range.Start.Character)
+	if line >= 0 && line < buf.LineCount() {
+		column = lsp.ByteColumn(buf.Line(line), target.Range.Start.Character)
 	}
 
 	buf.MoveTo(scheme.Cursor{Line: line, Col: column})

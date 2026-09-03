@@ -22,7 +22,7 @@ func (viewport *Viewport) PasteAfter(block TextBlock, count int) {
 	}
 
 	// 커서가 선 글자 뒤다. 빈 줄이나 줄 끝이면 그 자리가 곧 줄 끝이다.
-	line := viewport.Lines[viewport.Cursor.Line]
+	line := viewport.lines[viewport.Cursor.Line]
 	col := viewport.Cursor.Col
 	if col < len(line) {
 		col += GlyphSize(line, col)

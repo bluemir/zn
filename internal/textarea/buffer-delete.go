@@ -16,11 +16,11 @@ func (buf Buffer) textBetween(from, to scheme.Cursor) [][]byte {
 
 	text := make([][]byte, 0, count)
 	if count == 1 {
-		return append(text, buf.Lines[from.Line][from.Col:to.Col])
+		return append(text, buf.lines[from.Line][from.Col:to.Col])
 	}
 
-	text = append(text, buf.Lines[from.Line][from.Col:])
-	text = append(text, buf.Lines[from.Line+1:to.Line]...)
+	text = append(text, buf.lines[from.Line][from.Col:])
+	text = append(text, buf.lines[from.Line+1:to.Line]...)
 
-	return append(text, buf.Lines[to.Line][:to.Col])
+	return append(text, buf.lines[to.Line][:to.Col])
 }

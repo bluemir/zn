@@ -62,9 +62,9 @@ func (e *editor) startSemanticTokens() tea.Cmd {
 	}
 
 	from := max(0, rows[0].Line-semanticMargin)
-	to := min(len(buf.Lines), rows[len(rows)-1].Line+1+semanticMargin)
+	to := min(buf.LineCount(), rows[len(rows)-1].Line+1+semanticMargin)
 	revision := buf.SyntaxRevision()
-	lines := buf.Lines
+	lines := buf.AllLines()
 
 	return func() tea.Msg {
 		// 서버가 아직 이 파일을 모르면 묻지 않는다. 여는 것은 맞추는 자리의 몫이고
@@ -113,7 +113,7 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 
 		tokens := make([]semanticToken, 0, len(msg.tokens))
 		for _, token := range msg.tokens {
-			if token.Line < 0 || token.Line >= len(buf.Lines) {
+			if token.Line < 0 || token.Line >= buf.LineCount() {
 				continue
 			}
 
@@ -125,7 +125,7 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 			}
 
 			// 서버의 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go).
-			line := buf.Lines[token.Line]
+			line := buf.Line(token.Line)
 			start := lsp.ByteColumn(line, token.Start)
 			end := lsp.ByteColumn(line, token.Start+token.Length)
 

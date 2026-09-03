@@ -18,7 +18,7 @@ import "github.com/bluemir/zn/internal/scheme"
 // 부르는 쪽이 그 차례로 한다(action.go, ADR-0100).
 func (buf Buffer) YankRange(area scheme.MotionRange) (TextBlock, bool) {
 	if area.Linewise {
-		return TextBlock{Lines: append([][]byte(nil), buf.Lines[area.Start.Line:area.End.Line+1]...), Linewise: true}, true
+		return TextBlock{Lines: append([][]byte(nil), buf.lines[area.Start.Line:area.End.Line+1]...), Linewise: true}, true
 	}
 
 	if area.Start.Line == area.End.Line && area.Start.Col == area.End.Col {
@@ -33,5 +33,5 @@ func (buf Buffer) YankRange(area scheme.MotionRange) (TextBlock, bool) {
 // 커서를 움직이지 않는다. motion 쪽은 이동이 잡은 범위라 커서가 따라가야 하지만(`yb` 는
 // 앞으로 간다) 여기는 손으로 친 줄 번호라 따라갈 이동이 없다. 파일도 건드리지 않는다.
 func (buf Buffer) yankLines(from, to int) TextBlock {
-	return TextBlock{Lines: append([][]byte(nil), buf.Lines[from:to+1]...), Linewise: true}
+	return TextBlock{Lines: append([][]byte(nil), buf.lines[from:to+1]...), Linewise: true}
 }

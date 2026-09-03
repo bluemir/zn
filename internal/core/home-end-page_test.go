@@ -69,7 +69,7 @@ func TestNormalDeleteDoesNothing(t *testing.T) {
 
 	after := bufferOf(t, send(m, "delete"))
 
-	assert.Equal(t, "abc", string(after.Lines[0]))
+	assert.Equal(t, "abc", string(after.Line(0)))
 	assert.False(t, after.Dirty)
 }
 
@@ -77,7 +77,7 @@ func TestNormalDeleteDoesNothing(t *testing.T) {
 func TestInsertDeleteRemovesCharAtCursor(t *testing.T) {
 	m := send(newTestEditor("abc\n", wide, 8), "i", "delete")
 
-	assert.Equal(t, "bc", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "bc", string(bufferOf(t, m).Line(0)))
 }
 
 // insert 의 `home`·`end` 도 화면 행의 양끝이고, 커서를 옮기므로 undo 구간이 끊긴다.

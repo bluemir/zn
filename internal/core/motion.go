@@ -161,8 +161,8 @@ func (m motionWordForward) span(buf viewport, count int) (scheme.MotionRange, bo
 	line := moved.Cursor.Line
 
 	// 빈 줄에서는 그 줄 자체가 지울 것이라 다음 줄 시작까지 간다. 파일 끝이면 갈 곳이 없다.
-	if len(moved.Lines[line]) == 0 {
-		if line+1 < len(moved.Lines) {
+	if len(moved.Line(line)) == 0 {
+		if line+1 < moved.LineCount() {
 			moved.MoveTo(scheme.Cursor{Line: line + 1})
 		}
 
@@ -172,7 +172,7 @@ func (m motionWordForward) span(buf viewport, count int) (scheme.MotionRange, bo
 	// 마지막 한 걸음만 줄에서 멈춘다. 넘었으면 줄끝으로 되돌린다.
 	moved.WordForward(m.kind)
 	if moved.Cursor.Line != line {
-		moved.MoveTo(scheme.Cursor{Line: line, Col: len(moved.Lines[line])})
+		moved.MoveTo(scheme.Cursor{Line: line, Col: len(moved.Line(line))})
 	}
 
 	return charSpan(buf, moved)
@@ -188,7 +188,7 @@ func (motionLineDown) move(buf *viewport, count int) { buf.MoveDownLine(max(coun
 func (m motionLineDown) span(buf viewport, count int) (scheme.MotionRange, bool) {
 	// 이미 마지막 줄이면 갈 곳이 없어서 아무 일도 하지 않는다.
 	// 줄이 모자라기만 한 것은 파일 끝까지다. vim 과 같다.
-	if buf.Cursor.Line == len(buf.Lines)-1 {
+	if buf.Cursor.Line == buf.LineCount()-1 {
 		return scheme.MotionRange{}, false
 	}
 
@@ -214,7 +214,7 @@ func (m motionLineUp) span(buf viewport, count int) (scheme.MotionRange, bool) {
 type motionToLastLine struct{}
 
 func (motionToLastLine) move(buf *viewport, count int) {
-	line := len(buf.Lines) - 1
+	line := buf.LineCount() - 1
 	if count > 0 {
 		line = count - 1
 	}
@@ -299,7 +299,7 @@ func (m motionChangeWord) span(buf viewport, count int) (scheme.MotionRange, boo
 	// 빈 줄에서는 바꿀 것이 없다. `dw` 는 그 줄을 지우고 다음 줄을 끌어올리지만(ADR-0013),
 	// 빈 줄에 글을 쓰려고 `cw` 를 친 손에는 다음 줄이 딸려 올라오는 것이 사고다.
 	// vim 도 여기서는 줄을 합치지 않는다 — exclusive 보정 규칙이 이 자리를 줄 단위로 돌린다.
-	if len(buf.Lines[buf.Cursor.Line]) == 0 {
+	if len(buf.Line(buf.Cursor.Line)) == 0 {
 		return scheme.MotionRange{Start: scheme.Cursor{Line: buf.Cursor.Line}, End: scheme.Cursor{Line: buf.Cursor.Line}}, true
 	}
 
@@ -329,7 +329,7 @@ func (m motionChangeWord) span(buf viewport, count int) (scheme.MotionRange, boo
 type motionWholeLines struct{}
 
 func (motionWholeLines) span(buf viewport, count int) (scheme.MotionRange, bool) {
-	end := min(buf.Cursor.Line+max(count, 1)-1, len(buf.Lines)-1)
+	end := min(buf.Cursor.Line+max(count, 1)-1, buf.LineCount()-1)
 
 	// 칸은 커서 그대로다. `yy` 가 커서를 옮기지 않는 것이 이 값으로 표현된다 — 범위의 시작이
 	// 곧 지금 자리라 「뒤로 갔나」가 거짓이 된다(buffer-yank.go 의 moveToRangeStart).
@@ -349,7 +349,7 @@ type motionWordObject struct {
 
 func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, bool) {
 	line := buf.Cursor.Line
-	text := buf.Lines[line]
+	text := buf.Line(line)
 
 	// **공백 위에서는 잡지 않는다.** vim 은 공백 덩어리를 잡는데, 같은 키가 커서 한 칸에 따라
 	// 「단어를 바꾼다」와 「공백을 지운다」로 갈리면 눌러 보고 아는 키가 된다(ADR-0091 §2).

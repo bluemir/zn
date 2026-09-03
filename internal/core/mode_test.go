@@ -569,7 +569,7 @@ func TestInsertModeTypesModeKeys(t *testing.T) {
 	m = send(m, "i", "i", "a")
 
 	assert.IsType(t, viewEditorInsert{}, m)
-	assert.Equal(t, "iaabc", string(bufferOf(t, m).Lines[0]))
+	assert.Equal(t, "iaabc", string(bufferOf(t, m).Line(0)))
 	assert.Equal(t, 2, cursorColOf(t, m))
 }
 

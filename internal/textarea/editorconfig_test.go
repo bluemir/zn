@@ -195,7 +195,7 @@ func TestSaveRefusedDoesNotFormat(t *testing.T) {
 	require.Error(t, err)
 	assert.Empty(t, note)
 
-	assert.Equal(t, "X첫 줄   ", string(buf.Lines[0]), "줄이 다듬어지지 않았다")
+	assert.Equal(t, "X첫 줄   ", string(buf.lines[0]), "줄이 다듬어지지 않았다")
 	assert.True(t, buf.Dirty)
 }
 
@@ -241,11 +241,11 @@ func TestSaveTrimIsUndoable(t *testing.T) {
 
 	_, err = buf.Save(nil)
 	require.NoError(t, err)
-	require.Equal(t, "가나다", string(buf.Lines[0]))
+	require.Equal(t, "가나다", string(buf.lines[0]))
 
 	buf.ApplyUndo()
 
-	assert.Equal(t, "가나다   ", string(buf.Lines[0]))
+	assert.Equal(t, "가나다   ", string(buf.lines[0]))
 }
 
 func TestLineEndingNamed(t *testing.T) {
@@ -288,5 +288,5 @@ func TestReadOnlyFileIsNotFormatted(t *testing.T) {
 	// 쓰기 자체는 권한 때문에 실패한다. 그 전에 줄이 다듬어지지 않았는지가 요점이다.
 	require.Error(t, err)
 	assert.Empty(t, note)
-	assert.Equal(t, "가나다   ", string(buf.Lines[0]))
+	assert.Equal(t, "가나다   ", string(buf.lines[0]))
 }

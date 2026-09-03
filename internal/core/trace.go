@@ -123,11 +123,11 @@ func traceBuffer(model tea.Model) string {
 	}
 
 	buf := holder.activeBuffer()
-	if buf.Cursor.Line < 0 || buf.Cursor.Line >= len(buf.Lines) {
+	if buf.Cursor.Line < 0 || buf.Cursor.Line >= buf.LineCount() {
 		return ""
 	}
 
-	line := buf.Lines[buf.Cursor.Line]
+	line := buf.Line(buf.Cursor.Line)
 	at := min(max(buf.Cursor.Col, 0), len(line))
 
 	return fmt.Sprintf(" cur=%d:%d screen=%d line=%q",

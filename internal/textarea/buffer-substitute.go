@@ -11,7 +11,7 @@ package textarea
 // **되돌리기 구간을 열지 않는다.** 물어보며 바꾼 것 전부가 한 구간에 담겨야 해서, 여는 것도
 // 닫는 것도 한 판을 아는 쪽이 한다(view-editor-substitute.go).
 func (buf *Buffer) SpliceLine(line, from, to int, with []byte) {
-	old := buf.Lines[line]
+	old := buf.lines[line]
 
 	next := make([]byte, 0, len(old)-(to-from)+len(with))
 	next = append(next, old[:from]...)

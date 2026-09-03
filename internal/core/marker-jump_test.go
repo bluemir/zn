@@ -119,7 +119,7 @@ func TestBracketKeysAreNotMotions(t *testing.T) {
 
 	next := m.(viewEditorNormal)
 
-	assert.Len(t, next.activeBuffer().Lines, 10, "줄이 지워지지 않았다")
+	assert.Len(t, next.activeBuffer().AllLines(), 10, "줄이 지워지지 않았다")
 	assert.Zero(t, next.activeBuffer().Cursor.Line, "커서도 그대로다")
 }
 

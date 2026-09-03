@@ -32,7 +32,7 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
-	at, next, found, changed := formattedTables(buf.Lines, buf.Language.State(), from, to)
+	at, next, found, changed := formattedTables(buf.AllLines(), buf.Language.State(), from, to)
 
 	switch {
 	case found == 0:
@@ -48,7 +48,7 @@ func formatTablesIn(e *editor, from, to int) (tea.Model, tea.Cmd) {
 	buf.ReplaceLines(at, len(next), next)
 
 	// 커서가 잘려나간 자리에 서 있었으면 줄 끝으로 당긴다.
-	buf.Cursor.Col = min(buf.Cursor.Col, len(buf.Lines[buf.Cursor.Line]))
+	buf.Cursor.Col = min(buf.Cursor.Col, len(buf.Line(buf.Cursor.Line)))
 	buf.UpdateDesiredCol()
 
 	buf.EndEdit()

@@ -17,8 +17,8 @@ func (buf *Buffer) LexSyntaxTo(lastLine int) {
 
 	// 줄 수와 어긋났으면 담아둔 것을 믿을 수 없다. 통째로 다시 훑는다. replaceLines 가 같이
 	// 맞춰 주므로 여기 걸리는 것은 lines 를 다른 길로 바꾼 경우뿐이다 — 느려질 뿐 틀리지 않는다.
-	if len(buf.syntax.Lines) != len(buf.Lines) {
-		buf.syntax.Lines = make([]syntaxLine, len(buf.Lines))
+	if len(buf.syntax.Lines) != len(buf.lines) {
+		buf.syntax.Lines = make([]syntaxLine, len(buf.lines))
 		buf.syntax.valid, buf.syntax.Filled, buf.syntax.changedEnd = 0, 0, 0
 	}
 
@@ -32,9 +32,9 @@ func (buf *Buffer) LexSyntaxTo(lastLine int) {
 		state = buf.syntax.Lines[buf.syntax.valid-1].after
 	}
 
-	for i := buf.syntax.valid; i < len(buf.Lines); i++ {
+	for i := buf.syntax.valid; i < len(buf.lines); i++ {
 		before := buf.syntax.Lines[i].after
-		tokens, after := state.Lex(buf.Lines[i])
+		tokens, after := state.Lex(buf.lines[i])
 
 		// 서버가 얹어둔 답(semantic) 은 건드리지 않는다. 그것을 비우는 자리는 그 줄의 글이
 		// 갈리는 한 자리다(syntaxCache.replace).
@@ -64,7 +64,7 @@ func (buf *Buffer) LexSyntaxTo(lastLine int) {
 		}
 	}
 
-	buf.syntax.valid, buf.syntax.Filled, buf.syntax.changedEnd = len(buf.Lines), len(buf.Lines), 0
+	buf.syntax.valid, buf.syntax.Filled, buf.syntax.changedEnd = len(buf.lines), len(buf.lines), 0
 }
 
 // syntaxStateAt 은 그 줄을 **시작한** 문맥이다. 아직 훑지 않은 줄이면 nil 이다.

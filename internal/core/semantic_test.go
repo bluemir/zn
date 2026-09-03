@@ -163,8 +163,8 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 
 	e := &editor{buffers: []viewport{buf}, width: 100, height: 30}
 	e.serverState(lsp.ServerFor("main.go")).client = client
-	require.NoError(t, client.Open(path, e.activeBuffer().Lines))
-	e.activeBuffer().LexSyntaxTo(len(e.activeBuffer().Lines) - 1)
+	require.NoError(t, client.Open(path, e.activeBuffer().AllLines()))
+	e.activeBuffer().LexSyntaxTo(e.activeBuffer().LineCount() - 1)
 
 	cmd := e.startSemanticTokens()
 	require.NotNil(t, cmd)
@@ -176,9 +176,9 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 
 	active := e.activeBuffer()
 	kinds := map[string]syntax.Kind{}
-	for line := range active.Lines {
+	for line := range active.AllLines() {
 		for _, token := range active.SyntaxTokens(line) {
-			kinds[string(active.Lines[line][token.Start:token.End])] = token.Kind
+			kinds[string(active.Line(line)[token.Start:token.End])] = token.Kind
 		}
 	}
 
@@ -210,7 +210,7 @@ func semanticTestBuffer(t *testing.T, lines ...string) *viewport {
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
 
-	buf.LexSyntaxTo(len(buf.Lines) - 1)
+	buf.LexSyntaxTo(buf.LineCount() - 1)
 
 	return &buf
 }

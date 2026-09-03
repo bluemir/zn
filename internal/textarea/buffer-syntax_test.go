@@ -25,7 +25,7 @@ func semanticTestBuffer(t *testing.T, lines ...string) *Viewport {
 
 	buf, err := OpenBuffer(path)
 	require.NoError(t, err)
-	buf.LexSyntaxTo(len(buf.Lines) - 1)
+	buf.LexSyntaxTo(len(buf.lines) - 1)
 
 	return &buf
 }
@@ -82,7 +82,7 @@ func TestSetSemanticTokensIgnoresOutOfRange(t *testing.T) {
 		serverToken(99, 0, 3, syntax.KindKeyword), // 파일 밖이다
 	})
 
-	for i := range buf.Lines {
+	for i := range buf.lines {
 		assert.Nil(t, tokenAt(buf, i), "줄 %d", i)
 	}
 }

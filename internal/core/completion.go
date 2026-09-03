@@ -97,10 +97,10 @@ func (e *editor) startCompletion() tea.Cmd {
 		return nil
 	}
 
-	lines := buf.Lines
+	lines := buf.AllLines()
 	position := lsp.Position{
 		Line:      buf.Cursor.Line,
-		Character: lsp.UTF16Column(buf.Lines[buf.Cursor.Line], buf.Cursor.Col),
+		Character: lsp.UTF16Column(buf.Line(buf.Cursor.Line), buf.Cursor.Col),
 	}
 
 	e.completionSeq++
@@ -188,8 +188,8 @@ func (e *editor) applyCompletion() {
 
 	if edit := item.TextEdit; edit != nil &&
 		edit.Range.Start.Line == line && edit.Range.End.Line == line {
-		start = lsp.ByteColumn(buf.Lines[line], edit.Range.Start.Character)
-		end = lsp.ByteColumn(buf.Lines[line], edit.Range.End.Character)
+		start = lsp.ByteColumn(buf.Line(line), edit.Range.Start.Character)
+		end = lsp.ByteColumn(buf.Line(line), edit.Range.End.Character)
 	}
 
 	buf.InsertCompletion(start, end, []byte(item.Text()))

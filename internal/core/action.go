@@ -699,7 +699,7 @@ func (c actionFormatTables) run(e *editor) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	return formatTablesIn(e, 0, len(e.activeBuffer().Lines))
+	return formatTablesIn(e, 0, e.activeBuffer().LineCount())
 }
 
 // actionVisualFormatTables 는 고른 범위에 걸친 표를 맞춘다. visual 의 `\mt` 다(ADR-0106).

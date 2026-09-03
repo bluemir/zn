@@ -19,17 +19,17 @@ package textarea
 // 칠 것(`x` 로 공백 지우기, `i` 로 손보기) 이 놓인 자리다. 이것도 vim 과 같다.
 func (viewport *Viewport) JoinLines(count int) {
 	// 남은 줄로 이을 수 있는 만큼으로 줄인다. 마지막 줄에서는 이을 것이 없어 아무 일도 없다.
-	lines := min(max(count, 2), len(viewport.Lines)-viewport.Cursor.Line)
+	lines := min(max(count, 2), len(viewport.lines)-viewport.Cursor.Line)
 	if lines < 2 {
 		return
 	}
 
 	at := viewport.Cursor.Line
 
-	joined := viewport.Lines[at]
+	joined := viewport.lines[at]
 	cursor := 0
 
-	for _, next := range viewport.Lines[at+1 : at+lines] {
+	for _, next := range viewport.lines[at+1 : at+lines] {
 		// 다음 줄의 들여쓰기를 걷는다. 공백뿐인 줄은 줄 전체가 들여쓰기라 걷고 나면 빈 줄이
 		// 되고, 그러면 이은 자리에 공백도 들어가지 않는다(joinSeparator).
 		rest := next[len(leadingBlank(next)):]

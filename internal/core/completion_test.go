@@ -55,7 +55,7 @@ func TestInsertCompletionReplacesPrefix(t *testing.T) {
 
 	applyCompletionTo(t, &buf, item("Contains", 0, 13, 16))
 
-	assert.Equal(t, "x := strings.Contains", string(buf.Lines[0]))
+	assert.Equal(t, "x := strings.Contains", string(buf.Line(0)))
 	assert.Equal(t, len("x := strings.Contains"), buf.Cursor.Col, "커서가 넣은 글자 뒤에 선다")
 }
 
@@ -66,7 +66,7 @@ func TestInsertCompletionWithoutRange(t *testing.T) {
 
 	applyCompletionTo(t, &buf, lsp.CompletionItem{Label: "cd"})
 
-	assert.Equal(t, "abcd", string(buf.Lines[0]))
+	assert.Equal(t, "abcd", string(buf.Line(0)))
 }
 
 // 서버가 보던 판과 어긋나 범위가 줄 밖을 가리켜도 죽지 않는다.
@@ -76,7 +76,7 @@ func TestInsertCompletionClampsRange(t *testing.T) {
 
 	applyCompletionTo(t, &buf, item("Z", 0, 100, 200))
 
-	assert.Equal(t, "abZ", string(buf.Lines[0]))
+	assert.Equal(t, "abZ", string(buf.Line(0)))
 }
 
 // 넣은 것은 치던 글자와 한 구간이다. `u` 한 번에 그 insert 가 통째로 돌아간다(vim 과 같다).
@@ -88,7 +88,7 @@ func TestInsertCompletionKeepsUndoChunkOpen(t *testing.T) {
 	buf.Insert([]byte("."))
 
 	require.True(t, buf.ApplyUndo())
-	assert.Equal(t, "", string(buf.Lines[0]), "친 것과 넣은 것이 한 번에 돌아간다")
+	assert.Equal(t, "", string(buf.Line(0)), "친 것과 넣은 것이 한 번에 돌아간다")
 }
 
 // 여러 줄에 걸친 범위는 따르지 않는다. snippet 은 켜지 않았다.
@@ -104,8 +104,8 @@ func TestInsertCompletionIgnoresMultilineRange(t *testing.T) {
 		}},
 	})
 
-	assert.Equal(t, "aZb", string(buf.Lines[0]), "커서 자리에 넣는다")
-	assert.Equal(t, "cd", string(buf.Lines[1]), "아래 줄은 그대로다")
+	assert.Equal(t, "aZb", string(buf.Line(0)), "커서 자리에 넣는다")
+	assert.Equal(t, "cd", string(buf.Line(1)), "아래 줄은 그대로다")
 }
 
 func TestMoveCompletionStopsAtEnds(t *testing.T) {
@@ -166,9 +166,9 @@ func TestCompletionKeysApplyAndClose(t *testing.T) {
 	next, _ = send2(next, "enter")
 	confirm := next.(viewEditorInsert)
 
-	assert.Equal(t, "Beta", string(confirm.activeBuffer().Lines[0]), "enter 는 넣기다")
+	assert.Equal(t, "Beta", string(confirm.activeBuffer().Line(0)), "enter 는 넣기다")
 	assert.False(t, confirm.completionOpen(), "넣고 나면 닫힌다")
-	assert.Len(t, confirm.activeBuffer().Lines, 1, "줄바꿈이 되지 않았다")
+	assert.Len(t, confirm.activeBuffer().AllLines(), 1, "줄바꿈이 되지 않았다")
 }
 
 // esc 한 번에 목록도 닫히고 normal 로도 나간다.
@@ -200,7 +200,7 @@ func TestCompletionKeysUntouchedWhenClosed(t *testing.T) {
 
 	m = send(m, "i", "enter")
 
-	assert.Len(t, m.(viewEditorInsert).activeBuffer().Lines, 2, "enter 는 줄바꿈이다")
+	assert.Len(t, m.(viewEditorInsert).activeBuffer().AllLines(), 2, "enter 는 줄바꿈이다")
 }
 
 // 부를 만한 글자가 아니면 닫는다.

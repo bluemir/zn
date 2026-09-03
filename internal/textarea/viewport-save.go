@@ -91,7 +91,7 @@ func (viewport *Viewport) applySaveHook(format *SaveFormat) string {
 
 	// 마지막 줄바꿈을 붙여 넘긴다. buffer 는 그것을 내용이 아니라 사실로 들고 있어서
 	// (finalLineEnding) 붙이지 않으면 포매터가 마지막 줄만 다르게 본다.
-	in := append(bytes.Join(viewport.Lines, []byte{'\n'}), '\n')
+	in := append(bytes.Join(viewport.lines, []byte{'\n'}), '\n')
 
 	out, err := format.Run(in)
 	if err != nil {
@@ -99,12 +99,12 @@ func (viewport *Viewport) applySaveHook(format *SaveFormat) string {
 	}
 
 	next := SplitFormatted(out)
-	if equalLines(viewport.Lines, next) {
+	if equalLines(viewport.lines, next) {
 		return ""
 	}
 
-	changed := CountChangedLines(viewport.Lines, next)
-	grew := len(next) - len(viewport.Lines)
+	changed := CountChangedLines(viewport.lines, next)
+	grew := len(next) - len(viewport.lines)
 
 	viewport.ReplaceAll(next)
 
@@ -147,7 +147,7 @@ func (viewport *Viewport) applyFileFormat() string {
 	// 넣어 줄 일은 없다.
 	if def.TrimTrailingWhitespace != nil && *def.TrimTrailingWhitespace {
 		// 저장은 언제나 파일 전체다. 고른 범위를 보는 것은 팔레트 쪽이다(ADR-0111).
-		if count := viewport.TrimTrailingSpace(0, len(viewport.Lines)); count > 0 {
+		if count := viewport.TrimTrailingSpace(0, len(viewport.lines)); count > 0 {
 			done = append(done, fmt.Sprintf("줄끝 공백 %d 줄 지움", count))
 		}
 	}

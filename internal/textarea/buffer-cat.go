@@ -14,7 +14,7 @@ import "github.com/bluemir/zn/internal/scheme"
 // moveToRangeStart 때문인데, 커서를 옮길지는 부르는 쪽마다 다르다(visual 만 옮긴다).
 func (buf Buffer) CatLines(area scheme.MotionRange) [][]byte {
 	if area.Linewise {
-		return buf.Lines[area.Start.Line : area.End.Line+1]
+		return buf.lines[area.Start.Line : area.End.Line+1]
 	}
 
 	return buf.textBetween(area.Start, area.End)

@@ -129,7 +129,7 @@ func TestMeasureIndentUnit(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := NewBuffer("x", []byte(test.data))
-			assert.Equal(t, test.want, string(measureIndentUnit(buf.Lines)))
+			assert.Equal(t, test.want, string(measureIndentUnit(buf.lines)))
 		})
 	}
 }
@@ -165,7 +165,7 @@ func TestIndentTextIsDecidedOncePerPath(t *testing.T) {
 	assert.Equal(t, "  ", string(buf.indentText()), "파일이 space 두 칸이다")
 
 	// 이름이 그대로면 다시 재지 않는다. 줄이 바뀌어도 담아둔 것을 그대로 쓴다.
-	buf.Lines = [][]byte{[]byte("x"), []byte("\ty")}
+	buf.lines = [][]byte{[]byte("x"), []byte("\ty")}
 	assert.Equal(t, "  ", string(buf.indentText()))
 
 	// 이름이 바뀌면(`:w foo.go`) 다시 정한다. 지금 줄은 tab 이다.
@@ -187,5 +187,5 @@ func TestMeasureIndentUnitStopsAtTheLimit(t *testing.T) {
 	data := strings.Repeat("a\n\tb\n", measureIndentUnitLimit) + strings.Repeat("a\n  b\n", 1000)
 	buf := NewBuffer("x", []byte(data))
 
-	assert.Equal(t, "\t", string(measureIndentUnit(buf.Lines)))
+	assert.Equal(t, "\t", string(measureIndentUnit(buf.lines)))
 }

@@ -12,7 +12,7 @@ func (buf *Buffer) indentText() []byte {
 		return buf.indent.text
 	}
 
-	buf.indent = indentUnit{Path: buf.Path, set: true, text: resolveIndentUnit(buf.Path, buf.Language, buf.Lines)}
+	buf.indent = indentUnit{Path: buf.Path, set: true, text: resolveIndentUnit(buf.Path, buf.Language, buf.lines)}
 
 	return buf.indent.text
 }
@@ -48,7 +48,7 @@ func (buf Buffer) TabWidth() int {
 func (buf *Buffer) indentForNewLine(at int, head []byte) []byte {
 	base := leadingBlank(head)
 
-	if at < 0 || at >= len(buf.Lines) {
+	if at < 0 || at >= len(buf.lines) {
 		return base
 	}
 

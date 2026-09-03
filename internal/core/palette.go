@@ -477,7 +477,7 @@ func runTrimTrailingSpace(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	from, to := newRunOptions(opts).lines(len(buf.Lines))
+	from, to := newRunOptions(opts).lines(buf.LineCount())
 
 	count := buf.TrimTrailingSpace(from, to)
 	if count == 0 {
@@ -504,7 +504,7 @@ func runFormatTables(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
-	from, to := newRunOptions(opts).lines(len(e.activeBuffer().Lines))
+	from, to := newRunOptions(opts).lines(e.activeBuffer().LineCount())
 
 	return formatTablesIn(e, from, to)
 }
@@ -660,7 +660,7 @@ func runSqueezeSpaces(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	from, to := newRunOptions(opts).lines(len(buf.Lines))
+	from, to := newRunOptions(opts).lines(buf.LineCount())
 
 	count := buf.SqueezeSpaces(from, to)
 	if count == 0 {
@@ -690,7 +690,7 @@ func runSortLines(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	}
 
 	buf := e.activeBuffer()
-	from, to := newRunOptions(opts).lines(len(buf.Lines))
+	from, to := newRunOptions(opts).lines(buf.LineCount())
 
 	moved := buf.SortLines(from, to)
 	if moved == 0 {

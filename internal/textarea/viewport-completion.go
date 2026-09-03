@@ -14,13 +14,13 @@ func (viewport *Viewport) InsertCompletion(start, end int, text []byte) {
 	line := viewport.Cursor.Line
 
 	// 서버가 보던 판과 지금 판이 어긋났으면 범위가 줄 밖을 가리킬 수 있다.
-	start = min(max(start, 0), len(viewport.Lines[line]))
-	end = min(max(end, start), len(viewport.Lines[line]))
+	start = min(max(start, 0), len(viewport.lines[line]))
+	end = min(max(end, start), len(viewport.lines[line]))
 
-	next := make([]byte, 0, len(viewport.Lines[line])-(end-start)+len(text))
-	next = append(next, viewport.Lines[line][:start]...)
+	next := make([]byte, 0, len(viewport.lines[line])-(end-start)+len(text))
+	next = append(next, viewport.lines[line][:start]...)
 	next = append(next, text...)
-	next = append(next, viewport.Lines[line][end:]...)
+	next = append(next, viewport.lines[line][end:]...)
 
 	viewport.BeginEdit(line, 1)
 	viewport.ReplaceLines(line, 1, [][]byte{next})

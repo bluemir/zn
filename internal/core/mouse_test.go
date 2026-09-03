@@ -500,7 +500,7 @@ func TestWheelStopsAtLastLine(t *testing.T) {
 	}
 
 	buf := bufferOf(t, m)
-	assert.Equal(t, len(buf.Lines)-1, buf.Top.Line, "마지막 줄이 맨 위에서 멈춘다")
+	assert.Equal(t, buf.LineCount()-1, buf.Top.Line, "마지막 줄이 맨 위에서 멈춘다")
 }
 
 func TestWheelMovesTopRowInsideWrappedLine(t *testing.T) {
@@ -618,7 +618,7 @@ func TestDragExtendsSelection(t *testing.T) {
 	after, _ = after.Update(drag(left+3, tablineHeight))
 	after = send(after, "d")
 
-	assert.Equal(t, "bar", string(bufferOf(t, after).Lines[0]))
+	assert.Equal(t, "bar", string(bufferOf(t, after).Line(0)))
 }
 
 // 이미 visual 인 채로 더 끌면 고른 범위가 그만큼 더 자란다.
@@ -634,7 +634,7 @@ func TestDragInVisualKeepsExtending(t *testing.T) {
 	after, _ = after.Update(drag(left+3, tablineHeight))
 	after = send(after, "d")
 
-	assert.Equal(t, "bar", string(bufferOf(t, after).Lines[0]))
+	assert.Equal(t, "bar", string(bufferOf(t, after).Line(0)))
 }
 
 // 편집 영역 밖으로 끌면 좌표를 안으로 당겨서 읽는다. 포커스는 옮기지 않는다.

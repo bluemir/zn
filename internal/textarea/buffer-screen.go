@@ -28,7 +28,7 @@ func (buf Buffer) retreatRows(from ViewTop, n, width int) ViewTop {
 			from.Row--
 		case from.Line > 0:
 			from.Line--
-			from.Row = len(WrapOffsets(buf.Lines[from.Line], width, buf.TabWidth())) - 1
+			from.Row = len(WrapOffsets(buf.lines[from.Line], width, buf.TabWidth())) - 1
 		default:
 			return ViewTop{}
 		}
@@ -41,12 +41,12 @@ func (buf Buffer) retreatRows(from ViewTop, n, width int) ViewTop {
 // 파일 끝을 넘으면 마지막 줄의 마지막 행에서 멈춘다. retreatRows 의 반대 방향이다.
 func (buf Buffer) advanceRows(from ViewTop, n, width int) ViewTop {
 	for range n {
-		last := len(WrapOffsets(buf.Lines[from.Line], width, buf.TabWidth())) - 1
+		last := len(WrapOffsets(buf.lines[from.Line], width, buf.TabWidth())) - 1
 
 		switch {
 		case from.Row < last:
 			from.Row++
-		case from.Line < len(buf.Lines)-1:
+		case from.Line < len(buf.lines)-1:
 			from.Line++
 			from.Row = 0
 		default:
@@ -68,7 +68,7 @@ func (buf Buffer) advanceRows(from ViewTop, n, width int) ViewTop {
 // 절반만큼 더 부른다. 그래서 위로 훑다가 깊이 0 에서 멈춘다 — 파일을 처음부터 다시 읽지 않는다.
 func (buf *Buffer) StickyAt(line, height int) []int {
 	// 맨 윗줄이면 위에 붙일 것이 없다. 본문이 두 행보다 낮으면 머리줄에 내줄 자리가 없다.
-	if line < 1 || line >= len(buf.Lines) || height < 2 {
+	if line < 1 || line >= len(buf.lines) || height < 2 {
 		return nil
 	}
 
@@ -101,11 +101,11 @@ func (buf *Buffer) StickyAt(line, height int) []int {
 	//
 	// 닫는 줄(`}`) 이 그 블록과 같은 깊이라, 지나면서 한계를 낮추면 그 위의 여는 줄이 저절로
 	// 걸러진다. 파일 전체의 괄호를 세지 않고 닫힘을 아는 것이 이 한 줄이다.
-	limit := rule.Depth(buf.Lines[line], buf.SyntaxTokens(line))
+	limit := rule.Depth(buf.lines[line], buf.SyntaxTokens(line))
 
 	heads := []int{}
 	for at := line - 1; at >= 0 && limit > 0; at-- {
-		depth := rule.Depth(buf.Lines[at], buf.SyntaxTokens(at))
+		depth := rule.Depth(buf.lines[at], buf.SyntaxTokens(at))
 		if depth >= limit {
 			continue
 		}
@@ -114,7 +114,7 @@ func (buf *Buffer) StickyAt(line, height int) []int {
 
 		// 한계를 낮춘 줄에만 묻는다. 머리줄은 반드시 더 얕으므로 나머지는 물어볼 필요가 없고,
 		// 이 물음이 줄을 복제하는 규칙(makeOutline) 이 있어서 값이 싸지 않다.
-		if rule.Heads(buf.Lines[at], buf.SyntaxTokens(at)) {
+		if rule.Heads(buf.lines[at], buf.SyntaxTokens(at)) {
 			heads = append(heads, at)
 		}
 	}

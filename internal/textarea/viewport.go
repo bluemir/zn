@@ -179,7 +179,7 @@ const MarkerWidth = 2
 // 들여다봐 세고 그만큼 뗀 폭을 창에 돌려주었는데, 의존이 거꾸로 가는 자리였다. 화면 분할이
 // 오면 창마다 파일이 달라 자릿수도 달라진다 (ADR-0121).
 func (viewport Viewport) LineNumberDigits() (absolute, relative int) {
-	return max(digits(len(viewport.Lines)), MinAbsoluteDigits),
+	return max(digits(len(viewport.lines)), MinAbsoluteDigits),
 		max(digits(viewport.Size.Height), MinRelativeDigits)
 }
 

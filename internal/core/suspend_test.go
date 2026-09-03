@@ -58,7 +58,7 @@ func TestSuspendIgnoredInInsertMode(t *testing.T) {
 	next, cmd := model.Update(key("ctrl+z"))
 
 	assert.Nil(t, cmd)
-	assert.Equal(t, "abc", string(bufferOf(t, next).Lines[0]))
+	assert.Equal(t, "abc", string(bufferOf(t, next).Line(0)))
 }
 
 // `fg` 로 올라오면 보고 있는 파일이 밖에서 바뀌었는지 본다. 잃을 것이 없으면 가져온다(ADR-0038).
@@ -68,7 +68,7 @@ func TestResumeReloadsOutsideChange(t *testing.T) {
 
 	model := afterResume(t, m)
 
-	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Lines[0]))
+	assert.Equal(t, "남이 쓴 것", string(bufferOf(t, model).Line(0)))
 	assert.Contains(t, barOf(t, model)[1], "다시 읽었습니다")
 }
 

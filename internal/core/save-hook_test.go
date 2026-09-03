@@ -64,7 +64,7 @@ func TestSaveHookNotRunWhenOutsideChanged(t *testing.T) {
 	_, err = buf.Save(shellHook("tr a-z A-Z").saveFormat())
 
 	require.Error(t, err)
-	assert.Equal(t, "abc", string(buf.Lines[0]), "저장이 막혔으면 buffer 도 그대로다")
+	assert.Equal(t, "abc", string(buf.Line(0)), "저장이 막혔으면 buffer 도 그대로다")
 }
 
 // 포매터가 먼저고 `.editorconfig` 가 뒤다. 문구는 둘 다 남는다.
