@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 func key(s string) tea.KeyPressMsg {
@@ -72,7 +74,7 @@ func send(m tea.Model, keys ...string) tea.Model {
 }
 
 // bufferOf 는 어느 mode 든 활성 buffer 를 꺼낸다.
-func bufferOf(t *testing.T, m tea.Model) viewport {
+func bufferOf(t *testing.T, m tea.Model) textarea.Viewport {
 	t.Helper()
 
 	switch v := m.(type) {
@@ -105,7 +107,7 @@ func bufferOf(t *testing.T, m tea.Model) viewport {
 		return v.buffers[v.active]
 	default:
 		t.Fatalf("편집 화면이 아니다: %T", m)
-		return viewport{}
+		return textarea.Viewport{}
 	}
 }
 

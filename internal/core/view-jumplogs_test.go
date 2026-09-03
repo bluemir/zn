@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newJumplogsView 는 같은 파일의 여러 줄이 기록된 판이다.
@@ -205,7 +207,7 @@ func TestJumplogsDrawerWidth(t *testing.T) {
 		m.width = width
 
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), textarea.WidthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }

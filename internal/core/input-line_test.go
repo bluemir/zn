@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 커서 자리에 들어간다. 뒤에만 붙던 때와 갈리는 것이 이것 하나다.
@@ -98,7 +100,7 @@ func TestInputLineVisibleFollowsCursor(t *testing.T) {
 	text, cursor = in.visible("", 10)
 	assert.True(t, strings.HasPrefix(text, "aaa"), "맨 앞으로 가면 앞이 보인다: %q", text)
 	assert.Zero(t, cursor)
-	assert.LessOrEqual(t, widthOf(text), 10, "폭을 넘지 않는다")
+	assert.LessOrEqual(t, textarea.WidthOf(text), 10, "폭을 넘지 않는다")
 }
 
 // prefix 는 입력 앞에 늘 붙는 글이라 같이 접히고, 커서 칸도 그만큼 밀린다.
@@ -108,7 +110,7 @@ func TestInputLineVisibleCountsPrefix(t *testing.T) {
 	text, cursor := in.visible("옛 → ", 20)
 
 	assert.Equal(t, "옛 → ab", text)
-	assert.Equal(t, widthOf("옛 → ab"), cursor)
+	assert.Equal(t, textarea.WidthOf("옛 → ab"), cursor)
 }
 
 // 한 줄 입력 열이 같은 손을 가진다. 어느 창에서든 `home` 으로 앞에 가서 넣으면 앞에

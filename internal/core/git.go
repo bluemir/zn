@@ -15,6 +15,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // gitStatus 는 statusBar 오른쪽에 찍히는 저장소 상태다.
@@ -250,7 +252,7 @@ func gitReadBases(commit *object.Commit, root string, wanted map[string]string, 
 			continue
 		}
 
-		lines, _ := splitLines([]byte(contents))
+		lines, _ := textarea.SplitLines([]byte(contents))
 		bases[path] = lines
 	}
 

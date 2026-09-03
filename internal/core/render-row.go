@@ -6,6 +6,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/bluemir/zn/internal/syntax"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // tab 과 space 는 화면에서 똑같은 빈 칸이라, 들여쓰기가 둘로 섞여도 알아챌 수 없다.
@@ -104,14 +106,14 @@ func expandRow(line []byte, start, end, col int, mark whitespaceMark, tab int) (
 	}
 
 	for offset := start; offset < end; {
-		size, width := glyphAt(line, offset, col, tab)
+		size, width := textarea.GlyphAt(line, offset, col, tab)
 
 		char := line[offset]
 		isMarker := (char == '\t' || char == ' ') && mark.marks(offset)
 
 		// 제어문자는 `^[` 로 보이게 그린다. 그대로 넘기면 터미널이 먹어서 화면에서 사라지고,
 		// 그 자리를 세어 둔 폭과 어긋난다 (ADR-0118).
-		control := controlText(char)
+		control := textarea.ControlText(char)
 
 		next := partText
 		switch {
@@ -128,7 +130,7 @@ func expandRow(line []byte, start, end, col int, mark whitespaceMark, tab int) (
 
 		// tab 과 제어문자는 그대로 그리면 화면에서 사라진다. 무엇으로 바꿀지는
 		// cluster.go 가 정한다 — 폭을 정하는 자리와 같아야 어긋나지 않는다(ADR-0118).
-		screen := screenText(line, offset, col, tab)
+		screen := textarea.ScreenText(line, offset, col, tab)
 
 		switch {
 		case char == '\t' && isMarker:
@@ -317,7 +319,7 @@ func (hl rowHighlight) appendSyntax(segments []rowSegment, from, to int) []rowSe
 //
 // width 는 편집 영역의 너비다. 줄 끝에 덧붙이는 선택 칸이 그 안에 드는지 보는 데 쓴다.
 // tab 은 이 파일의 tab 폭이다(`buf.TabWidth()`, ADR-0096).
-func renderRow(line []byte, row screenRow, width int, hl rowHighlight, tab int) string {
+func renderRow(line []byte, row textarea.ScreenRow, width int, hl rowHighlight, tab int) string {
 	mark := markWhitespace(line)
 
 	out := strings.Builder{}

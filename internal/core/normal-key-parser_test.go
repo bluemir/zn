@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // pressAll 은 이미 풀린 키를 차례로 먹이고 마지막에 완성된 동작과 남은 상태를 돌려준다.
@@ -43,8 +45,8 @@ func TestNormalKeyParser(t *testing.T) {
 		{name: "count 두 자리", keys: []string{"1", "0", "j"}, want: actionMove{motion: motionLineDown{}, count: 10}},
 		{name: "count 세 자리", keys: []string{"1", "2", "3", "k"}, want: actionMove{motion: motionLineUp{}, count: 123}},
 		{name: "hjkl 넷 다 count 를 받는다", keys: []string{"5", "l"}, want: actionMove{motion: motionRight{}, count: 5}},
-		{name: "단어 이동도 count 를 받는다", keys: []string{"3", "w"}, want: actionMove{motion: motionWordForward{kind: wordSmall}, count: 3}},
-		{name: "큰 단어 이동도 마찬가지", keys: []string{"2", "B"}, want: actionMove{motion: motionWordBack{kind: wordBig}, count: 2}},
+		{name: "단어 이동도 count 를 받는다", keys: []string{"3", "w"}, want: actionMove{motion: motionWordForward{kind: textarea.WordSmall}, count: 3}},
+		{name: "큰 단어 이동도 마찬가지", keys: []string{"2", "B"}, want: actionMove{motion: motionWordBack{kind: textarea.WordBig}, count: 2}},
 		{name: "$ 는 줄 수를 받는다", keys: []string{"3", "$"}, want: actionMove{motion: motionLineEnd{}, count: 3}},
 		{name: "G 는 줄 번호를 받는다", keys: []string{"4", "2", "G"}, want: actionMove{motion: motionToLastLine{}, count: 42}},
 
@@ -75,16 +77,16 @@ func TestNormalKeyParser(t *testing.T) {
 
 		// operator 는 motion 을 감싼 동작이 된다.
 		{name: "operator 를 두 번 치면 줄 단위", keys: []string{"d", "d"}, want: actionDelete{motion: motionWholeLines{}}},
-		{name: "operator 와 motion", keys: []string{"d", "w"}, want: actionDelete{motion: motionWordForward{kind: wordSmall}}},
+		{name: "operator 와 motion", keys: []string{"d", "w"}, want: actionDelete{motion: motionWordForward{kind: textarea.WordSmall}}},
 		{name: "operator 와 접두 키 motion", keys: []string{"d", "g", "g"}, want: actionDelete{motion: motionToFirstLine{}}},
 		{name: "operator 앞의 숫자", keys: []string{"3", "d", "d"}, want: actionDelete{motion: motionWholeLines{}, count: 3}},
-		{name: "motion 앞의 숫자", keys: []string{"d", "3", "w"}, want: actionDelete{motion: motionWordForward{kind: wordSmall}, count: 3}},
+		{name: "motion 앞의 숫자", keys: []string{"d", "3", "w"}, want: actionDelete{motion: motionWordForward{kind: textarea.WordSmall}, count: 3}},
 		{name: "숫자 뒤에 operator 를 되풀이", keys: []string{"d", "3", "d"}, want: actionDelete{motion: motionWholeLines{}, count: 3}},
-		{name: "숫자 둘은 곱한다", keys: []string{"3", "d", "2", "w"}, want: actionDelete{motion: motionWordForward{kind: wordSmall}, count: 6}},
+		{name: "숫자 둘은 곱한다", keys: []string{"3", "d", "2", "w"}, want: actionDelete{motion: motionWordForward{kind: textarea.WordSmall}, count: 6}},
 		{name: "숫자가 접두 키 motion 까지 실려 간다", keys: []string{"1", "0", "d", "g", "g"}, want: actionDelete{motion: motionToFirstLine{}, count: 10}},
 		{name: "operator 뒤 숫자 없는 G", keys: []string{"d", "G"}, want: actionDelete{motion: motionToLastLine{}}},
 		{name: "operator 뒤 G 의 숫자는 줄 번호", keys: []string{"d", "2", "G"}, want: actionDelete{motion: motionToLastLine{}, count: 2}},
-		{name: "yank 도 같은 자리를 쓴다", keys: []string{"y", "w"}, want: actionYank{motion: motionWordForward{kind: wordSmall}}},
+		{name: "yank 도 같은 자리를 쓴다", keys: []string{"y", "w"}, want: actionYank{motion: motionWordForward{kind: textarea.WordSmall}}},
 
 		// motion 이 아닌 키는 operator 뒤에 올 수 없다.
 		// `i`·`a` 는 예외다 — text object 를 기다리는 접두 키가 된다(ADR-0091).
@@ -94,12 +96,12 @@ func TestNormalKeyParser(t *testing.T) {
 		{name: "operator 뒤의 r", keys: []string{"d", "r", "x"}, want: nil},
 
 		// text object 는 키 둘로 범위 하나를 만든다(ADR-0091).
-		{name: "iw", keys: []string{"d", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: wordSmall}}},
-		{name: "aw", keys: []string{"d", "a", "w"}, want: actionDelete{motion: motionWordObject{kind: wordSmall, around: true}}},
-		{name: "iW", keys: []string{"d", "i", "W"}, want: actionDelete{motion: motionWordObject{kind: wordBig}}},
-		{name: "aW", keys: []string{"c", "a", "W"}, want: actionChange{motion: motionWordObject{kind: wordBig, around: true}}},
-		{name: "text object 는 count 를 버린다", keys: []string{"3", "d", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: wordSmall}}},
-		{name: "operator 뒤 숫자도 버린다", keys: []string{"d", "3", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: wordSmall}}},
+		{name: "iw", keys: []string{"d", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: textarea.WordSmall}}},
+		{name: "aw", keys: []string{"d", "a", "w"}, want: actionDelete{motion: motionWordObject{kind: textarea.WordSmall, around: true}}},
+		{name: "iW", keys: []string{"d", "i", "W"}, want: actionDelete{motion: motionWordObject{kind: textarea.WordBig}}},
+		{name: "aW", keys: []string{"c", "a", "W"}, want: actionChange{motion: motionWordObject{kind: textarea.WordBig, around: true}}},
+		{name: "text object 는 count 를 버린다", keys: []string{"3", "d", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: textarea.WordSmall}}},
+		{name: "operator 뒤 숫자도 버린다", keys: []string{"d", "3", "i", "w"}, want: actionDelete{motion: motionWordObject{kind: textarea.WordSmall}}},
 		{name: "짝 없는 text object", keys: []string{"d", "i", "z"}, want: nil},
 		{name: "text object 자리의 esc", keys: []string{"d", "i", "esc"}, want: nil},
 
@@ -257,9 +259,9 @@ func TestNormalKeyParserOperatorEdges(t *testing.T) {
 		// 다른 operator 를 이어 치면 앞의 것을 무르고 새로 연다. vim 과 같다 —
 		// 중첩으로 들던 때는 `d y w` 라는 짝 없는 이름이 되어 아무 일도 하지 않았다.
 		{name: "dy 는 앞의 d 를 무른다", keys: []string{"d", "y", "w"},
-			want: actionYank{motion: motionWordForward{kind: wordSmall}}},
+			want: actionYank{motion: motionWordForward{kind: textarea.WordSmall}}},
 		{name: "무르면 앞의 숫자도 버린다", keys: []string{"3", "d", "y", "w"},
-			want: actionYank{motion: motionWordForward{kind: wordSmall}}},
+			want: actionYank{motion: motionWordForward{kind: textarea.WordSmall}}},
 
 		// 숫자를 안 받는 키는 motion 쪽 숫자를 버린다.
 		{name: "d3esc", keys: []string{"d", "3", "esc"}, want: nil},

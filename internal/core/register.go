@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // register 를 담고 고르는 규칙이다. 담는 곳이 열 군데(action.go 여섯, 명령줄 둘) 라
@@ -46,7 +48,7 @@ type registerSet struct {
 //
 // 이름이 없을 때 숫자 링을 밀지 않는 것은 `"0` 이 「마지막으로 복사한 것」이라 지운 것들과
 // 섞이지 않아야 하기 때문이다 — 지우다 덮어버리는 일을 없애려고 넣은 것이 그 갈라짐이다.
-func (regs *registerSet) storeYank(block textBlock, name string) {
+func (regs *registerSet) storeYank(block textarea.TextBlock, name string) {
 	reg := register{block}
 	regs.unnamed = reg
 
@@ -68,7 +70,7 @@ func (regs *registerSet) storeYank(block textBlock, name string) {
 // 그 무게보다 작다. 그래서 `x` 를 세 번 치면 `"1` `"2` `"3` 이 글자 하나씩이 된다(ADR-0058).
 //
 // `"0` 은 건드리지 않는다. 복사 전용이다.
-func (regs *registerSet) storeDelete(block textBlock, name string) {
+func (regs *registerSet) storeDelete(block textarea.TextBlock, name string) {
 	reg := register{block}
 	regs.unnamed = reg
 
@@ -89,7 +91,7 @@ func (regs *registerSet) storeDelete(block textBlock, name string) {
 //
 // `"A` 는 `"a` 와 같은 자리이고 담는 법만 다르다. 그래서 자리를 소문자로 맞춘다 — 대문자를
 // 따로 두면 `"ap` 가 `"A` 로 모은 것을 못 본다.
-func (regs *registerSet) storeNamed(block textBlock, name string) {
+func (regs *registerSet) storeNamed(block textarea.TextBlock, name string) {
 	reg := register{block}
 
 	if regs.named == nil {
@@ -129,13 +131,13 @@ func appendRegister(base, extra register) register {
 	lines = append(lines, base.Lines...)
 
 	if base.Linewise || extra.Linewise {
-		return register{textBlock{Lines: append(lines, extra.Lines...), Linewise: true}}
+		return register{textarea.TextBlock{Lines: append(lines, extra.Lines...), Linewise: true}}
 	}
 
 	last := len(lines) - 1
 	lines[last] = append(append([]byte{}, lines[last]...), extra.Lines[0]...)
 
-	return register{textBlock{Lines: append(lines, extra.Lines[1:]...)}}
+	return register{textarea.TextBlock{Lines: append(lines, extra.Lines[1:]...)}}
 }
 
 // byName 은 이름으로 고른 register 다. 이름이 비어 있으면 무명이다.
@@ -172,12 +174,12 @@ func registerWritable(name string) bool {
 
 // register 는 한 칸에 담긴 것이다. vim 의 무명 register 에 해당한다.
 //
-// **떼어 낸 자료(textBlock) 에 말을 얹은 것이다.** 담긴 것 자체는 글에서 떼어 낸 덩이라
+// **떼어 낸 자료(textarea.TextBlock) 에 말을 얹은 것이다.** 담긴 것 자체는 글에서 떼어 낸 덩이라
 // 글을 다루는 겹의 것이고, 「몇 자인가」·「무엇을 알릴까」는 editor 가 하는 말이다.
-// embed 라 `reg.Lines`·`reg.filled()` 가 그대로 서고, 붙여넣기에 넘길 때는 `reg.textBlock`
+// embed 라 `reg.Lines`·`reg.filled()` 가 그대로 서고, 붙여넣기에 넘길 때는 `reg.TextBlock`
 // 으로 자료만 준다 — 그쪽이 필요한 것은 자리와 글과 줄 단위인지뿐이다(text-block.go).
 type register struct {
-	textBlock
+	textarea.TextBlock
 }
 
 // copiedMessage 는 `y` 가 statusBar 아래 줄에 띄우는 알림이다. 다음 키를 누르면 사라진다.

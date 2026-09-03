@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // progressOf 는 진행 msg 하나를 만든다. 채널은 닫혀 있지 않으므로 고리를 잇는 Cmd 를 부르면 막힌다 —
@@ -263,6 +265,6 @@ func TestJobProgressKeepsStatusBarWidth(t *testing.T) {
 	m, _ = m.Update(progressOf("파일 인덱싱", 42, 100))
 
 	for _, row := range barOf(t, m) {
-		assert.LessOrEqual(t, widthOf(row), 50, strings.TrimSpace(row))
+		assert.LessOrEqual(t, textarea.WidthOf(row), 50, strings.TrimSpace(row))
 	}
 }

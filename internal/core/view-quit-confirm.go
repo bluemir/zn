@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // ConfirmDiscard 는 저장하지 않은 변경을 잃게 될 때 한 번 더 묻는 화면이다.
@@ -104,13 +106,13 @@ func (m viewConfirmDiscard) press(key string) (tea.Model, tea.Cmd) {
 
 // boxWidth 는 모달 박스의 너비다. 내용에 맞추되 터미널 너비를 넘지 않는다.
 func (m viewConfirmDiscard) boxWidth() int {
-	maxContent := widthOf("저장하지 않은 변경이 있습니다.")
+	maxContent := textarea.WidthOf("저장하지 않은 변경이 있습니다.")
 	for _, qLine := range strings.Split(m.question, "\n") {
-		if w := widthOf(qLine); w > maxContent {
+		if w := textarea.WidthOf(qLine); w > maxContent {
 			maxContent = w
 		}
 	}
-	if btnW := widthOf(pickMark(true, "Yes") + "    " + pickMark(false, "No")); btnW > maxContent {
+	if btnW := textarea.WidthOf(pickMark(true, "Yes") + "    " + pickMark(false, "No")); btnW > maxContent {
 		maxContent = btnW
 	}
 

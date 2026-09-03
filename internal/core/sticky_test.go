@@ -7,13 +7,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // stickyLinesOf 는 그 자리를 화면 맨 위로 그릴 때 붙는 머리줄들이다.
 func stickyLinesOf(t *testing.T, path, data string, line, height int) []int {
 	t.Helper()
 
-	buf := newBuffer(path, []byte(data))
+	buf := textarea.NewBuffer(path, []byte(data))
 
 	return buf.StickyAt(line, height)
 }
@@ -137,7 +139,7 @@ func TestStickyNeverCoversCursor(t *testing.T) {
 	data := "# A\n## B\n### C\n" + strings.Repeat("본문\n", 40)
 
 	t.Run("커서를 화면 맨 위로 올린다", func(t *testing.T) {
-		buf := newBuffer("doc.md", []byte(data))
+		buf := textarea.NewBuffer("doc.md", []byte(data))
 		buf.Top.Line, buf.Cursor.Line = 30, 30
 		buf.ScrollTo(10)
 
@@ -176,7 +178,7 @@ func TestStickyRowIsOneRow(t *testing.T) {
 	rows := contentRowsOf(t, m)
 
 	assert.Len(t, rows, 5, "행 수는 그대로다")
-	assert.LessOrEqual(t, widthOf(rows[0]), m.textWidth(), "편집 영역을 넘지 않는다")
+	assert.LessOrEqual(t, textarea.WidthOf(rows[0]), m.textWidth(), "편집 영역을 넘지 않는다")
 }
 
 // **줄번호 칸이 넘치지 않는다.**
@@ -197,7 +199,7 @@ func TestStickyGutterDoesNotOverflow(t *testing.T) {
 	rows := contentRowsOf(t, m)
 	require.Contains(t, rows[0], "aaa", "맨 윗줄이 머리줄이다")
 
-	assert.LessOrEqual(t, widthOf(rows[0]), m.textWidth(),
+	assert.LessOrEqual(t, textarea.WidthOf(rows[0]), m.textWidth(),
 		"머리줄이 편집 영역보다 넓다 — 상대번호 칸이 넘쳤다")
 }
 
@@ -205,7 +207,7 @@ func TestStickyGutterDoesNotOverflow(t *testing.T) {
 func TestStickyScrollToConverges(t *testing.T) {
 	data := "func alpha() {\n\tif y {\n\t\tp()\n\t\tq()\n"
 
-	buf := newBuffer("main.go", []byte(data))
+	buf := textarea.NewBuffer("main.go", []byte(data))
 	buf.Cursor.Line = 3
 	buf.ScrollTo(4)
 

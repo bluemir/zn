@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // markerFixture 는 열 줄짜리 파일에 git 마커와 진단을 심어 둔 화면이다.
@@ -23,10 +25,10 @@ func markerFixture(t *testing.T) tea.Model {
 	// 사라졌다(`_`). 그래서 뛰는 자리는 [1..3] 한 덩이와 7 한 덩이, 둘이다.
 	buf.SetGitBase(toLines("0\nA\nB\n4\n5\n6\n7\nX\n8\n9\n"), "head")
 
-	buf.SetDiagnostics([]diagnostic{
-		{Line: 2, Severity: severityError, Message: "x"},
-		{Line: 3, Severity: severityWarning, Message: "y"},
-		{Line: 8, Severity: severityError, Message: "z"},
+	buf.SetDiagnostics([]textarea.Diagnostic{
+		{Line: 2, Severity: textarea.SeverityError, Message: "x"},
+		{Line: 3, Severity: textarea.SeverityWarning, Message: "y"},
+		{Line: 8, Severity: textarea.SeverityError, Message: "z"},
 	})
 
 	return m

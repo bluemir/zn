@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // ASCII 로 내려도 박스 글자는 전부 한 칸이어야 한다. 물러선 이유가 그것뿐이다.
@@ -16,7 +18,7 @@ func TestASCIIBoxCharsAreSingleWidth(t *testing.T) {
 		boxASCII.topLeft, boxASCII.topRight, boxASCII.bottomLeft, boxASCII.bottomRight,
 		boxASCII.leftTee, boxASCII.rightTee,
 	} {
-		assert.Equal(t, 1, widthOf(char), "%q", char)
+		assert.Equal(t, 1, textarea.WidthOf(char), "%q", char)
 	}
 }
 
@@ -35,7 +37,7 @@ func TestASCIIPaletteBox(t *testing.T) {
 	for i, row := range rows {
 		plain := ansi.Strip(row)
 
-		assert.Equal(t, m.paletteWidth(), widthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, m.paletteWidth(), textarea.WidthOf(plain), "행 %d: %q", i, plain)
 		assert.NotContains(t, plain, "│", "행 %d 에 유니코드 박스 글자가 남았다", i)
 		assert.NotContains(t, plain, "─", "행 %d 에 유니코드 박스 글자가 남았다", i)
 	}
@@ -48,7 +50,7 @@ func TestASCIISidebarCells(t *testing.T) {
 	for i, cell := range s.renderCells(10, "", nil, boxASCII) {
 		plain := ansi.Strip(cell)
 
-		assert.Equal(t, sidebarWidth, widthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 		assert.True(t, strings.HasSuffix(plain, "| "), "행 %d: %q", i, plain)
 	}
 }
@@ -56,7 +58,7 @@ func TestASCIISidebarCells(t *testing.T) {
 // tabline 구분자도 같이 내려간다.
 func TestASCIITabline(t *testing.T) {
 	m := newTestEditor("a\n", 80, 20)
-	m.buffers = append(m.buffers, viewport{Buffer: Buffer{Path: "b.txt"}})
+	m.buffers = append(m.buffers, textarea.Viewport{Buffer: textarea.Buffer{Path: "b.txt"}})
 	m.boxChars = boxASCII
 
 	line := m.renderTabline(m.textWidth()).line

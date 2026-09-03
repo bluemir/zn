@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newJumpsView 는 이력 셋이 쌓인 판이다.
@@ -287,7 +289,7 @@ func TestJumpsDrawerWidth(t *testing.T) {
 		m.width = width
 
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), textarea.WidthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }

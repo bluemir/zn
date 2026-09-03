@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // **패턴을 받는 자리는 하나다.** 팔레트의 「프로젝트 검색」과 인자 없는 `:grep` 이 같은
@@ -61,7 +63,7 @@ func TestGrepInputTrimsInputFromLeft(t *testing.T) {
 
 	assert.True(t, strings.HasPrefix(text, "…"), "글: %q", text)
 	assert.True(t, strings.HasSuffix(text, "END"), "방금 친 글자가 남는다: %q", text)
-	assert.LessOrEqual(t, widthOf(text), m.paletteWidth()-4, "박스 안에 든다")
+	assert.LessOrEqual(t, textarea.WidthOf(text), m.paletteWidth()-4, "박스 안에 든다")
 }
 
 // `esc` 는 그만두고 `backspace` 로 다 지워도 나간다. 팔레트·명령줄과 같은 손이다.

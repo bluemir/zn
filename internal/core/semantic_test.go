@@ -11,6 +11,8 @@ import (
 
 	"github.com/bluemir/zn/internal/lsp"
 	"github.com/bluemir/zn/internal/syntax"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 서버가 말한 갈래가 우리 갈래로 옮는다.
@@ -82,17 +84,17 @@ func TestSemanticKind(t *testing.T) {
 //
 // **옮기는 일이 editor 쪽으로 갔다.** 서버의 UTF-16 열을 byte 로 바꾸는 것이 그쪽이라
 // (applySemanticTokens) 창만 세운 시험도 그 길을 지나야 같은 것을 본다 (ADR-0125).
-func applySemanticTo(t *testing.T, buf *viewport, msg semanticTokensMsg) {
+func applySemanticTo(t *testing.T, buf *textarea.Viewport, msg semanticTokensMsg) {
 	t.Helper()
 
-	e := &editor{buffers: []viewport{*buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{*buf}, width: 80, height: 20}
 	e.applySemanticTokens(msg)
 	*buf = e.buffers[0]
 }
 
 // 서버가 없으면 묻지 않는다. Go 파일이 아닌 것도 그렇다.
 func TestStartSemanticTokensWithoutServer(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}, width: 80, height: 20}
 
 	assert.Nil(t, e.startSemanticTokens())
 
@@ -104,7 +106,7 @@ func TestApplySemanticTokensPicksBufferByPath(t *testing.T) {
 	first := semanticTestBuffer(t, "package main", "", "var x = 3")
 	second := semanticTestBuffer(t, "package main", "", "var y = 4")
 
-	e := &editor{buffers: []viewport{*first, *second}, active: 0, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{*first, *second}, active: 0, width: 80, height: 20}
 
 	e.applySemanticTokens(semanticTokensMsg{
 		path:     second.Path,
@@ -158,10 +160,10 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 
 	t.Cleanup(client.Shutdown)
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 100, height: 30}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 100, height: 30}
 	e.serverState(lsp.ServerFor("main.go")).client = client
 	require.NoError(t, client.Open(path, e.activeBuffer().AllLines()))
 	e.activeBuffer().LexSyntaxTo(e.activeBuffer().LineCount() - 1)
@@ -191,7 +193,7 @@ func TestSemanticTokensFromGopls(t *testing.T) {
 }
 
 // semanticTestBuffer 는 그 줄들을 담은 buffer 다. 문법 캐시는 한 번 훑어서 채워 둔다.
-func semanticTestBuffer(t *testing.T, lines ...string) *viewport {
+func semanticTestBuffer(t *testing.T, lines ...string) *textarea.Viewport {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "main.go")
@@ -207,7 +209,7 @@ func semanticTestBuffer(t *testing.T, lines ...string) *viewport {
 
 	require.NoError(t, os.WriteFile(path, []byte(text+"\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	buf.LexSyntaxTo(buf.LineCount() - 1)

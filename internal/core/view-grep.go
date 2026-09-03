@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // grepMinTextHeight 는 판을 열고도 편집 영역에 남아야 할 행 수다. 다른 판들과 같다.
@@ -284,11 +286,11 @@ func (m viewGrep) run(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "pgdown":
 		// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
-		m.move(pageRows(pageFull, m.grepDrawerHeight()))
+		m.move(textarea.PageRows(textarea.PageFull, m.grepDrawerHeight()))
 
 		return m, nil
 	case "pgup":
-		m.move(-pageRows(pageFull, m.grepDrawerHeight()))
+		m.move(-textarea.PageRows(textarea.PageFull, m.grepDrawerHeight()))
 
 		return m, nil
 	case "g", "home":
@@ -347,7 +349,7 @@ func (m viewGrep) open() (tea.Model, tea.Cmd) {
 	m.search = searchState{
 		input:     m.grep.input,
 		pattern:   m.grep.pattern,
-		direction: searchForward,
+		direction: textarea.SearchForward,
 		highlight: true,
 	}
 
@@ -460,7 +462,7 @@ func (m viewGrep) View() tea.View {
 	// **바꿀 글을 칠 때도 선다.** 거르기만 세우고 있었는데 둘 다 아래 줄에서 글자를 받는
 	// 자리라 갈라 둘 값이 없다.
 	if line, ok := m.hintInput(); ok {
-		view.Cursor = tea.NewCursor(widthOf(m.hintPrefix())+line.screenCursor()+m.sidebarLeft(), m.height-1)
+		view.Cursor = tea.NewCursor(textarea.WidthOf(m.hintPrefix())+line.screenCursor()+m.sidebarLeft(), m.height-1)
 		view.Cursor.Shape = tea.CursorBlock
 	}
 
@@ -690,7 +692,7 @@ const grepContextCols = 8
 func grepWindow(text string, col, width int) (string, int) {
 	col = min(max(col, 0), len(text))
 
-	if width < 1 || widthOf(text) <= width {
+	if width < 1 || textarea.WidthOf(text) <= width {
 		return text, col
 	}
 
@@ -720,7 +722,7 @@ func grepWindow(text string, col, width int) (string, int) {
 // 보이던 자리가 되지 않는다(ADR-0096, ADR-0098).
 func grepExpandScreen(text string, col, end int) (string, int, int) {
 	line := []byte(text)
-	out := make([]byte, 0, len(line)+defaultTabWidth)
+	out := make([]byte, 0, len(line)+textarea.DefaultTabWidth)
 
 	newCol, newEnd := -1, -1
 	width, offset := 0, 0
@@ -735,9 +737,9 @@ func grepExpandScreen(text string, col, end int) (string, int, int) {
 			newEnd = len(out)
 		}
 
-		size, w := glyphAt(line, offset, width, defaultTabWidth)
+		size, w := textarea.GlyphAt(line, offset, width, textarea.DefaultTabWidth)
 
-		if screen := screenText(line, offset, width, defaultTabWidth); screen != "" {
+		if screen := textarea.ScreenText(line, offset, width, textarea.DefaultTabWidth); screen != "" {
 			out = append(out, screen...)
 		} else {
 			out = append(out, line[offset:offset+size]...)

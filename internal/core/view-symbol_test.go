@@ -11,6 +11,8 @@ import (
 
 	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newSymbolView 는 큐레이션 표만 넣고 연 특수문자 drawer 다.
@@ -122,7 +124,7 @@ func TestSymbolDoesNotGrowScreen(t *testing.T) {
 	require.Len(t, after, len(before), "행 수가 같아야 한다")
 
 	for i, row := range after {
-		assert.LessOrEqual(t, widthOf(row), m.width, "%d 행이 화면보다 넓다", i)
+		assert.LessOrEqual(t, textarea.WidthOf(row), m.width, "%d 행이 화면보다 넓다", i)
 	}
 }
 
@@ -344,7 +346,7 @@ func TestSymbolGridRowsAreEvenWidth(t *testing.T) {
 		require.Len(t, rows, m.symbolGridRows()+symbolFrame, "패턴 %q", pattern)
 
 		for i, row := range rows {
-			assert.Equal(t, m.textWidth(), widthOf(row),
+			assert.Equal(t, m.textWidth(), textarea.WidthOf(row),
 				"패턴 %q 의 %d 행: %q", pattern, i, ansi.Strip(row))
 		}
 
@@ -374,7 +376,7 @@ func TestSymbolNoMatchRowFitsNarrowBox(t *testing.T) {
 		// 합성하기 전의 판을 그대로 잰다. 화면에서 떼어 오면 넘친 부분이 이미
 		// 잘려 있어서(drawerRowsOf 의 ansi.Truncate) 넘침 자체를 못 본다.
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), textarea.WidthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }

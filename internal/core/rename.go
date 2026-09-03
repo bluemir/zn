@@ -10,6 +10,8 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 이름 바꾸기다(ADR-0067).
@@ -181,7 +183,7 @@ func (e *editor) applyRenameTo(file lsp.FileEdits) (int, error) {
 		return done, nil
 	}
 
-	buf, err := OpenBuffer(file.Path)
+	buf, err := textarea.OpenBuffer(file.Path)
 	if err != nil {
 		return 0, err
 	}

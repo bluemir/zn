@@ -3,6 +3,8 @@ package core
 import (
 	"strconv"
 	"unicode/utf8"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // visualState 는 visual mode 가 키를 받아가며 옮겨 다니는 상태다.
@@ -67,13 +69,13 @@ func visualAction(key string, count int) action {
 	case "ctrl+d":
 		// 고른 범위가 커서를 따라 자란다. 이동 키를 친 것과 같다 — 화면 단위 이동이 motion 이
 		// 아니라 홀로 서는 동작인 것은 화면 높이가 있어야 정해지기 때문이다(ADR-0062).
-		return actionPage{direction: pageDown, span: pageHalf, count: count}
+		return actionPage{direction: textarea.PageDown, span: textarea.PageHalf, count: count}
 	case "ctrl+u":
-		return actionPage{direction: pageUp, span: pageHalf, count: count}
+		return actionPage{direction: textarea.PageUp, span: textarea.PageHalf, count: count}
 	case "ctrl+f":
-		return actionPage{direction: pageDown, span: pageFull, count: count}
+		return actionPage{direction: textarea.PageDown, span: textarea.PageFull, count: count}
 	case "ctrl+b":
-		return actionPage{direction: pageUp, span: pageFull, count: count}
+		return actionPage{direction: textarea.PageUp, span: textarea.PageFull, count: count}
 	case "esc":
 		return actionVisualLeave{}
 	case "v":
@@ -87,15 +89,15 @@ func visualAction(key string, count int) action {
 	case "c":
 		return actionVisualChange{}
 	case "~":
-		return actionVisualChangeCase{kind: caseToggle}
+		return actionVisualChangeCase{kind: textarea.CaseToggle}
 	case "U":
-		return actionVisualChangeCase{kind: caseUpper}
+		return actionVisualChangeCase{kind: textarea.CaseUpper}
 	case "u":
-		return actionVisualChangeCase{kind: caseLower}
+		return actionVisualChangeCase{kind: textarea.CaseLower}
 	case ">":
-		return actionVisualIndent{direction: indentRight}
+		return actionVisualIndent{direction: textarea.IndentRight}
 	case "<":
-		return actionVisualIndent{direction: indentLeft}
+		return actionVisualIndent{direction: textarea.IndentLeft}
 	case "=":
 		return actionVisualReindent{}
 	}

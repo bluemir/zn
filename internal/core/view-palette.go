@@ -8,6 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 박스 크기다. sidebar 의 수치와 같은 자리에 둔다(docs/spec.md).
@@ -97,11 +99,11 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "pgdown":
 			// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
-			m.move(pageRows(pageFull, m.paletteListRows()))
+			m.move(textarea.PageRows(textarea.PageFull, m.paletteListRows()))
 
 			return m, nil
 		case "pgup":
-			m.move(-pageRows(pageFull, m.paletteListRows()))
+			m.move(-textarea.PageRows(textarea.PageFull, m.paletteListRows()))
 
 			return m, nil
 		case "left", "right", "home", "end":
@@ -521,13 +523,13 @@ type paletteRow struct {
 // 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없다.
 func (r paletteRow) render(inner int) string {
 	left := truncateToWidth(sanitizeName(r.left), inner)
-	leftWidth := widthOf(left)
+	leftWidth := textarea.WidthOf(left)
 
 	// 오른쪽은 붙일 칸이 있을 때만 넣는다. 이름이 먼저다 — statusBar 의 git 표시와 같은 규칙이다.
 	right, rightWidth := "", 0
 	if r.right != "" {
 		right = sanitizeName(r.right)
-		rightWidth = widthOf(right)
+		rightWidth = textarea.WidthOf(right)
 
 		if leftWidth+2+rightWidth > inner {
 			right, rightWidth = "", 0
@@ -586,12 +588,12 @@ func renderMatches(text string, positions []int, base, match lipgloss.Style) str
 
 	for i := 0; i < len(positions); i++ {
 		start := positions[i]
-		end := start + glyphSize(line, start)
+		end := start + textarea.GlyphSize(line, start)
 
 		// 이어지는 자리는 한 구간으로 묶는다.
 		for i+1 < len(positions) && positions[i+1] == end {
 			i++
-			end += glyphSize(line, positions[i])
+			end += textarea.GlyphSize(line, positions[i])
 		}
 
 		put(text[offset:start], base)
@@ -606,5 +608,5 @@ func renderMatches(text string, positions []int, base, match lipgloss.Style) str
 
 // padTo 는 화면 칸을 채운다.
 func padTo(text string, width int) string {
-	return text + strings.Repeat(" ", max(width-widthOf(text), 0))
+	return text + strings.Repeat(" ", max(width-textarea.WidthOf(text), 0))
 }

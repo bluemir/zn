@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // startConfirm 은 `c` 를 붙인 `:s` 를 쳐서 물어보는 자리까지 간다.
@@ -167,7 +169,7 @@ func TestSubstituteConfirmStopsWhenBufferSwapped(t *testing.T) {
 
 	// 바깥 검사가 하는 일이다. 줄 수가 줄어서 시작할 때 정한 끝 줄이 남의 글을 가리킨다.
 	swapped := m.(viewEditorSubstitute)
-	swapped.buffers[swapped.active] = newBuffer("test.txt", []byte("z\n"))
+	swapped.buffers[swapped.active] = textarea.NewBuffer("test.txt", []byte("z\n"))
 
 	next := send(swapped, "y")
 

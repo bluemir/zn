@@ -9,6 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // fileCooldown 은 파일 검사가 끝난 뒤 다음 검사까지 쉬는 시간이다.
@@ -44,7 +46,7 @@ func (e *editor) scheduleFileTick() tea.Cmd {
 
 // outsideResult 는 검사가 알아낸 것이다. 값이 드는 일은 전부 여기까지 끝나 있다.
 type outsideResult struct {
-	change outsideChange
+	change textarea.OutsideChange
 
 	// size·mtime 은 검사가 본 파일의 크기와 mtime 이다. 다음 검사의 앞잡이가 된다.
 	size  int64
@@ -52,7 +54,7 @@ type outsideResult struct {
 
 	// next 는 갈아끼울 내용이다. 내용이 달라졌을 때만 채운다 — 만드는 것이 파일 크기만큼
 	// 드는 일이라 이 자리(백그라운드) 에서 해 둔다.
-	next *viewport
+	next *textarea.Viewport
 
 	err error
 }
@@ -87,7 +89,7 @@ func (e *editor) outsideTargets() []outsideTarget {
 }
 
 // outsideTargetOf 는 buffer 하나에서 기준을 뜬다.
-func outsideTargetOf(buf *viewport) outsideTarget {
+func outsideTargetOf(buf *textarea.Viewport) outsideTarget {
 	seen, size, mtime := buf.DiskSeenAt()
 
 	return outsideTarget{
@@ -162,7 +164,7 @@ func checkOutsideFiles(ctx context.Context, targets []outsideTarget) <-chan jobP
 			// 알아낸 것이 없는 파일은 요약을 덮지 않는다. 여럿을 볼 때 마지막 하나가
 			// 「그대로」라고 해서 앞에서 찾은 것이 `:jobs` 에서 지워지면 안 된다
 			// (updateJob 은 빈 요약을 흘려보낸다). 첫 조각만 바닥을 깔아 둔다.
-			if result.change == outsideSame && i > 0 {
+			if result.change == textarea.OutsideSame && i > 0 {
 				progress.summary = ""
 			}
 
@@ -183,7 +185,7 @@ func checkOutsideFiles(ctx context.Context, targets []outsideTarget) <-chan jobP
 // 시작하지 않으면 끝나지도 않아서 cooldown 고리가 그 자리에서 멈춘다(ADR-0044).
 func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) outsideResult {
 	if path == "" {
-		return outsideResult{change: outsideSame}
+		return outsideResult{change: textarea.OutsideSame}
 	}
 
 	info, err := os.Lstat(path)
@@ -191,10 +193,10 @@ func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) out
 	case errors.Is(err, os.ErrNotExist):
 		// 열 때도 없던 파일이면 달라진 것이 없다.
 		if seen == nil {
-			return outsideResult{change: outsideSame}
+			return outsideResult{change: textarea.OutsideSame}
 		}
 
-		return outsideResult{change: outsideRemoved}
+		return outsideResult{change: textarea.OutsideRemoved}
 	case err != nil:
 		return outsideResult{err: errors.Wrapf(err, "cannot read %s", path)}
 	}
@@ -205,7 +207,7 @@ func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) out
 	// 보고 「그대로」라고 답하면, 없던 파일이 생긴 것을 한 번 알린 뒤 다음 검사에서 마커가
 	// 조용히 지워진다 — buffer 는 여전히 비어 있는데 어긋난 것이 없다고 말하는 셈이다.
 	if seen != nil && !mtime.IsZero() && info.Size() == size && info.ModTime().Equal(mtime) {
-		return outsideResult{change: outsideSame, size: size, mtime: mtime}
+		return outsideResult{change: textarea.OutsideSame, size: size, mtime: mtime}
 	}
 
 	data, err := os.ReadFile(path)
@@ -216,23 +218,23 @@ func checkOutsideFile(path string, seen []byte, size int64, mtime time.Time) out
 	result := outsideResult{size: info.Size(), mtime: info.ModTime()}
 
 	if seen == nil {
-		result.change = outsideCreated
+		result.change = textarea.OutsideCreated
 
 		return result
 	}
 
 	sum := sha256.Sum256(data)
 	if bytes.Equal(sum[:], seen) {
-		result.change = outsideSame
+		result.change = textarea.OutsideSame
 
 		return result
 	}
 
-	result.change = outsideModified
+	result.change = textarea.OutsideModified
 
 	// 갈아끼울 내용을 여기서 만들어 둔다. 줄 나누기와 해시가 파일 크기만큼 드는 일이라
 	// `Update` 로 넘기면 그만큼 화면이 멈춘다.
-	next := newBuffer(path, data)
+	next := textarea.NewBuffer(path, data)
 	next.MarkDiskStamp(result.size, result.mtime)
 	result.next = &next
 
@@ -274,7 +276,7 @@ func (e *editor) applyOutsideResult(path string, seen []byte, result outsideResu
 	// 앞잡이는 판정과 무관하게 갱신한다. 다음 검사가 읽지 않고 끝나는 것이 이 값이다.
 	buf.MarkDiskStamp(result.size, result.mtime)
 
-	if result.change != outsideModified || buf.Dirty || result.next == nil {
+	if result.change != textarea.OutsideModified || buf.Dirty || result.next == nil {
 		if message := markOutsideChange(buf, result.change); message != "" {
 			e.notify(message)
 		}
@@ -301,11 +303,11 @@ func outsideSummary(result outsideResult) string {
 	switch {
 	case result.err != nil:
 		return "읽지 못함"
-	case result.change == outsideModified:
+	case result.change == textarea.OutsideModified:
 		return "밖에서 바뀜"
-	case result.change == outsideRemoved:
+	case result.change == textarea.OutsideRemoved:
 		return "밖에서 사라짐"
-	case result.change == outsideCreated:
+	case result.change == textarea.OutsideCreated:
 		return "밖에서 생김"
 	}
 
@@ -323,11 +325,11 @@ func outsideSummary(result outsideResult) string {
 //
 // 활성 buffer 가 아니라 buffer 를 받는다. 검사가 백그라운드로 내려가서, 결과가 돌아올 때는
 // 보고 있는 tab 이 검사한 tab 이 아닐 수 있다(ADR-0044).
-func markOutsideChange(buf *viewport, change outsideChange) string {
+func markOutsideChange(buf *textarea.Viewport, change textarea.OutsideChange) string {
 	was := buf.OutsideState()
 	buf.SetOutsideState(change)
 
-	if change == outsideSame || was != outsideSame {
+	if change == textarea.OutsideSame || was != textarea.OutsideSame {
 		return ""
 	}
 
@@ -339,13 +341,13 @@ func markOutsideChange(buf *viewport, change outsideChange) string {
 // 저장할 때의 문구(checkNotChangedOutside) 와 판정은 같고 다음 걸음이 다르다. 여기서는 아직
 // 아무것도 쓰려 하지 않았으므로 덮어쓰는 길이 아니라 가져오는 길을 알린다. 사라진 파일은
 // 가져올 것이 없어서 사실만 알린다 — 손에 든 것이 마지막 사본이다 (ADR-0016, ADR-0023).
-func outsideChangeMessage(change outsideChange) string {
+func outsideChangeMessage(change textarea.OutsideChange) string {
 	switch change {
-	case outsideRemoved:
+	case textarea.OutsideRemoved:
 		return "파일이 밖에서 사라졌습니다"
-	case outsideCreated:
+	case textarea.OutsideCreated:
 		return "파일이 밖에서 새로 생겼습니다. 다시 읽으려면 `:e` 입니다"
-	case outsideModified:
+	case textarea.OutsideModified:
 		return "파일이 밖에서 바뀌었습니다. 다시 읽으려면 `:e` 입니다"
 	}
 

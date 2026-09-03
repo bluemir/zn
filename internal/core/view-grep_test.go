@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newGrepView 는 적중이 담긴 결과 판이다. 파일은 jumpEditor 가 만든 셋을 쓴다.
@@ -451,7 +453,7 @@ func TestGrepDrawerMovementKeys(t *testing.T) {
 	assert.Equal(t, len(hits)-1, selectedOfGrep(t, send(m, "G")))
 	assert.Zero(t, selectedOfGrep(t, send(send(m, "G"), "g")))
 	assert.Equal(t, len(hits)-1, selectedOfGrep(t, send(m, "end")))
-	assert.Equal(t, pageRows(pageFull, m.grepDrawerHeight()), selectedOfGrep(t, send(m, "pgdown")))
+	assert.Equal(t, textarea.PageRows(textarea.PageFull, m.grepDrawerHeight()), selectedOfGrep(t, send(m, "pgdown")))
 }
 
 // selectedOfGrep 은 판이 고른 자리다. 판을 벗어났으면 시험을 멈춘다.
@@ -593,7 +595,7 @@ func TestGrepRowKeepsWidthWithTabs(t *testing.T) {
 
 	for i, row := range strings.Split(m.renderDrawer(), "\n") {
 		plain := ansi.Strip(row)
-		assert.Equal(t, m.textWidth(), widthOf(plain),
+		assert.Equal(t, m.textWidth(), textarea.WidthOf(plain),
 			"행 %d 이 판 폭과 같다: %q", i, plain)
 		assert.NotContains(t, plain, "\t", "행 %d 에 tab 이 남지 않는다", i)
 	}
@@ -621,7 +623,7 @@ func TestGrepAndEditorExpandAlike(t *testing.T) {
 		t.Run(text, func(t *testing.T) {
 			line := []byte(text)
 
-			parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
+			parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line), textarea.DefaultTabWidth)
 			editor := strings.Builder{}
 			for _, part := range parts {
 				editor.WriteString(part.text)

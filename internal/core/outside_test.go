@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newWideFileEditor 는 statusBar 가 잘리지 않을 만큼 넓은 편집 화면이다.
@@ -203,11 +205,11 @@ func TestFocusMarksOutsideChangeWhenDirty(t *testing.T) {
 func TestOutsideCreatedIsNotReadAutomatically(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "new.txt")
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	m := viewEditorNormal{editor: &editor{
-		buffers: []viewport{buf},
+		buffers: []textarea.Viewport{buf},
 		width:   200,
 		height:  5 + tablineHeight + statusBarHeight,
 	}}
@@ -345,7 +347,7 @@ func TestOutsideCheckSkipsReadWhenStatMatches(t *testing.T) {
 
 	result := checkOutsideFile(path, []byte("맞지 않는 기준"), info.Size(), info.ModTime())
 
-	assert.Equal(t, outsideSame, result.change)
+	assert.Equal(t, textarea.OutsideSame, result.change)
 	assert.Nil(t, result.next, "읽지 않았으므로 갈아끼울 것도 없다")
 }
 
@@ -359,7 +361,7 @@ func TestOutsideCheckReadsWhenStatDiffers(t *testing.T) {
 
 	result := checkOutsideFile(path, []byte("맞지 않는 기준"), info.Size(), info.ModTime().Add(-time.Second))
 
-	assert.Equal(t, outsideModified, result.change)
+	assert.Equal(t, textarea.OutsideModified, result.change)
 	require.NotNil(t, result.next, "갈아끼울 내용을 백그라운드에서 만들어 와야 한다")
 	assert.Equal(t, "abc", string(result.next.Line(0)))
 }
@@ -377,7 +379,7 @@ func TestOutsideCheckDoesNotTrustStatWithoutBaseline(t *testing.T) {
 
 	result := checkOutsideFile(path, nil, info.Size(), info.ModTime())
 
-	assert.Equal(t, outsideCreated, result.change)
+	assert.Equal(t, textarea.OutsideCreated, result.change)
 }
 
 // 검사가 본 stat 은 buffer 에 남는다. 남지 않으면 다음 검사가 또 파일 전체를 읽는다.
@@ -397,14 +399,14 @@ func TestOutsideCheckRecordsStat(t *testing.T) {
 func TestOutsideResultDroppedWhenBaselineMoved(t *testing.T) {
 	m, path := newWideFileEditor(t, "abc\n")
 
-	next := newBuffer(path, []byte("남이 쓴 것\n"))
+	next := textarea.NewBuffer(path, []byte("남이 쓴 것\n"))
 	m.applyOutsideResult(path, []byte("검사를 시작할 때의 기준"), outsideResult{
-		change: outsideModified,
+		change: textarea.OutsideModified,
 		next:   &next,
 	})
 
 	assert.Equal(t, "abc", string(m.activeBuffer().Line(0)), "낡은 결과를 넣었다")
-	assert.Equal(t, outsideSame, m.activeBuffer().OutsideState(), "마커도 붙이지 않는다")
+	assert.Equal(t, textarea.OutsideSame, m.activeBuffer().OutsideState(), "마커도 붙이지 않는다")
 }
 
 // tab 이 없어도 검사 작업은 시작한다. 시작하지 않으면 끝나지도 않아서 cooldown 고리가
@@ -427,7 +429,7 @@ func TestTickChecksEveryOpenTab(t *testing.T) {
 	second := filepath.Join(t.TempDir(), "second.txt")
 	require.NoError(t, os.WriteFile(second, []byte("둘째\n"), 0644))
 
-	buf, err := OpenBuffer(second)
+	buf, err := textarea.OpenBuffer(second)
 	require.NoError(t, err)
 
 	m.buffers = append(m.buffers, buf)
@@ -459,7 +461,7 @@ func TestTickRunsWithoutTabs(t *testing.T) {
 }
 
 // diskMtimeOf 는 그 창이 마지막으로 본 파일 시각이다. 앞잡이가 남았는지만 볼 때 쓴다.
-func diskMtimeOf(buf viewport) time.Time {
+func diskMtimeOf(buf textarea.Viewport) time.Time {
 	_, _, mtime := buf.DiskSeenAt()
 
 	return mtime

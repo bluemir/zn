@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // logLines 는 기록을 「경로:줄」로 편 것이다. 견주기 쉬우라고 둔다.
@@ -143,7 +145,7 @@ func TestJumpLogDropsOldest(t *testing.T) {
 
 // 이름 없는 buffer 는 담지 않는다. 되돌아갈 때 열 파일이 없다.
 func TestJumpLogSkipsUnnamedBuffer(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")}, width: 80, height: 20}
 
 	e.arrive()
 

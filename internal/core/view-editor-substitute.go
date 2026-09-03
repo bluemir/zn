@@ -3,6 +3,8 @@ package core
 import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewEditorSubstitute 는 `:s///c` 가 한 자리씩 물어보는 자리다.
@@ -38,7 +40,7 @@ type viewEditorSubstitute struct {
 	// 시작한 자리다. 하나도 안 바꾸고 나가면 커서와 화면이 여기로 돌아온다.
 	// 화면 자리까지 드는 까닭은 검색과 같다 — 커서만 되돌리면 보이는 곳이 달라진 채로
 	// 남는다(viewport.go 의 viewPlace).
-	back viewPlace
+	back textarea.ViewPlace
 }
 
 // substituteMode 는 물어보기를 시작한다.

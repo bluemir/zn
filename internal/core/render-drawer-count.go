@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // renderCountBorder 는 아랫 테두리 오른쪽에 「몇 번째/전부」를 얹은 줄이다.
@@ -29,15 +31,15 @@ func renderCountBorder(chars boxSet, width, at, total int) string {
 	}
 
 	label := fmt.Sprintf(" %s/%s ", formatCount(at), formatCount(total))
-	if widthOf(label) > room {
+	if textarea.WidthOf(label) > room {
 		return plain
 	}
 
 	// 오른쪽 끝에서 한 칸 띄운다. 모서리에 붙으면 테두리의 일부처럼 읽힌다.
 	tail := 1
-	head := room - widthOf(label) - tail
+	head := room - textarea.WidthOf(label) - tail
 	if head < 0 {
-		head, tail = room-widthOf(label), 0
+		head, tail = room-textarea.WidthOf(label), 0
 	}
 
 	return chars.bottomLeft +

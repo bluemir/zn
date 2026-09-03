@@ -2,6 +2,8 @@ package core
 
 import (
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // action 은 완성된 normal mode 동작이다. **자기가 어떻게 실행되는지 안다.**
@@ -64,8 +66,8 @@ func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 // 높이를 모르는데 화면 단위 이동은 높이가 있어야 정해진다. operator 뒤에 올 수 없는 것도
 // 그래서고, vim 에서도 `d ctrl+d` 는 지우지 않는다(ADR-0062, ADR-0063).
 type actionPage struct {
-	direction pageDirection
-	span      pageSpan
+	direction textarea.PageDirection
+	span      textarea.PageSpan
 	count     int
 }
 
@@ -183,7 +185,7 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 type actionIndent struct {
 	motion    motion
 	count     int
-	direction indentDirection
+	direction textarea.IndentDirection
 }
 
 func (c actionIndent) run(e *editor) (tea.Model, tea.Cmd) {
@@ -242,7 +244,7 @@ func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
 
 	if c.key == "enter" {
 		buf.ReplaceWithNewline(c.count)
-	} else if text, ok := replacementText(c.key); ok {
+	} else if text, ok := textarea.ReplacementText(c.key); ok {
 		buf.ReplaceChar(text, c.count)
 	}
 	e.scrollToCursor()
@@ -259,7 +261,7 @@ func (c actionReplaceChar) run(e *editor) (tea.Model, tea.Cmd) {
 // (ChangeCaseRange) 「어느 범위인가」는 이 키의 규칙이라 여기서 정한다. `3~` 가 잡는 것은
 // `3l`·`d3l` 이 잡는 것과 같은 범위다 — 줄을 넘지 않고 줄 끝에서 멈추는 것까지 같다.
 type actionChangeCase struct {
-	kind  caseKind
+	kind  textarea.CaseKind
 	count int
 }
 
@@ -415,7 +417,7 @@ func (c actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 }
 
 // actionVisualIndent 는 visual 의 `>` 와 `<` 다.
-type actionVisualIndent struct{ direction indentDirection }
+type actionVisualIndent struct{ direction textarea.IndentDirection }
 
 func (c actionVisualIndent) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
@@ -456,7 +458,7 @@ func (actionVisualReindent) run(e *editor) (tea.Model, tea.Cmd) {
 //
 // normal 의 `~` 와 달리 커서를 밀지 않는다 — 범위가 이미 정해져 있어서 훑어 갈 것이 없고,
 // 커서는 다른 visual 동작과 같이 범위의 시작으로 간다.
-type actionVisualChangeCase struct{ kind caseKind }
+type actionVisualChangeCase struct{ kind textarea.CaseKind }
 
 func (c actionVisualChangeCase) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
@@ -493,7 +495,7 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().PasteAfter(e.registers.byName(c.reg).textBlock, max(c.count, 1))
+	e.activeBuffer().PasteAfter(e.registers.byName(c.reg).TextBlock, max(c.count, 1))
 	e.scrollToCursor()
 
 	return nil, nil
@@ -511,7 +513,7 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
-	e.activeBuffer().PasteBefore(e.registers.byName(c.reg).textBlock, max(c.count, 1))
+	e.activeBuffer().PasteBefore(e.registers.byName(c.reg).TextBlock, max(c.count, 1))
 	e.scrollToCursor()
 
 	return nil, nil
@@ -620,7 +622,7 @@ func (actionOpenAbove) run(e *editor) (tea.Model, tea.Cmd) {
 // ── 검색 ──
 
 // actionSearch 는 `/` 와 `?` 다. 명령줄로 들어간다.
-type actionSearch struct{ direction searchDirection }
+type actionSearch struct{ direction textarea.SearchDirection }
 
 func (c actionSearch) run(e *editor) (tea.Model, tea.Cmd) {
 	return searchMode(e, c.direction)
@@ -647,7 +649,7 @@ func (c actionPrevMatch) run(e *editor) (tea.Model, tea.Cmd) {
 
 // actionSearchWord 는 `*` 와 `#` 이다. 커서가 선 단어를 찾는다.
 type actionSearchWord struct {
-	direction searchDirection
+	direction textarea.SearchDirection
 	count     int
 }
 

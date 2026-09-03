@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // tablineRow 는 tabline 한 줄과 그 줄의 어디에 무엇이 그려졌는지다.
@@ -84,7 +86,7 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 
 	// cost 는 그 tab 이 먹는 칸이다. 앞에 이미 그린 것이 있으면 구분선 한 칸이 붙는다.
 	cost := func(index, drawn int, left string) int {
-		cells := widthOf(e.tabLabel(index))
+		cells := textarea.WidthOf(e.tabLabel(index))
 		if drawn > 0 || left != "" {
 			cells++
 		}
@@ -95,7 +97,7 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 	fill := func(left string) (count, used int) {
 		rest := width
 		if left != "" {
-			rest -= widthOf(left) + 1 // 표시와 그 뒤 구분선
+			rest -= textarea.WidthOf(left) + 1 // 표시와 그 뒤 구분선
 		}
 
 		for i := scroll; i < len(e.buffers); i++ {
@@ -111,7 +113,7 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 		// 오른쪽 표시 자리를 만드느라 tab 을 물린다. 마지막 하나는 물리지 않는다.
 		for count > 1 && scroll+count < len(e.buffers) {
 			hidden := len(e.buffers) - scroll - count
-			if used+1+widthOf(fmt.Sprintf("%d>", hidden)) <= rest {
+			if used+1+textarea.WidthOf(fmt.Sprintf("%d>", hidden)) <= rest {
 				break
 			}
 
@@ -141,10 +143,10 @@ func (e editor) layoutTabs(scroll, width int) tabWindow {
 		right := fmt.Sprintf("%d>", hidden)
 		rest := width - used
 		if window.left != "" {
-			rest -= widthOf(window.left) + 1
+			rest -= textarea.WidthOf(window.left) + 1
 		}
 
-		if 1+widthOf(right) <= rest {
+		if 1+textarea.WidthOf(right) <= rest {
 			window.right = right
 		}
 	}
@@ -177,7 +179,7 @@ func (e editor) renderTabline(width int) tablineRow {
 	// 색을 입힌 뒤에는 escape 가 섞여서 폭을 셀 수 없으므로 자르는 것이 먼저다.
 	put := func(text string, active bool) [2]int {
 		if width > 0 {
-			text = text[:offsetAtScreenCol([]byte(text), width-col, defaultTabWidth)]
+			text = text[:textarea.OffsetAtScreenCol([]byte(text), width-col, textarea.DefaultTabWidth)]
 		}
 		if text == "" {
 			return [2]int{}
@@ -189,7 +191,7 @@ func (e editor) renderTabline(width int) tablineRow {
 		} else {
 			line.WriteString(reverse.Render(text))
 		}
-		col += widthOf(text)
+		col += textarea.WidthOf(text)
 
 		return [2]int{start, col}
 	}
@@ -214,7 +216,7 @@ func (e editor) renderTabline(width int) tablineRow {
 	// 누를 때마다 다른 칸을 겨눠야 한다. 왼쪽 표시가 늘 0 칸인 것과 짝이 맞는다.
 	tail := 0
 	if window.right != "" {
-		tail = 1 + widthOf(window.right) // 구분선과 표시
+		tail = 1 + textarea.WidthOf(window.right) // 구분선과 표시
 	}
 
 	// 그 사이에 남는 칸은 통째로 들어가지 못한 다음 tab 의 자리다. 점으로 채워 거기서 잘렸다고 알린다.

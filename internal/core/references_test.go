@@ -9,19 +9,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 서버가 없으면 묻지 않고 알린다. `\gr` 을 쳤을 때 아무 일도 안 나면 안 된다.
 func TestStartReferencesWithoutServer(t *testing.T) {
 	t.Run("Go 파일이 아니다", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("README.md")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("README.md")}}
 
 		assert.Nil(t, e.startReferences())
 		assert.Equal(t, "언어 서버가 붙는 파일에서만 사용처를 찾습니다", e.notice)
 	})
 
 	t.Run("서버를 못 띄운 뒤", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}}
 		e.serverState(lsp.ServerFor("main.go")).failed = true
 
 		assert.Nil(t, e.startReferences())
@@ -29,7 +31,7 @@ func TestStartReferencesWithoutServer(t *testing.T) {
 	})
 
 	t.Run("아직 뜨는 중이다", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}}
 		e.serverState(lsp.ServerFor("main.go")).starting = true
 
 		assert.Nil(t, e.startReferences())
@@ -46,10 +48,10 @@ func TestFinishReferencesJumpsWhenSingle(t *testing.T) {
 	require.NoError(t, os.WriteFile(here, []byte("package main\n"), 0644))
 	require.NoError(t, os.WriteFile(there, []byte("package main\n\nfunc use() { target() }\n"), 0644))
 
-	buf, err := OpenBuffer(here)
+	buf, err := textarea.OpenBuffer(here)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 
 	next, _ := e.finishReferences(referencesMsg{locations: []lsp.Location{{
 		URI:   "file://" + there,
@@ -69,10 +71,10 @@ func TestFinishReferencesOpensList(t *testing.T) {
 	path := filepath.Join(dir, "target.go")
 	require.NoError(t, os.WriteFile(path, []byte("package main\n\nfunc target() {}\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 
 	next, _ := e.finishReferences(referencesMsg{locations: []lsp.Location{
 		{URI: "file://" + path, Range: lsp.Range{Start: lsp.Position{Line: 2}}},
@@ -88,7 +90,7 @@ func TestFinishReferencesOpensList(t *testing.T) {
 
 // 아무도 쓰지 않는 이름이면 0 개로 온다. 선언 자리를 목록에서 뺐기 때문에 이 말이 맞다.
 func TestFinishReferencesNothing(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}, width: 80, height: 20}
 
 	next, cmd := e.finishReferences(referencesMsg{})
 	assert.Nil(t, next)

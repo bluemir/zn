@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 권한 비트가 닫힌 파일은 읽기 전용으로 연다. 정의로 뛰어 열리는 module cache 의 파일이
@@ -16,21 +18,21 @@ func TestDetectReadOnly(t *testing.T) {
 
 	writable := filepath.Join(dir, "writable.go")
 	require.NoError(t, os.WriteFile(writable, []byte("package main\n"), 0644))
-	assert.False(t, detectReadOnly(writable))
+	assert.False(t, textarea.DetectReadOnly(writable))
 
 	locked := filepath.Join(dir, "locked.go")
 	require.NoError(t, os.WriteFile(locked, []byte("package main\n"), 0444))
-	assert.False(t, detectReadOnly(writable))
-	assert.True(t, detectReadOnly(locked))
+	assert.False(t, textarea.DetectReadOnly(writable))
+	assert.True(t, textarea.DetectReadOnly(locked))
 
 	// 없는 파일은 새로 만드는 것이라 읽기 전용이 아니다.
-	assert.False(t, detectReadOnly(filepath.Join(dir, "없다.go")))
+	assert.False(t, textarea.DetectReadOnly(filepath.Join(dir, "없다.go")))
 
 	// 이름 없는 buffer 도 아니다.
-	assert.False(t, detectReadOnly(""))
+	assert.False(t, textarea.DetectReadOnly(""))
 
 	// 디렉터리는 buffer 가 되지 않지만, 되더라도 이 표시를 붙일 것은 아니다.
-	assert.False(t, detectReadOnly(dir))
+	assert.False(t, textarea.DetectReadOnly(dir))
 }
 
 func TestOpenBufferMarksReadOnly(t *testing.T) {
@@ -38,14 +40,14 @@ func TestOpenBufferMarksReadOnly(t *testing.T) {
 	locked := filepath.Join(dir, "locked.go")
 	require.NoError(t, os.WriteFile(locked, []byte("package main\n"), 0444))
 
-	buf, err := OpenBuffer(locked)
+	buf, err := textarea.OpenBuffer(locked)
 	require.NoError(t, err)
 	assert.True(t, buf.ReadOnly)
 
 	writable := filepath.Join(dir, "writable.go")
 	require.NoError(t, os.WriteFile(writable, []byte("package main\n"), 0644))
 
-	buf, err = OpenBuffer(writable)
+	buf, err = textarea.OpenBuffer(writable)
 	require.NoError(t, err)
 	assert.False(t, buf.ReadOnly)
 }
@@ -79,12 +81,12 @@ func TestReadOnlyRefusesEditingKeys(t *testing.T) {
 
 	for name, pressed := range keys {
 		t.Run(name, func(t *testing.T) {
-			buf, err := OpenBuffer(path)
+			buf, err := textarea.OpenBuffer(path)
 			require.NoError(t, err)
 
 			before := string(buf.Contents())
 
-			e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+			e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 			m := viewEditorNormal{editor: e}
 
 			model := send(m, pressed...)
@@ -105,10 +107,10 @@ func TestReadOnlyAllowsMovingAndYanking(t *testing.T) {
 	path := filepath.Join(dir, "locked.go")
 	require.NoError(t, os.WriteFile(path, []byte("package main\n\nfunc main() {}\n"), 0444))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 	m := viewEditorNormal{editor: e}
 
 	send(m, "j", "j")
@@ -126,12 +128,12 @@ func TestReadOnlyShowsInStatusBar(t *testing.T) {
 	path := filepath.Join(dir, "locked.go")
 	require.NoError(t, os.WriteFile(path, []byte("package main\n"), 0444))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	// 임시 디렉터리 경로가 길어서 좁은 화면에서는 표시가 잘린다. 여기서 보는 것은 표시가
 	// 붙는지라 화면을 넉넉히 준다.
-	e := editor{buffers: []viewport{buf}, width: 300, height: 20}
+	e := editor{buffers: []textarea.Viewport{buf}, width: 300, height: 20}
 
 	assert.Contains(t, e.renderStatusBar("NORMAL", "")[0], "[읽기 전용]")
 }

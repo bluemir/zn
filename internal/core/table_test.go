@@ -8,16 +8,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // tableBuffer 는 그 글을 담은 markdown buffer 다.
-func tableBuffer(t *testing.T, name string, lines ...string) *viewport {
+func tableBuffer(t *testing.T, name string, lines ...string) *textarea.Viewport {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), name)
 	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	return &buf
@@ -27,7 +29,7 @@ func tableBuffer(t *testing.T, name string, lines ...string) *viewport {
 //
 // **맞춘 줄을 짓는 일이 창 밖으로 갔다**(formattedTables). 갈아끼우는 것은 부르는 쪽이라,
 // 창만 세운 시험도 그 길을 지나야 같은 것을 본다 (ADR-0126).
-func formatTablesTo(t *testing.T, buf *viewport, from, to int) (found, changed int) {
+func formatTablesTo(t *testing.T, buf *textarea.Viewport, from, to int) (found, changed int) {
 	t.Helper()
 
 	at, next, found, changed := formattedTables(buf.AllLines(), buf.Language.State(), from, to)
@@ -44,7 +46,7 @@ func formatTablesTo(t *testing.T, buf *viewport, from, to int) (found, changed i
 }
 
 // bufferLines 는 지금 buffer 의 줄들이다.
-func bufferLines(buf *viewport) []string {
+func bufferLines(buf *textarea.Viewport) []string {
 	out := make([]string, 0, buf.LineCount())
 	for _, line := range buf.AllLines() {
 		out = append(out, string(line))

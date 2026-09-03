@@ -5,6 +5,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewMessages 는 `:messages` 로 여는 알림 기록이다(ADR-0053).
@@ -156,11 +158,11 @@ func (m viewMessages) run(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "pgdown":
 		// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
-		m.move(pageRows(pageFull, m.listHeight()))
+		m.move(textarea.PageRows(textarea.PageFull, m.listHeight()))
 
 		return m, nil
 	case "pgup":
-		m.move(-pageRows(pageFull, m.listHeight()))
+		m.move(-textarea.PageRows(textarea.PageFull, m.listHeight()))
 
 		return m, nil
 	case "g", "home":
@@ -380,7 +382,7 @@ func trimTextRight(text string, width int) string {
 	if width < 1 {
 		return ""
 	}
-	if widthOf(text) <= width {
+	if textarea.WidthOf(text) <= width {
 		return text
 	}
 

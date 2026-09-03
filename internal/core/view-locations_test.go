@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // locationsFixture 는 파일 셋이 든 목록 화면이다. 셋 다 서로 다른 파일이라 어느 것을
@@ -34,13 +36,13 @@ func locationsFixture(t *testing.T) (viewLocations, []string) {
 		})
 	}
 
-	buf, err := OpenBuffer(paths[0])
+	buf, err := textarea.OpenBuffer(paths[0])
 	require.NoError(t, err)
 
 	// 테두리를 unicode 로 두는 것은 다른 두 판의 시험과 같은 약속이다(ADR-0028, ADR-0056).
 	e := &editor{
 		boxChars: boxUnicode,
-		buffers:  []viewport{buf},
+		buffers:  []textarea.Viewport{buf},
 		width:    80,
 		height:   20,
 	}
@@ -211,12 +213,12 @@ func manyLocationsFixture(t *testing.T, count, width, height int) viewLocations 
 		})
 	}
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	e := &editor{
 		boxChars: boxUnicode,
-		buffers:  []viewport{buf},
+		buffers:  []textarea.Viewport{buf},
 		width:    width,
 		height:   height,
 	}
@@ -285,7 +287,7 @@ func TestLocationsDrawerWidth(t *testing.T) {
 		m := manyLocationsFixture(t, 20, width, 20)
 
 		for i, row := range strings.Split(m.renderDrawer(), "\n") {
-			assert.Equal(t, m.textWidth(), widthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
+			assert.Equal(t, m.textWidth(), textarea.WidthOf(row), "폭 %d 의 %d 행: %q", width, i, row)
 		}
 	}
 }
@@ -321,13 +323,13 @@ func TestTrimLeftToWidth(t *testing.T) {
 	assert.Equal(t, place, trimLeftToWidth(place, 200), "들어가면 그대로 둔다")
 
 	short := trimLeftToWidth(place, 20)
-	assert.LessOrEqual(t, widthOf(short), 20)
+	assert.LessOrEqual(t, textarea.WidthOf(short), 20)
 	assert.True(t, strings.HasPrefix(short, "…"), "접힌 것이 보여야 한다")
 	assert.True(t, strings.HasSuffix(short, "tea.go:603"), "파일 이름과 줄 번호가 남아야 한다")
 
 	// 한글이 든 경로도 칸으로 센다. 두 칸짜리 글자가 경계에 걸려도 넘치지 않는다.
 	korean := trimLeftToWidth("/집/가나다라마바사/파일.go:12", 12)
-	assert.LessOrEqual(t, widthOf(korean), 12)
+	assert.LessOrEqual(t, textarea.WidthOf(korean), 12)
 	assert.True(t, strings.HasSuffix(korean, ".go:12"))
 
 	assert.Equal(t, "", trimLeftToWidth(place, 0))

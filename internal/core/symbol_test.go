@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/assets"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // collectSymbols 는 훑기를 끝까지 돌려 목록을 받는다.
@@ -102,13 +104,13 @@ func TestCuratedSymbolsAreWellFormed(t *testing.T) {
 		seen[entry.Char] = true
 
 		// 격자가 한 칸에 한 글자를 놓는다. 두 글자가 들어오면 칸이 밀린다.
-		assert.Equal(t, len(entry.Char), glyphSize([]byte(entry.Char), 0),
+		assert.Equal(t, len(entry.Char), textarea.GlyphSize([]byte(entry.Char), 0),
 			"%q 는 grapheme cluster 하나가 아니다", entry.Char)
 
 		// 보이지 않는 글자는 격자에서 빈 칸이라 서로 구별되지 않는다.
 		// rune 하나하나가 아니라 글자가 통째로 차지하는 폭을 본다 — ZWJ 로 이은
 		// 이모지(`👨‍💻`) 는 안에 폭 0 인 rune 이 있어도 한 글자로 보인다.
-		assert.GreaterOrEqual(t, widthOf(entry.Char), 1,
+		assert.GreaterOrEqual(t, textarea.WidthOf(entry.Char), 1,
 			"%q 가 화면에서 보이지 않는다", entry.Name)
 	}
 }
@@ -119,7 +121,7 @@ func TestCuratedSymbolsAreWellFormed(t *testing.T) {
 // 있었는데, 눈금을 시작할 때 터미널에 맞추기로 하면서 없앴다(ADR-0072).
 func TestCuratedSymbolsFitOneCell(t *testing.T) {
 	for _, entry := range assets.CuratedSymbols {
-		got := widthOf(entry.Char)
+		got := textarea.WidthOf(entry.Char)
 
 		assert.GreaterOrEqual(t, got, 1, "%q 의 폭이 0 이다", entry.Char)
 		assert.LessOrEqual(t, got, symbolCellWidth, "%q 가 칸보다 넓다", entry.Char)

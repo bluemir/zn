@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // ctrl+z 는 셸로 내려간다. 종료가 아니라 멈춤이라 저장하지 않은 변경을 묻지 않는다(ADR-0023).
@@ -108,7 +110,7 @@ func TestResumeQuietWhenFileUnchanged(t *testing.T) {
 func TestResumeQuietWithoutFileName(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newEmptyBuffer("")},
+			buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,
 		},

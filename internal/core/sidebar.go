@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // sidebarWidth 는 좌측 sidebar 가 차지하는 칸 수다(docs/spec.md).
@@ -369,7 +371,7 @@ func renderGitTreeMarker(change gitChange) string {
 // 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
 func (r treeRow) render(active bool, change gitChange, box boxSet) string {
 	label := truncateToWidth(r.label(), labelWidth)
-	pad := max(0, labelWidth-widthOf(label))
+	pad := max(0, labelWidth-textarea.WidthOf(label))
 
 	// git 마커는 이름 칸 밖이다. 이름이 잘려도 마커는 늘 같은 자리에 선다.
 	mark := renderGitTreeMarker(change)
@@ -476,14 +478,14 @@ func sanitizeName(name string) string {
 //
 // top 을 옮기고 나서 부르는 쪽의 scrollTo 가 둘을 맞춘다 — 여기서는 더하기만 하고 범위
 // 맞추기를 되풀이하지 않는다(view-sidebar.go).
-func (s *sidebar) movePage(direction pageDirection, span pageSpan, count, height int) {
+func (s *sidebar) movePage(direction textarea.PageDirection, span textarea.PageSpan, count, height int) {
 	rows := len(s.rows())
 	if rows == 0 || height < 1 {
 		return
 	}
 
-	n := pageRows(span, height) * max(count, 1)
-	if direction == pageUp {
+	n := textarea.PageRows(span, height) * max(count, 1)
+	if direction == textarea.PageUp {
 		n = -n
 	}
 

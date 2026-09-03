@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 아래 기대값은 vim 9.1 에서 같은 명령을 쳐서 확인한 것이다(ADR-0084).
@@ -184,10 +186,10 @@ func TestSubstituteRefusesReadOnly(t *testing.T) {
 	path := filepath.Join(dir, "locked.go")
 	require.NoError(t, os.WriteFile(path, []byte("package main\n"), 0444))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 
 	m := runCommand(viewEditorNormal{editor: e}, "%s/main/x/")
 

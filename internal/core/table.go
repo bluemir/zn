@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bluemir/zn/internal/syntax"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // markdown 표를 칸에 맞춰 다시 그리는 자리다 (ADR-0106).
@@ -206,7 +208,7 @@ func renderTable(rows [][]string, delimiter int, indent string) [][]byte {
 		}
 
 		for column, cell := range row {
-			widths[column] = max(widths[column], widthOf(cell))
+			widths[column] = max(widths[column], textarea.WidthOf(cell))
 		}
 	}
 
@@ -275,7 +277,7 @@ func renderTableDelimiter(widths []int, aligns []tableAlign, indent string) []by
 
 // padCell 은 칸 글을 그 폭에 맞춰 민다. 글이 폭보다 넓으면 그대로 둔다.
 func padCell(cell string, width int, align tableAlign) string {
-	pad := width - widthOf(cell)
+	pad := width - textarea.WidthOf(cell)
 	if pad < 1 {
 		return cell
 	}

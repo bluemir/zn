@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 언어 서버가 밀어주는 진단(오류·경고) 을 화면에 올리는 자리다(ADR-0086).
@@ -43,16 +45,16 @@ func waitDiagnostics(name string, client *lsp.Client) tea.Cmd {
 // diagnosticsOf 는 서버가 준 것을 창이 드는 자료로 옮긴다.
 //
 // **여기가 lsp 와 말을 섞는 마지막 자리다.** 이 아래로는 창의 것만 간다.
-func diagnosticsOf(list []lsp.Diagnostic) []diagnostic {
+func diagnosticsOf(list []lsp.Diagnostic) []textarea.Diagnostic {
 	if len(list) == 0 {
 		return nil
 	}
 
-	out := make([]diagnostic, 0, len(list))
+	out := make([]textarea.Diagnostic, 0, len(list))
 	for _, item := range list {
-		out = append(out, diagnostic{
+		out = append(out, textarea.Diagnostic{
 			Line:     item.Range.Start.Line,
-			Severity: diagnosticSeverity(item.Severity),
+			Severity: textarea.DiagnosticSeverity(item.Severity),
 			Message:  item.Message,
 		})
 	}

@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newFileEditor 는 진짜 파일을 연 편집 화면을 만든다. 저장을 확인하려면 파일이 있어야 한다.
@@ -18,12 +20,12 @@ func newFileEditor(t *testing.T, data string) (viewEditorNormal, string) {
 	path := filepath.Join(t.TempDir(), "test.txt")
 	require.NoError(t, os.WriteFile(path, []byte(data), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	return viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{buf},
+			buffers: []textarea.Viewport{buf},
 			width:   40,
 			height:  5 + tablineHeight + statusBarHeight,
 		},
@@ -277,11 +279,11 @@ func TestCommandWriteFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "sub"), 0555))
 
-	buf, err := OpenBuffer(filepath.Join(dir, "sub", "new.txt"))
+	buf, err := textarea.OpenBuffer(filepath.Join(dir, "sub", "new.txt"))
 	require.NoError(t, err)
 
 	var m tea.Model = viewEditorNormal{
-		editor: &editor{buffers: []viewport{buf}, width: 40, height: 5 + tablineHeight + statusBarHeight},
+		editor: &editor{buffers: []textarea.Viewport{buf}, width: 40, height: 5 + tablineHeight + statusBarHeight},
 	}
 	m = send(m, ":", "w", "enter")
 

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // `c`·`cc`·`cw` 를 키로 보는 시험이다.
@@ -196,17 +198,17 @@ func TestChangeKeyParser(t *testing.T) {
 		want action
 	}{
 		{name: "cw 는 motion 이 갈린다", keys: []string{"c", "w"},
-			want: actionChange{motion: motionChangeWord{kind: wordSmall}}},
+			want: actionChange{motion: motionChangeWord{kind: textarea.WordSmall}}},
 		{name: "cW 도 같다", keys: []string{"c", "W"},
-			want: actionChange{motion: motionChangeWord{kind: wordBig}}},
+			want: actionChange{motion: motionChangeWord{kind: textarea.WordBig}}},
 		{name: "dw 는 그대로다", keys: []string{"d", "w"},
-			want: actionDelete{motion: motionWordForward{kind: wordSmall}}},
+			want: actionDelete{motion: motionWordForward{kind: textarea.WordSmall}}},
 		{name: "cc", keys: []string{"c", "c"}, want: actionChange{motion: motionWholeLines{}}},
 		{name: "3cc", keys: []string{"3", "c", "c"}, want: actionChange{motion: motionWholeLines{}, count: 3}},
 		{name: "c3w", keys: []string{"c", "3", "w"},
-			want: actionChange{motion: motionChangeWord{kind: wordSmall}, count: 3}},
+			want: actionChange{motion: motionChangeWord{kind: textarea.WordSmall}, count: 3}},
 		{name: "3c2w", keys: []string{"3", "c", "2", "w"},
-			want: actionChange{motion: motionChangeWord{kind: wordSmall}, count: 6}},
+			want: actionChange{motion: motionChangeWord{kind: textarea.WordSmall}, count: 6}},
 		{name: "cgg", keys: []string{"c", "g", "g"}, want: actionChange{motion: motionToFirstLine{}}},
 		{name: "c3c 는 3cc 와 같다", keys: []string{"c", "3", "c"},
 			want: actionChange{motion: motionWholeLines{}, count: 3}},

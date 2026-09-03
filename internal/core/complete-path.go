@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 명령줄에서 `tab` 으로 경로를 완성하는 자리다(ADR-0099).
@@ -163,7 +165,7 @@ func sharedLen(a, b string) int {
 
 	at := 0
 	for at < len(line) && at < len(b) {
-		size := glyphSize(line, at)
+		size := textarea.GlyphSize(line, at)
 		if at+size > len(b) || a[at:at+size] != b[at:at+size] {
 			break
 		}

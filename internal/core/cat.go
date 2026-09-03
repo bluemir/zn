@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 화면이나 고른 범위를 cat 과 같은 평문으로 터미널에 내보내는 자리다.
@@ -94,7 +96,7 @@ func runCat(e *editor, area scheme.MotionRange) (tea.Model, tea.Cmd) {
 //
 // `:!` 가 친 명령을 먼저 찍는 것과 같은 자리다 — 주 화면에는 지난 출력이 그대로 남아 있어서,
 // 머리말이 없으면 어느 것의 글인지 갈리지 않는다. 줄 번호는 사람이 세는 대로 1 부터다.
-func catHeader(buf viewport, area scheme.MotionRange) string {
+func catHeader(buf textarea.Viewport, area scheme.MotionRange) string {
 	path := "[No Name]"
 	if buf.Path != "" {
 		// 트리나 팔레트로 연 파일은 절대 경로라 그대로 두면 한 줄을 다 먹는다.

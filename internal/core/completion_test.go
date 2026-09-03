@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // item 은 시험용 후보다. 서버가 늘 주는 모양(TextEdit 이 접두를 덮는 것) 을 흉내 낸다.
@@ -39,10 +41,10 @@ func TestCompletionTriggers(t *testing.T) {
 //
 // **범위를 byte 로 옮기는 일이 editor 쪽으로 갔다**(applyCompletion). 서버가 준 UTF-16 열을
 // 옮기는 것을 보는 시험은 그 길을 지나야 한다 (ADR-0125).
-func applyCompletionTo(t *testing.T, buf *viewport, chosen lsp.CompletionItem) {
+func applyCompletionTo(t *testing.T, buf *textarea.Viewport, chosen lsp.CompletionItem) {
 	t.Helper()
 
-	e := &editor{buffers: []viewport{*buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{*buf}, width: 80, height: 20}
 	e.completion = completion{items: []lsp.CompletionItem{chosen}, line: buf.Cursor.Line}
 	e.applyCompletion()
 	*buf = e.buffers[0]
@@ -50,7 +52,7 @@ func applyCompletionTo(t *testing.T, buf *viewport, chosen lsp.CompletionItem) {
 
 // 서버가 준 범위가 이미 친 접두를 덮는다. 우리가 접두를 세지 않는다.
 func TestInsertCompletionReplacesPrefix(t *testing.T) {
-	buf := newBuffer("a.go", []byte("x := strings.Con\n"))
+	buf := textarea.NewBuffer("a.go", []byte("x := strings.Con\n"))
 	buf.Cursor.Line, buf.Cursor.Col = 0, len("x := strings.Con")
 
 	applyCompletionTo(t, &buf, item("Contains", 0, 13, 16))
@@ -61,7 +63,7 @@ func TestInsertCompletionReplacesPrefix(t *testing.T) {
 
 // 범위가 없으면 커서 자리에 넣는다.
 func TestInsertCompletionWithoutRange(t *testing.T) {
-	buf := newBuffer("a.go", []byte("ab\n"))
+	buf := textarea.NewBuffer("a.go", []byte("ab\n"))
 	buf.Cursor.Line, buf.Cursor.Col = 0, 2
 
 	applyCompletionTo(t, &buf, lsp.CompletionItem{Label: "cd"})
@@ -71,7 +73,7 @@ func TestInsertCompletionWithoutRange(t *testing.T) {
 
 // 서버가 보던 판과 어긋나 범위가 줄 밖을 가리켜도 죽지 않는다.
 func TestInsertCompletionClampsRange(t *testing.T) {
-	buf := newBuffer("a.go", []byte("ab\n"))
+	buf := textarea.NewBuffer("a.go", []byte("ab\n"))
 	buf.Cursor.Line, buf.Cursor.Col = 0, 2
 
 	applyCompletionTo(t, &buf, item("Z", 0, 100, 200))
@@ -81,7 +83,7 @@ func TestInsertCompletionClampsRange(t *testing.T) {
 
 // 넣은 것은 치던 글자와 한 구간이다. `u` 한 번에 그 insert 가 통째로 돌아간다(vim 과 같다).
 func TestInsertCompletionKeepsUndoChunkOpen(t *testing.T) {
-	buf := newBuffer("a.go", []byte("\n"))
+	buf := textarea.NewBuffer("a.go", []byte("\n"))
 	buf.Insert([]byte("st"))
 
 	applyCompletionTo(t, &buf, item("strings", 0, 0, 2))
@@ -93,7 +95,7 @@ func TestInsertCompletionKeepsUndoChunkOpen(t *testing.T) {
 
 // 여러 줄에 걸친 범위는 따르지 않는다. snippet 은 켜지 않았다.
 func TestInsertCompletionIgnoresMultilineRange(t *testing.T) {
-	buf := newBuffer("a.go", []byte("ab\ncd\n"))
+	buf := textarea.NewBuffer("a.go", []byte("ab\ncd\n"))
 	buf.Cursor.Line, buf.Cursor.Col = 0, 1
 
 	applyCompletionTo(t, &buf, lsp.CompletionItem{

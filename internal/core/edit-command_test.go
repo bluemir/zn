@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newFilesEditor 는 진짜 파일 여러 개를 tab 으로 연 편집 화면이다.
@@ -17,12 +19,12 @@ func newFilesEditor(t *testing.T, names ...string) (viewEditorNormal, string) {
 
 	dir := t.TempDir()
 
-	buffers := make([]viewport, 0, len(names))
+	buffers := make([]textarea.Viewport, 0, len(names))
 	for _, name := range names {
 		path := filepath.Join(dir, name)
 		require.NoError(t, os.WriteFile(path, []byte(name+"\n"), 0644))
 
-		buf, err := OpenBuffer(path)
+		buf, err := textarea.OpenBuffer(path)
 		require.NoError(t, err)
 
 		buffers = append(buffers, buf)

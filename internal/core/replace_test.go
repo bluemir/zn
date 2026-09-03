@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // replaceEditor 는 치환만 시키는 최소 editor 다. 판도 tab 도 없다 — 여기서 보는 것은
@@ -114,9 +116,9 @@ func TestReplaceFileGoesThroughTheOpenBuffer(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("foo one\nfoo two\n"), 0o644))
 
 	e := replaceEditor()
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
-	e.buffers = []viewport{buf}
+	e.buffers = []textarea.Viewport{buf}
 	e.active = 0
 
 	changed, _, err := e.replaceFile(path, []int{0}, mustSubstitute(t, "/foo/bar/"))

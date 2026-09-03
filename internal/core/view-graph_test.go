@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newGraphView 는 커밋 넷이 담긴 목록 화면이다.
@@ -161,8 +163,8 @@ func TestGraphRendersTwoLines(t *testing.T) {
 
 	// 화면 칸으로 견준다. 그래프 글자가 여러 byte 라 byte 자리로는 맞출 수 없다.
 	assert.Equal(t,
-		widthOf(head[:strings.Index(head, " - ")+3]),
-		widthOf(subject[:strings.Index(subject, "merge topic")]),
+		textarea.WidthOf(head[:strings.Index(head, " - ")+3]),
+		textarea.WidthOf(subject[:strings.Index(subject, "merge topic")]),
 		"제목이 날짜와 같은 칸에서 시작한다")
 }
 

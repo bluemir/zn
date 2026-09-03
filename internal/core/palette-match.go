@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 점수 규칙이다. 한 곳에 모아둬야 순위가 이상할 때 여기만 보면 된다.
@@ -67,7 +69,7 @@ func fuzzyMatch(pattern, target string) (score int, positions []int, ok bool) {
 func clusterStarts(line []byte) []int {
 	starts := make([]int, 0, len(line)+1)
 
-	for offset := 0; offset < len(line); offset += glyphSize(line, offset) {
+	for offset := 0; offset < len(line); offset += textarea.GlyphSize(line, offset) {
 		starts = append(starts, offset)
 	}
 

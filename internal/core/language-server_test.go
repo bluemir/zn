@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 어느 파일에 어느 서버가 붙는지는 lsp 의 표가 정한다(lsp/server.go).
@@ -57,14 +59,14 @@ func TestServerPath(t *testing.T) {
 // 서버가 없으면 묻지 않고 알린다. `\gd` 를 쳤을 때 아무 일도 안 나면 안 된다.
 func TestStartDefinitionWithoutServer(t *testing.T) {
 	t.Run("붙는 서버가 없다", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("README.md")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("README.md")}}
 
 		assert.Nil(t, e.startDefinition())
 		assert.Equal(t, "언어 서버가 붙는 파일에서만 정의를 찾습니다", e.notice)
 	})
 
 	t.Run("서버를 못 띄운 뒤", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}}
 		e.serverState(lsp.ServerFor("main.go")).failed = true
 
 		assert.Nil(t, e.startDefinition())
@@ -73,7 +75,7 @@ func TestStartDefinitionWithoutServer(t *testing.T) {
 
 	// **서버 이름이 문구에 든다.** python 파일에서 gopls 를 말하면 안 된다(ADR-0107).
 	t.Run("python 파일은 python 서버를 말한다", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("app.py")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("app.py")}}
 		e.serverState(lsp.ServerFor("app.py")).failed = true
 
 		assert.Nil(t, e.startDefinition())
@@ -81,7 +83,7 @@ func TestStartDefinitionWithoutServer(t *testing.T) {
 	})
 
 	t.Run("아직 뜨는 중이다", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}}
 		e.serverState(lsp.ServerFor("main.go")).starting = true
 
 		// 뜨는 중이면 새로 걸지 않는다. 알림만 남는다.
@@ -97,11 +99,11 @@ func TestFinishDefinitionMovesCursor(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(
 		"package main\n\n// 가나다 부른다\nfunc target() {}\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	e := &editor{
-		buffers: []viewport{buf},
+		buffers: []textarea.Viewport{buf},
 		width:   80,
 		height:  20,
 	}
@@ -135,10 +137,10 @@ func TestFinishDefinitionOpensNewTab(t *testing.T) {
 	require.NoError(t, os.WriteFile(here, []byte("package main\n"), 0644))
 	require.NoError(t, os.WriteFile(there, []byte("package main\n\nfunc there() {}\n"), 0644))
 
-	buf, err := OpenBuffer(here)
+	buf, err := textarea.OpenBuffer(here)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 
 	e.finishDefinition(definitionMsg{locations: []lsp.Location{{
 		URI:   "file://" + there,
@@ -157,10 +159,10 @@ func TestFinishDefinitionOpensList(t *testing.T) {
 	path := filepath.Join(dir, "target.go")
 	require.NoError(t, os.WriteFile(path, []byte("package main\n\nfunc target() {}\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 20}
 
 	next, _ := e.finishDefinition(definitionMsg{locations: []lsp.Location{
 		{URI: "file://" + path, Range: lsp.Range{Start: lsp.Position{Line: 2}}},
@@ -178,7 +180,7 @@ func TestFinishDefinitionOpensList(t *testing.T) {
 
 // 못 찾았거나 실패했으면 그것을 알린다. 커서는 그대로다.
 func TestFinishDefinitionNothing(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}, width: 80, height: 20}
 
 	next, cmd := e.finishDefinition(definitionMsg{})
 	assert.Nil(t, next)
@@ -188,7 +190,7 @@ func TestFinishDefinitionNothing(t *testing.T) {
 
 // 서버가 없으면 맞출 것도 없다. tick 이 와도 아무 일도 하지 않아야 한다.
 func TestSyncServersWithoutServer(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("main.go")}}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("main.go")}}
 
 	assert.Nil(t, e.syncServers())
 	assert.Nil(t, e.scheduleEditTick())
@@ -228,9 +230,9 @@ func TestSyncServersReconcilesOpenTabs(t *testing.T) {
 	notGo := filepath.Join(root, "docs/tasks.md")
 	python := filepath.Join(root, "scripts/notaserver.py")
 
-	buffers := []viewport{}
+	buffers := []textarea.Viewport{}
 	for _, path := range []string{first, second, notGo} {
-		buf, err := OpenBuffer(path)
+		buf, err := textarea.OpenBuffer(path)
 		require.NoError(t, err)
 
 		buffers = append(buffers, buf)
@@ -238,7 +240,7 @@ func TestSyncServersReconcilesOpenTabs(t *testing.T) {
 
 	// 디스크에 없어도 된다. 여기서 재는 것은 「gopls 에 알려지는가」이고 그것은 이름으로
 	// 갈린다(lsp.ServerFor).
-	buffers = append(buffers, newEmptyBuffer(python))
+	buffers = append(buffers, textarea.NewEmptyBuffer(python))
 
 	e := &editor{buffers: buffers, width: 80, height: 20}
 	e.serverState(goServer).client = client

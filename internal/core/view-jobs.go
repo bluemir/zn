@@ -6,6 +6,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewJobs 는 `:jobs` 로 여는 작업 목록이다.
@@ -131,11 +133,11 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "pgdown":
 		// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
-		m.move(pageRows(pageFull, m.listHeight()))
+		m.move(textarea.PageRows(textarea.PageFull, m.listHeight()))
 
 		return m, nil
 	case "pgup":
-		m.move(-pageRows(pageFull, m.listHeight()))
+		m.move(-textarea.PageRows(textarea.PageFull, m.listHeight()))
 
 		return m, nil
 	case "home":

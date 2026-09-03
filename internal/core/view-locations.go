@@ -10,6 +10,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // locationsMinTextHeight 는 판을 열고도 편집 영역에 남아야 할 행 수다.
@@ -207,11 +209,11 @@ func (m viewLocations) run(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "pgdown":
 		// 한 화면이다. 편집 영역·트리와 같은 자를 쓴다(page.go 의 pageRows).
-		m.move(pageRows(pageFull, m.locationsDrawerHeight()))
+		m.move(textarea.PageRows(textarea.PageFull, m.locationsDrawerHeight()))
 
 		return m, nil
 	case "pgup":
-		m.move(-pageRows(pageFull, m.locationsDrawerHeight()))
+		m.move(-textarea.PageRows(textarea.PageFull, m.locationsDrawerHeight()))
 
 		return m, nil
 	case "g", "home":

@@ -450,7 +450,7 @@
 	- [ ] 화면 분할이 오면 viewport 의 `Buffer` embed 를 포인터로 바꾼다. 그때 `newBuffer`·`OpenBuffer` 가 창을 주는 것과, `openTab` 이 「같은 파일을 두 tab 에」를 막고 있는 것도 같이 푼다 (ADR-0015, ADR-0121)
 - 패키지 경계 후속 (ADR-0100, ADR-0117, ADR-0119, ADR-0122)
 	- [x] `Buffer`+`viewport` 를 새 패키지로 낼지 정한다 → `internal/textarea` (ADR-0121, ADR-0124, ADR-0128)
-		- [ ] `internal/core/textarea-shim.go` 의 별칭 예순 줄을 지운다. 하나씩 지우며 부르는 자리를 `textarea.X` 로 바꾼다. 그 파일이 비면 가르기가 끝난 것이다 (ADR-0128)
+		- [x] `internal/core/textarea-shim.go` 의 별칭 예순 줄을 지운다. 하나씩 지우며 부르는 자리를 `textarea.X` 로 바꾼다. 그 파일이 비면 가르기가 끝난 것이다 (ADR-0128)
 		- [ ] `textarea` 의 대문자 면 169 개를 줄일지 본다. 컴파일러가 시켜서 연 것이라 「밖에서 쓰니까 열었다」 말고 다른 근거가 없는 이름이 섞여 있다 (ADR-0128)
 		- [x] `Viewport` 의 receiver 이름이 아직 `buf` 다. 88 개다 (ADR-0121)
 		- [ ] `ReplaceRun` 이 생겼으니 `trimTrailingSpace`·`sortLines`·`formatTablesIn` 이 되풀이하던 넉 줄을 그것으로 모을지 본다 (ADR-0100, ADR-0126, ADR-0128)

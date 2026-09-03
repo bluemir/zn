@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // bestOf 는 후보들을 걸러 점수 순으로 준다. 순위를 보는 테스트가 쓴다.
@@ -97,7 +99,7 @@ func TestFuzzyMatchPositionsAreClusterStarts(t *testing.T) {
 
 	line := []byte(target)
 	for _, offset := range positions {
-		size := glyphSize(line, offset)
+		size := textarea.GlyphSize(line, offset)
 		assert.Contains(t, []string{"한", "글"}, string(line[offset:offset+size]))
 	}
 }

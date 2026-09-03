@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // pageFixture 는 화면보다 훨씬 긴 파일이다. 줄마다 글자가 달라서 칸을 지키는지도 볼 수 있다.
@@ -137,7 +139,7 @@ func TestHalfPageIsNotAMotion(t *testing.T) {
 // 세는 것은 논리 줄이 아니라 화면 행이다. wrap 된 긴 줄은 그 안에서 여러 행을 지난다.
 func TestHalfPageCountsScreenRows(t *testing.T) {
 	m := newTestEditor("first\n"+strings.Repeat("x", 200)+"\nthird\nfourth\nfifth\nsixth\n", 80, 10)
-	require.Equal(t, 3, len(wrapOffsets(m.activeBuffer().Line(1), m.contentWidth(), defaultTabWidth)), "긴 줄이 세 행이다")
+	require.Equal(t, 3, len(textarea.WrapOffsets(m.activeBuffer().Line(1), m.contentWidth(), textarea.DefaultTabWidth)), "긴 줄이 세 행이다")
 
 	model := send(tea.Model(m), "ctrl+d")
 

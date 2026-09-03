@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // renamePrompt 는 이름을 바꾸는 동안 statusBar 아래 줄 앞에 서는 말이다.
@@ -189,7 +191,7 @@ func (m viewSidebarRename) View() tea.View {
 
 	// 커서는 치고 있는 자리다. 아래 줄은 편집 영역 아래에서 시작하므로 sidebar 만큼
 	// 오른쪽으로 옮긴다. 명령줄과 같다.
-	view.Cursor = tea.NewCursor(widthOf(renamePrompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(textarea.WidthOf(renamePrompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	return view
 }

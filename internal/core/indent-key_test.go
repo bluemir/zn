@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 func TestTabFillsToTheNextUnitBoundary(t *testing.T) {
@@ -148,12 +150,12 @@ func TestShiftKeepsTheCharacterKindOfTheLine(t *testing.T) {
 // tab 폭이 파일마다 갈리는지 본다. 재는 자리와 그리는 자리가 같은 답을 써야 한다(ADR-0096).
 func TestTabWidthFollowsEditorconfig(t *testing.T) {
 	path := writeEditorconfig(t, "[*]\nindent_style = tab\ntab_width = 8\n", "a.go")
-	buf := newBuffer(path, []byte("\tab\n"))
+	buf := textarea.NewBuffer(path, []byte("\tab\n"))
 
 	require.Equal(t, 8, buf.TabWidth())
 
-	assert.Equal(t, 8, screenColAt(buf.Line(0), 1, buf.TabWidth()), "tab 하나가 8 칸이다")
-	assert.Equal(t, []int{0, 1}, wrapOffsets(buf.Line(0), 6, buf.TabWidth()),
+	assert.Equal(t, 8, textarea.ScreenColAt(buf.Line(0), 1, buf.TabWidth()), "tab 하나가 8 칸이다")
+	assert.Equal(t, []int{0, 1}, textarea.WrapOffsets(buf.Line(0), 6, buf.TabWidth()),
 		"8 칸짜리 tab 은 너비 6 을 넘어 그 뒤가 다음 행으로 간다")
 
 	_, col := expandRow(buf.Line(0), 0, len(buf.Line(0)), 0, markWhitespace(buf.Line(0)), buf.TabWidth())

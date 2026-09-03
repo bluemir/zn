@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // grepIn 은 그 디렉터리를 뿌리로 삼아 검색을 끝까지 돌린 결과다.
@@ -234,12 +236,12 @@ func TestGrepStopsWhenCancelled(t *testing.T) {
 func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	root := t.TempDir()
 
-	clean := newBuffer(filepath.Join(root, "clean.go"), []byte("깨끗\n"))
+	clean := textarea.NewBuffer(filepath.Join(root, "clean.go"), []byte("깨끗\n"))
 
-	absolute := newBuffer(filepath.Join(root, "abs.go"), []byte("절대\n"))
+	absolute := textarea.NewBuffer(filepath.Join(root, "abs.go"), []byte("절대\n"))
 	absolute.Dirty = true
 
-	e := editor{buffers: []viewport{clean, absolute}}
+	e := editor{buffers: []textarea.Viewport{clean, absolute}}
 	open, overlay := e.dirtyOverlay(root)
 
 	assert.Len(t, overlay, 1, "깨끗한 buffer 의 글은 담지 않는다 — 디스크와 같다")
@@ -263,10 +265,10 @@ func TestDirtyOverlayNormalizesPaths(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 
-	relative := newBuffer(filepath.Join("sub", "rel.go"), []byte("상대\n"))
+	relative := textarea.NewBuffer(filepath.Join("sub", "rel.go"), []byte("상대\n"))
 	relative.Dirty = true
 
-	e = editor{buffers: []viewport{relative}}
+	e = editor{buffers: []textarea.Viewport{relative}}
 
 	open, overlay = e.dirtyOverlay(cwd)
 	assert.Contains(t, overlay, filepath.Join("sub", "rel.go"))
@@ -283,10 +285,10 @@ func TestDirtyOverlayKeepsOutsideRoot(t *testing.T) {
 
 	full := filepath.Join(outside, "far.go")
 
-	buf := newBuffer(full, []byte("멀다\n"))
+	buf := textarea.NewBuffer(full, []byte("멀다\n"))
 	buf.Dirty = true
 
-	e := editor{buffers: []viewport{buf}}
+	e := editor{buffers: []textarea.Viewport{buf}}
 
 	open, overlay := e.dirtyOverlay(root)
 

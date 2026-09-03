@@ -11,6 +11,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newTestEditor 의 height 는 편집 내용을 그릴 높이다. tabline 과 statusBar 는 별도로 얹힌다.
@@ -31,7 +33,7 @@ func newTestEditorFile(path, data string, width, height int) viewEditorNormal {
 			// 테두리는 unicode 로 둔다. 폭 눈금은 시험에서 정하지 못한다 — 시작할 때
 			// 터미널에 맞추는 것이고(ADR-0072) 시험은 tty 가 아니라서 늘 한 칸 쪽이다.
 			boxChars: boxUnicode,
-			buffers:  []viewport{newBuffer(path, []byte(data))},
+			buffers:  []textarea.Viewport{textarea.NewBuffer(path, []byte(data))},
 			width:    width,
 			height:   height + tablineHeight + statusBarHeight,
 		},
@@ -157,33 +159,33 @@ func TestWindowTitle(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(before) })
 
 	t.Run("폴더가 있는 파일", func(t *testing.T) {
-		buf, err := OpenBuffer(deep)
+		buf, err := textarea.OpenBuffer(deep)
 		require.NoError(t, err)
 
-		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
+		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
 		assert.Equal(t, "zn editor.go (internal/core)", e.renderWindowTitle())
 	})
 
 	t.Run("저장하지 않은 변경", func(t *testing.T) {
-		buf, err := OpenBuffer(deep)
+		buf, err := textarea.OpenBuffer(deep)
 		require.NoError(t, err)
 
-		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
+		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
 		e.activeBuffer().Insert([]byte("X"))
 
 		assert.Equal(t, "zn editor.go + (internal/core)", e.renderWindowTitle())
 	})
 
 	t.Run("뿌리에 있는 파일은 폴더를 적지 않는다", func(t *testing.T) {
-		buf, err := OpenBuffer(root)
+		buf, err := textarea.OpenBuffer(root)
 		require.NoError(t, err)
 
-		e := &editor{buffers: []viewport{buf}, width: 80, height: 12}
+		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
 		assert.Equal(t, "zn go.mod", e.renderWindowTitle())
 	})
 
 	t.Run("이름 없는 buffer", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("")}, width: 80, height: 12}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")}, width: 80, height: 12}
 		assert.Equal(t, "zn [No Name]", e.renderWindowTitle())
 	})
 
@@ -310,7 +312,7 @@ func TestViewEditorArrowKeysMoveCursor(t *testing.T) {
 // expandedRow 는 줄 하나를 화면 글자로 펼친 것이다. 색은 빼고 글자만 본다.
 func expandedRow(row string) string {
 	line := []byte(row)
-	parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
+	parts, _ := expandRow(line, 0, len(line), 0, markWhitespace(line), textarea.DefaultTabWidth)
 
 	out := strings.Builder{}
 	for _, part := range parts {
@@ -395,7 +397,7 @@ func TestExpandControlChars(t *testing.T) {
 // 제어문자는 본문과 다른 조각으로 갈려야 색을 따로 입힐 수 있다 (ADR-0118).
 func TestExpandRowSplitsControlParts(t *testing.T) {
 	line := []byte("a\x1bb")
-	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
+	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), textarea.DefaultTabWidth)
 
 	assert.Equal(t, []screenPart{
 		{text: "a", kind: partText},
@@ -409,15 +411,15 @@ func TestExpandRowSplitsControlParts(t *testing.T) {
 func TestControlCharWidthMatchesRendering(t *testing.T) {
 	row := "a\x1bb"
 
-	assert.Equal(t, 4, screenColAt([]byte(row), len(row), defaultTabWidth), "a(1) + ^[(2) + b(1)")
+	assert.Equal(t, 4, textarea.ScreenColAt([]byte(row), len(row), textarea.DefaultTabWidth), "a(1) + ^[(2) + b(1)")
 	assert.Len(t, []rune(expandedRow(row)), 4, "그린 글자 수도 같다")
-	assert.Equal(t, 1, glyphSize([]byte(row), 1), "지울 때는 1 byte 다")
+	assert.Equal(t, 1, textarea.GlyphSize([]byte(row), 1), "지울 때는 1 byte 다")
 }
 
 // 마커와 본문은 색이 달라서 조각이 갈린다. 조각 경계가 어긋나면 색이 본문으로 번진다.
 func TestExpandRowSplitsMarkerParts(t *testing.T) {
 	line := []byte("\tab  ")
-	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), defaultTabWidth)
+	parts, col := expandRow(line, 0, len(line), 0, markWhitespace(line), textarea.DefaultTabWidth)
 
 	assert.Equal(t, []screenPart{
 		{text: "»   ", kind: partMarker},
@@ -481,13 +483,13 @@ func TestLineNumbersBlankOnWrappedRows(t *testing.T) {
 // 자릿수는 줄 수와 화면 높이를 따라간다. 짧은 파일에서도 최소 폭은 지킨다.
 func TestLineNumberWidthFollowsFileSize(t *testing.T) {
 	short := newTestEditor("a\n", 80, 5)
-	assert.Equal(t, markerWidth+minAbsoluteDigits+1+minRelativeDigits+1, short.gutterWidth())
+	assert.Equal(t, textarea.MarkerWidth+textarea.MinAbsoluteDigits+1+textarea.MinRelativeDigits+1, short.gutterWidth())
 
 	long := newTestEditor(strings.Repeat("a\n", 1200), 80, 5)
-	assert.Equal(t, markerWidth+4+1+minRelativeDigits+1, long.gutterWidth(), "1200 줄이면 절대번호가 네 자리")
+	assert.Equal(t, textarea.MarkerWidth+4+1+textarea.MinRelativeDigits+1, long.gutterWidth(), "1200 줄이면 절대번호가 네 자리")
 
 	tall := newTestEditor("a\n", 80, 120)
-	assert.Equal(t, markerWidth+minAbsoluteDigits+1+3+1, tall.gutterWidth(), "화면이 높으면 상대번호가 세 자리")
+	assert.Equal(t, textarea.MarkerWidth+textarea.MinAbsoluteDigits+1+3+1, tall.gutterWidth(), "화면이 높으면 상대번호가 세 자리")
 }
 
 // 번호 칸을 떼고 나면 본문이 남지 않는 좁은 화면에서는 그리지 않는다.
@@ -515,8 +517,8 @@ func TestLineNumbersNarrowContentWrapsEarlier(t *testing.T) {
 //
 // 두 번 재는 것은 앞 칸의 폭이 자리에 따라 달라지기 때문이다 — 좁으면 0 이고 넓으면 아홉
 // 칸이라, 얹고 나서 넓어지면 답이 달라진다(ADR-0086, ADR-0123).
-func setContentWidth(buf *viewport, want, height int) {
-	buf.Size = viewSize{Width: want, Height: height}
+func setContentWidth(buf *textarea.Viewport, want, height int) {
+	buf.Size = textarea.ViewSize{Width: want, Height: height}
 	buf.Size.Width = want + buf.GutterWidth()
 	buf.Size.Width = want + buf.GutterWidth()
 }

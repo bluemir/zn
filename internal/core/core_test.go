@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 func TestOpenBuffersWithoutFiles(t *testing.T) {
@@ -59,7 +61,7 @@ func TestOpenBuffersSkipsDuplicateMissingFile(t *testing.T) {
 }
 
 // linesOf 는 buffer 의 줄들을 비교하기 쉽게 문자열로 바꾼다.
-func linesOf(buf viewport) []string {
+func linesOf(buf textarea.Viewport) []string {
 	out := make([]string, buf.LineCount())
 	for i, line := range buf.AllLines() {
 		out[i] = string(line)
@@ -93,7 +95,7 @@ func mdSource(lines int) string {
 
 // toLines 는 시험에서 쓰는 줄 묶음이다.
 func toLines(text string) [][]byte {
-	out, _ := splitLines([]byte(text))
+	out, _ := textarea.SplitLines([]byte(text))
 
 	return out
 }

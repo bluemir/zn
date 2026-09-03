@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/bluemir/zn/internal/assets"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // tipGap 은 아래 줄 왼쪽 글자와 tip 사이를 띄우는 칸이다.
@@ -34,14 +36,14 @@ func (e editor) renderWithTip(bottom, showcmd string) string {
 		return bottom
 	}
 
-	room := e.textWidth() - widthOf(bottom)
+	room := e.textWidth() - textarea.WidthOf(bottom)
 
 	tip := fitTip(assets.Tips, e.tipIndex, room-tipGap)
 	if tip == "" {
 		return bottom
 	}
 
-	return bottom + strings.Repeat(" ", room-widthOf(tip)) + styleTip.Render(tip)
+	return bottom + strings.Repeat(" ", room-textarea.WidthOf(tip)) + styleTip.Render(tip)
 }
 
 // fitTip 은 from 자리부터 한 바퀴 훑어 room 칸에 들어가는 첫 문장이다. 없으면 빈 문자열이다.
@@ -54,7 +56,7 @@ func (e editor) renderWithTip(bottom, showcmd string) string {
 // truncateToWidth·noticeText 와 같다 — 문장을 고치려고 편집기 코드를 열지 않는다.
 func fitTip(list []string, from, room int) string {
 	for i := range list {
-		if tip := list[(from+i)%len(list)]; widthOf(tip) <= room {
+		if tip := list[(from+i)%len(list)]; textarea.WidthOf(tip) <= room {
 			return tip
 		}
 	}

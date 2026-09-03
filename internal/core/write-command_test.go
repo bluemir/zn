@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newUnnamedEditor 는 `:tabnew` 로 만든 것과 같은 이름 없는 tab 하나짜리 화면이다.
@@ -18,7 +20,7 @@ func newUnnamedEditor(t *testing.T) (viewEditorNormal, string) {
 
 	return viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newEmptyBuffer("")},
+			buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 			width:   60,
 			height:  5 + tablineHeight + statusBarHeight,
 		},
@@ -229,10 +231,10 @@ func TestWriteCommandShowsNote(t *testing.T) {
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.txt", "가나다   \n둘   \n")
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 300, height: 20}
 	m := viewEditorNormal{editor: e}
 
 	runCommand(m, "w")
@@ -258,10 +260,10 @@ func TestWriteCommandShortensPath(t *testing.T) {
 	path := filepath.Join(dir, "a.txt")
 	require.NoError(t, os.WriteFile(path, []byte("한 줄\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 300, height: 20}
 
 	runCommand(viewEditorNormal{editor: e}, "w")
 
@@ -275,10 +277,10 @@ func TestWriteCopyDoesNotFormat(t *testing.T) {
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.txt", "가나다   \n")
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
-	e := &editor{buffers: []viewport{buf}, width: 300, height: 20}
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 300, height: 20}
 	m := viewEditorNormal{editor: e}
 
 	copyPath := filepath.Join(filepath.Dir(path), "copy.txt")

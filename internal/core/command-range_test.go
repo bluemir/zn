@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 짧게 적는 손들이다. 표가 무엇을 말하는지가 struct 안쪽에 묻히지 않아야 한다.
@@ -76,8 +78,8 @@ func TestParseLineRangeInvalid(t *testing.T) {
 // resolve 는 buffer 를 봐야 아는 것(`.` `$`) 을 줄 자리로 바꾼다. 0 부터 세고 양끝을 포함한다.
 func TestLineRangeResolve(t *testing.T) {
 	// 다섯 줄이고 커서는 셋째 줄(자리 2)이다.
-	newBuffer := func() viewport {
-		buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
+	newBuffer := func() textarea.Viewport {
+		buf := textarea.NewBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
 		buf.Cursor.Line = 2
 
 		return buf
@@ -128,7 +130,7 @@ func TestLineRangeResolveOutOfFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			buf := newBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
+			buf := textarea.NewBuffer("test.txt", []byte("a\nb\nc\nd\ne\n"))
 			buf.Cursor.Line = 2
 
 			rng, err := parseLineRange(test.input)

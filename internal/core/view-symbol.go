@@ -8,6 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/bluemir/zn/internal/assets"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // drawer 크기다. 팔레트의 수치와 같은 자리에 둔다(docs/spec.md).
@@ -139,11 +141,11 @@ func (m viewSymbol) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "pgdown":
 			// 격자라 한 화면이 행 수 곱 칸 수다. 세는 자는 다른 판과 같다(page.go).
-			m.move(pageRows(pageFull, m.symbolDrawerHeight()) * m.symbolColumns())
+			m.move(textarea.PageRows(textarea.PageFull, m.symbolDrawerHeight()) * m.symbolColumns())
 
 			return m, nil
 		case "pgup":
-			m.move(-pageRows(pageFull, m.symbolDrawerHeight()) * m.symbolColumns())
+			m.move(-textarea.PageRows(textarea.PageFull, m.symbolDrawerHeight()) * m.symbolColumns())
 
 			return m, nil
 		case "home", "end":
@@ -380,11 +382,11 @@ func (m viewSymbol) renderInputRow(inner int) string {
 
 	// 이름이 먼저다. 붙일 칸이 없으면 개수를 뗀다 — statusBar 의 git 표시와 같은 규칙이다.
 	body = truncateToWidth(body, inner)
-	if widthOf(body)+2+widthOf(counter) > inner {
+	if textarea.WidthOf(body)+2+textarea.WidthOf(counter) > inner {
 		counter = ""
 	}
 
-	pad := strings.Repeat(" ", max(inner-widthOf(body)-widthOf(counter), 0))
+	pad := strings.Repeat(" ", max(inner-textarea.WidthOf(body)-textarea.WidthOf(counter), 0))
 
 	return side + " " + style.Render(body) + pad + styleDetail.Render(counter) + " " + side
 }
@@ -400,7 +402,7 @@ func (m viewSymbol) symbolCounter() string {
 // (input-line.go). 오른쪽 끝의 개수와 그 앞 빈 칸 둘, 그리고 커서 한 칸을 비켜 둔다 —
 // 개수를 뗄지는 접고 나서 정한다(renderInputRow).
 func (m viewSymbol) inputText(inner int) (text string, cursorCol int) {
-	room := inner - 2 - widthOf(m.symbolCounter()) - 1
+	room := inner - 2 - textarea.WidthOf(m.symbolCounter()) - 1
 
 	return m.input.visible("", max(room, 1))
 }
@@ -453,7 +455,7 @@ func (m viewSymbol) renderGridRows(inner int) []string {
 func (m viewSymbol) renderCell(at int) string {
 	entry := m.symbols[m.hits[at].index]
 
-	pad := strings.Repeat(" ", max(symbolCellWidth-widthOf(entry.Char), 0))
+	pad := strings.Repeat(" ", max(symbolCellWidth-textarea.WidthOf(entry.Char), 0))
 
 	// 고른 칸은 반전만 쓴다. 색을 섞으면 안쪽의 색 초기화가 반전까지 꺼버린다(view-palette.go).
 	if at == m.selected {
@@ -473,7 +475,7 @@ func (m viewSymbol) renderNameRow(inner int) string {
 		return side + " " + strings.Repeat(" ", inner) + " " + side
 	}
 
-	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-widthOf(entry.Char), 0))
+	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-textarea.WidthOf(entry.Char), 0))
 
 	// 맞은 자리는 label() 안의 offset 이라 paletteRow 가 그대로 갈라 준다.
 	row := paletteRow{

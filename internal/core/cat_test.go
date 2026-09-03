@@ -8,10 +8,12 @@ import (
 	"github.com/bluemir/zn/internal/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // catOf 는 범위를 내보내고 터미널에 찍힌 것을 준다. shellRun 을 보는 손과 같다.
-func catOf(t *testing.T, buf viewport, area scheme.MotionRange) string {
+func catOf(t *testing.T, buf textarea.Viewport, area scheme.MotionRange) string {
 	t.Helper()
 
 	out := &bytes.Buffer{}
@@ -27,7 +29,7 @@ func catOf(t *testing.T, buf viewport, area scheme.MotionRange) string {
 
 // 내는 것은 화면이 아니라 파일의 byte 그대로다 — 줄번호도 공백 마커도 색도 없고 tab 은 tab 이다.
 func TestCatRunPrintsFileBytes(t *testing.T) {
-	buf := newBuffer("a.go", []byte("package main\n\tif x {\n"))
+	buf := textarea.NewBuffer("a.go", []byte("package main\n\tif x {\n"))
 
 	text := catOf(t, buf, scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
@@ -41,7 +43,7 @@ func TestCatRunPrintsFileBytes(t *testing.T) {
 // 본문 줄끝은 `\n` 이다. 두르는 두 줄만 `\r\n` 으로 shellRun 과 맞춘다 —
 // Run 이 도는 자리는 이미 cooked 이라 `ONLCR` 이 `\n` 을 알아서 `\r\n` 으로 만든다.
 func TestCatRunEndsBodyLinesWithLF(t *testing.T) {
-	buf := newBuffer("a.go", []byte("aaa\nbbb\n"))
+	buf := textarea.NewBuffer("a.go", []byte("aaa\nbbb\n"))
 
 	text := catOf(t, buf, scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
@@ -52,7 +54,7 @@ func TestCatRunEndsBodyLinesWithLF(t *testing.T) {
 // 머리말이 먼저고 묻는 것이 맨 나중이다. `:!` 와 같은 차례다 —
 // 멈춰 서지 않으면 돌아가는 순간 대체 화면이 덮는다.
 func TestCatRunEchoesHeaderAndWaitsForEnter(t *testing.T) {
-	buf := newBuffer("a.go", []byte("aaa\nbbb\n"))
+	buf := textarea.NewBuffer("a.go", []byte("aaa\nbbb\n"))
 
 	text := catOf(t, buf, scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})
 
@@ -78,7 +80,7 @@ func TestCatHeader(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			buf := newBuffer(test.path, []byte("a\nb\nc\nd\ne\nf\ng\n"))
+			buf := textarea.NewBuffer(test.path, []byte("a\nb\nc\nd\ne\nf\ng\n"))
 
 			assert.Equal(t, test.want, catHeader(buf, test.area))
 		})
@@ -87,7 +89,7 @@ func TestCatHeader(t *testing.T) {
 
 // 줄 단위면 그 줄들 전부, 글자 단위면 고른 조각이다.
 func TestCatLines(t *testing.T) {
-	buf := newBuffer("a.go", []byte("abcdef\nghijkl\nmnopqr\n"))
+	buf := textarea.NewBuffer("a.go", []byte("abcdef\nghijkl\nmnopqr\n"))
 
 	tests := []struct {
 		name string
@@ -118,7 +120,7 @@ func TestCatLines(t *testing.T) {
 
 // 파일도 커서도 건드리지 않는다.
 func TestCatLinesTouchesNothing(t *testing.T) {
-	buf := newBuffer("a.go", []byte("abc\ndef\n"))
+	buf := textarea.NewBuffer("a.go", []byte("abc\ndef\n"))
 	buf.Cursor.Line, buf.Cursor.Col = 1, 2
 
 	buf.CatLines(scheme.MotionRange{Start: scheme.Cursor{Line: 0}, End: scheme.Cursor{Line: 1}, Linewise: true})

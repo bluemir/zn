@@ -10,6 +10,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // messagesFixture 는 알림 몇 개가 쌓인 목록 화면이다.
@@ -17,7 +19,7 @@ func messagesFixture(t *testing.T, texts ...string) viewMessages {
 	t.Helper()
 
 	e := &editor{
-		buffers: []viewport{newEmptyBuffer("a.txt")},
+		buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")},
 		width:   80,
 		height:  20,
 	}
@@ -213,7 +215,7 @@ func TestMessagesScrolls(t *testing.T) {
 // 시각과 갈래가 보인다. 갈래는 색만이 아니라 글자로도 나타난다 —
 // 화면을 글자로 떠서 보는 길이 있어서다.
 func TestMessagesShowsClockAndKind(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("a.txt")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")}, width: 80, height: 20}
 	e.notify("저장함: a.txt")
 	e.notifyFailure("git 상태 실패: exit status 128")
 
@@ -244,7 +246,7 @@ func TestMessagesEmpty(t *testing.T) {
 
 // `f` 는 실패만 남긴다. 제목줄의 개수는 담긴 것 전부다.
 func TestMessagesFiltersFailures(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("a.txt")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")}, width: 80, height: 20}
 	e.notify("저장함: a.txt")
 	e.notifyFailure("git 상태 실패")
 	e.notify("저장함: b.txt")
@@ -299,7 +301,7 @@ func TestMessagesCursorOnSelectedRow(t *testing.T) {
 // 트리를 열어 둔 채로 와도 statusBar 가 32 칸 들여쓰이지 않는다. 이 화면이 트리를 덮는다.
 func TestMessagesStatusBarIsBare(t *testing.T) {
 	e := &editor{
-		buffers: []viewport{newEmptyBuffer("a.txt")},
+		buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")},
 		sidebar: openSidebar("/"),
 		width:   100,
 		height:  20,
@@ -320,13 +322,13 @@ func TestTrimTextRight(t *testing.T) {
 	assert.Equal(t, text, trimTextRight(text, 200), "들어가면 그대로 둔다")
 
 	short := trimTextRight(text, 20)
-	assert.LessOrEqual(t, widthOf(short), 20)
+	assert.LessOrEqual(t, textarea.WidthOf(short), 20)
 	assert.True(t, strings.HasPrefix(short, "cannot write"), "앞머리가 남아야 한다")
 	assert.True(t, strings.HasSuffix(short, "…"))
 
 	// 한글도 칸으로 센다. 두 칸짜리 글자가 경계에 걸려도 넘치지 않는다.
 	korean := trimTextRight("가나다라마바사아자차카타파하", 11)
-	assert.LessOrEqual(t, widthOf(korean), 11)
+	assert.LessOrEqual(t, textarea.WidthOf(korean), 11)
 	assert.True(t, strings.HasPrefix(korean, "가나다"))
 
 	assert.Equal(t, "", trimTextRight(text, 0))
@@ -343,7 +345,7 @@ func TestFormatClock(t *testing.T) {
 func TestMessagesCommand(t *testing.T) {
 	for _, name := range []string{"messages", "mes"} {
 		t.Run(name, func(t *testing.T) {
-			e := &editor{buffers: []viewport{newEmptyBuffer("a.txt")}, width: 80, height: 20}
+			e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")}, width: 80, height: 20}
 			e.notify("하나")
 
 			model := runCommand(viewEditorNormal{editor: e}, name)
@@ -355,7 +357,7 @@ func TestMessagesCommand(t *testing.T) {
 
 // 인자나 줄 범위를 받지 않는다. `:jobs` 와 같은 자리에 걸린다.
 func TestMessagesCommandRefusesArgsAndRange(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("a.txt")}, width: 300, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")}, width: 300, height: 20}
 
 	model := runCommand(viewEditorNormal{editor: e}, "messages foo")
 	assert.IsType(t, viewEditorNormal{}, model)
@@ -368,7 +370,7 @@ func TestMessagesCommandRefusesArgsAndRange(t *testing.T) {
 
 // 팔레트에서도 연다. 「작업 목록」과 같은 자리다.
 func TestMessagesInPalette(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("a.txt")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")}, width: 80, height: 20}
 	e.notify("하나")
 
 	model, _ := runMessages(e)
@@ -378,7 +380,7 @@ func TestMessagesInPalette(t *testing.T) {
 
 // 이벤트 로그가 mode 이름을 안다. 모르면 `core.viewMessages` 로 찍힌다(ADR-0050).
 func TestMessagesModeName(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("a.txt")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("a.txt")}, width: 80, height: 20}
 
 	messages, _ := messagesMode(e)
 	assert.Equal(t, "MESSAGES", modeName(messages))

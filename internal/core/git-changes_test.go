@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // changesOf 는 그 저장소의 변경 표다.
@@ -113,7 +115,7 @@ func TestGitTreeMarkers(t *testing.T) {
 			marks[name] = plain[labelWidth : labelWidth+1]
 		}
 
-		assert.Equal(t, sidebarWidth, widthOf(plain), "행 폭은 그대로다: %q", plain)
+		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 폭은 그대로다: %q", plain)
 	}
 
 	assert.Equal(t, markerGitTreeModified, marks["main.go"], "고친 파일")

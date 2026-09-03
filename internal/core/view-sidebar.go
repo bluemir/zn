@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewSidebar 는 포커스가 좌측 파일 트리에 있는 상태다.
@@ -203,13 +205,13 @@ func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 	case "ctrl+d":
 		// 반 화면·한 화면 이동이다. 고른 항목과 화면이 같이 내려가므로 커서가 트리 안 같은
 		// 자리에 남는다 — 휠이 화면만 굴리는 것과 갈린다(ADR-0062, ADR-0063).
-		m.sidebar.movePage(pageDown, pageHalf, act.count, m.sidebarHeight())
+		m.sidebar.movePage(textarea.PageDown, textarea.PageHalf, act.count, m.sidebarHeight())
 	case "ctrl+u":
-		m.sidebar.movePage(pageUp, pageHalf, act.count, m.sidebarHeight())
+		m.sidebar.movePage(textarea.PageUp, textarea.PageHalf, act.count, m.sidebarHeight())
 	case "ctrl+f", "pgdown":
-		m.sidebar.movePage(pageDown, pageFull, act.count, m.sidebarHeight())
+		m.sidebar.movePage(textarea.PageDown, textarea.PageFull, act.count, m.sidebarHeight())
 	case "ctrl+b", "pgup":
-		m.sidebar.movePage(pageUp, pageFull, act.count, m.sidebarHeight())
+		m.sidebar.movePage(textarea.PageUp, textarea.PageFull, act.count, m.sidebarHeight())
 	case "enter":
 		return m.enter()
 	case "m c", "m a":

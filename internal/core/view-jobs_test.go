@@ -11,6 +11,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newJobsView 는 도는 작업과 끝난 작업을 직접 넣은 목록 화면이다.
@@ -372,5 +374,5 @@ func TestJobsListKeepsStateColumnAligned(t *testing.T) {
 
 // barColumnOf 는 막대가 시작하는 화면 칸이다.
 func barColumnOf(row string) int {
-	return widthOf(row[:strings.Index(row, "⣿")])
+	return textarea.WidthOf(row[:strings.Index(row, "⣿")])
 }

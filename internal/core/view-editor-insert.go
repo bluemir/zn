@@ -2,6 +2,8 @@ package core
 
 import (
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewEditorInsert 는 insert mode 다. 커서가 글자 사이에 있어서 줄 끝 다음 칸까지 갈 수 있다.
@@ -133,9 +135,9 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "end":
 				buf.MoveRowEnd()
 			case "pgdown":
-				buf.MovePage(pageDown, pageFull, 1, m.textHeight())
+				buf.MovePage(textarea.PageDown, textarea.PageFull, 1, m.textHeight())
 			case "pgup":
-				buf.MovePage(pageUp, pageFull, 1, m.textHeight())
+				buf.MovePage(textarea.PageUp, textarea.PageFull, 1, m.textHeight())
 			}
 		default:
 			// Text 는 출력 가능한 문자에만 채워진다. Enter·Tab 같은 특수 키와

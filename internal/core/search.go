@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // searchState 는 마지막 검색이다.
@@ -17,7 +19,7 @@ type searchState struct {
 	input string
 
 	pattern   *regexp.Regexp
-	direction searchDirection
+	direction textarea.SearchDirection
 
 	// highlight 는 매칭을 화면에 칠할지다. 검색할 때마다 켜지고 `:noh` 로 끈다. vim 의 hlsearch 다.
 	highlight bool

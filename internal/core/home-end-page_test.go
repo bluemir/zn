@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // `home`·`end`·`pgup`·`pgdown`·`delete` 가 실제로 먹는지 보는 자리다.
@@ -120,7 +122,7 @@ func TestMessagesHomeEndPageKeys(t *testing.T) {
 	assert.Equal(t, len(texts)-1, send(m, "end").(viewMessages).selected)
 
 	// 한 화면은 편집 영역·트리와 같은 자다(page.go 의 pageRows).
-	page := pageRows(pageFull, m.listHeight())
+	page := textarea.PageRows(textarea.PageFull, m.listHeight())
 	top := send(m, "home").(viewMessages)
 	assert.Equal(t, page, send(top, "pgdown").(viewMessages).selected)
 	assert.Zero(t, send(send(top, "pgdown"), "pgup").(viewMessages).selected)

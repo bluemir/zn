@@ -11,6 +11,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // tickOf 는 tick 하나를 먹이고 mode 가 돌려준 Cmd 를 준다.
@@ -193,7 +195,7 @@ func TestTreeEnterEmitsGitRefresh(t *testing.T) {
 // tab 을 오가는 것에는 git 이 붙지 않는다. `gt` 마다 프로세스가 뜨면 ADR-0009 의 출발점이 깨진다.
 func TestSwitchingTabsDoesNotRefresh(t *testing.T) {
 	m := newTestEditor("abc\n", 80, 10)
-	m.buffers = append(m.buffers, newBuffer("other.txt", []byte("x\n")))
+	m.buffers = append(m.buffers, textarea.NewBuffer("other.txt", []byte("x\n")))
 
 	model := send(m, "g", "t")
 

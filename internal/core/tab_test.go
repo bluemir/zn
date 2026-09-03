@@ -9,13 +9,15 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newTabsEditor 는 파일 여러 개를 연 편집기다. CLI 인자로 여러 파일을 준 것과 같다.
 func newTabsEditor(paths ...string) viewEditorNormal {
-	buffers := make([]viewport, 0, len(paths))
+	buffers := make([]textarea.Viewport, 0, len(paths))
 	for _, path := range paths {
-		buffers = append(buffers, newBuffer(path, []byte("a\nb\nc\n")))
+		buffers = append(buffers, textarea.NewBuffer(path, []byte("a\nb\nc\n")))
 	}
 
 	return viewEditorNormal{
@@ -167,7 +169,7 @@ func TestTablineReverseSpansFullWidth(t *testing.T) {
 
 	plain, reversed := splitByReverse(rawTablineOf(t, m.View()))
 
-	assert.Equal(t, m.width, widthOf(plain+reversed))
+	assert.Equal(t, m.width, textarea.WidthOf(plain+reversed))
 	assert.True(t, strings.HasSuffix(reversed, "  "), "빈 칸도 칠해진다")
 }
 
@@ -193,7 +195,7 @@ func TestTablineShowsDirtyMarkOfInactiveTab(t *testing.T) {
 func TestTablineShowsNoNameForEmptyPath(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newEmptyBuffer("")},
+			buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 			width:   40,
 			height:  3 + tablineHeight + statusBarHeight,
 		},
@@ -209,7 +211,7 @@ func TestTablineTruncatesToWidth(t *testing.T) {
 
 	line := tablineOf(t, m.View())
 
-	assert.LessOrEqual(t, widthOf(line), 12)
+	assert.LessOrEqual(t, textarea.WidthOf(line), 12)
 }
 
 // 넘치는 tab 은 양끝 표시가 알린다. `<n` 은 왼쪽으로, `n>` 는 오른쪽으로 그만큼 더 있다는 뜻이다.
@@ -276,7 +278,7 @@ func TestTablineDoesNotDrawPartialTab(t *testing.T) {
 
 		line := tablineOf(t, m.View())
 
-		assert.LessOrEqual(t, widthOf(line), width, "width=%d", width)
+		assert.LessOrEqual(t, textarea.WidthOf(line), width, "width=%d", width)
 		assert.Contains(t, line, " 3 c.txt", "활성 tab 은 온전히 보인다: width=%d", width)
 
 		// 마지막 tab 뒤에는 채운 빈 칸이 붙을 수 있다. 잘린 이름은 뒤에 빈 칸이 없다.
@@ -779,7 +781,7 @@ func TestQuitAllCancelKeepsAllBuffers(t *testing.T) {
 
 func TestCloseTabAfterWriteQuit(t *testing.T) {
 	first, path := newFileEditor(t, "abc\n")
-	second := newBuffer("other.txt", []byte("x\n"))
+	second := textarea.NewBuffer("other.txt", []byte("x\n"))
 
 	var m tea.Model = viewEditorNormal{
 		editor: &editor{

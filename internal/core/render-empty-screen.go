@@ -6,6 +6,8 @@ import (
 
 	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/buildinfo"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // renderEmptyScreen 은 tab 이 하나도 없을 때 편집 영역에 오는 행들이다(ADR-0064).
@@ -33,7 +35,7 @@ func (e editor) renderEmptyScreen() []string {
 	for _, line := range block {
 		// 뒤는 채우지 않는다. sidebar 는 왼쪽에 붙고 statusBar 는 따로라 오른쪽 빈 칸이
 		// 필요한 곳이 없다 — 편집 화면이 채움 행을 빈 문자열로 두는 것과 같다(renderScreen).
-		rows = append(rows, strings.Repeat(" ", max(0, (width-widthOf(line))/2))+line)
+		rows = append(rows, strings.Repeat(" ", max(0, (width-textarea.WidthOf(line))/2))+line)
 	}
 
 	for len(rows) < height {
@@ -56,7 +58,7 @@ func (e editor) emptyScreenBlock(width, height int) []string {
 
 	// 버전은 자르면 무엇으로 지은 것인지 알 수 없어져서 안 들어가면 뺀다.
 	// 버그 신고에 그대로 붙이는 줄이라 `:version` 과 `--version` 과 같은 것을 쓴다.
-	if version := buildinfo.Describe(); widthOf(version) <= width {
+	if version := buildinfo.Describe(); textarea.WidthOf(version) <= width {
 		block = append(block, version)
 	}
 
@@ -104,7 +106,7 @@ func (e editor) fitLogo(width, height int) []string {
 
 	fits := len(logo) <= height
 	for _, line := range logo {
-		if widthOf(line) > width {
+		if textarea.WidthOf(line) > width {
 			fits = false
 		}
 	}
@@ -112,7 +114,7 @@ func (e editor) fitLogo(width, height int) []string {
 	switch {
 	case fits:
 		return logo
-	case height >= 1 && width >= widthOf(smallLogo):
+	case height >= 1 && width >= textarea.WidthOf(smallLogo):
 		return []string{smallLogo}
 	}
 

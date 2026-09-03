@@ -10,6 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newBigDirFixture 는 항목이 많은 디렉터리를 만든다. 이름은 `f00000` 부터 이름순이다.
@@ -31,7 +33,7 @@ func newUnreadTreeEditor(t *testing.T, root string) viewEditorNormal {
 
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newEmptyBuffer("")},
+			buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,
 		},

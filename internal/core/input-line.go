@@ -1,5 +1,9 @@
 package core
 
+import (
+	"github.com/bluemir/zn/internal/textarea"
+)
+
 // 한 줄 입력의 글과 그 안의 커서다. `:`·`/`·이름 받기 셋·grep 셋이 이 하나를 나눠 쓴다.
 //
 // **처음에는 여덟 곳이 저마다 `input string` 을 들고 뒤에만 붙였다.** 커서가 없으니
@@ -66,7 +70,7 @@ func (in *inputLine) deleteBackward() {
 		return
 	}
 
-	start := prevGlyphStart([]byte(in.text), 0, in.cursor)
+	start := textarea.PrevGlyphStart([]byte(in.text), 0, in.cursor)
 	in.text = in.text[:start] + in.tail()
 	in.cursor = start
 }
@@ -77,7 +81,7 @@ func (in *inputLine) deleteForward() {
 		return
 	}
 
-	in.text = in.head() + in.text[in.cursor+glyphSize([]byte(in.text), in.cursor):]
+	in.text = in.head() + in.text[in.cursor+textarea.GlyphSize([]byte(in.text), in.cursor):]
 }
 
 // move 는 커서를 옮긴다. 글은 바뀌지 않으므로 부르는 쪽이 거르기나 미리보기를 다시 돌릴
@@ -90,10 +94,10 @@ func (in *inputLine) deleteForward() {
 func (in *inputLine) move(key string) {
 	switch key {
 	case "left":
-		in.cursor = prevGlyphStart([]byte(in.text), 0, in.cursor)
+		in.cursor = textarea.PrevGlyphStart([]byte(in.text), 0, in.cursor)
 	case "right":
 		if in.cursor < len(in.text) {
-			in.cursor += glyphSize([]byte(in.text), in.cursor)
+			in.cursor += textarea.GlyphSize([]byte(in.text), in.cursor)
 		}
 	case "home":
 		in.cursor = 0
@@ -106,7 +110,7 @@ func (in *inputLine) move(key string) {
 //
 // 접히지 않는 자리(아래 줄에 그리는 넷) 가 쓴다. 접히는 자리는 visible 이 답한다.
 func (in inputLine) screenCursor() int {
-	return widthOf(in.head())
+	return textarea.WidthOf(in.head())
 }
 
 // visible 은 width 칸 안에 커서가 들어오도록 접은 글과 그 안에서 커서가 설 칸이다.
@@ -120,5 +124,5 @@ func (in inputLine) screenCursor() int {
 func (in inputLine) visible(prefix string, width int) (text string, cursorCol int) {
 	head := trimLeftToWidth(prefix+in.head(), width)
 
-	return truncateToWidth(head+in.tail(), width), widthOf(head)
+	return truncateToWidth(head+in.tail(), width), textarea.WidthOf(head)
 }

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 알림을 세우고 기록하는 자리다(ADR-0053).
@@ -101,10 +103,10 @@ func noticeText(err error) string {
 // 여기 case 하나가 는다.
 func failedAction(err error) string {
 	switch {
-	case errors.Is(err, errOpenFile):
-		return errOpenFile.Error()
-	case errors.Is(err, errWriteFile):
-		return errWriteFile.Error()
+	case errors.Is(err, textarea.ErrOpenFile):
+		return textarea.ErrOpenFile.Error()
+	case errors.Is(err, textarea.ErrWriteFile):
+		return textarea.ErrWriteFile.Error()
 	case errors.Is(err, errCreateFile):
 		return errCreateFile.Error()
 	case errors.Is(err, errRemoveFile):

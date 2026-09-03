@@ -11,6 +11,8 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/assets"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // editor 는 mode 가 바뀌어도 유지되는 상태다.
@@ -19,7 +21,7 @@ import (
 // mode 별 model 이 이것을 포인터로 embed 하고, 전환할 때 그 포인터를 그대로 넘긴다.
 // 편집기가 도는 동안 이것은 하나뿐이라 어느 mode 에서 고쳐도 다음 화면이 같은 것을 본다(ADR-0026).
 type editor struct {
-	buffers []viewport
+	buffers []textarea.Viewport
 	active  int
 
 	// tabScroll 은 tabline 에 처음으로 그리는 tab 의 index 다. tab 이 편집 영역 너비보다
@@ -232,7 +234,7 @@ func (e *editor) refuseNoBuffer() bool {
 // 달아야 하고, 빠뜨린 한 자리는 터지는 대신 조용히 틀린다. tab 이 없는 동안 편집 동작이
 // 이 자리에 오지 않는 것으로 지킨다 — 판을 갈아끼우는 것이 mode 라는 자리가 그것을
 // 보증한다(ADR-0002, ADR-0064).
-func (e *editor) activeBuffer() *viewport {
+func (e *editor) activeBuffer() *textarea.Viewport {
 	return &e.buffers[e.active]
 }
 
@@ -240,7 +242,7 @@ func (e *editor) activeBuffer() *viewport {
 //
 // 백그라운드 검사가 결과를 넣을 자리를 찾는 데 쓴다(ADR-0044). index 로 기억해 두면 그 사이
 // tab 이 닫혀서 다른 파일을 가리킬 수 있다.
-func (e *editor) bufferByPath(path string) *viewport {
+func (e *editor) bufferByPath(path string) *textarea.Viewport {
 	if path == "" {
 		return nil
 	}
@@ -373,7 +375,7 @@ func (e *editor) scrollSidebar() {
 // newTab 은 이름 없는 빈 tab 을 활성 tab 바로 뒤에 끼우고 그리로 옮긴다.
 // vim 의 :tabnew 와 같다. 맨 뒤가 아니라 보고 있던 것 옆에 생겨야 방금 만든 것을 찾기 쉽다.
 func (e *editor) newTab() {
-	e.buffers = slices.Insert(e.buffers, e.active+1, newEmptyBuffer(""))
+	e.buffers = slices.Insert(e.buffers, e.active+1, textarea.NewEmptyBuffer(""))
 	e.active++
 	e.layoutViews()
 	e.scrollTabsTo()
@@ -392,7 +394,7 @@ func (e *editor) openTab(path string) (tea.Cmd, error) {
 	if index, ok := e.tabOf(path); ok {
 		e.active = index
 	} else {
-		buf, err := OpenBuffer(path)
+		buf, err := textarea.OpenBuffer(path)
 		if err != nil {
 			return nil, err
 		}
@@ -433,7 +435,7 @@ func (e *editor) replaceTab(path string) (tea.Cmd, error) {
 		return e.revealInSidebar(path), nil
 	}
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	if err != nil {
 		return nil, err
 	}
@@ -609,7 +611,7 @@ func (e *editor) moveTab(to int) {
 func (e *editor) closeOtherTabs() int {
 	closed := len(e.buffers) - 1
 
-	e.buffers = []viewport{e.buffers[e.active]}
+	e.buffers = []textarea.Viewport{e.buffers[e.active]}
 	e.active = 0
 	e.scrollTabsTo()
 

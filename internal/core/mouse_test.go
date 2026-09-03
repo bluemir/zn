@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // click, wheel 은 key 와 같은 자리다 — 화면 좌표 하나를 메시지로 만든다.
@@ -96,7 +98,7 @@ func TestPositionAt(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			buf := newBuffer("test.txt", []byte(test.data))
+			buf := textarea.NewBuffer("test.txt", []byte(test.data))
 			setContentWidth(&buf, test.width, 10)
 
 			at, ok := buf.PositionAt(scheme.Cell{X: test.x, Y: test.y}, 10)
@@ -324,7 +326,7 @@ func TestClickTextFromSidebarTakesFocus(t *testing.T) {
 
 func TestClickTablineSwitchesTab(t *testing.T) {
 	m := newTestEditor("abc\n", 60, 5)
-	m.buffers = append(m.buffers, newBuffer("second.txt", []byte("xyz\n")))
+	m.buffers = append(m.buffers, textarea.NewBuffer("second.txt", []byte("xyz\n")))
 	require.Equal(t, 0, m.active)
 
 	// 두 번째 tab 이 그려진 칸을 tabline 이 알려준 대로 누른다.
@@ -343,8 +345,8 @@ func TestClickTablineSwitchesTab(t *testing.T) {
 func TestClickTablineWithDirtyTab(t *testing.T) {
 	m := newTestEditor("abc\n", 60, 5)
 	m.buffers[0].Dirty = true
-	m.buffers = append(m.buffers, newBuffer("second.txt", []byte("xyz\n")))
-	m.buffers = append(m.buffers, newBuffer("third.txt", []byte("xyz\n")))
+	m.buffers = append(m.buffers, textarea.NewBuffer("second.txt", []byte("xyz\n")))
+	m.buffers = append(m.buffers, textarea.NewBuffer("third.txt", []byte("xyz\n")))
 
 	spans := m.renderTabline(m.textWidth()).tabs
 	require.Len(t, spans, 3)
@@ -399,7 +401,7 @@ func TestTabSwitchResetsManualTablineScroll(t *testing.T) {
 
 func TestClickTablineFillerDoesNothing(t *testing.T) {
 	m := newTestEditor("abc\n", 60, 5)
-	m.buffers = append(m.buffers, newBuffer("second.txt", []byte("xyz\n")))
+	m.buffers = append(m.buffers, textarea.NewBuffer("second.txt", []byte("xyz\n")))
 
 	spans := m.renderTabline(m.textWidth()).tabs
 
@@ -536,7 +538,7 @@ func TestWheelOnSidebarScrollsTree(t *testing.T) {
 
 func TestWheelOnTextDoesNotScrollTree(t *testing.T) {
 	m := newTreeEditor(t, 60, 3)
-	m.buffers[0] = newBuffer("main.go", []byte(longBuffer(50)))
+	m.buffers[0] = textarea.NewBuffer("main.go", []byte(longBuffer(50)))
 
 	var model tea.Model = m
 	model, _ = model.Update(wheel(contentLeftOf(t, model)+1, tablineHeight+1, false))

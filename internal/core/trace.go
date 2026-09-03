@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/sirupsen/logrus"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 이 파일은 편집기로 들어오는 이벤트를 있는 그대로 기록한다. 화면에는 아무것도 안 그린다.
@@ -116,7 +118,7 @@ func traceBuffer(model tea.Model) string {
 	// model 도 editor 를 embed 해서 activeBuffer 를 만족해 버린다(ADR-0064).
 	holder, ok := model.(interface {
 		hasTab() bool
-		activeBuffer() *viewport
+		activeBuffer() *textarea.Viewport
 	})
 	if !ok || !holder.hasTab() {
 		return ""
@@ -131,7 +133,7 @@ func traceBuffer(model tea.Model) string {
 	at := min(max(buf.Cursor.Col, 0), len(line))
 
 	return fmt.Sprintf(" cur=%d:%d screen=%d line=%q",
-		buf.Cursor.Line+1, at, screenColAt(line, at, buf.TabWidth()),
+		buf.Cursor.Line+1, at, textarea.ScreenColAt(line, at, buf.TabWidth()),
 		string(line[:at])+traceCursor+string(line[at:]))
 }
 

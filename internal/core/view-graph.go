@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // graphChunk 는 한 번에 읽는 커밋 수다.
@@ -228,11 +230,11 @@ func (m viewGraph) run(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "pgdown":
 		// 한 화면이다. 편집 영역·트리와 같은 자를 쓰되 커밋 수로 센다(ADR-0076).
-		m.move(pageRows(pageFull, m.graphRows()))
+		m.move(textarea.PageRows(textarea.PageFull, m.graphRows()))
 
 		return m, nil
 	case "pgup":
-		m.move(-pageRows(pageFull, m.graphRows()))
+		m.move(-textarea.PageRows(textarea.PageFull, m.graphRows()))
 
 		return m, nil
 	case "g", "home":

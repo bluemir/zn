@@ -3,6 +3,8 @@ package core
 import (
 	"strconv"
 	"unicode/utf8"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // partial 은 짓는 중인 동작에서 이미 정해진 부분이다. 모든 상태가 이것을 들고 다닌다.
@@ -115,9 +117,9 @@ func (p partial) operate(mo motion, count int) action {
 	case "c":
 		return actionChange{motion: mo, count: n}
 	case ">":
-		return actionIndent{motion: mo, count: n, direction: indentRight}
+		return actionIndent{motion: mo, count: n, direction: textarea.IndentRight}
 	case "<":
-		return actionIndent{motion: mo, count: n, direction: indentLeft}
+		return actionIndent{motion: mo, count: n, direction: textarea.IndentLeft}
 	case "=":
 		return actionReindent{motion: mo, count: n}
 	}
@@ -164,25 +166,25 @@ func motionFor(op, key string) (moveMotion, bool) {
 	case "$":
 		return motionLineEnd{}, true
 	case "b":
-		return motionWordBack{kind: wordSmall}, true
+		return motionWordBack{kind: textarea.WordSmall}, true
 	case "B":
-		return motionWordBack{kind: wordBig}, true
+		return motionWordBack{kind: textarea.WordBig}, true
 	case "e":
-		return motionWordEnd{kind: wordSmall}, true
+		return motionWordEnd{kind: textarea.WordSmall}, true
 	case "E":
-		return motionWordEnd{kind: wordBig}, true
+		return motionWordEnd{kind: textarea.WordBig}, true
 	case "w":
 		if op == "c" {
-			return motionChangeWord{kind: wordSmall}, true
+			return motionChangeWord{kind: textarea.WordSmall}, true
 		}
 
-		return motionWordForward{kind: wordSmall}, true
+		return motionWordForward{kind: textarea.WordSmall}, true
 	case "W":
 		if op == "c" {
-			return motionChangeWord{kind: wordBig}, true
+			return motionChangeWord{kind: textarea.WordBig}, true
 		}
 
-		return motionWordForward{kind: wordBig}, true
+		return motionWordForward{kind: textarea.WordBig}, true
 	case "j":
 		return motionLineDown{}, true
 	case "k":
@@ -217,17 +219,17 @@ func standaloneAction(key string, count int) action {
 	case "ctrl+p":
 		return actionOpenPalette{}
 	case "/":
-		return actionSearch{direction: searchForward}
+		return actionSearch{direction: textarea.SearchForward}
 	case "?":
-		return actionSearch{direction: searchBackward}
+		return actionSearch{direction: textarea.SearchBackward}
 	case "n":
 		return actionNextMatch{count: count}
 	case "N":
 		return actionPrevMatch{count: count}
 	case "*":
-		return actionSearchWord{direction: searchForward, count: count}
+		return actionSearchWord{direction: textarea.SearchForward, count: count}
 	case "#":
-		return actionSearchWord{direction: searchBackward, count: count}
+		return actionSearchWord{direction: textarea.SearchBackward, count: count}
 	case "v":
 		return actionVisualStart{}
 	case "V":
@@ -246,7 +248,7 @@ func standaloneAction(key string, count int) action {
 	case "~":
 		// 대문자·소문자로 **맞추는** 것은 visual 의 `U`·`u` 다. operator 갈래(`g~`·`gu`·`gU`)
 		// 를 두지 않았다(ADR-0083).
-		return actionChangeCase{kind: caseToggle, count: count}
+		return actionChangeCase{kind: textarea.CaseToggle, count: count}
 	case "J":
 		// count 는 「이을 줄 수」다. `J`·`1J`·`2J` 가 모두 두 줄이다(ADR-0087).
 		// 공백을 손대지 않는 `gJ` 와 visual 의 `J` 는 두지 않았다.
@@ -256,14 +258,14 @@ func standaloneAction(key string, count int) action {
 	case "P":
 		return actionPasteBefore{count: count}
 	case "ctrl+d":
-		return actionPage{direction: pageDown, span: pageHalf, count: count}
+		return actionPage{direction: textarea.PageDown, span: textarea.PageHalf, count: count}
 	case "ctrl+u":
-		return actionPage{direction: pageUp, span: pageHalf, count: count}
+		return actionPage{direction: textarea.PageUp, span: textarea.PageHalf, count: count}
 	case "ctrl+f", "pgdown":
 		// `pgdown` 도 여기다. 키 이름이 뜻하는 그대로 한 화면이고 vim 도 그렇게 묶었다.
-		return actionPage{direction: pageDown, span: pageFull, count: count}
+		return actionPage{direction: textarea.PageDown, span: textarea.PageFull, count: count}
 	case "ctrl+b", "pgup":
-		return actionPage{direction: pageUp, span: pageFull, count: count}
+		return actionPage{direction: textarea.PageUp, span: textarea.PageFull, count: count}
 	case "u":
 		return actionUndo{}
 	case "ctrl+r":
@@ -699,12 +701,12 @@ func (s normalTextObject) showcmd() string {
 //
 // **지금은 단어 넷(`iw` `aw` `iW` `aW`) 뿐이다.** 따옴표·짝괄호·tag·문단은 경계를 찾는 값이
 // 갈래마다 달라서 각각 별건이고, backlog 에 있다(ADR-0091 §1).
-func wordObjectKind(key string) (wordKind, bool) {
+func wordObjectKind(key string) (textarea.WordKind, bool) {
 	switch key {
 	case "w":
-		return wordSmall, true
+		return textarea.WordSmall, true
 	case "W":
-		return wordBig, true
+		return textarea.WordBig, true
 	}
 
 	return 0, false

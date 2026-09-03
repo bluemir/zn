@@ -10,6 +10,8 @@ import (
 
 	"github.com/bluemir/zn/internal/assets"
 	"github.com/bluemir/zn/internal/terminal"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 func Run(ctx context.Context, files []string) error {
@@ -106,8 +108,8 @@ func Run(ctx context.Context, files []string) error {
 //
 // 같은 파일을 두 번 넘겨도 tab 은 하나다. 같은 파일에 Buffer 가 둘이면 한쪽에서 저장하는
 // 순간 다른 쪽 편집이 사라진다 — openTab 이 이미 열린 tab 으로 옮겨 가는 것과 같은 이유다.
-func openBuffers(files []string) ([]viewport, error) {
-	buffers := make([]viewport, 0, len(files))
+func openBuffers(files []string) ([]textarea.Viewport, error) {
+	buffers := make([]textarea.Viewport, 0, len(files))
 	opened := map[string]bool{}
 
 	for _, file := range files {
@@ -122,7 +124,7 @@ func openBuffers(files []string) ([]viewport, error) {
 		}
 		opened[key] = true
 
-		buf, err := OpenBuffer(file)
+		buf, err := textarea.OpenBuffer(file)
 		if err != nil {
 			return nil, err
 		}

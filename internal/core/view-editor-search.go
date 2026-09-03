@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewEditorSearch 는 `/` `?` 로 들어가는 검색 입력이다. command mode 와 같은 자리를 쓴다.
@@ -13,7 +15,7 @@ import (
 // 치는 동안 첫 매칭으로 커서와 화면이 따라간다(vim 의 incsearch). 그래서 들어온 자리와
 // 들어올 때의 검색을 들고 있다가 `Esc` 로 나가면 되돌린다 — 미리보기가 실제 이동으로 남으면
 // 검색을 무를 방법이 없다.
-func searchMode(e *editor, direction searchDirection) (tea.Model, tea.Cmd) {
+func searchMode(e *editor, direction textarea.SearchDirection) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
 	return viewEditorSearch{
@@ -26,7 +28,7 @@ func searchMode(e *editor, direction searchDirection) (tea.Model, tea.Cmd) {
 type viewEditorSearch struct {
 	*editor
 
-	direction searchDirection
+	direction textarea.SearchDirection
 	input     inputLine // `/` 나 `?` 뒤에 친 것
 
 	origin searchOrigin
@@ -37,7 +39,7 @@ type viewEditorSearch struct {
 // 화면 위치까지 들고 있어야 되돌릴 때 화면이 튀지 않는다. 커서만 되돌리면 scrollTo 가
 // 이미 옮겨둔 화면을 그대로 두어서, 커서는 제자리인데 보이는 곳이 달라진다.
 type searchOrigin struct {
-	place viewPlace
+	place textarea.ViewPlace
 
 	search searchState
 }
@@ -189,14 +191,14 @@ func (m viewEditorSearch) View() tea.View {
 	view := m.editorView(tea.CursorBlock, "SEARCH", prompt+m.input.text)
 
 	// 커서는 본문이 아니라 명령줄의 치는 자리에 있어야 한다. command mode 와 같은 자리다.
-	view.Cursor = tea.NewCursor(widthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(textarea.WidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	return view
 }
 
 // prompt 는 명령줄 맨 앞 글자다. 어느 방향으로 찾는 중인지가 이것으로 보인다. vim 과 같다.
 func (m viewEditorSearch) prompt() string {
-	if m.direction == searchBackward {
+	if m.direction == textarea.SearchBackward {
 		return "?"
 	}
 
@@ -209,7 +211,7 @@ func (m viewEditorSearch) prompt() string {
 // **mode 는 정하지 않는다.** 부르는 쪽이 둘이고 원하는 것이 다르다 — `/` 는 SEARCH 를 끝내고
 // normal 로 나오는 진짜 전환이지만, `n` 은 normal 에 머문다. 여기서 `normalMode(e)` 를
 // 돌려주면 그 둘이 같은 모양이 되어 `press` 가 mode 가 바뀌었는지 알 수 없다(ADR-0034).
-func (e *editor) jumpToMatch(direction searchDirection, n int) {
+func (e *editor) jumpToMatch(direction textarea.SearchDirection, n int) {
 	if e.search.pattern == nil {
 		e.notify("이전 검색이 없습니다")
 
@@ -252,8 +254,8 @@ func (e *editor) jumpToMatch(direction searchDirection, n int) {
 }
 
 // wrapMessage 는 파일 끝을 지나 감쌌음을 알리는 말이다.
-func wrapMessage(direction searchDirection) string {
-	if direction == searchBackward {
+func wrapMessage(direction textarea.SearchDirection) string {
+	if direction == textarea.SearchBackward {
 		return "위에서 끝으로 돌아옴"
 	}
 
@@ -261,7 +263,7 @@ func wrapMessage(direction searchDirection) string {
 }
 
 // searchWord 는 커서 아래 단어를 그대로 찾는다. vim 의 `*` `#` 다.
-func (e *editor) searchWord(direction searchDirection, n int) {
+func (e *editor) searchWord(direction textarea.SearchDirection, n int) {
 	buf := e.activeBuffer()
 
 	word, col, ok := buf.WordUnderCursor()

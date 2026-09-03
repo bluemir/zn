@@ -7,6 +7,8 @@ import (
 
 	"github.com/bluemir/zn/internal/lsp"
 	"github.com/bluemir/zn/internal/syntax"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 언어 서버가 준 문법 토큰을 화면에 얹는 자리다(ADR-0103).
@@ -111,7 +113,7 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 			return
 		}
 
-		tokens := make([]semanticToken, 0, len(msg.tokens))
+		tokens := make([]textarea.SemanticToken, 0, len(msg.tokens))
 		for _, token := range msg.tokens {
 			if token.Line < 0 || token.Line >= buf.LineCount() {
 				continue
@@ -133,7 +135,7 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 				continue
 			}
 
-			tokens = append(tokens, semanticToken{
+			tokens = append(tokens, textarea.SemanticToken{
 				Line:  token.Line,
 				Token: syntax.Token{Start: start, End: end, Kind: kind},
 			})

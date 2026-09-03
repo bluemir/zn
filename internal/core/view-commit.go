@@ -7,6 +7,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // commitMsg 는 읽어 온 상세다. 어느 커밋의 것인지를 같이 들고 온다 —
@@ -151,11 +153,11 @@ func (m viewCommit) run(key string) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case "pgdown":
-		m.move(pageRows(pageFull, m.listHeight()))
+		m.move(textarea.PageRows(textarea.PageFull, m.listHeight()))
 
 		return m, nil
 	case "pgup":
-		m.move(-pageRows(pageFull, m.listHeight()))
+		m.move(-textarea.PageRows(textarea.PageFull, m.listHeight()))
 
 		return m, nil
 	case "g", "home":

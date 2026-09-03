@@ -7,6 +7,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // serverInstallConfirmMode 는 언어 서버가 없을 때 설치 여부를 묻는 모달 화면이다.
@@ -101,7 +103,7 @@ func (m viewServerInstallConfirm) lines() (string, string) {
 func (m viewServerInstallConfirm) boxWidth() int {
 	title, question := m.lines()
 
-	maxContent := max(widthOf(title), widthOf(question))
+	maxContent := max(textarea.WidthOf(title), textarea.WidthOf(question))
 	wanted := maxContent + 8
 	if m.width <= 0 {
 		return max(wanted, 40)

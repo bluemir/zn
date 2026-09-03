@@ -5,6 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // formatterInstallConfirmMode 는 저장 포매터가 없을 때 설치 여부를 묻는 모달 화면이다.
@@ -110,7 +112,7 @@ func (m viewFormatterInstallConfirm) lines() (string, string) {
 func (m viewFormatterInstallConfirm) boxWidth() int {
 	title, question := m.lines()
 
-	maxContent := max(widthOf(title), widthOf(question))
+	maxContent := max(textarea.WidthOf(title), textarea.WidthOf(question))
 	wanted := maxContent + 8
 	if m.width <= 0 {
 		return max(wanted, 40)

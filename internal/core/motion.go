@@ -1,6 +1,9 @@
 package core
 
-import "github.com/bluemir/zn/internal/scheme"
+import (
+	"github.com/bluemir/zn/internal/scheme"
+	"github.com/bluemir/zn/internal/textarea"
+)
 
 // motion 은 커서가 갈 자리를 정하는 것이다.
 //
@@ -15,7 +18,7 @@ type motion interface {
 	//
 	// count 를 그대로 받는다. 0 이 "숫자 없음" 이고 그것을 어떻게 읽을지는 motion 마다 다르다 —
 	// `3w` 는 되풀이이고 `3G` 는 줄 번호다.
-	span(buf viewport, count int) (scheme.MotionRange, bool)
+	span(buf textarea.Viewport, count int) (scheme.MotionRange, bool)
 }
 
 // moveMotion 은 이동 키로도 칠 수 있는 motion 이다. 거의 다 여기 든다.
@@ -25,7 +28,7 @@ type moveMotion interface {
 	motion
 
 	// move 는 커서를 옮긴다. 이동 키를 그냥 쳤을 때다.
-	move(buf *viewport, count int)
+	move(buf *textarea.Viewport, count int)
 }
 
 // charSpan 은 글자 단위 범위다. 커서 자리와 이동이 닿은 자리 사이이고 닿은 자리는 제외다.
@@ -33,7 +36,7 @@ type moveMotion interface {
 // 이동을 복사본 위에서 실제로 실행해서 얻는다. 이동 코드가 하나뿐이라 `w` 가 가는 자리와
 // `dw` 가 지우는 끝이 어긋날 수 없다. Buffer 는 slice header 뭉치라 복사가 싸고
 // 이동은 lines 를 건드리지 않는다(ADR-0013).
-func charSpan(buf viewport, moved viewport) (scheme.MotionRange, bool) {
+func charSpan(buf textarea.Viewport, moved textarea.Viewport) (scheme.MotionRange, bool) {
 	line, col := moved.Cursor.Line, moved.Cursor.Col
 
 	// 뒤로 가는 motion 은 커서가 범위의 끝이다.
@@ -50,7 +53,7 @@ func charSpan(buf viewport, moved viewport) (scheme.MotionRange, bool) {
 // 줄 전체를 쓰므로(`deleteLines`·`changeCaseRange`·`selectionOn`) 이 칸은 그쪽에 닿지 않는다.
 // 담는 까닭은 **복사가 커서를 그 자리로 옮기기 때문**이다 — `yk` 는 칸을 지키고 `ygg` 는 첫
 // 비공백으로 가는데, 그 칸이 범위에 없으면 어디서도 만들어 낼 수 없다(ADR-0017, ADR-0100).
-func lineSpan(buf viewport, moved viewport) (scheme.MotionRange, bool) {
+func lineSpan(buf textarea.Viewport, moved textarea.Viewport) (scheme.MotionRange, bool) {
 	start, end := buf, moved
 	if moved.Cursor.Line < buf.Cursor.Line {
 		start, end = moved, buf
@@ -60,7 +63,7 @@ func lineSpan(buf viewport, moved viewport) (scheme.MotionRange, bool) {
 }
 
 // moveOn 은 복사본 위에서 이동을 실행한 결과다. span 을 구하는 자리가 모두 이것으로 시작한다.
-func moveOn(m moveMotion, buf viewport, count int) viewport {
+func moveOn(m moveMotion, buf textarea.Viewport, count int) textarea.Viewport {
 	m.move(&buf, count)
 
 	return buf
@@ -71,56 +74,56 @@ func moveOn(m moveMotion, buf viewport, count int) viewport {
 // motionLeft 는 `h` 와 `←` 다.
 type motionLeft struct{}
 
-func (motionLeft) move(buf *viewport, count int) { buf.MoveLeft(max(count, 1)) }
+func (motionLeft) move(buf *textarea.Viewport, count int) { buf.MoveLeft(max(count, 1)) }
 
-func (m motionLeft) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionLeft) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count))
 }
 
 // motionRight 는 `l` 과 `→` 다. `x` 도 이것으로 한 글자를 잡는다.
 type motionRight struct{}
 
-func (motionRight) move(buf *viewport, count int) { buf.MoveRight(max(count, 1)) }
+func (motionRight) move(buf *textarea.Viewport, count int) { buf.MoveRight(max(count, 1)) }
 
-func (m motionRight) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionRight) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count))
 }
 
 // motionLineStart 는 `0` 이다. count 를 받지 않는다.
 type motionLineStart struct{}
 
-func (motionLineStart) move(buf *viewport, count int) { buf.MoveLineStart() }
+func (motionLineStart) move(buf *textarea.Viewport, count int) { buf.MoveLineStart() }
 
-func (m motionLineStart) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionLineStart) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count))
 }
 
 // motionFirstNonBlank 는 `^` 다. 들여쓰기를 건너뛴 첫 글자로 간다.
 type motionFirstNonBlank struct{}
 
-func (motionFirstNonBlank) move(buf *viewport, count int) { buf.MoveLineFirstNonBlank() }
+func (motionFirstNonBlank) move(buf *textarea.Viewport, count int) { buf.MoveLineFirstNonBlank() }
 
-func (m motionFirstNonBlank) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionFirstNonBlank) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count))
 }
 
 // motionLineEnd 는 `$` 다. count 는 되풀이가 아니라 줄 수다 — `3$` 는 두 줄 아래의 줄 끝이다.
 type motionLineEnd struct{}
 
-func (motionLineEnd) move(buf *viewport, count int) { buf.MoveLineEnd(max(count, 1)) }
+func (motionLineEnd) move(buf *textarea.Viewport, count int) { buf.MoveLineEnd(max(count, 1)) }
 
-func (m motionLineEnd) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionLineEnd) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count))
 }
 
 // motionWordBack 은 `b` 와 `B` 다.
-type motionWordBack struct{ kind wordKind }
+type motionWordBack struct{ kind textarea.WordKind }
 
-func (m motionWordBack) move(buf *viewport, count int) {
+func (m motionWordBack) move(buf *textarea.Viewport, count int) {
 	buf.MoveWordBackward(max(count, 1), m.kind)
 }
 
-func (m motionWordBack) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionWordBack) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return charSpan(buf, moveOn(m, buf, count))
 }
 
@@ -128,13 +131,13 @@ func (m motionWordBack) span(buf viewport, count int) (scheme.MotionRange, bool)
 //
 // 커서가 단어의 마지막 글자에 서므로 범위는 한 글자 더 나아간다. 그 글자까지 지워야 단어가
 // 통째로 사라진다. vim 의 inclusive motion 이다(ADR-0013).
-type motionWordEnd struct{ kind wordKind }
+type motionWordEnd struct{ kind textarea.WordKind }
 
-func (m motionWordEnd) move(buf *viewport, count int) {
+func (m motionWordEnd) move(buf *textarea.Viewport, count int) {
 	buf.MoveWordEnd(max(count, 1), m.kind)
 }
 
-func (m motionWordEnd) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionWordEnd) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	moved := moveOn(m, buf, count)
 	moved.IncludeCursorCluster()
 
@@ -146,13 +149,13 @@ func (m motionWordEnd) span(buf viewport, count int) (scheme.MotionRange, bool) 
 // operator 와 함께일 때 마지막 한 걸음이 줄을 넘지 않는다. 줄의 마지막 단어에서 `dw` 를 쳐도
 // 다음 줄이 끌려 올라오지 않는다 — 줄을 없애려면 `dd` 가 있고, `dw` 로 줄이 합쳐지는 것은
 // 단어 하나를 지우려던 손에는 사고다. vim 과 같다(ADR-0013).
-type motionWordForward struct{ kind wordKind }
+type motionWordForward struct{ kind textarea.WordKind }
 
-func (m motionWordForward) move(buf *viewport, count int) {
+func (m motionWordForward) move(buf *textarea.Viewport, count int) {
 	buf.MoveWordForward(max(count, 1), m.kind)
 }
 
-func (m motionWordForward) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionWordForward) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	moved := buf
 
 	// 중간 걸음은 줄을 넘어도 된다 — `2dw` 는 다음 줄의 단어까지 지운다.
@@ -183,9 +186,9 @@ func (m motionWordForward) span(buf viewport, count int) (scheme.MotionRange, bo
 // motionLineDown 은 `j` 다. wrap 된 줄도 한 번에 건넌다.
 type motionLineDown struct{}
 
-func (motionLineDown) move(buf *viewport, count int) { buf.MoveDownLine(max(count, 1)) }
+func (motionLineDown) move(buf *textarea.Viewport, count int) { buf.MoveDownLine(max(count, 1)) }
 
-func (m motionLineDown) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionLineDown) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	// 이미 마지막 줄이면 갈 곳이 없어서 아무 일도 하지 않는다.
 	// 줄이 모자라기만 한 것은 파일 끝까지다. vim 과 같다.
 	if buf.Cursor.Line == buf.LineCount()-1 {
@@ -198,9 +201,9 @@ func (m motionLineDown) span(buf viewport, count int) (scheme.MotionRange, bool)
 // motionLineUp 은 `k` 다.
 type motionLineUp struct{}
 
-func (motionLineUp) move(buf *viewport, count int) { buf.MoveUpLine(max(count, 1)) }
+func (motionLineUp) move(buf *textarea.Viewport, count int) { buf.MoveUpLine(max(count, 1)) }
 
-func (m motionLineUp) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionLineUp) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	if buf.Cursor.Line == 0 {
 		return scheme.MotionRange{}, false
 	}
@@ -213,7 +216,7 @@ func (m motionLineUp) span(buf viewport, count int) (scheme.MotionRange, bool) {
 // 숫자가 없다는 것을 알아야 해서 count 를 1 로 메워 받지 않는다. 파서가 0 을 그대로 준다.
 type motionToLastLine struct{}
 
-func (motionToLastLine) move(buf *viewport, count int) {
+func (motionToLastLine) move(buf *textarea.Viewport, count int) {
 	line := buf.LineCount() - 1
 	if count > 0 {
 		line = count - 1
@@ -222,18 +225,18 @@ func (motionToLastLine) move(buf *viewport, count int) {
 	buf.MoveToLine(line)
 }
 
-func (m motionToLastLine) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionToLastLine) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return lineSpan(buf, moveOn(m, buf, count))
 }
 
 // motionToFirstLine 은 `gg` 다. 숫자가 있으면 그 줄, 없으면 첫 줄이다.
 type motionToFirstLine struct{}
 
-func (motionToFirstLine) move(buf *viewport, count int) {
+func (motionToFirstLine) move(buf *textarea.Viewport, count int) {
 	buf.MoveToLine(max(count, 1) - 1)
 }
 
-func (m motionToFirstLine) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionToFirstLine) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	return lineSpan(buf, moveOn(m, buf, count))
 }
 
@@ -246,17 +249,17 @@ func (m motionToFirstLine) span(buf viewport, count int) (scheme.MotionRange, bo
 // operator 를 안 받는 것과는 다른 물음이고, ADR-0013 이 정한 것은 그쪽뿐이다 (ADR-0081).
 type motionRowUp struct{}
 
-func (motionRowUp) move(buf *viewport, count int) { buf.MoveUpRow(max(count, 1)) }
+func (motionRowUp) move(buf *textarea.Viewport, count int) { buf.MoveUpRow(max(count, 1)) }
 
-func (motionRowUp) span(viewport, int) (scheme.MotionRange, bool) {
+func (motionRowUp) span(textarea.Viewport, int) (scheme.MotionRange, bool) {
 	return scheme.MotionRange{}, false
 }
 
 type motionRowDown struct{}
 
-func (motionRowDown) move(buf *viewport, count int) { buf.MoveDownRow(max(count, 1)) }
+func (motionRowDown) move(buf *textarea.Viewport, count int) { buf.MoveDownRow(max(count, 1)) }
 
-func (motionRowDown) span(viewport, int) (scheme.MotionRange, bool) {
+func (motionRowDown) span(textarea.Viewport, int) (scheme.MotionRange, bool) {
 	return scheme.MotionRange{}, false
 }
 
@@ -267,17 +270,17 @@ func (motionRowDown) span(viewport, int) (scheme.MotionRange, bool) {
 // 정하려면 「화면 행 단위 범위」가 무엇인지부터 정해야 하는데, 그것이 아직 없다(ADR-0013).
 type motionRowStart struct{}
 
-func (motionRowStart) move(buf *viewport, count int) { buf.MoveRowStart() }
+func (motionRowStart) move(buf *textarea.Viewport, count int) { buf.MoveRowStart() }
 
-func (motionRowStart) span(viewport, int) (scheme.MotionRange, bool) {
+func (motionRowStart) span(textarea.Viewport, int) (scheme.MotionRange, bool) {
 	return scheme.MotionRange{}, false
 }
 
 type motionRowEnd struct{}
 
-func (motionRowEnd) move(buf *viewport, count int) { buf.MoveRowEnd() }
+func (motionRowEnd) move(buf *textarea.Viewport, count int) { buf.MoveRowEnd() }
 
-func (motionRowEnd) span(viewport, int) (scheme.MotionRange, bool) {
+func (motionRowEnd) span(textarea.Viewport, int) (scheme.MotionRange, bool) {
 	return scheme.MotionRange{}, false
 }
 
@@ -288,14 +291,14 @@ func (motionRowEnd) span(viewport, int) (scheme.MotionRange, bool) {
 //
 // 파서가 operator 를 보고 이 type 을 고른다 — `dw` 는 motionWordForward 이고 `cw` 만 이것이다.
 // operator 에 따라 motion 이 갈리는 자리는 지금 여기 하나뿐이다.
-type motionChangeWord struct{ kind wordKind }
+type motionChangeWord struct{ kind textarea.WordKind }
 
 // 이동 키로는 쓰이지 않는다. `c` 뒤에서만 만들어지므로 그냥 `w` 로 간다.
-func (m motionChangeWord) move(buf *viewport, count int) {
+func (m motionChangeWord) move(buf *textarea.Viewport, count int) {
 	buf.MoveWordForward(max(count, 1), m.kind)
 }
 
-func (m motionChangeWord) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionChangeWord) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	// 빈 줄에서는 바꿀 것이 없다. `dw` 는 그 줄을 지우고 다음 줄을 끌어올리지만(ADR-0013),
 	// 빈 줄에 글을 쓰려고 `cw` 를 친 손에는 다음 줄이 딸려 올라오는 것이 사고다.
 	// vim 도 여기서는 줄을 합치지 않는다 — exclusive 보정 규칙이 이 자리를 줄 단위로 돌린다.
@@ -304,7 +307,7 @@ func (m motionChangeWord) span(buf viewport, count int) (scheme.MotionRange, boo
 	}
 
 	// 공백 위면 예외가 아니다. 바꿀 것이 그 공백이라 `dw` 와 같이 건너뛴다.
-	if buf.ClassAt(buf.Cursor, m.kind) == classBlank {
+	if buf.ClassAt(buf.Cursor, m.kind) == textarea.ClassBlank {
 		return motionWordForward{kind: m.kind}.span(buf, count)
 	}
 
@@ -328,7 +331,7 @@ func (m motionChangeWord) span(buf viewport, count int) (scheme.MotionRange, boo
 // 줄이 모자라면 있는 만큼이다. 커서는 움직이지 않는다.
 type motionWholeLines struct{}
 
-func (motionWholeLines) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (motionWholeLines) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	end := min(buf.Cursor.Line+max(count, 1)-1, buf.LineCount()-1)
 
 	// 칸은 커서 그대로다. `yy` 가 커서를 옮기지 않는 것이 이 값으로 표현된다 — 범위의 시작이
@@ -343,11 +346,11 @@ func (motionWholeLines) span(buf viewport, count int) (scheme.MotionRange, bool)
 // **count 를 보지 않는다.** vim 의 `d2iw` 는 단어와 공백을 번갈아 세는데, 모르면 「단어 둘」로
 // 읽힌다. 틀리게 읽히는 숫자를 받지 않는다(ADR-0091 §4).
 type motionWordObject struct {
-	kind   wordKind
+	kind   textarea.WordKind
 	around bool // `aw` 인가. 단어 둘레의 공백까지 먹는다
 }
 
-func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, bool) {
+func (m motionWordObject) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
 	line := buf.Cursor.Line
 	text := buf.Line(line)
 
@@ -356,7 +359,7 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 	//
 	// 빈 줄과 줄 끝도 여기서 같이 걸린다. classAt 이 줄 끝을 공백으로 보기 때문이다.
 	class := buf.ClassAt(buf.Cursor, m.kind)
-	if class == classBlank {
+	if class == textarea.ClassBlank {
 		return scheme.MotionRange{}, false
 	}
 
@@ -364,7 +367,7 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 	// 줄 끝이 공백이라 저절로 멈춘다.
 	start := buf.Cursor.Col
 	for start > 0 {
-		prev := prevGlyphStart(text, 0, start)
+		prev := textarea.PrevGlyphStart(text, 0, start)
 		if buf.ClassAt(scheme.Cursor{Line: line, Col: prev}, m.kind) != class {
 			break
 		}
@@ -374,7 +377,7 @@ func (m motionWordObject) span(buf viewport, count int) (scheme.MotionRange, boo
 
 	end := buf.Cursor.Col
 	for end < len(text) && buf.ClassAt(scheme.Cursor{Line: line, Col: end}, m.kind) == class {
-		end += glyphSize(text, end)
+		end += textarea.GlyphSize(text, end)
 	}
 
 	area := scheme.MotionRange{

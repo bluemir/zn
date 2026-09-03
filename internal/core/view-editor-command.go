@@ -5,6 +5,8 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/buildinfo"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewEditorCommand 는 vim 의 command-line mode 다. normal 에서 `:` 로 들어간다.
@@ -488,7 +490,7 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 	// **찾은 것이 마지막 검색이 된다.** `n` 으로 남은 자리를 훑을 수 있고, 물어보며 바꾸는
 	// 동안 화면에 칠해지는 것도 이것이다 — 그쪽에 그릴 것을 따로 만들지 않았다. vim 과 같다
 	// (ADR-0010, ADR-0084).
-	m.search = searchState{input: sub.input, pattern: sub.pattern, direction: searchForward, highlight: true}
+	m.search = searchState{input: sub.input, pattern: sub.pattern, direction: textarea.SearchForward, highlight: true}
 
 	if sub.confirm {
 		return substituteMode(m.editor, sub, area)
@@ -715,7 +717,7 @@ func (m viewEditorCommand) View() tea.View {
 
 	// 커서는 본문이 아니라 명령줄의 치는 자리에 있어야 한다.
 	// 명령줄도 편집 영역 아래에 있으므로 sidebar 만큼 오른쪽으로 옮긴다.
-	view.Cursor = tea.NewCursor(widthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
+	view.Cursor = tea.NewCursor(textarea.WidthOf(prompt)+m.input.screenCursor()+m.sidebarLeft(), m.height-1)
 
 	// `tab` 이 채우다 만 뒤의 후보를 명령줄 위에 얹는다(ADR-0099).
 	return m.overlayCandidates(view)

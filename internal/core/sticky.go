@@ -1,5 +1,9 @@
 package core
 
+import (
+	"github.com/bluemir/zn/internal/textarea"
+)
+
 // sticky 머리줄은 화면 맨 위 몇 행을 감싸는 제목·정의로 덮는다(ADR-0049).
 //
 // 이 파일은 「무엇을 붙이나」와 「어떻게 그리나」를 같이 든다. 그리기만 하는 파일이 아니라
@@ -18,16 +22,16 @@ package core
 //
 // 검색 매칭과 고른 범위는 칠하지 않는다. 이 줄은 화면 밖에 있는 줄이고, 본문에 같이 보이지도
 // 않는 자리에서만 강조하면 어느 쪽이 지금 자리인지 흐려진다.
-func (e editor) renderStickyRow(buf *viewport, line int) string {
+func (e editor) renderStickyRow(buf *textarea.Viewport, line int) string {
 	text := buf.Line(line)
 	width, tab := e.contentWidth(), buf.TabWidth()
 
 	end := len(text)
-	if offsets := wrapOffsets(text, width, tab); len(offsets) > 1 {
+	if offsets := textarea.WrapOffsets(text, width, tab); len(offsets) > 1 {
 		end = offsets[1]
 	}
 
-	row := screenRow{Line: line, Start: 0, End: end}
+	row := textarea.ScreenRow{Line: line, Start: 0, End: end}
 
 	return e.renderGutter(buf, row) +
 		renderRow(text, row, width, rowHighlight{
@@ -40,7 +44,7 @@ func (e editor) renderStickyRow(buf *viewport, line int) string {
 //
 // 파일 끝에서 화면이 다 안 차는 자리를 위한 것이다. 보통은 scrollTo 가 머리줄 수만큼 top 을
 // 올려 두어 rows 가 화면을 채우므로 자를 것이 없다.
-func (e editor) stickyRows(buf *viewport, height, rows int) []int {
+func (e editor) stickyRows(buf *textarea.Viewport, height, rows int) []int {
 	sticky := buf.StickyAt(buf.Top.Line, height)
 	if over := len(sticky) - rows; over > 0 {
 		sticky = sticky[over:]

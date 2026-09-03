@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // edit 은 한 줄 안의 편집 하나다. 열은 UTF-16 이다(lsp/protocol.go).
@@ -223,8 +225,8 @@ func TestRenamePopupKeepsTailVisible(t *testing.T) {
 
 	assert.True(t, strings.HasSuffix(text, "Long"), "방금 친 끝이 남는다: %q", text)
 	assert.True(t, strings.HasPrefix(text, "…"), "접은 자리를 표시한다: %q", text)
-	assert.LessOrEqual(t, widthOf(text), renameBoxInner-1, "테두리를 넘지 않는다")
-	assert.Equal(t, widthOf(text), cursor, "커서는 그린 글자 뒤다")
+	assert.LessOrEqual(t, textarea.WidthOf(text), renameBoxInner-1, "테두리를 넘지 않는다")
+	assert.Equal(t, textarea.WidthOf(text), cursor, "커서는 그린 글자 뒤다")
 }
 
 // 짧은 이름은 접지 않는다. 옛 이름이 그대로 보인다.
@@ -237,7 +239,7 @@ func TestRenamePopupShowsBothNamesWhenShort(t *testing.T) {
 	text, cursor := m.(viewRenameInput).renameLine()
 
 	assert.Equal(t, " Greet → Greet", text)
-	assert.Equal(t, widthOf(text), cursor)
+	assert.Equal(t, textarea.WidthOf(text), cursor)
 }
 
 // 옛 이름 그대로 enter 를 누르면 아무 일도 하지 않는다.

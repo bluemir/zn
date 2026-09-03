@@ -5,6 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // viewGrepInput 은 검색어를 받는 박스다. 팔레트의 「프로젝트 검색」과 인자 없는 `:grep` 이
@@ -161,11 +163,11 @@ func (m viewGrepInput) renderTitleLine(width int) string {
 	chars := m.boxChars
 
 	room := width - 2
-	if widthOf(grepInputTitle) > room {
+	if textarea.WidthOf(grepInputTitle) > room {
 		return chars.topLeft + strings.Repeat(chars.horizontal, room) + chars.topRight
 	}
 
-	rest := room - widthOf(grepInputTitle)
+	rest := room - textarea.WidthOf(grepInputTitle)
 
 	return chars.topLeft + grepInputTitle + strings.Repeat(chars.horizontal, rest) + chars.topRight
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // jumpEditor 는 파일 셋이 열린 편집기다. 파일을 넘는 이력을 재는 데 쓴다.
@@ -20,13 +22,13 @@ func jumpEditor(t *testing.T) (*editor, []string) {
 	dir := t.TempDir()
 
 	paths := []string{}
-	buffers := []viewport{}
+	buffers := []textarea.Viewport{}
 	for _, name := range []string{"first.go", "second.go", "third.go"} {
 		path := filepath.Join(dir, name)
 		require.NoError(t, os.WriteFile(path,
 			[]byte("package main\n\nfunc a() {}\n\nfunc b() {}\n\nfunc c() {}\n"), 0644))
 
-		buf, err := OpenBuffer(path)
+		buf, err := textarea.OpenBuffer(path)
 		require.NoError(t, err)
 
 		paths = append(paths, path)
@@ -151,7 +153,7 @@ func TestRecordJumpSkipsSameLine(t *testing.T) {
 
 // 이름 없는 buffer 는 담지 않는다. 되돌아갈 때 열 파일이 없다.
 func TestRecordJumpSkipsUnnamedBuffer(t *testing.T) {
-	e := &editor{buffers: []viewport{newEmptyBuffer("")}, width: 80, height: 20}
+	e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")}, width: 80, height: 20}
 
 	e.recordJump()
 

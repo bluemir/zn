@@ -8,6 +8,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 알림은 아래 줄에 서는 동시에 기록에 남는다. 둘이 갈리면 「지나간 알림 보기」가 성립하지 않는다.
@@ -64,7 +66,7 @@ func TestNoticeTextJoinsSentinelPathAndCause(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Run("열기 실패", func(t *testing.T) {
-		_, err := OpenBuffer(dir) // 디렉터리는 읽을 수 없다
+		_, err := textarea.OpenBuffer(dir) // 디렉터리는 읽을 수 없다
 
 		require.Error(t, err)
 		assert.Equal(t, "열 수 없습니다: "+dir+": is a directory", noticeText(err))
@@ -74,7 +76,7 @@ func TestNoticeTextJoinsSentinelPathAndCause(t *testing.T) {
 		locked := filepath.Join(dir, "locked.txt")
 		require.NoError(t, os.WriteFile(locked, []byte("x"), 0444))
 
-		buf, err := OpenBuffer(locked)
+		buf, err := textarea.OpenBuffer(locked)
 		require.NoError(t, err)
 
 		_, err = buf.SaveForce(nil)
@@ -103,16 +105,16 @@ func TestNoticeTextIgnoresSyscallOp(t *testing.T) {
 	require.Equal(t, "open", pathErr.Op, "os 는 쓰기 실패에도 open 이라 한다")
 
 	assert.Equal(t, "쓸 수 없습니다: "+locked+": permission denied",
-		noticeText(errors.Mark(raw, errWriteFile)))
+		noticeText(errors.Mark(raw, textarea.ErrWriteFile)))
 }
 
 // 센티넬을 붙여도 구조가 그대로 남는다. 붙이는 것이 감싸는 것과 다른 점이다.
 func TestMarkKeepsStructure(t *testing.T) {
 	_, raw := os.ReadFile(t.TempDir())
-	marked := errors.Mark(raw, errOpenFile)
+	marked := errors.Mark(raw, textarea.ErrOpenFile)
 
-	assert.True(t, errors.Is(marked, errOpenFile))
-	assert.False(t, errors.Is(marked, errWriteFile))
+	assert.True(t, errors.Is(marked, textarea.ErrOpenFile))
+	assert.False(t, errors.Is(marked, textarea.ErrWriteFile))
 
 	var pathErr *os.PathError
 	assert.True(t, errors.As(marked, &pathErr), "PathError 가 살아 있다")
@@ -147,7 +149,7 @@ func TestNoticesDoNotFold(t *testing.T) {
 // 그 알림은 조용히 기록에서 빠진다.
 func TestEveryNoticePathRecords(t *testing.T) {
 	t.Run("normalModeMessage", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")}}
 
 		normalModeMessage(e, "알 수 없는 명령: :xyz")
 
@@ -156,7 +158,7 @@ func TestEveryNoticePathRecords(t *testing.T) {
 	})
 
 	t.Run("normalModeError", func(t *testing.T) {
-		e := &editor{buffers: []viewport{newEmptyBuffer("")}}
+		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")}}
 
 		normalModeError(e, errors.New("no such file"))
 
@@ -166,10 +168,10 @@ func TestEveryNoticePathRecords(t *testing.T) {
 	})
 
 	t.Run("refuseReadOnly", func(t *testing.T) {
-		buf := newEmptyBuffer("a.txt")
+		buf := textarea.NewEmptyBuffer("a.txt")
 		buf.ReadOnly = true
 
-		e := &editor{buffers: []viewport{buf}}
+		e := &editor{buffers: []textarea.Viewport{buf}}
 
 		require.True(t, e.refuseReadOnly())
 		assert.Len(t, e.notices, 1)

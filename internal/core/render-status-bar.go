@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // renderStatusBar 는 화면 아래 두 줄을 그린다. 위 줄은 mode 와 파일과 git, 아래 줄은 부르는 쪽이 정한다.
@@ -30,7 +32,7 @@ func (e editor) renderStatusBar(mode, bottom string) []string {
 	left, text := "", mode+"  "+path
 	if e.sidebarVisible() {
 		label := truncateToWidth(mode, sidebarWidth)
-		left = label + strings.Repeat(" ", max(0, sidebarWidth-widthOf(label)))
+		left = label + strings.Repeat(" ", max(0, sidebarWidth-textarea.WidthOf(label)))
 		text = path
 	}
 
@@ -69,7 +71,7 @@ func (e editor) renderStatusPath() string {
 
 	// `[!]` 는 마지막으로 맞춰 봤을 때 바깥이 달라져 있었다는 것이다. `[+]` 가 내 손의 미저장
 	// 변경이고 이것은 남의 변경이라, 둘이 같이 붙으면 양쪽에 잃을 것이 있다는 뜻이다(ADR-0031).
-	if buf.OutsideState() != outsideSame {
+	if buf.OutsideState() != textarea.OutsideSame {
 		path += " [!]"
 	}
 
@@ -104,14 +106,14 @@ func (e editor) renderWithStatus(top string) string {
 		}
 	}
 
-	used := widthOf(top)
+	used := textarea.WidthOf(top)
 
 	for _, label := range []string{right(e.renderJobText(e.renderJobBar())), right(e.renderJobText("")), git} {
 		if label == "" {
 			continue
 		}
 
-		pad := e.textWidth() - used - widthOf(label)
+		pad := e.textWidth() - used - textarea.WidthOf(label)
 		if pad < 2 {
 			continue
 		}
@@ -141,7 +143,7 @@ func (e editor) noticeOr(fallback string) string {
 // (diagnostics.go 의 renderDiagnostic, tip.go 의 renderWithTip, ADR-0086).
 func (e editor) renderPosition() string {
 	buf := e.buffers[e.active]
-	col := screenColAt(buf.Line(buf.Cursor.Line), buf.Cursor.Col, buf.TabWidth())
+	col := textarea.ScreenColAt(buf.Line(buf.Cursor.Line), buf.Cursor.Col, buf.TabWidth())
 
 	position := fmt.Sprintf("%d:%d  (%d 줄)", buf.Cursor.Line+1, col+1, buf.LineCount())
 
@@ -166,7 +168,7 @@ func (e editor) renderWithShowcmd(bottom, showcmd string) string {
 		return bottom
 	}
 
-	pad := e.textWidth() - widthOf(bottom) - widthOf(showcmd)
+	pad := e.textWidth() - textarea.WidthOf(bottom) - textarea.WidthOf(showcmd)
 	if pad < 1 {
 		return bottom
 	}
@@ -183,14 +185,14 @@ func trimLeftToWidth(text string, width int) string {
 	if width < 1 {
 		return ""
 	}
-	if widthOf(text) <= width {
+	if textarea.WidthOf(text) <= width {
 		return text
 	}
 
 	// `…` 한 칸을 남겨 두고, 들어갈 때까지 앞에서 한 글자씩 뗀다.
 	kept := text
-	for len(kept) > 0 && widthOf(kept) > width-1 {
-		size, _ := glyphAt([]byte(kept), 0, 0, defaultTabWidth)
+	for len(kept) > 0 && textarea.WidthOf(kept) > width-1 {
+		size, _ := textarea.GlyphAt([]byte(kept), 0, 0, textarea.DefaultTabWidth)
 		kept = kept[size:]
 	}
 
@@ -211,12 +213,12 @@ func truncateToWidth(s string, width int) string {
 
 	col, styled := 0, false
 	for offset := 0; offset < len(line); {
-		if size := escapeSizeAt(line, offset); size > 0 {
+		if size := textarea.EscapeSizeAt(line, offset); size > 0 {
 			offset, styled = offset+size, true
 			continue
 		}
 
-		size, w := glyphAt(line, offset, col, defaultTabWidth)
+		size, w := textarea.GlyphAt(line, offset, col, textarea.DefaultTabWidth)
 		if col+w > width {
 			// 색을 켠 채로 자르면 그 색이 줄 끝까지 번진다.
 			if styled {

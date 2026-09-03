@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // completeDir 은 완성 시험이 쓸 디렉터리를 만들고 그 안으로 들어간다.
@@ -248,7 +250,7 @@ func TestCommandCandidateBoxKeepsScreenWidth(t *testing.T) {
 
 	for i, row := range strings.Split(here.View().Content, "\n") {
 		plain := ansi.Strip(row)
-		assert.Equal(t, here.width, widthOf(plain),
+		assert.Equal(t, here.width, textarea.WidthOf(plain),
 			"행 %d: %q", i, plain)
 	}
 }

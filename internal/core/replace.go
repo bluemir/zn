@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 여러 파일 치환이다(ADR-0097).
@@ -60,7 +62,7 @@ func runReplace(e *editor, input string) (tea.Model, tea.Cmd) {
 
 	// **찾은 것이 마지막 검색이 된다.** 판에서 뛴 뒤 `n` 이 남은 자리를 짚고, 하나씩 물어보는
 	// 동안 화면에 칠해지는 것도 이것이다. `:s` 와 같은 자리다(ADR-0010, ADR-0084).
-	e.search = searchState{input: sub.input, pattern: sub.pattern, direction: searchForward, highlight: true}
+	e.search = searchState{input: sub.input, pattern: sub.pattern, direction: textarea.SearchForward, highlight: true}
 
 	start := e.startGrep(sub.input)
 	if start == nil {
@@ -240,7 +242,7 @@ func (e *editor) replaceFile(full string, at []int, sub substitution) (changed, 
 		return changed, missed, nil
 	}
 
-	buf, err := OpenBuffer(full)
+	buf, err := textarea.OpenBuffer(full)
 	if err != nil {
 		return 0, 0, err
 	}

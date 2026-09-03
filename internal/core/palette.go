@@ -10,6 +10,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/bluemir/zn/internal/scheme"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // paletteHit 은 거른 결과 한 줄이다.
@@ -512,11 +514,11 @@ func runFormatTables(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 // runUpperCase, runLowerCase 는 고른 범위를 한쪽으로 맞춘다. visual 의 `U`·`u` 와 같은
 // 자리로 간다(ADR-0083).
 func runUpperCase(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
-	return paletteChangeCase(e, caseUpper, newRunOptions(opts))
+	return paletteChangeCase(e, textarea.CaseUpper, newRunOptions(opts))
 }
 
 func runLowerCase(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
-	return paletteChangeCase(e, caseLower, newRunOptions(opts))
+	return paletteChangeCase(e, textarea.CaseLower, newRunOptions(opts))
 }
 
 // paletteChangeCase 는 위 둘의 몸통이다. 갈리는 것이 kind 하나라 두 벌로 두지 않았다 —
@@ -528,7 +530,7 @@ func runLowerCase(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 //
 // 커서는 범위의 시작으로 간다. visual 의 `U`·`u` 와 같고 복사(`y`) 와도 같은 길이다
 // (moveToRangeStart, ADR-0100).
-func paletteChangeCase(e *editor, kind caseKind, o runOptions) (tea.Model, tea.Cmd) {
+func paletteChangeCase(e *editor, kind textarea.CaseKind, o runOptions) (tea.Model, tea.Cmd) {
 	if e.refuseNoBuffer() {
 		return normalMode(e)
 	}

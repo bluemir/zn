@@ -13,6 +13,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newTreeFixture 는 트리 시험용 디렉터리를 만든다.
@@ -146,7 +148,7 @@ func revealSync(t *testing.T, s sidebar, path string) sidebar {
 	t.Helper()
 
 	e := &editor{
-		buffers: []viewport{newEmptyBuffer("")},
+		buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 		sidebar: s,
 		width:   80,
 		height:  10 + tablineHeight + statusBarHeight,
@@ -361,7 +363,7 @@ func newTreeEditor(t *testing.T, width, height int) viewEditorNormal {
 	m := viewEditorNormal{
 		editor: &editor{
 			boxChars: boxUnicode,
-			buffers:  []viewport{newBuffer("main.go", []byte("a\nb\n"))},
+			buffers:  []textarea.Viewport{textarea.NewBuffer("main.go", []byte("a\nb\n"))},
 			width:    width,
 			height:   height + tablineHeight + statusBarHeight,
 		},
@@ -383,7 +385,7 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 	out := []string{}
 	for _, row := range rows[:len(rows)-statusBarHeight] {
 		plain := []byte(ansi.Strip(row))
-		out = append(out, string(plain[:offsetAtScreenCol(plain, sidebarWidth, defaultTabWidth)]))
+		out = append(out, string(plain[:textarea.OffsetAtScreenCol(plain, sidebarWidth, textarea.DefaultTabWidth)]))
 	}
 
 	return out
@@ -395,7 +397,7 @@ func TestSidebarCellsAreExactlyWide(t *testing.T) {
 
 	for i, cell := range s.renderCells(10, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, widthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 	}
 }
 
@@ -421,7 +423,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 
 	for i, cell := range s.renderCells(4, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, widthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 	}
 }
 
@@ -508,7 +510,7 @@ func TestSidebarRendersFullHeightBesideShortFile(t *testing.T) {
 
 	require.Len(t, cells, m.sidebarHeight())
 	for i, cell := range cells {
-		assert.Equal(t, sidebarWidth, widthOf(cell), "행 %d", i)
+		assert.Equal(t, sidebarWidth, textarea.WidthOf(cell), "행 %d", i)
 	}
 	assert.Contains(t, cells[0], "▾ ", "뿌리가 tabline 옆줄에 온다")
 	assert.Contains(t, cells[len(cells)-1], "│", "파일은 2 줄뿐이지만 구분선은 statusBar 앞까지 간다")
@@ -524,7 +526,7 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	// split 은 한 행을 sidebar 왼쪽 칸과 그 오른쪽으로 가른다.
 	split := func(row string) (string, string) {
 		plain := []byte(ansi.Strip(row))
-		cut := offsetAtScreenCol(plain, sidebarWidth, defaultTabWidth)
+		cut := textarea.OffsetAtScreenCol(plain, sidebarWidth, textarea.DefaultTabWidth)
 
 		return string(plain[:cut]), string(plain[cut:])
 	}
@@ -546,7 +548,7 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	// statusBar 는 sidebar 아래까지 한 덩어리라 왼쪽 끝부터 칠해진다.
 	for _, i := range []int{0, len(rows) - statusBarHeight} {
 		plain := ansi.Strip(rows[i])
-		assert.Equal(t, 80, widthOf(plain), "행 %d", i)
+		assert.Equal(t, 80, textarea.WidthOf(plain), "행 %d", i)
 	}
 	assert.True(t, strings.HasPrefix(rows[len(rows)-statusBarHeight], "\x1b["),
 		"sidebar 아래 빈 칸도 반전 안에 있어야 색이 끊기지 않는다")
@@ -554,10 +556,10 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 
 // 화면이 좁으면 sidebar 를 켜뒀어도 그리지 않는다. 안 그러면 편집할 자리가 없다.
 func TestSidebarAutoHidesOnNarrowScreen(t *testing.T) {
-	m := newTreeEditor(t, sidebarWidth+minTextWidth, 5)
+	m := newTreeEditor(t, sidebarWidth+textarea.MinTextWidth, 5)
 	require.True(t, m.sidebarVisible())
 
-	m.width = sidebarWidth + minTextWidth - 1
+	m.width = sidebarWidth + textarea.MinTextWidth - 1
 
 	assert.True(t, m.sidebar.open, "사용자 의도는 그대로다")
 	assert.False(t, m.sidebarVisible(), "그리지는 않는다")
@@ -568,7 +570,7 @@ func TestSidebarAutoHidesOnNarrowScreen(t *testing.T) {
 // 아주 좁거나 낮은 화면에서도 죽지 않아야 한다. 음수 폭이 여기서 잡힌다.
 func TestSidebarTinyScreenDoesNotPanic(t *testing.T) {
 	// 임계값 언저리를 상수로 잡는다. 숫자를 박아두면 너비를 바꿀 때 조용히 낡는다.
-	widths := []int{0, 1, 10, sidebarWidth - 1, sidebarWidth, sidebarWidth + 1, sidebarWidth + minTextWidth}
+	widths := []int{0, 1, 10, sidebarWidth - 1, sidebarWidth, sidebarWidth + 1, sidebarWidth + textarea.MinTextWidth}
 	for _, width := range widths {
 		for _, height := range []int{0, 1, 3, 5} {
 			m := newTreeEditor(t, width, 0)
@@ -906,7 +908,7 @@ func TestSidebarEnterMatchesRelativePath(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
 			// CLI 로 상대 경로로 연 것과 같은 모양이다.
-			buffers: []viewport{newBuffer("README.md", []byte("x\n"))},
+			buffers: []textarea.Viewport{textarea.NewBuffer("README.md", []byte("x\n"))},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,
 		},
@@ -927,7 +929,7 @@ func TestSidebarEnterRefusesNonRegularFile(t *testing.T) {
 
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newBuffer("main.go", []byte("a\n"))},
+			buffers: []textarea.Viewport{textarea.NewBuffer("main.go", []byte("a\n"))},
 			width:   80,
 			height:  10 + tablineHeight + statusBarHeight,
 		},
@@ -1076,9 +1078,9 @@ func TestOpenTabRevealsInSidebar(t *testing.T) {
 func TestTabSwitchRevealsInSidebar(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []viewport{
-		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
-		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
+	m.buffers = []textarea.Viewport{
+		textarea.NewBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		textarea.NewBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 
 	model := sendSync(t, tea.Model(m), "g", "t")
@@ -1097,9 +1099,9 @@ func TestTabSwitchRevealsInSidebar(t *testing.T) {
 func TestTabSwitchToUnnamedKeepsSelection(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []viewport{
-		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
-		newEmptyBuffer(""),
+	m.buffers = []textarea.Viewport{
+		textarea.NewBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		textarea.NewEmptyBuffer(""),
 	}
 	revealSyncIn(t, m.editor, m.activeBuffer().Path)
 
@@ -1115,7 +1117,7 @@ func TestToggleTreeRevealsCurrentFile(t *testing.T) {
 	t.Chdir(root)
 
 	e := editor{
-		buffers: []viewport{newBuffer(filepath.Join("docs", "spec.md"), []byte("a\n"))},
+		buffers: []textarea.Viewport{textarea.NewBuffer(filepath.Join("docs", "spec.md"), []byte("a\n"))},
 		width:   80,
 		height:  10 + tablineHeight + statusBarHeight,
 	}
@@ -1138,9 +1140,9 @@ func TestToggleTreeRevealsCurrentFile(t *testing.T) {
 func TestCloseTabRevealsRemainingFile(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []viewport{
-		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
-		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
+	m.buffers = []textarea.Viewport{
+		textarea.NewBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		textarea.NewBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 	m.active = 1
 	revealSyncIn(t, m.editor, m.activeBuffer().Path)
@@ -1232,7 +1234,7 @@ func TestSidebarDirIsNotMarked(t *testing.T) {
 // 이름 없는 buffer 는 어느 행과도 맞지 않는다. `:tabnew` 로 만든 tab 이 그렇다.
 func TestSidebarMarksNothingWithoutName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
-	m.buffers = []viewport{newEmptyBuffer("")}
+	m.buffers = []textarea.Viewport{textarea.NewEmptyBuffer("")}
 
 	assert.Empty(t, activeNames(m.sidebar.renderCells(m.sidebarHeight(), m.activePath(), nil, m.boxChars)))
 }
@@ -1241,9 +1243,9 @@ func TestSidebarMarksNothingWithoutName(t *testing.T) {
 func TestSidebarMarkFollowsActiveTab(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
-	m.buffers = []viewport{
-		newBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
-		newBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
+	m.buffers = []textarea.Viewport{
+		textarea.NewBuffer(filepath.Join(root, "main.go"), []byte("a\n")),
+		textarea.NewBuffer(filepath.Join(root, "docs", "spec.md"), []byte("b\n")),
 	}
 	require.Equal(t, []string{"main.go"}, activeNames(m.sidebar.renderCells(m.sidebarHeight(), m.activePath(), nil, m.boxChars)))
 

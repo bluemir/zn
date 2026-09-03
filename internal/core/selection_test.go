@@ -6,6 +6,8 @@ import (
 	"github.com/bluemir/zn/internal/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // selectionRange 는 커서가 선 글자까지 넣는다. 어느 쪽 끝에서 골랐든 범위는 같다.
@@ -51,8 +53,8 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\n한글\n\n"))
-			buf.Selection = selection{
+			buf := textarea.NewBuffer("test.txt", []byte("foo bar\nbaz qux\n한글\n\n"))
+			buf.Selection = textarea.Selection{
 				Active:   true,
 				Linewise: test.linewise,
 				From:     scheme.Cursor{Line: test.anchorLine, Col: test.anchorCol},
@@ -67,7 +69,7 @@ func TestSelectionRangeIsInclusive(t *testing.T) {
 }
 
 func TestSelectionRangeNeedsActiveSelection(t *testing.T) {
-	buf := newBuffer("test.txt", []byte("foo\n"))
+	buf := textarea.NewBuffer("test.txt", []byte("foo\n"))
 
 	_, ok := buf.SelectionRange()
 	assert.False(t, ok, "고른 것이 없으면 범위도 없다")
@@ -75,7 +77,7 @@ func TestSelectionRangeNeedsActiveSelection(t *testing.T) {
 
 // selectionOn 은 범위를 줄마다의 byte 구간으로 자른다.
 func TestSelectionOn(t *testing.T) {
-	buf := newBuffer("test.txt", []byte("foo bar\nbaz qux\nquux\n"))
+	buf := textarea.NewBuffer("test.txt", []byte("foo bar\nbaz qux\nquux\n"))
 
 	t.Run("한 줄 안", func(t *testing.T) {
 		span, toEnd, ok := buf.SelectionOn(scheme.MotionRange{Start: scheme.Cursor{Col: 1}, End: scheme.Cursor{Col: 4}}, 0)

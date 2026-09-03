@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // cursorOf 는 활성 buffer 의 커서 자리다. 줄과 byte offset 이다.
@@ -317,7 +319,7 @@ func TestSearchWordOnEmptyLineTells(t *testing.T) {
 }
 
 func TestWordUnderCursorSplitsByClass(t *testing.T) {
-	buf := newBuffer("test.txt", []byte("한글abc\n"))
+	buf := textarea.NewBuffer("test.txt", []byte("한글abc\n"))
 
 	word, _, ok := buf.WordUnderCursor()
 
@@ -383,7 +385,7 @@ func TestSearchHighlightKeepsTabWidth(t *testing.T) {
 
 	row := ansi.Strip(contentRowsOf(t, m)[0])[gutterWidthOf(m):]
 
-	assert.Equal(t, markerTab+strings.Repeat(" ", defaultTabWidth-1)+"foo", row)
+	assert.Equal(t, markerTab+strings.Repeat(" ", textarea.DefaultTabWidth-1)+"foo", row)
 }
 
 // 강조 구간에 공백 마커가 끼어도 그 뒤 글자가 강조를 잃지 않는다.
@@ -428,9 +430,9 @@ func TestRenderPartsColorsControl(t *testing.T) {
 func TestSearchSurvivesTabSwitch(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{
-				newBuffer("a.txt", []byte("foo\nbar\n")),
-				newBuffer("b.txt", []byte("baz\nfoo\n")),
+			buffers: []textarea.Viewport{
+				textarea.NewBuffer("a.txt", []byte("foo\nbar\n")),
+				textarea.NewBuffer("b.txt", []byte("baz\nfoo\n")),
 			},
 			width:  40,
 			height: 5 + tablineHeight + statusBarHeight,

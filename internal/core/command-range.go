@@ -6,6 +6,8 @@ import (
 
 	"github.com/bluemir/zn/internal/scheme"
 	"github.com/cockroachdb/errors"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // lineRange 는 명령 이름 앞에 붙은 줄 범위다. `:1,5d` 의 `1,5` 다.
@@ -148,7 +150,7 @@ func parseLineAddress(text string) (lineAddress, error) {
 //
 // 뒤집힌 범위(`:5,1d`) 는 되묻지 않고 바로잡는다. vim 은 확인창을 띄우지만 `:5,1d` 가 뜻할 수
 // 있는 것은 1 부터 5 줄 하나뿐이고, 잘못 쳤으면 `u` 로 되돌린다.
-func (r lineRange) resolve(buf viewport) (from, to int, err error) {
+func (r lineRange) resolve(buf textarea.Viewport) (from, to int, err error) {
 	from, err = r.from.resolve(buf)
 	if err != nil {
 		return 0, 0, err
@@ -173,7 +175,7 @@ func (r lineRange) resolve(buf viewport) (from, to int, err error) {
 //
 // 그 밖의 범위는 줄 단위다. 한쪽만 `'<` 인 것(`:'<,5d`)·자리를 옮긴 것(`:'<,'>+3`) 도 여기다 —
 // 사람이 줄 번호를 섞어 넣은 것이라 글자 구간을 지킬 뜻이 없어졌다.
-func (r lineRange) area(buf viewport) (scheme.MotionRange, error) {
+func (r lineRange) area(buf textarea.Viewport) (scheme.MotionRange, error) {
 	from, to, err := r.resolve(buf)
 	if err != nil {
 		return scheme.MotionRange{}, err
@@ -202,7 +204,7 @@ func (r lineRange) isSelection() bool {
 //
 // 없는 줄을 가리키면 오류다. 끝으로 잘라 주지 않는다 — `:1,500d` 를 조용히 파일 전체로 읽으면
 // 손이 미끄러진 것과 시킨 것을 가를 수 없다. vim 도 여기서 거절한다.
-func (a lineAddress) resolve(buf viewport) (int, error) {
+func (a lineAddress) resolve(buf textarea.Viewport) (int, error) {
 	base := buf.Cursor.Line
 
 	switch a.base {

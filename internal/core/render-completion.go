@@ -8,6 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/bluemir/zn/internal/lsp"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 자동완성 목록을 편집 화면 위에 얹는 자리다(ADR-0066). 무엇을 띄울지는 completion.go 가 정한다.
@@ -95,7 +97,7 @@ func completionLabel(item lsp.CompletionItem, width int) string {
 		return item.Label
 	}
 
-	rest := width - widthOf(item.Label) - 2
+	rest := width - textarea.WidthOf(item.Label) - 2
 	if rest < 4 {
 		return item.Label
 	}

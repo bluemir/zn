@@ -10,6 +10,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newPaletteView 는 파일 목록을 직접 넣은 팔레트다. os.Getwd 와 git 을 타지 않아 결과가 고정된다.
@@ -82,7 +84,7 @@ func TestPaletteDoesNotGrowScreen(t *testing.T) {
 
 	require.Equal(t, len(before), len(after))
 	for i, row := range after {
-		assert.LessOrEqual(t, widthOf(row), m.width, "행 %d", i)
+		assert.LessOrEqual(t, textarea.WidthOf(row), m.width, "행 %d", i)
 	}
 }
 
@@ -101,7 +103,7 @@ func TestPaletteBoxIsCenteredOnScreen(t *testing.T) {
 		assert.True(t, strings.HasPrefix(rows[0], "┌"))
 
 		for _, row := range rows {
-			assert.Equal(t, view.paletteWidth(), widthOf(row))
+			assert.Equal(t, view.paletteWidth(), textarea.WidthOf(row))
 		}
 	}
 }
@@ -230,7 +232,7 @@ func TestPaletteRowWidthWithWideChars(t *testing.T) {
 	m := newPaletteView(t, 40, 20, strings.Repeat("한글", 20)+".go")
 
 	for _, row := range boxRowsOf(t, m) {
-		assert.Equal(t, m.paletteWidth(), widthOf(strings.TrimLeft(row, " ")))
+		assert.Equal(t, m.paletteWidth(), textarea.WidthOf(strings.TrimLeft(row, " ")))
 	}
 }
 
@@ -275,12 +277,12 @@ func TestPaletteTellsWhenFileIsGone(t *testing.T) {
 func newFilePalette(t *testing.T, path, input string) viewPalette {
 	t.Helper()
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	m := viewPalette{
 		editor: &editor{
-			buffers: []viewport{buf},
+			buffers: []textarea.Viewport{buf},
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
 		},
@@ -336,7 +338,7 @@ func TestPaletteReloadAsksWhenDirty(t *testing.T) {
 func TestPaletteReloadTellsWhenBufferHasNoName(t *testing.T) {
 	m := viewPalette{
 		editor: &editor{
-			buffers: []viewport{newEmptyBuffer("")},
+			buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 			width:   80,
 			height:  20 + tablineHeight + statusBarHeight,
 		},

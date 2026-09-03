@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // tablineHeight 는 편집 영역 위 tabline 이 차지하는 줄 수다(docs/spec.md).
@@ -53,7 +55,7 @@ func (e editor) sidebarHeight() int {
 // 폭과 관련된 모든 곳이 open 이 아니라 이것 하나만 봐야 한다. 한 군데라도 어긋나면
 // 화면 절반만 밀린 상태가 된다.
 func (e editor) sidebarVisible() bool {
-	return e.sidebar.open && e.width >= sidebarWidth+minTextWidth
+	return e.sidebar.open && e.width >= sidebarWidth+textarea.MinTextWidth
 }
 
 // sidebarLeft 는 편집 영역이 시작하는 화면 칸이다. 커서 좌표를 옮길 때 쓴다.
@@ -121,7 +123,7 @@ func (e editor) gutterWidth() int {
 // **줄 수는 여기서 안 본다.** 자릿수가 늘어 본문이 좁아지는 것은 창이 스스로 재므로
 // (viewport.contentWidth) 편집할 때마다 다시 부를 일이 없다.
 func (e *editor) layoutViews() {
-	size := viewSize{Width: e.textWidth(), Height: e.textHeight()}
+	size := textarea.ViewSize{Width: e.textWidth(), Height: e.textHeight()}
 
 	for i := range e.buffers {
 		e.buffers[i].Size = size
@@ -143,7 +145,7 @@ func (e *editor) setDrawerHeight(height int) {
 // wrap 되어 이어지는 행은 전부 빈 칸이다. 번호가 있는 행이 곧 논리 줄의 시작이라
 // 화면에서 줄을 셀 때 헷갈리지 않는다. vim 과 같다. 마커도 같은 규칙이다 — 한 줄이 세 행이
 // 되었을 때 마커가 세 번 서면 오류가 셋인 것처럼 보인다(ADR-0086).
-func (e editor) renderGutter(buf *viewport, row screenRow) string {
+func (e editor) renderGutter(buf *textarea.Viewport, row textarea.ScreenRow) string {
 	// **그리는 그 창에게 묻는다.** editor 를 거치면 활성 창의 값이 오는데, 그리는 것은 인자로
 	// 받은 창이다. 지금은 같지만 화면 분할이 오면 갈린다(ADR-0123).
 	width := buf.GutterWidth()

@@ -10,6 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // 시험용 포매터는 셸 한 줄이다. goimports 를 부르면 그것이 깔려 있는지에 시험이 매달린다 —
@@ -55,7 +57,7 @@ func TestSaveHookNotRunWhenOutsideChanged(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "a.go")
 	require.NoError(t, os.WriteFile(path, []byte("abc\n"), 0644))
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	// 읽은 뒤에 밖에서 바뀌었다.
@@ -73,7 +75,7 @@ func TestSaveHookRunsBeforeEditorconfig(t *testing.T) {
 		"[*]\ntrim_trailing_whitespace = true\n",
 		"a.go", "abc\n")
 
-	buf, err := OpenBuffer(path)
+	buf, err := textarea.OpenBuffer(path)
 	require.NoError(t, err)
 
 	// 포매터가 줄 끝에 공백을 남기면 `.editorconfig` 가 그것을 지운다.
@@ -141,18 +143,18 @@ func TestGoInstallDirsWhenGobinEmpty(t *testing.T) {
 }
 
 func TestSplitFormatted(t *testing.T) {
-	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, splitFormatted([]byte("a\nb\n")))
-	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, splitFormatted([]byte("a\nb")),
+	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, textarea.SplitFormatted([]byte("a\nb\n")))
+	assert.Equal(t, [][]byte{[]byte("a"), []byte("b")}, textarea.SplitFormatted([]byte("a\nb")),
 		"마지막 줄바꿈이 없어도 같다")
-	assert.Equal(t, [][]byte{{}}, splitFormatted(nil), "buffer 에는 줄이 적어도 하나 있어야 한다")
+	assert.Equal(t, [][]byte{{}}, textarea.SplitFormatted(nil), "buffer 에는 줄이 적어도 하나 있어야 한다")
 }
 
 func TestCountChangedLines(t *testing.T) {
 	old := [][]byte{[]byte("a"), []byte("b")}
 
-	assert.Equal(t, 0, countChangedLines(old, old))
-	assert.Equal(t, 1, countChangedLines(old, [][]byte{[]byte("a"), []byte("B")}))
-	assert.Equal(t, 1, countChangedLines(old, [][]byte{[]byte("a"), []byte("b"), []byte("c")}),
+	assert.Equal(t, 0, textarea.CountChangedLines(old, old))
+	assert.Equal(t, 1, textarea.CountChangedLines(old, [][]byte{[]byte("a"), []byte("B")}))
+	assert.Equal(t, 1, textarea.CountChangedLines(old, [][]byte{[]byte("a"), []byte("b"), []byte("c")}),
 		"늘어난 줄도 달라진 것이다")
 }
 

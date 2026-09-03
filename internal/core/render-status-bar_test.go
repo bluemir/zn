@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluemir/zn/internal/assets"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // barOf 는 statusBar 두 줄 중 편집 영역 아래 부분만 색을 뺀 글자로 돌려준다.
@@ -27,7 +29,7 @@ func barOf(t *testing.T, m tea.Model) []string {
 	plain := make([]string, 0, statusBarHeight)
 	for _, row := range rawBarOf(t, m) {
 		line := []byte(ansi.Strip(row))
-		plain = append(plain, string(line[offsetAtScreenCol(line, left, defaultTabWidth):]))
+		plain = append(plain, string(line[textarea.OffsetAtScreenCol(line, left, textarea.DefaultTabWidth):]))
 	}
 
 	return plain
@@ -82,7 +84,7 @@ func TestStatusBarPutsModeUnderSidebar(t *testing.T) {
 
 // sidebar 를 놓을 칸이 없으면 mode 는 경로 앞에 나란히 붙는다.
 func TestStatusBarKeepsModeInlineWithoutSidebar(t *testing.T) {
-	m := newTreeEditor(t, sidebarWidth+minTextWidth-1, 6)
+	m := newTreeEditor(t, sidebarWidth+textarea.MinTextWidth-1, 6)
 	require.False(t, m.sidebarVisible())
 
 	assert.Equal(t, "NORMAL  main.go", strings.TrimRight(ansi.Strip(rawBarOf(t, m)[0]), " "))
@@ -106,7 +108,7 @@ func TestStatusBarShowsPath(t *testing.T) {
 func TestStatusBarShowsNoNameForEmptyPath(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newEmptyBuffer("")},
+			buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")},
 			width:   40,
 			height:  3 + tablineHeight + statusBarHeight,
 		},
@@ -196,7 +198,7 @@ func TestStatusBarSkipsGitWhenNarrow(t *testing.T) {
 	top := barOf(t, m)[0]
 
 	assert.Equal(t, "NORMAL  test.txt", strings.TrimRight(top, " "))
-	assert.LessOrEqual(t, widthOf(top), 24)
+	assert.LessOrEqual(t, textarea.WidthOf(top), 24)
 }
 
 // 붙일 칸이 없으면 아래 줄을 그대로 둔다. 커서 위치가 밀려나는 것이 더 나쁘다.
@@ -213,14 +215,14 @@ func TestStatusBarSkipsShowcmdWhenNarrow(t *testing.T) {
 func TestStatusBarTruncatesToWidth(t *testing.T) {
 	m := viewEditorNormal{
 		editor: &editor{
-			buffers: []viewport{newBuffer(strings.Repeat("long-path/", 20)+"file.txt", []byte("abc\n"))},
+			buffers: []textarea.Viewport{textarea.NewBuffer(strings.Repeat("long-path/", 20)+"file.txt", []byte("abc\n"))},
 			width:   20,
 			height:  3 + tablineHeight + statusBarHeight,
 		},
 	}
 
 	for _, row := range barOf(t, m) {
-		assert.LessOrEqual(t, widthOf(row), 20)
+		assert.LessOrEqual(t, textarea.WidthOf(row), 20)
 	}
 }
 
@@ -252,7 +254,7 @@ func TestStatusBarTopLineIsReversed(t *testing.T) {
 
 	assert.Empty(t, plain, "위 줄은 통째로 반전이다")
 	assert.Contains(t, reversed, "NORMAL")
-	assert.Equal(t, 40, widthOf(reversed), "빈 칸까지 줄 끝을 채운다")
+	assert.Equal(t, 40, textarea.WidthOf(reversed), "빈 칸까지 줄 끝을 채운다")
 }
 
 // 아래 줄은 vim 처럼 명령줄이라 배경을 그대로 둔다.
@@ -297,7 +299,7 @@ func TestTinyScreenDoesNotPanic(t *testing.T) {
 	for _, height := range []int{0, 1, 2, 3} {
 		m := viewEditorNormal{
 			editor: &editor{
-				buffers: []viewport{newBuffer("t", []byte("a\nb\n"))},
+				buffers: []textarea.Viewport{textarea.NewBuffer("t", []byte("a\nb\n"))},
 				width:   10,
 				height:  height,
 			},
