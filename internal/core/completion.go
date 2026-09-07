@@ -18,9 +18,26 @@ import (
 // 훨씬 많이 온다(잰 값으로 `rand.` 뒤 스물여덟) — 나머지는 밀어서 본다.
 const completionRows = 8
 
+// completionItem 은 목록에 뜨는 후보 하나다.
+//
+// **LSP 타입이 아니다.** 후보가 서버에서만 오지 않는다 — `:별칭:` 은 우리 표에서 온다
+// (symbol-completion.go). 목록과 키와 그리는 자리가 한 갈래만 보게 core 의 말로 옮겨 담고,
+// 옮기는 자리는 서버 답을 받는 finishCompletion 하나다 (ADR-0135).
+//
+// `lsp.CompletionItem` 의 `Kind`·`SortText` 는 여기 없다. 그리는 쪽이 쓰지 않는다.
+type completionItem struct {
+	label  string // 목록에 보이는 이름
+	detail string // 이름 뒤에 곁들이는 설명. 없으면 빈 글이다
+	text   string // 넣을 글자
+
+	// start, end 는 이 줄에서 바꿀 범위다. byte 열이고, 바꿀 범위가 정해지지 않았으면
+	// 둘 다 -1 이라 넣는 쪽이 커서 자리를 쓴다.
+	start, end int
+}
+
 // completion 은 떠 있는 목록이다. items 가 비어 있으면 닫힌 것이다.
 type completion struct {
-	items    []lsp.CompletionItem
+	items    []completionItem
 	selected int
 	top      int // 창의 첫 줄에 오는 항목. 팔레트의 밀기와 같다(view-palette.go)
 
@@ -144,7 +161,37 @@ func (e *editor) finishCompletion(msg completionMsg) tea.Cmd {
 		return nil
 	}
 
-	e.completion = completion{items: msg.items, line: e.activeBuffer().Cursor.Line}
+	buf := e.activeBuffer()
+	line := buf.Cursor.Line
+
+	// **여기서 창의 말로 옮긴다.** 서버가 준 범위(TextEdit) 를 그대로 쓴다 — 이미 친 접두를
+	// 그 범위가 덮고 있어서(`rand.IntN` 에서 `IntN` 넉 자였다) 우리가 접두를 셀 일이 없다.
+	// 범위가 없거나 여러 줄에 걸치면 -1 로 두고 넣을 때 커서 자리를 쓴다 — 여러 줄짜리는
+	// snippet 쪽 이야기이고 우리는 그것을 켜지 않았다(lsp/client.go 의 initialize 가 능력을
+	// 비워 둔다).
+	//
+	// 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go). 그러려면 그 줄의 글자가 필요하고,
+	// 그 줄을 든 것이 창이다 — 창을 손에 쥔 이 자리가 옮기기에 맞다 (ADR-0125).
+	items := make([]completionItem, 0, len(msg.items))
+	for _, item := range msg.items {
+		next := completionItem{
+			label:  item.Label,
+			detail: item.Detail,
+			text:   item.Text(),
+			start:  -1,
+			end:    -1,
+		}
+
+		if edit := item.TextEdit; edit != nil &&
+			edit.Range.Start.Line == line && edit.Range.End.Line == line {
+			next.start = lsp.ByteColumn(buf.Line(line), edit.Range.Start.Character)
+			next.end = lsp.ByteColumn(buf.Line(line), edit.Range.End.Character)
+		}
+
+		items = append(items, next)
+	}
+
+	e.completion = completion{items: items, line: line}
 
 	return nil
 }
@@ -168,6 +215,9 @@ func (e *editor) moveCompletion(delta int) {
 }
 
 // applyCompletion 은 고른 후보를 넣고 목록을 닫는다.
+//
+// 바꿀 범위는 후보가 이미 들고 있다. 서버 답에서 온 것은 finishCompletion 이, `:별칭:` 에서
+// 온 것은 그것을 세운 자리가 담아 둔다. 범위가 없으면(-1) 커서 자리에 넣는다.
 func (e *editor) applyCompletion() {
 	if !e.completionOpen() {
 		return
@@ -175,24 +225,13 @@ func (e *editor) applyCompletion() {
 
 	item := e.completion.items[e.completion.selected]
 
-	// **여기서 창의 말로 옮긴다.** 서버가 준 범위(TextEdit) 를 그대로 쓴다 — 이미 친 접두를
-	// 그 범위가 덮고 있어서(`rand.IntN` 에서 `IntN` 넉 자였다) 우리가 접두를 셀 일이 없다.
-	// 범위가 없거나 여러 줄에 걸치면 커서 자리에 넣는다 — 여러 줄짜리는 snippet 쪽 이야기이고
-	// 우리는 그것을 켜지 않았다(lsp/client.go 의 initialize 가 능력을 비워 둔다).
-	//
-	// 열은 UTF-16 이라 byte 로 바꾼다(lsp/position.go). 그러려면 그 줄의 글자가 필요하고,
-	// 그 줄을 든 것이 창이다 — 창을 손에 쥔 이 자리가 옮기기에 맞다 (ADR-0125).
 	buf := e.activeBuffer()
-	line := buf.Cursor.Line
 	start, end := buf.Cursor.Col, buf.Cursor.Col
-
-	if edit := item.TextEdit; edit != nil &&
-		edit.Range.Start.Line == line && edit.Range.End.Line == line {
-		start = lsp.ByteColumn(buf.Line(line), edit.Range.Start.Character)
-		end = lsp.ByteColumn(buf.Line(line), edit.Range.End.Character)
+	if item.start >= 0 {
+		start, end = item.start, item.end
 	}
 
-	buf.InsertCompletion(start, end, []byte(item.Text()))
+	buf.InsertCompletion(start, end, []byte(item.text))
 	e.closeCompletion()
 	e.scrollToCursor()
 }

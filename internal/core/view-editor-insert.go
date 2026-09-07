@@ -224,17 +224,37 @@ func (m viewEditorInsert) completionKey(key string) (tea.Model, tea.Cmd, bool) {
 //
 // **부를 만한 글자가 아니면 닫는다.** 괄호나 빈칸을 치면 그 자리의 후보는 이미 뜻이 없다.
 // 지우기는 좁힌 것을 되돌리는 일이라, 목록이 떠 있었으면 다시 묻는다.
+//
+// **`:별칭` 을 먼저 본다.** 걸리면 서버에 묻지 않는다 — 답이 우리 표에 있어서 기다릴 것이
+// 없고, 두 갈래가 같은 창을 쓰므로 뒤에 오는 답이 이 목록을 덮으면 안 된다(ADR-0135).
 func (m viewEditorInsert) completionAfter(msg tea.KeyPressMsg) tea.Cmd {
-	switch {
-	case completionTriggers(msg.Text):
-		return m.startCompletion()
-	case msg.String() == "backspace" && m.completionOpen():
-		return m.startCompletion()
+	erasing := msg.String() == "backspace" && m.completionOpen()
+	typing := completionTriggers(msg.Text) || msg.Text == ":"
+
+	if !typing && !erasing {
+		m.closeCompletion()
+
+		return nil
 	}
 
-	m.closeCompletion()
+	// 커서가 `:별칭` 안에 있으면 그 갈래다. 걸리는 것이 없으면 닫는다 — 서버가 답할 자리가
+	// 아니라서, 그대로 두면 좁히다 아무것도 안 남은 목록이 화면에 붙어 있게 된다.
+	if m.inSymbolAlias() {
+		if !m.startSymbolCompletion() {
+			m.closeCompletion()
+		}
 
-	return nil
+		return nil
+	}
+
+	// `:` 는 서버에 묻는 글자가 아니다. 별칭 자리도 아니면 그것으로 끝이다.
+	if msg.Text == ":" {
+		m.closeCompletion()
+
+		return nil
+	}
+
+	return m.startCompletion()
 }
 
 func (m viewEditorInsert) View() tea.View {

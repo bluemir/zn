@@ -7,8 +7,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/bluemir/zn/internal/lsp"
-
 	"github.com/bluemir/zn/internal/textarea"
 )
 
@@ -92,17 +90,17 @@ func (m viewEditorInsert) renderCompletionBox() string {
 // completionLabel 은 후보 한 줄이다. 이름이 앞이고 곁들이는 타입이 뒤다.
 //
 // 타입은 자리가 남을 때만 붙인다. 이름이 잘리면 고를 수가 없으므로 잘리는 쪽은 늘 뒤다.
-func completionLabel(item lsp.CompletionItem, width int) string {
-	if item.Detail == "" {
-		return item.Label
+func completionLabel(item completionItem, width int) string {
+	if item.detail == "" {
+		return item.label
 	}
 
-	rest := width - textarea.WidthOf(item.Label) - 2
+	rest := width - textarea.WidthOf(item.label) - 2
 	if rest < 4 {
-		return item.Label
+		return item.label
 	}
 
-	return item.Label + "  " + truncateToWidth(item.Detail, rest)
+	return item.label + "  " + truncateToWidth(item.detail, rest)
 }
 
 // completionCount 는 창 아래에 적는 「지금 몇째/모두 몇」이다.

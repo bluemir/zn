@@ -39,13 +39,13 @@ func TestCompletionTriggers(t *testing.T) {
 
 // applyCompletionTo 는 창 하나를 editor 에 얹고 후보를 고르게 한다.
 //
-// **범위를 byte 로 옮기는 일이 editor 쪽으로 갔다**(applyCompletion). 서버가 준 UTF-16 열을
-// 옮기는 것을 보는 시험은 그 길을 지나야 한다 (ADR-0125).
+// **범위를 byte 로 옮기는 일이 editor 쪽으로 갔다**(finishCompletion). 서버가 준 UTF-16 열을
+// 옮기는 것을 보는 시험은 그 길을 지나야 한다 (ADR-0125, ADR-0135).
 func applyCompletionTo(t *testing.T, buf *textarea.Viewport, chosen lsp.CompletionItem) {
 	t.Helper()
 
 	e := &editor{buffers: []textarea.Viewport{*buf}, width: 80, height: 20}
-	e.completion = completion{items: []lsp.CompletionItem{chosen}, line: buf.Cursor.Line}
+	e.finishCompletion(completionMsg{seq: e.completionSeq, items: []lsp.CompletionItem{chosen}})
 	e.applyCompletion()
 	*buf = e.buffers[0]
 }
@@ -111,7 +111,7 @@ func TestInsertCompletionIgnoresMultilineRange(t *testing.T) {
 }
 
 func TestMoveCompletionStopsAtEnds(t *testing.T) {
-	e := &editor{completion: completion{items: []lsp.CompletionItem{item("a", 0, 0, 0), item("b", 0, 0, 0)}}}
+	e := &editor{completion: completion{items: []completionItem{{label: "a"}, {label: "b"}}}}
 
 	e.moveCompletion(-1)
 	assert.Equal(t, 0, e.completion.selected, "위로는 첫 줄에서 멈춘다")
@@ -122,9 +122,9 @@ func TestMoveCompletionStopsAtEnds(t *testing.T) {
 
 // 창에 여덟 줄만 보이므로 고른 것을 따라 민다.
 func TestMoveCompletionScrolls(t *testing.T) {
-	items := make([]lsp.CompletionItem, 20)
+	items := make([]completionItem, 20)
 	for i := range items {
-		items[i] = item("x", 0, 0, 0)
+		items[i] = completionItem{label: "x"}
 	}
 
 	e := &editor{completion: completion{items: items}}
@@ -160,7 +160,10 @@ func TestFinishCompletionQuietWhenEmpty(t *testing.T) {
 
 // 목록이 떠 있는 동안에만 키가 목록의 것이 된다.
 func TestCompletionKeysApplyAndClose(t *testing.T) {
-	m := insertWithCompletion(t, []lsp.CompletionItem{item("Alpha", 0, 0, 0), item("Beta", 0, 0, 0)})
+	m := insertWithCompletion(t, []completionItem{
+		{label: "Alpha", text: "Alpha", start: -1, end: -1},
+		{label: "Beta", text: "Beta", start: -1, end: -1},
+	})
 
 	next, _ := send2(m, "down")
 	assert.Equal(t, 1, next.(viewEditorInsert).completion.selected)
@@ -175,7 +178,7 @@ func TestCompletionKeysApplyAndClose(t *testing.T) {
 
 // esc 한 번에 목록도 닫히고 normal 로도 나간다.
 func TestCompletionEscClosesListAndLeavesInsert(t *testing.T) {
-	m := insertWithCompletion(t, []lsp.CompletionItem{item("Alpha", 0, 0, 0)})
+	m := insertWithCompletion(t, []completionItem{{label: "Alpha", text: "Alpha", start: -1, end: -1}})
 
 	next, _ := send2(m, "esc")
 
@@ -207,7 +210,7 @@ func TestCompletionKeysUntouchedWhenClosed(t *testing.T) {
 
 // 부를 만한 글자가 아니면 닫는다.
 func TestCompletionClosesOnOtherKeys(t *testing.T) {
-	m := insertWithCompletion(t, []lsp.CompletionItem{item("Alpha", 0, 0, 0)})
+	m := insertWithCompletion(t, []completionItem{{label: "Alpha", text: "Alpha", start: -1, end: -1}})
 
 	next, _ := send2(m, " ")
 
@@ -233,14 +236,14 @@ func TestPopupPos(t *testing.T) {
 
 // 이름이 잘리면 고를 수가 없다. 잘리는 쪽은 늘 곁들이는 타입이다.
 func TestCompletionLabelKeepsName(t *testing.T) {
-	long := lsp.CompletionItem{Label: "Contains", Detail: "func(s string, substr string) bool"}
+	long := completionItem{label: "Contains", detail: "func(s string, substr string) bool"}
 
 	assert.Equal(t, "Contains", completionLabel(long, 10), "자리가 없으면 이름만")
 	assert.Contains(t, completionLabel(long, 40), "Contains  func(s string")
 }
 
 // insertWithCompletion 은 목록이 떠 있는 insert 화면이다.
-func insertWithCompletion(t *testing.T, items []lsp.CompletionItem) tea.Model {
+func insertWithCompletion(t *testing.T, items []completionItem) tea.Model {
 	t.Helper()
 
 	m := send(newTestEditorFile("a.go", "", 80, 6), "i")
