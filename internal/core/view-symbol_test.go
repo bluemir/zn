@@ -413,6 +413,71 @@ func TestSymbolHandsDrawerToNextDrawer(t *testing.T) {
 	assert.Equal(t, room, back.(viewEditorNormal).textHeight(), "편집 영역이 돌아와야 한다")
 }
 
+// 고른 칸은 글자 폭이 아니라 칸 전체를 반전한다.
+//
+// 글자 폭에 맞춰 칠하면 폰트가 셀보다 넓게 그리는 글자(`⬠` `①` `⑴`) 에서 앞 절반만
+// 칠해져 보인다(docs/issues/0004). 칸의 경계는 글자 폭을 보지 않으므로 고른 표시도 보지
+// 않는다.
+func TestSymbolReverseCoversWholeCell(t *testing.T) {
+	// 폭이 갈리는 셋이다. 어느 쪽이든 칸 전체가 칠해져야 한다.
+	for _, entry := range []assets.Symbol{
+		{Char: "⬠", Name: "WHITE PENTAGON"},       // Neutral, 한 칸
+		{Char: "㊮", Name: "CIRCLED IDEOGRAPH"},    // Wide, 두 칸
+		{Char: "֙", Name: "HEBREW ACCENT PASHTA"}, // 폭 0
+	} {
+		e := newTestEditor("abc\n", 80, 20).editor
+		e.symbols = []assets.Symbol{entry}
+		e.symbolsIndexed = true
+
+		model, _ := symbolMode(e)
+		require.IsType(t, viewSymbol{}, model, entry.Name)
+		m := model.(viewSymbol)
+
+		plain, reversed := splitByReverse(m.renderCell(m.selected))
+
+		assert.Empty(t, plain, "%s: 칸에 칠하지 않은 자리가 없다", entry.Name)
+		assert.Equal(t, symbolCellWidth, textarea.WidthOf(reversed), "%s", entry.Name)
+		assert.True(t, strings.HasPrefix(reversed, " "),
+			"%s: 글자 앞에 한 칸을 둬서 쏠려 보이지 않게 한다", entry.Name)
+	}
+}
+
+// 폭 0 인 결합 문자는 ◌ 에 얹어 그린다.
+//
+// 혼자서는 자리를 차지하지 않아 앞 칸의 빈 칸에 달라붙고, 반전도 그 빈 칸의 것이 되어
+// 고른 자리가 화면에서 사라졌다.
+func TestSymbolZeroWidthSitsOnDottedCircle(t *testing.T) {
+	e := newTestEditor("abc\n", 80, 20).editor
+	e.symbols = []assets.Symbol{{Char: "֙", Name: "HEBREW ACCENT PASHTA"}}
+	e.symbolsIndexed = true
+
+	model, _ := symbolMode(e)
+	require.IsType(t, viewSymbol{}, model)
+	m := model.(viewSymbol)
+
+	_, reversed := splitByReverse(m.renderCell(m.selected))
+
+	assert.Contains(t, reversed, dottedCircle+"֙", "얹은 모양이 칸 안에 있다")
+	assert.Equal(t, symbolCellWidth, textarea.WidthOf(reversed))
+
+	rows := drawerRowsOf(t, m)
+	assert.Contains(t, rows[len(rows)-2], dottedCircle+"֙", "이름줄에도 얹은 모양이다")
+}
+
+// 넣는 것은 원래 글자다. ◌ 는 판에 그리려고 얹은 것이라 파일에 들어가면 안 된다.
+func TestSymbolInsertsWithoutDottedCircle(t *testing.T) {
+	e := newTestEditor("abc\n", 80, 20).editor
+	e.symbols = []assets.Symbol{{Char: "֙", Name: "HEBREW ACCENT PASHTA"}}
+	e.symbolsIndexed = true
+
+	model, _ := symbolMode(e)
+	require.IsType(t, viewSymbol{}, model)
+
+	next, _ := model.Update(key("enter"))
+
+	assert.Equal(t, "a֙bc", string(bufferOf(t, next).Line(0)))
+}
+
 // 읽기 전용 파일은 고치지 않는다.
 func TestSymbolRefusesReadOnly(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 20).editor

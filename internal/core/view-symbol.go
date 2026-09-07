@@ -452,17 +452,47 @@ func (m viewSymbol) renderGridRows(inner int) []string {
 // 폭은 화면의 나머지와 같은 자로 잰다. Ambiguous 글자(`→ ± × °`) 를 두 칸으로 그리는
 // 터미널에서는 lines.WidthOf 가 이미 두 칸으로 답한다 — 눈금을 시작할 때 터미널에 맞춰
 // 놓았기 때문이고, 그 전에는 이 자리에만 있던 특례가 그 일을 했다(ADR-0072, ADR-0056).
+//
+// **반전은 칸 전체에 건다. 글자 폭에 맞추지 않는다.** 격자는 글자가 한 칸이든 두 칸이든
+// 칸을 늘 symbolCellWidth 로 두고 남는 자리를 빈 칸으로 채운다. 칸의 경계가 글자 폭을 보지
+// 않으므로 고른 표시도 보지 않는다. 글자 폭에 맞춰 칠하면 폰트가 셀보다 넓게 그리는
+// 글자(`⬠` `①` `⑴`) 에서 앞 절반만 칠해지고, 폭 0 글자에서는 칠할 자리가 없어진다.
+// 어긋난 값이 폰트 안에 있어서 폭 계산으로는 닿지 않는다(docs/issues/0004).
+//
+// **글자 앞에 한 칸을 둔다.** 칸을 통째로 칠하면서 글자를 칸 왼쪽에 붙여 두면 반전 블록
+// 안에서 글자가 한쪽으로 쏠려 보인다. 앞 여백은 모든 칸에 같이 주므로 글자가 서는 자리는
+// 칸마다 그대로여서 세로줄이 맞는다. 두 칸짜리 글자는 이 여백으로 칸 가운데에 온다.
 func (m viewSymbol) renderCell(at int) string {
 	entry := m.symbols[m.hits[at].index]
 
-	pad := strings.Repeat(" ", max(symbolCellWidth-textarea.WidthOf(entry.Char), 0))
+	head := " " + symbolGlyph(entry.Char)
+	cell := head + strings.Repeat(" ", max(symbolCellWidth-textarea.WidthOf(head), 0))
 
 	// 고른 칸은 반전만 쓴다. 색을 섞으면 안쪽의 색 초기화가 반전까지 꺼버린다(view-palette.go).
 	if at == m.selected {
-		return reverse.Render(entry.Char) + pad
+		return reverse.Render(cell)
 	}
 
-	return entry.Char + pad
+	return cell
+}
+
+// dottedCircle 은 폭 0 인 글자를 낱개로 보일 때 얹는 자리 글자다.
+const dottedCircle = "◌"
+
+// symbolGlyph 는 글자를 판에 그릴 때 쓰는 모양이다. 그대로 그려도 되는 글자면 그것이다.
+//
+// **폭 0 인 결합 문자는 ◌ 에 얹는다.** `HEBREW ACCENT PASHTA` 같은 것은 혼자서 자리를
+// 차지하지 않아 앞 칸의 빈 칸에 달라붙고, 고른 칸의 반전도 그 빈 칸의 것이 되어 사라진다 —
+// 어디를 골랐는지 화면에서 보이지 않았다. 유니코드 표가 결합 문자를 낱개로 보일 때 쓰는
+// 방식이 이것이다.
+//
+// **넣는 것은 원래 글자다.** 이 모양은 격자와 이름줄에만 쓴다(insertSelected).
+func symbolGlyph(char string) string {
+	if textarea.WidthOf(char) == 0 {
+		return dottedCircle + char
+	}
+
+	return char
 }
 
 // renderNameRow 는 고른 글자가 무엇인지 알려주는 줄이다.
@@ -475,7 +505,9 @@ func (m viewSymbol) renderNameRow(inner int) string {
 		return side + " " + strings.Repeat(" ", inner) + " " + side
 	}
 
-	head := entry.Char + strings.Repeat(" ", max(symbolCellWidth-textarea.WidthOf(entry.Char), 0))
+	// 격자 첫 칸과 같은 자로 만든다. 앞 여백까지 같아야 글자가 위아래로 한 줄에 선다.
+	head := " " + symbolGlyph(entry.Char)
+	head += strings.Repeat(" ", max(symbolCellWidth-textarea.WidthOf(head), 0))
 
 	// 맞은 자리는 label() 안의 offset 이라 paletteRow 가 그대로 갈라 준다.
 	row := paletteRow{
