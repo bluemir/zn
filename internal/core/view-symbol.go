@@ -479,7 +479,37 @@ func (m viewSymbol) renderCell(at int) string {
 // dottedCircle 은 폭 0 인 글자를 낱개로 보일 때 얹는 자리 글자다.
 const dottedCircle = "◌"
 
+// variationSelector16 은 「이 글자를 이모지꼴로 그려라」는 표시다. 붙이면 폭이 두 칸이 된다.
+const variationSelector16 = "️"
+
+// emojiPresentationNarrow 는 기본이 글자꼴이라 우리 자로 한 칸인데 터미널이 이모지꼴
+// 두 칸을 잡는 글자들이다. `Emoji_Modifier_Base` 이면서 `Emoji_Presentation=No` 인 것
+// 전부다 — 살색 기호를 받을 수 있는 글자라 터미널이 색이 든 그림을 그릴 자리를 미리 잡는다.
+//
+// **재서 얻은 목록이다.** 유니코드 속성을 주는 라이브러리가 없어서 손으로 적는다. 같은
+// `Emoji_Presentation=No` 인 `❤` `✈` `☀` 는 재보니 한 칸이라 여기 들지 않는다
+// (docs/issues/0006).
+var emojiPresentationNarrow = map[string]bool{
+	"☝": true, // U+261D 위쪽 손가락
+	"✌": true, // U+270C 브이
+	"✍": true, // U+270D 쓰는 손
+	"⛹": true, // U+26F9 공을 든 사람
+	"🏋": true, // U+1F3CB 역기를 드는 사람
+	"🏌": true, // U+1F3CC 골프 치는 사람
+	"🕴": true, // U+1F574 떠 있는 정장 차림
+	"🕵": true, // U+1F575 탐정
+	"🖐": true, // U+1F590 손가락 편 손
+}
+
 // symbolGlyph 는 글자를 판에 그릴 때 쓰는 모양이다. 그대로 그려도 되는 글자면 그것이다.
+//
+// **터미널이 두 칸을 잡는 글자는 VS16 을 붙인다.** 붙이면 우리도 두 칸으로 세므로 우리와
+// ultraviolet 과 터미널이 같은 눈금에 선다. 폭을 우리만 고쳐서는 안 되는 자리다 — 화면을
+// 짓는 것이 우리가 아니라 ultraviolet 이고 그쪽도 `x/ansi` 로 센다(ADR-0072). 붙이지 않으면
+// 그 글자가 든 격자 행이 터미널에서 한 칸 넘쳐 줄바꿈되고 그 아래가 다 밀린다.
+//
+// 곁들여 한 줄 안에서 단색과 색이 섞여 보이던 것도 같이 맞는다. `☝` `✌` `✍` 는 D2Coding 에
+// 글자꼴이 있어 단색으로, 나머지 여섯은 폰트에 없어 이모지 폰트로 그려지고 있었다.
 //
 // **폭 0 인 결합 문자는 ◌ 에 얹는다.** `HEBREW ACCENT PASHTA` 같은 것은 혼자서 자리를
 // 차지하지 않아 앞 칸의 빈 칸에 달라붙고, 고른 칸의 반전도 그 빈 칸의 것이 되어 사라진다 —
@@ -496,6 +526,10 @@ const dottedCircle = "◌"
 //
 // **넣는 것은 원래 글자다.** 이 모양은 격자와 이름줄에만 쓴다(insertSelected).
 func symbolGlyph(char string) string {
+	if emojiPresentationNarrow[char] {
+		return char + variationSelector16
+	}
+
 	if textarea.WidthOf(char) == 0 {
 		return dottedCircle + char
 	}

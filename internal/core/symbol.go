@@ -15,6 +15,16 @@ const symbolChunk = 2048
 // lastCodePoint 는 유니코드의 마지막 자리다.
 const lastCodePoint = 0x10FFFF
 
+// 조합 기호가 사는 두 구간이다. 각 속성(`Emoji_Modifier`·`Regional_Indicator`) 이 담는
+// 글자가 이 구간 그대로여서 표를 들 필요가 없다.
+const (
+	emojiModifierFirst = 0x1F3FB // 🏻 EMOJI MODIFIER FITZPATRICK TYPE-1-2
+	emojiModifierLast  = 0x1F3FF // 🏿 EMOJI MODIFIER FITZPATRICK TYPE-6
+
+	regionalIndicatorFirst = 0x1F1E6 // 🇦 REGIONAL INDICATOR SYMBOL LETTER A
+	regionalIndicatorLast  = 0x1F1FF // 🇿 REGIONAL INDICATOR SYMBOL LETTER Z
+)
+
 // indexSymbols 는 고를 수 있는 글자 전부를 백그라운드에서 모은다.
 //
 // 큐레이션한 것이 앞이고 훑어서 얻은 것이 뒤다. 빈 패턴일 때 filterPalette 가 순서를 그대로
@@ -95,6 +105,11 @@ func indexSymbols(ctx context.Context) <-chan jobProgress {
 // 세는데 Ghostty 는 두 칸으로 세고, 그것은 `mode 2027` 을 켜도 그대로다. 게다가 그 글자가
 // 든 행은 렌더러가 마지막 칸을 빠뜨린다(docs/issues/0005).
 //
+// **조합 기호도 넣지 않는다.** 살색 기호(`🏻`~`🏿`) 는 앞 이모지의 살색을 바꾸는 것이고,
+// 지역 표시(`🇦`~`🇿`) 는 둘이 모여 국기 하나(`🇰`+`🇷` = `🇰🇷`) 가 된다. 낱개로 넣을 자리가
+// 없는데 폭까지 갈린다 — 살색 기호는 우리가 0 인데 터미널이 2 이고, 지역 표시는 우리가
+// 2 인데 터미널이 1 이다(docs/issues/0006).
+//
 // 보이지 않는 글자를 큐레이션 표에서 뺀 것과 같은 규칙이다 — **낼 수 없는 글자는 목록에
 // 세우지 않는다.** 폭 0 인 결합 문자(Mn·Me) 는 폭이 터미널과 맞으므로 `◌` 에 얹어 남긴다
 // (view-symbol.go 의 symbolGlyph).
@@ -103,6 +118,12 @@ func namedSymbol(r rune) bool {
 		return false
 	}
 	if unicode.Is(unicode.Mc, r) {
+		return false
+	}
+	if r >= emojiModifierFirst && r <= emojiModifierLast {
+		return false
+	}
+	if r >= regionalIndicatorFirst && r <= regionalIndicatorLast {
 		return false
 	}
 

@@ -78,6 +78,32 @@ func TestIndexSymbolsSkipsSpacingMarks(t *testing.T) {
 	}
 }
 
+// 조합 기호는 목록에 들지 않는다. 낱개로 넣을 자리가 없는데 폭까지 갈린다
+// (docs/issues/0006).
+func TestIndexSymbolsSkipsCombiningEmoji(t *testing.T) {
+	// 살색 기호는 우리가 0, 터미널이 2 로 센다.
+	for r := rune(emojiModifierFirst); r <= emojiModifierLast; r++ {
+		require.NotEmpty(t, runenames.Name(r), "U+%04X 에 이름이 있어야 시험이 뜻이 있다", r)
+		assert.False(t, namedSymbol(r), "U+%04X %s", r, runenames.Name(r))
+	}
+
+	// 지역 표시는 우리가 2, 터미널이 1 로 센다. 둘이 모여 국기 하나가 된다.
+	for r := rune(regionalIndicatorFirst); r <= regionalIndicatorLast; r++ {
+		require.NotEmpty(t, runenames.Name(r), "U+%04X 에 이름이 있어야 시험이 뜻이 있다", r)
+		assert.False(t, namedSymbol(r), "U+%04X %s", r, runenames.Name(r))
+	}
+
+	// 큐레이션 표는 이 규칙에 걸리지 않는다. 걸리면 손으로 적은 글자가 조용히 사라진다.
+	for _, entry := range assets.CuratedSymbols {
+		for _, r := range entry.Char {
+			assert.False(t, r >= emojiModifierFirst && r <= emojiModifierLast,
+				"%q %s", entry.Char, entry.Name)
+			assert.False(t, r >= regionalIndicatorFirst && r <= regionalIndicatorLast,
+				"%q %s", entry.Char, entry.Name)
+		}
+	}
+}
+
 // 큐레이션한 글자는 훑기가 덮어쓰지 않는다. 한국어 이름이 영문으로 바뀌면 안 된다.
 func TestIndexSymbolsDoesNotDuplicateCurated(t *testing.T) {
 	symbols := collectSymbols(t)

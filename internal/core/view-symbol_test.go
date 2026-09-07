@@ -485,13 +485,55 @@ func TestSymbolGlyphDrawsFirstRuneOfZWJ(t *testing.T) {
 // 첫 rune 을 떼면 폭이 줄는 글자는 그대로 그린다.
 //
 // `☝️` 는 글자와 VS16 둘인데 첫 rune 만으로는 한 칸이다. 떼면 칸이 밀리므로 그러지 않는다.
-// 그 갈래는 터미널이 우리보다 넓게 그리는 글자로 남는다(docs/issues/0004).
 func TestSymbolGlyphKeepsCharWhenFirstRuneIsNarrower(t *testing.T) {
 	char := "☝️"
 	require.Greater(t, len([]rune(char)), 1)
 	require.Less(t, textarea.WidthOf(string([]rune(char)[0])), textarea.WidthOf(char))
 
 	assert.Equal(t, char, symbolGlyph(char), "떼지 않는다")
+}
+
+// 터미널이 두 칸을 잡는 글자는 VS16 을 붙여 우리도 두 칸으로 센다.
+//
+// 붙이지 않으면 그 글자가 든 격자 행이 터미널에서 한 칸 넘쳐 줄바꿈되고 그 아래가 다
+// 밀린다. 폭을 우리만 고칠 수는 없다 — 화면을 짓는 ultraviolet 도 같은 자로 센다
+// (ADR-0072, docs/issues/0006).
+func TestSymbolGlyphWidensEmojiPresentation(t *testing.T) {
+	require.Len(t, emojiPresentationNarrow, 9, "재서 얻은 목록이다")
+
+	for char := range emojiPresentationNarrow {
+		require.Len(t, []rune(char), 1, "%q 가 rune 하나여야 시험이 뜻이 있다", char)
+		require.Equal(t, 1, textarea.WidthOf(char), "%q 를 우리는 한 칸으로 센다", char)
+
+		glyph := symbolGlyph(char)
+
+		assert.Equal(t, char+variationSelector16, glyph, "%q", char)
+		assert.Equal(t, 2, textarea.WidthOf(glyph), "%q: 터미널이 잡는 두 칸과 맞아야 한다", char)
+	}
+}
+
+// 격자의 어느 칸도 symbolCellWidth 를 넘지 않는다. 한 칸이라도 넘치면 그 행이 통째로 밀린다.
+func TestSymbolCellsFitTheGrid(t *testing.T) {
+	for _, entry := range assets.CuratedSymbols {
+		head := " " + symbolGlyph(entry.Char)
+
+		assert.LessOrEqual(t, textarea.WidthOf(head), symbolCellWidth,
+			"%q %s 의 칸이 넘친다", entry.Char, entry.Name)
+	}
+}
+
+// 넣는 것은 원래 글자다. VS16 은 격자에 두 칸으로 그리려고 붙인 것이라 파일에 들어가면 안 된다.
+func TestSymbolInsertsWithoutVariationSelector(t *testing.T) {
+	e := newTestEditor("abc\n", 80, 20).editor
+	e.symbols = []assets.Symbol{{Char: "✌", Name: "브이"}}
+	e.symbolsIndexed = true
+
+	model, _ := symbolMode(e)
+	require.IsType(t, viewSymbol{}, model)
+
+	next, _ := model.Update(key("enter"))
+
+	assert.Equal(t, "a✌bc", string(bufferOf(t, next).Line(0)))
 }
 
 // 넣는 것은 원래 글자다. ◌ 는 판에 그리려고 얹은 것이라 파일에 들어가면 안 된다.
