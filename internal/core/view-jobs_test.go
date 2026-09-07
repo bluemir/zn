@@ -244,7 +244,7 @@ func TestJobsHintSitsAboveStatusBar(t *testing.T) {
 	rows := strings.Split(m.View().Content, "\n")
 	hint := rows[len(rows)-statusBarHeight-jobsHintHeight]
 
-	assert.Contains(t, ansi.Strip(hint), "j/k 이동  enter 펼치기  x 취소  q 닫기")
+	assert.Contains(t, ansi.Strip(hint), "j/k 이동  enter 펼치기  x 취소  X 강제 종료  q 닫기")
 	assert.Contains(t, hint, "38;5;244", "흐린 글씨라 목록 내용과 갈린다")
 	assert.Empty(t, strings.TrimSpace(barOf(t, m)[1]), "알림이 없으면 아래 줄은 비어 있다")
 

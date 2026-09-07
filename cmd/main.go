@@ -108,8 +108,13 @@ func Run() error {
 	// 진짜 SIGINT 가 된다. 그 신호는 도는 명령을 끊으라는 뜻이고, 편집기는 그때 신호를
 	// 무시하도록 되어 있다. 여기서 root ctx 에 이어 두면 명령을 끊는 손짓 한 번에 편집기가
 	// 통째로 끝나서 tab 구성과 undo 이력을 잃는다 (ADR-0045).
+	// **SIGHUP 은 받는다.** 터미널 창을 닫으면 오는 신호이고, 듣지 않으면 defer 가 하나도
+	// 돌지 않은 채 프로세스가 끝난다. 그러면 `:!&` 로 띄운 셸이 고아로 남는다 — 커널은
+	// hangup 을 foreground 프로세스 그룹에만 보내므로 세션을 갈라 둔 그 자식은 신호를 받지도
+	// 못한다. SIGINT 와 달리 `:!` 의 결정을 건드리지 않는다 (ADR-0138).
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGTERM,
+		syscall.SIGHUP,
 	)
 	defer stop()
 

@@ -64,7 +64,10 @@ func TestJobBarSteps(t *testing.T) {
 	}
 }
 
-// 작업이 여럿이면 맨 앞의 것만 찍고 나머지는 개수로 알린다.
+// 작업이 여럿이면 하나만 찍고 나머지는 개수로 알린다.
+//
+// 가리키는 것은 **가장 나중에 시작한 것**이다. 맨 앞을 가리키던 때는 몇 시간 도는 셸 명령이
+// 그 자리를 차지하면 그 뒤 작업들이 영원히 `(+N)` 으로만 보였다(ADR-0138).
 func TestJobShowsRestAsCount(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 80, 5)
 
@@ -72,8 +75,8 @@ func TestJobShowsRestAsCount(t *testing.T) {
 	m, _ = m.Update(progressOf("여러 파일 검색", 1, 2))
 
 	top := barOf(t, m)[0]
-	assert.Contains(t, top, "파일 인덱싱", "먼저 시작한 것이 자리를 지킨다")
-	assert.NotContains(t, top, "여러 파일 검색")
+	assert.Contains(t, top, "여러 파일 검색", "나중에 시작한 것을 가리킨다")
+	assert.NotContains(t, top, "파일 인덱싱")
 	assert.Contains(t, top, "(+1)")
 }
 

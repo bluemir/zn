@@ -33,8 +33,17 @@ func Run(ctx context.Context, files []string) error {
 		return err
 	}
 
+	// 작업들이 갈라져 나올 뿌리를 한 겹 더 둔다.
+	//
+	// **`tea.Quit` 은 ctx 를 끊지 않는다.** 받은 것을 그대로 넘기면 `q` 로 끝냈을 때 도는
+	// 작업의 ctx 가 살아 있고, 그러면 조각을 받는 쪽이 없어져 작업 goroutine 이 select 에
+	// 갇힌다 — `defer` 도 `cmd.Wait` 도 돌지 않아 프로세스를 띄운 작업(`gopls 설치`) 이
+	// 고아가 된다. 나가는 길에 이것을 끊어 그 자리를 막는다 (ADR-0027, ADR-0138).
+	jobCtx, stopJobs := context.WithCancel(ctx)
+	defer stopJobs()
+
 	// git 표시는 여기서 읽지 않는다. 첫 화면이 뜬 뒤 갱신 작업이 채운다(ADR-0030).
-	editor := &editor{ctx: ctx, buffers: buffers}
+	editor := &editor{ctx: jobCtx, buffers: buffers}
 
 	// tab 이 없으면 활성 tab 도 없다. **-1 이라야** 첫 tab 이 0 번 자리에 생긴다 —
 	// tab 을 여는 길이 활성 tab 바로 뒤에 끼우는 것이라(openTab, newTab) 0 으로 두면
@@ -80,6 +89,14 @@ func Run(ctx context.Context, files []string) error {
 	// Program 이 돌아온 뒤가 편집기의 마지막이다.
 	defer editor.shutdownServers()
 	defer editor.stopWatch()
+
+	// 도는 background 셸을 죽이고 나간다. defer 는 LIFO 라 이것이 가장 먼저 돈다.
+	//
+	// **위의 ctx 취소로는 모자라다.** 끊어도 신호를 보내는 것은 exec 의 감시 goroutine 이고,
+	// 여기서 반환하면 프로세스가 끝나 그것이 돌지 않는다 — 신호가 나가기도 전이라 `make dev-run`
+	// 이 편집기보다 오래 산다. 여기서 직접 그룹에 보내면 커널이 그 자리에서 배달한다
+	// (shell-background.go, ADR-0138).
+	defer editor.stopBackgroundShells()
 
 	// tab 이 없으면 normalMode 가 빈 화면을 준다. 여기서 가르지 않는다 — 편집 화면으로
 	// 가는 길이 다 그 함수를 지나므로 갈림길도 그 안에 있다(ADR-0064).

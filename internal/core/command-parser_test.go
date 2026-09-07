@@ -57,6 +57,24 @@ func TestTokenize(t *testing.T) {
 		{name: "맨 앞이 아닌 `!` 는 뜻이 없다", input: "w !foo", want: words("w", "!foo")},
 		{name: "이스케이프한 `!` 는 맨 앞이 아니다", input: `\!ls`, want: words("!ls")},
 
+		// `!&` 는 background 다. 우리가 떼는 것은 그 두 글자뿐이고 뒤는 `!` 와 똑같이
+		// 통째로 넘긴다(ADR-0138).
+		{name: "`!&` 는 background 갈래다", input: "!& make dev-run", want: []token{
+			{text: " make dev-run", kind: tokenKindShellBackground}}},
+		{name: "`!&` 뒤의 공백은 떼지 않는다", input: "!&make", want: []token{
+			{text: "make", kind: tokenKindShellBackground}}},
+		{name: "`!&` 만", input: "!&", want: []token{{kind: tokenKindShellBackground}}},
+		{name: "둘째 `&` 부터는 셸 줄이다", input: "!&&make", want: []token{
+			{text: "&make", kind: tokenKindShellBackground}}},
+		{name: "접두는 정확히 두 글자다", input: "! &make", want: []token{
+			{text: " &make", kind: tokenKindShell}}},
+		{name: "`!&` 앞의 공백은 아직 맨 앞", input: "  !&make", want: []token{
+			{text: "make", kind: tokenKindShellBackground}}},
+		{name: "범위 뒤의 `!&` 도 이름 자리다", input: "1,5!&sort", want: []token{
+			{text: "1,5", kind: tokenKindRange}, {text: "sort", kind: tokenKindShellBackground}}},
+		{name: "background 셸 줄도 여기서 `%` 를 펴지 않는다", input: "!&cat %", want: []token{
+			{text: "cat %", kind: tokenKindShellBackground}}},
+
 		// 이름 앞의 줄 범위도 맨 앞에서만 뜻을 갖는다. 안쪽은 뜯지 않고 한 토큰이다.
 		{name: "범위와 이름", input: "1,5d", want: []token{{text: "1,5", kind: tokenKindRange}, {text: "d"}}},
 		{name: "숫자 하나도 범위다", input: "5d", want: []token{{text: "5", kind: tokenKindRange}, {text: "d"}}},
@@ -152,6 +170,13 @@ func TestParseCommand(t *testing.T) {
 		{name: "범위만", input: "42", want: command{lines: lineRange{from: addrLine(42), to: addrLine(42)}}},
 		{name: "범위와 셸", input: "1,5!sort", want: command{name: "!", args: []string{"sort"}, lines: lineRange{from: addrLine(1), to: addrLine(5)}}},
 		{name: "`!` 와 인자", input: `e! "my notes.txt"`, want: command{name: "e", force: true, args: []string{"my notes.txt"}}},
+
+		// `!&` 는 이름이 두 글자인 것만 다르다. command 에 필드가 늘지 않는다(ADR-0138).
+		{name: "`!&` 는 이름이고 뒤는 인자 하나다", input: "!& make dev-run", want: command{name: "!&", args: []string{" make dev-run"}}},
+		{name: "`!&` 만 치면 넘길 것이 없다", input: "!&", want: command{name: "!&"}},
+		{name: "`!&` 뒤가 공백뿐이어도 이름은 선다", input: "!&   ", want: command{name: "!&", args: []string{"   "}}},
+		{name: "`!` 는 그대로 남는다", input: "! &make", want: command{name: "!", args: []string{" &make"}}},
+		{name: "범위와 background 셸", input: "1,5!&sort", want: command{name: "!&", args: []string{"sort"}, lines: lineRange{from: addrLine(1), to: addrLine(5)}}},
 	}
 
 	for _, test := range tests {

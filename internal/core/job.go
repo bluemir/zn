@@ -287,6 +287,17 @@ func (e *editor) handleJob(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil, e.scheduleGitTick()
 		case fileJobName:
 			return nil, e.scheduleFileTick()
+		case shellJobName:
+			// 바깥을 만지고 온 자리라 보고 있는 파일을 다시 검사한다. `:!` 가 돌아오는
+			// 자리와 같은 뜻이다(shell.go 의 finishShell, ADR-0023, ADR-0031, ADR-0038).
+			//
+			// **죽일 그룹을 지우는 것도 여기다.** 끝났든 실패했든 취소됐든 이 자리를 지나므로
+			// 지우는 곳이 하나로 남는다. 남겨 두면 그 pid 가 돌아 쓰일 때 남을 죽인다.
+			if len(msg.args) > 0 {
+				e.forgetBackgroundShell(msg.args[0])
+			}
+
+			return nil, e.startOutsideCheck()
 		}
 
 		// 언어 서버를 깐 것이 끝났으면 그 서버를 띄워 본다. `switch` 의 case 로 적지 못하는
@@ -358,17 +369,39 @@ func (e *editor) putJob(next job) {
 	e.jobs = append(e.jobs, next)
 }
 
+// finishedJobsMax 는 끝난 작업을 몇 개까지 들고 있을지다.
+//
+// **상한이 없던 자리에 상한이 생겼다.** 끝난 목록이 이름당 하나였을 때는 담기는 것이 코드에
+// 있는 종류만큼이라 저절로 자라지 않았다(ADR-0030). 신원당 하나로 바꾼 뒤로는 사람이 치는
+// 셸 명령과 펼치는 디렉터리만큼 늘어난다 — 여러 파일 검색이 상한을 둔 것과 같은 모양이다
+// (ADR-0077 §7).
+//
+// 값의 근거는 이 목록에서 무엇을 잃는지다. 실패는 알림 목록에 상한 없이 남으므로(ADR-0053)
+// 여기서 밀려나며 사라지는 것은 「언제 끝났는지」뿐이다. 그래서 스크롤로 훑어 찾을 수 있는
+// 범위면 넉넉하다 (ADR-0139).
+const finishedJobsMax = 50
+
+// finishedJobsTTL 은 끝난 작업을 얼마나 들고 있을지다.
+//
+// 개수 상한만으로는 모자란다. 오래 켜 두면 몇 시간 전에 끝난 것이 자리를 잡고 앉아, 지금
+// 보려는 것을 밀어낸다. 몇 시간 전 빌드의 결과는 아무 물음에도 답하지 않는다.
+//
+// 자르는 자리는 넣을 때 하나뿐이다. 그리는 자리에서 자르면 **보는 중에 줄이 사라진다**
+// (ADR-0139).
+const finishedJobsTTL = 30 * time.Minute
+
 // finishJob 은 끝난 작업을 도는 목록에서 끝난 목록으로 옮긴다.
 //
-// **찾는 것은 신원(이름+인자) 이고, 끝난 목록에서 미는 것은 이름이다.** 끝난 목록은 이름당
-// 마지막 결과 하나이고, 개수 상한은 두지 않는다 — 이름은 코드에 있는 종류만큼만 있다. 끝난
-// 순서대로 쌓으면 주기적으로 도는 git 갱신이 목록을 자기 이름으로 뒤덮어서, 조용히 실패한 다른
-// 작업을 찾으라고 남겨둔 자리가 그것으로 다 찬다(ADR-0030).
+// **끝난 목록은 신원(이름+인자) 당 마지막 결과 하나다.** 이름당 하나였던 것을 바꿨다 —
+// 셸 명령은 이름이 하나인데 사람이 치는 만큼 인자가 달라서, 이름으로 밀면 `make build` 의
+// 결과를 보려는 사이 `go test` 가 끝나며 그것을 지운다.
 //
-// 이름에 경로를 이어 붙이던 때는 그 「이름은 종류만큼만」이 디렉터리 읽기에서 깨졌다 —
-// 펼친 디렉터리마다 이름이 달라서 끝난 목록에 한 줄씩 쌓였다. 갈라 놓으니 그 가정이 되돌아온다.
-// 지워지는 것은 어느 경로가 언제 끝났는지인데, 실패는 알림 목록에 통째로 남으므로 유실이 없다
-// (ADR-0053, ADR-0075).
+// **주기 갱신이 목록을 뒤덮는 것은 되돌아오지 않는다.** ADR-0030 이 이름으로 민 까닭이
+// 그것이었는데, git 갱신과 파일 검사는 인자가 없어서 신원이 곧 이름이라 지금도 하나로 모인다.
+// 인자가 있는 것만 신원마다 한 줄이 되고 `:jobs` 는 그것을 이름 줄 아래로 접는다(ADR-0075).
+//
+// 대신 상한이 둘 붙는다(finishedJobsMax·finishedJobsTTL). 사람이 치는 만큼 늘어나는 목록이
+// 되었으므로 저절로 멈추지 않는다 (ADR-0139).
 //
 // 실패는 statusBar 아래 줄로도 알린다 — 목록을 열어 보기 전에는 아무 일도 없던 것처럼 보이기
 // 때문이다. 취소는 알리지 않는다. 그만하라고 한 사람이 결과를 이미 안다.
@@ -382,9 +415,11 @@ func (e *editor) finishJob(name string, args []string) {
 		running.finished = time.Now()
 
 		e.jobs = slices.Delete(e.jobs, i, i+1)
-		e.finished = append([]job{running}, slices.DeleteFunc(e.finished, func(old job) bool {
-			return old.name == name
-		})...)
+
+		kept := slices.DeleteFunc(e.finished, func(old job) bool {
+			return old.is(name, args)
+		})
+		e.finished = pruneFinishedJobs(append([]job{running}, kept...))
 
 		if running.err != nil && !errors.Is(running.err, context.Canceled) {
 			e.notifyFailure(running.title() + " 실패: " + running.err.Error())
@@ -392,6 +427,20 @@ func (e *editor) finishJob(name string, args []string) {
 
 		return
 	}
+}
+
+// pruneFinishedJobs 는 끝난 목록에서 오래된 것을 버린다. 새것이 맨 앞이라 뒤가 오래된 것이다.
+//
+// 시간으로 먼저 버리고 개수로 자른다. 둘 다 있어야 하는 까닭은 서로 다른 것을 막기 때문이다 —
+// 개수는 빠르게 끝나는 것이 쏟아지는 것을, 시간은 오래 켜 둔 판에 옛것이 앉아 있는 것을 막는다.
+func pruneFinishedJobs(finished []job) []job {
+	oldest := time.Now().Add(-finishedJobsTTL)
+
+	finished = slices.DeleteFunc(finished, func(old job) bool {
+		return old.finished.Before(oldest)
+	})
+
+	return finished[:min(len(finished), finishedJobsMax)]
 }
 
 // 막대 크기다. 칸 하나가 여섯 단계라 열 칸이면 예순 단계다.
@@ -426,27 +475,44 @@ func renderBar(done, total int) string {
 	return string(bar)
 }
 
-// renderJobBar 는 맨 앞 작업의 막대다. 전체를 모르면 그리지 않는다 — 반쯤 찬 막대가 거짓말이 된다.
+// shownJob 은 statusBar 진행 표시가 가리키는 작업이다.
+//
+// **가장 나중에 시작한 것이다.** 예전에는 맨 앞, 곧 가장 먼저 시작한 것을 가리켰고 그 까닭이
+// 「끝날 때까지 가리키는 것이 바뀌지 않아야 눈이 따라간다」였다. 그 전제가 수명이 비슷한
+// 작업들을 깔고 있었는데 `:!&` 로 몇 시간 도는 셸 명령이 오면서 깨졌다 — 그것이 맨 앞을
+// 차지하면 그 뒤 git 갱신·인덱싱·검색이 영원히 `(+N)` 으로만 보인다.
+//
+// 방금 시작한 것을 가리키면 그 눈이 따라가는 값은 잃는다. 대신 **지금 무엇이 도는지**를
+// 늘 답한다. 오래 도는 것은 시작한 사람이 이미 알고 끝나면 알림이 오므로, statusBar 가
+// 그것에 붙어 있을 이유가 없다 (ADR-0138).
+func (e editor) shownJob() (job, bool) {
+	if len(e.jobs) == 0 {
+		return job{}, false
+	}
+
+	return e.jobs[len(e.jobs)-1], true
+}
+
+// renderJobBar 는 가리키는 작업의 막대다. 전체를 모르면 그리지 않는다 — 반쯤 찬 막대가 거짓말이 된다.
 func (e editor) renderJobBar() string {
-	if len(e.jobs) == 0 || e.jobs[0].total <= 0 {
+	shown, ok := e.shownJob()
+	if !ok || shown.total <= 0 {
 		return ""
 	}
 
-	return renderBar(e.jobs[0].done, e.jobs[0].total)
+	return renderBar(shown.done, shown.total)
 }
 
 // renderJobText 는 statusBar 에 붙는 진행 표시다. 도는 것이 없으면 빈 문자열이다.
 //
-// 목록 맨 앞, 곧 가장 먼저 시작한 것을 찍는다. 끝날 때까지 가리키는 것이 바뀌지 않아야
-// 눈이 따라갈 수 있다. 나머지는 개수로만 알린다.
+// 가리키는 하나를 찍고 나머지는 개수로만 알린다. 어느 것을 가리키는지는 shownJob 이 정한다.
 //
 // bar 는 막대다. 오른쪽에 붙일 칸이 모자라면 부르는 쪽이 빈 문자열을 준다.
 func (e editor) renderJobText(bar string) string {
-	if len(e.jobs) == 0 {
+	first, ok := e.shownJob()
+	if !ok {
 		return ""
 	}
-
-	first := e.jobs[0]
 
 	text := first.name
 	if bar != "" {

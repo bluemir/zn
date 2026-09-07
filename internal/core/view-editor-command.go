@@ -133,11 +133,11 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	// `:qa foo` 가 foo 에 무언가를 한 것처럼 보인다.
 	//
 	// `:!` 의 인자는 파일 이름이 아니라 뜯지 않은 셸 줄이고, tokenRest 가 그것을 한 토큰으로
-	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다. `:grep` 과 `:s` 도 같다.
+	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다. `:!&`·`:grep`·`:s` 도 같다.
 	//
 	// `:rename` 의 인자만 파일 이름이 아니다 — 새 이름 하나다(ADR-0067).
 	switch cmd.name {
-	case "w", "e", "tabnew", "!", "rename", "grep", "s", "substitute", "replace":
+	case "w", "e", "tabnew", "!", "!&", "rename", "grep", "s", "substitute", "replace":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input.text)
@@ -145,9 +145,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	}
 	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
 	//
-	// `:grep`·`:s`·`:replace`·`:!` 의 인자는 파일 이름이 아니라 뜯지 않은 한 줄이라
+	// `:grep`·`:s`·`:replace`·`:!`·`:!&` 의 인자는 파일 이름이 아니라 뜯지 않은 한 줄이라
 	// tokenRest 가 늘 한 토큰으로 주므로 여기 걸릴 수 없다
-	// (ADR-0045, ADR-0077, ADR-0084, ADR-0097).
+	// (ADR-0045, ADR-0077, ADR-0084, ADR-0097, ADR-0138).
 	if len(cmd.args) > 1 {
 		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
 	}
@@ -286,6 +286,13 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		}
 
 		return runShell(m.editor, cmd.args[0])
+	case "!&":
+		// `:!` 와 같은 자리다. 터미널을 넘기지 않고 작업으로 돌리는 것만 다르다(ADR-0138).
+		if len(cmd.args) == 0 {
+			return normalModeMessage(m.editor, "셸 명령이 없습니다")
+		}
+
+		return runShellBackgroundMode(m.editor, cmd.args[0])
 	case "grep":
 		// 패턴을 대지 않았으면 박스에서 받는다. 팔레트로 들어올 때와 같은 자리다 —
 		// 어느 길로 왔는지는 친 사람이 알고 무엇을 치는지는 같다(ADR-0077, ADR-0078 §7).

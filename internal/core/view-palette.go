@@ -173,10 +173,11 @@ func (m viewPalette) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 type paletteKind int
 
 const (
-	paletteKindFile    paletteKind = iota // 접두 없음. 파일 찾기다
-	paletteKindCommand                    // `>`. 명령 목록이다
-	paletteKindShell                      // `!`. 고를 목록이 없고 친 것을 셸에 넘긴다
-	paletteKindGrep                       // `/`. 고를 목록이 없고 친 것으로 프로젝트를 뒤진다
+	paletteKindFile            paletteKind = iota // 접두 없음. 파일 찾기다
+	paletteKindCommand                            // `>`. 명령 목록이다
+	paletteKindShell                              // `!`. 고를 목록이 없고 친 것을 셸에 넘긴다
+	paletteKindShellBackground                    // `!&`. 셸에 넘기되 작업으로 돌린다(ADR-0138)
+	paletteKindGrep                               // `/`. 고를 목록이 없고 친 것으로 프로젝트를 뒤진다
 )
 
 // hasList 는 고를 후보가 있는 갈래인지다.
@@ -191,6 +192,11 @@ func (kind paletteKind) hasList() bool {
 func (m viewPalette) kind() (paletteKind, string) {
 	if rest, ok := strings.CutPrefix(m.input.text, ">"); ok {
 		return paletteKindCommand, strings.TrimLeft(rest, " ")
+	}
+	// **`!&` 를 `!` 보다 먼저 본다.** `!` 가 `!&` 의 접두라 순서가 뒤집히면 영영 안 걸리고,
+	// `&` 가 셸 줄의 첫 글자가 되어 조용히 문법 오류를 낸다(ADR-0138).
+	if rest, ok := strings.CutPrefix(m.input.text, "!&"); ok {
+		return paletteKindShellBackground, rest
 	}
 	if rest, ok := strings.CutPrefix(m.input.text, "!"); ok {
 		// `>` 와 달리 앞 공백을 떼지 않는다. 셸이 읽을 글자를 여기서 고치지 않는다 —
@@ -337,6 +343,10 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 	if kind == paletteKindShell {
 		return runShell(m.editor, line)
 	}
+	if kind == paletteKindShellBackground {
+		// `:!&` 와 오는 자리가 같다. `%` 를 펴는 것은 그쪽이 한다(ADR-0114, ADR-0138).
+		return runShellBackgroundMode(m.editor, line)
+	}
 	if kind == paletteKindGrep {
 		// `:grep <패턴>` 과 팔레트의 「프로젝트 검색」이 오는 자리다. 패턴이 정규식으로 말이
 		// 되지 않으면 runGrep 이 알림만 적고 판을 열지 않는다(ADR-0078).
@@ -481,7 +491,7 @@ func (m viewPalette) renderInputRow(inner int) string {
 	side := m.boxChars.vertical
 
 	if m.input.empty() {
-		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 명령, ! 셸, / 검색", inner), inner)) + " " + side
+		return side + " " + styleDetail.Render(padTo(truncateToWidth("파일 찾기. > 명령, ! 셸, !& 백그라운드, / 검색", inner), inner)) + " " + side
 	}
 
 	text, _ := m.inputText()
@@ -504,7 +514,12 @@ func (m viewPalette) renderListRows(inner int) []string {
 		case paletteKindShell:
 			guide = "Enter 로 셸에서 실행합니다"
 			if rest == "" {
-				guide = "! 뒤에 셸 명령을 칩니다"
+				guide = "! 뒤에 셸 명령을 칩니다. `&` 를 더 치면 백그라운드다"
+			}
+		case paletteKindShellBackground:
+			guide = "Enter 로 백그라운드에서 실행합니다"
+			if rest == "" {
+				guide = "!& 뒤에 백그라운드로 돌릴 셸 명령을 칩니다"
 			}
 		case paletteKindGrep:
 			guide = "Enter 로 프로젝트를 검색합니다"

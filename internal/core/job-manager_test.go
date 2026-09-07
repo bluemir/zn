@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -201,10 +202,11 @@ func emptyJob(context.Context) <-chan jobProgress {
 	return ch
 }
 
-// 끝난 목록은 인자가 달라도 이름당 하나다. 펼친 디렉터리마다 한 줄씩 쌓이던 것이 이것으로 끝난다.
+// 끝난 목록은 신원(이름+인자) 당 하나다. 인자가 다르면 나란히 남는다.
 //
-// 지워지는 것은 어느 경로가 언제 끝났는지인데, 실패는 알림 목록에 통째로 남는다(ADR-0075).
-func TestFinishedJobsKeepLastPerNameAcrossArgs(t *testing.T) {
+// 이름당 하나였던 것을 바꿨다 — 셸 명령은 이름이 하나인데 사람이 치는 만큼 인자가 달라서,
+// 이름으로 밀면 `make build` 의 결과를 보려는 사이 `go test` 가 그것을 지운다(ADR-0139).
+func TestFinishedJobsKeepLastPerIdentity(t *testing.T) {
 	e := editor{}
 
 	for _, dir := range []string{"docs", "internal/core", "cmd"} {
@@ -212,8 +214,66 @@ func TestFinishedJobsKeepLastPerNameAcrossArgs(t *testing.T) {
 		e.finishJob(dirJobName, []string{dir})
 	}
 
-	require.Len(t, e.finished, 1)
-	assert.Equal(t, []string{"cmd"}, e.finished[0].args, "마지막 것만 남는다")
+	require.Len(t, e.finished, 3, "인자가 다르면 나란히 남는다")
+	assert.Equal(t, []string{"cmd"}, e.finished[0].args, "새것이 맨 앞이다")
+
+	// 같은 신원을 다시 끝내면 갈아끼운다. 한 신원이 두 줄이 되지 않는다.
+	e.jobs = append(e.jobs, job{name: dirJobName, args: []string{"docs"}, started: time.Now()})
+	e.finishJob(dirJobName, []string{"docs"})
+
+	require.Len(t, e.finished, 3)
+	assert.Equal(t, []string{"docs"}, e.finished[0].args, "다시 끝낸 것이 맨 앞으로 온다")
+}
+
+// 인자가 없는 작업은 신원이 곧 이름이라 여전히 하나로 모인다.
+//
+// ADR-0030 이 이름으로 민 까닭이 「주기 갱신이 목록을 자기 이름으로 뒤덮는다」였다.
+// 신원으로 바꿔도 git 갱신과 파일 검사는 인자가 없어서 그 자리가 되돌아오지 않는다.
+func TestFinishedJobsCollapsePeriodicRefresh(t *testing.T) {
+	e := editor{}
+
+	for range 20 {
+		e.jobs = append(e.jobs, job{name: gitJobName, started: time.Now()})
+		e.finishJob(gitJobName, nil)
+	}
+
+	assert.Len(t, e.finished, 1, "주기 갱신은 한 줄이다")
+}
+
+// 개수 상한을 넘으면 오래된 것부터 버린다. 사람이 치는 만큼 늘어나는 목록이 되었으므로
+// 저절로 멈추지 않는다(ADR-0139).
+func TestFinishedJobsDropOldestOverMax(t *testing.T) {
+	e := editor{}
+
+	for i := range finishedJobsMax + 10 {
+		args := []string{strconv.Itoa(i)}
+		e.jobs = append(e.jobs, job{name: shellJobName, args: args, started: time.Now()})
+		e.finishJob(shellJobName, args)
+	}
+
+	require.Len(t, e.finished, finishedJobsMax)
+	assert.Equal(t, []string{strconv.Itoa(finishedJobsMax + 9)}, e.finished[0].args, "새것이 맨 앞이다")
+	assert.Equal(t, []string{"10"}, e.finished[len(e.finished)-1].args, "오래된 것이 밀려났다")
+}
+
+// 오래 끝나 있던 것은 버린다. 몇 시간 전 빌드의 결과는 아무 물음에도 답하지 않는다.
+func TestFinishedJobsDropStale(t *testing.T) {
+	e := editor{}
+	e.finished = []job{
+		{name: shellJobName, args: []string{"어제 것"}, finished: time.Now().Add(-finishedJobsTTL - time.Minute)},
+		{name: shellJobName, args: []string{"방금 것"}, finished: time.Now()},
+	}
+
+	e.jobs = append(e.jobs, job{name: gitJobName, started: time.Now()})
+	e.finishJob(gitJobName, nil)
+
+	args := [][]string{}
+	for _, old := range e.finished {
+		args = append(args, old.args)
+	}
+
+	assert.NotContains(t, args, []string{"어제 것"}, "오래된 것은 버린다")
+	assert.Contains(t, args, []string{"방금 것"}, "방금 것은 남는다")
 }
 
 // 실패 알림에는 인자가 같이 간다. 이름만 남기면 어느 디렉터리가 실패했는지 알 길이 없다.

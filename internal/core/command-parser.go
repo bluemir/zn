@@ -86,8 +86,16 @@ type commandName struct {
 func (s commandName) consume(t token) commandState {
 	// 이름 자리의 `!` 는 이름이 `!` 이고 뒤가 셸 줄이다. 이름에 붙는 `!`(force) 와 뜻이
 	// 다른데, 그 갈림은 글자 단위 기계가 이미 했고 여기는 갈래를 읽을 뿐이다.
-	if t.kind == tokenKindShell {
-		cmd := command{name: "!", lines: s.lines}
+	//
+	// `!&` 도 같은 자리다. 이름이 두 글자라는 것만 다르고 뒤는 똑같이 뜯지 않은 한 줄이라
+	// **command 에 필드가 늘지 않는다** — background 인지는 이름에 들어 있다(ADR-0138).
+	if t.kind.isShell() {
+		name := "!"
+		if t.kind == tokenKindShellBackground {
+			name = "!&"
+		}
+
+		cmd := command{name: name, lines: s.lines}
 
 		// `:!` 만 쳤으면 넘길 것이 없다. 빈 줄을 셸에 넘기지 않는다.
 		if t.text != "" {
@@ -119,7 +127,7 @@ func (s commandArgs) consume(t token) commandState {
 	//
 	// 공백을 정말 찾아야 하면 `\s` 나 `[ ]` 로 쓴다. 이름 자리의 `!` 가 빈 경우를
 	// commandName 에서 이미 가르고, 여기는 그것을 공백까지로 넓힌 것이다(ADR-0045, ADR-0077).
-	if t.kind == tokenKindShell && strings.TrimSpace(t.text) == "" {
+	if t.kind.isShell() && strings.TrimSpace(t.text) == "" {
 		return s
 	}
 
@@ -149,10 +157,20 @@ func (s commandFailed) end() (command, error) { return command{}, s.err }
 type tokenKind int
 
 const (
-	tokenKindWord  tokenKind = iota // 여느 토큰. 이름이거나 인자다
-	tokenKindRange                  // 이름 앞의 줄 범위(`1,5`, `%`, `.,+3`)
-	tokenKindShell                  // 이름 자리의 `!` 뒤를 뜯지 않은 한 줄
+	tokenKindWord            tokenKind = iota // 여느 토큰. 이름이거나 인자다
+	tokenKindRange                            // 이름 앞의 줄 범위(`1,5`, `%`, `.,+3`)
+	tokenKindShell                            // 이름 자리의 `!` 뒤를 뜯지 않은 한 줄
+	tokenKindShellBackground                  // 이름 자리의 `!&` 뒤. 통째로 한 줄이고 background 로 돈다
 )
+
+// isShell 은 뒤를 뜯지 않고 통째로 받은 토큰인지다.
+//
+// 갈래가 둘로 갈린 뒤에도 「통째로 받았는가」만 묻는 자리가 셋 남는다 — 빈 것도 살릴지
+// (keepToken), 이름을 어떻게 지을지(commandName), 공백뿐인 것을 인자로 셀지(commandArgs) 다.
+// 그 셋은 background 인지와 무관하다.
+func (kind tokenKind) isShell() bool {
+	return kind == tokenKindShell || kind == tokenKindShellBackground
+}
 
 // token 은 끊어놓은 한 조각이다.
 type token struct {
@@ -198,9 +216,9 @@ func tokenize(input string, currentPath string) ([]token, error) {
 // keepToken 은 모아둘 토큰인지다.
 //
 // 아직 모으는 중인 상태는 빈 토큰을 주므로 그것을 걸러낸다. 셸 줄만 예외다 —
-// 비어 있다는 것도 결과여서(`:!` 만 친 것) 여기서 버리면 명령이 이름을 잃는다.
+// 비어 있다는 것도 결과여서(`:!` 나 `:!&` 만 친 것) 여기서 버리면 명령이 이름을 잃는다.
 func keepToken(t token) bool {
-	return t.text != "" || t.kind == tokenKindShell
+	return t.text != "" || t.kind.isShell()
 }
 
 // tokenizerState 는 tokenize 가 옮겨 다니는 상태다.
@@ -228,7 +246,9 @@ func (s tokenHead) consume(ch rune) (token, tokenizerState) {
 	case ch == '!':
 		// 셸 줄은 currentPath 를 받지 않는다. `:!` 의 `%` 를 펴는 자리는 runShell 하나다 —
 		// 팔레트의 `!` 는 이 기계를 지나지 않고 거기로 곧장 온다(ADR-0114).
-		return token{}, tokenRest{}
+		//
+		// tokenRest 로 곧장 가지 않는 것은 다음 한 글자가 `&` 인지를 봐야 하기 때문이다.
+		return token{}, tokenShell{}
 	case isRangeChar(ch):
 		return token{}, tokenRange{buf: []rune{ch}, currentPath: s.currentPath}
 	default:
@@ -274,8 +294,11 @@ func (s tokenRange) consume(ch rune) (token, tokenizerState) {
 
 	// 범위가 끝났고 이 글자부터가 이름 자리다. `!` 가 뜻을 갖는 것은 줄 맨 앞이 아니라
 	// **이름 자리** 라서, 범위 뒤에 붙은 것도 셸이다(`:1,5!sort`).
+	//
+	// `!&` 도 여기서 갈라야 한다. 안 가르면 `:1,5!&sort` 가 이름 `!` 로 읽혀 셸 줄이
+	// `&sort` 가 되고, 「줄 범위를 받지 않습니다」로 걸릴 자리를 잃는다.
 	if ch == '!' {
-		return token{text: string(s.buf), kind: tokenKindRange}, tokenRest{}
+		return token{text: string(s.buf), kind: tokenKindRange}, tokenShell{}
 	}
 
 	// 이름 자리로 넘긴다 — 빈 buf 로 시작하는 tokenName 은 글자 하나에 토큰을 내지 않으므로
@@ -289,18 +312,47 @@ func (s tokenRange) end() (token, error) {
 	return token{text: string(s.buf), kind: tokenKindRange}, nil
 }
 
+// tokenShell 은 이름 자리의 `!` 를 먹은 바로 다음 자리다.
+//
+// **여기 오는 한 글자가 `&` 인지만 본다.** `!&` 는 background 이고 그 갈림이 여기서 끝난다.
+// 글자 단위 기계라 앞을 미리 볼 수 없어서, `!` 를 먹고 바로 tokenRest 로 가던 자리에 이
+// 상태 하나가 든다.
+//
+// **접두는 정확히 두 글자다.** `:! &foo` 의 `&` 는 셸 줄의 첫 글자다 — 뒤를 뜯지 않는다는
+// 규칙을 지키려면 우리가 떼는 것이 고정된 접두여야 한다(ADR-0045, ADR-0138).
+type tokenShell struct{}
+
+func (s tokenShell) consume(ch rune) (token, tokenizerState) {
+	if ch == '&' {
+		return token{}, tokenRest{kind: tokenKindShellBackground}
+	}
+
+	// `&` 가 아니면 이 글자부터가 셸 줄이다.
+	return tokenRest{kind: tokenKindShell}.consume(ch)
+}
+
+// `:!` 만 친 자리다. 빈 셸 줄로 끝난다.
+func (s tokenShell) end() (token, error) {
+	return token{kind: tokenKindShell}, nil
+}
+
 // tokenRest 는 뒤를 통째로 넘기는 자리다. 공백도 따옴표도 `\` 도 전부 글자다 —
 // 그것을 읽는 것은 셸이다.
+//
+// **끝에서 낼 갈래를 들고 다닌다.** 이 자리를 셸 줄과 정규식(`:grep`·`:s`·`:replace`) 이
+// 함께 쓰는데 셸 줄이 둘로 갈렸다. 갈래를 여기서 정하면 만드는 자리마다 무엇을 모으는
+// 중인지가 코드에 남고, 뒤쪽 기계가 문자열을 보고 되짚지 않는다(tokenKind).
 type tokenRest struct {
-	buf []rune
+	buf  []rune
+	kind tokenKind
 }
 
 func (s tokenRest) consume(ch rune) (token, tokenizerState) {
-	return token{}, tokenRest{buf: append(s.buf, ch)}
+	return token{}, tokenRest{buf: append(s.buf, ch), kind: s.kind}
 }
 
 func (s tokenRest) end() (token, error) {
-	return token{text: string(s.buf), kind: tokenKindShell}, nil
+	return token{text: string(s.buf), kind: s.kind}, nil
 }
 
 // tokenName 은 이름 토큰을 모으는 자리다. tokenPlain 과 같이 끊되, **이름이 끝났을 때 그
@@ -328,7 +380,7 @@ func (s tokenName) consume(ch rune) (token, tokenizerState) {
 		// 통째로 넘기는 인자는 정규식이라 `%` 를 펴지 않는다. currentPath 를 주지 않는 것이
 		// 곧 그 규칙이다 — `:s/50%/60%/` 의 `%` 는 글자다(ADR-0114).
 		if takesRawArgument(string(s.buf)) {
-			return token{text: string(s.buf)}, tokenRest{}
+			return token{text: string(s.buf)}, tokenRest{kind: tokenKindShell}
 		}
 
 		return token{text: string(s.buf)}, tokenPlain{currentPath: s.currentPath}
@@ -341,7 +393,7 @@ func (s tokenName) consume(ch rune) (token, tokenizerState) {
 		// tokenEscaped 를 지나 `/` 가 되어 정규식이 조용히 다른 뜻이 된다 — `:grep` 을
 		// 통째로 넘기게 만든 것과 같은 까닭이다(ADR-0077, ADR-0084).
 		if takesDelimitedArgument(string(s.buf)) && isSubstituteDelimiter(ch) {
-			return token{text: string(s.buf)}, tokenRest{buf: []rune{ch}}
+			return token{text: string(s.buf)}, tokenRest{buf: []rune{ch}, kind: tokenKindShell}
 		}
 
 		return token{}, tokenName{buf: append(s.buf, ch), currentPath: s.currentPath}

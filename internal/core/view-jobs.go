@@ -23,7 +23,36 @@ import (
 // 여기서 치는 키가 편집기 키인 줄 알게 된다. 맨 위 제목줄이 그 자리를 대신하고, statusBar 만
 // 남겨 mode 와 git·알림이 늘 같은 자리에 있게 한다.
 func jobsMode(e *editor) (tea.Model, tea.Cmd) {
-	return viewJobs{editor: e, expanded: map[string]bool{}}, nil
+	return viewJobs{editor: e, expanded: map[string]bool{}}, tickJobs(e)
+}
+
+// jobsTickInterval 은 경과 시간을 다시 그리는 간격이다.
+//
+// 경과 칸이 `분:초` 라 초가 이 판이 보여줄 수 있는 가장 작은 단위다. 그보다 자주 그려도
+// 화면에 달라질 것이 없고, 그보다 뜸하면 초가 뛰어 보인다.
+const jobsTickInterval = time.Second
+
+// jobsTickMsg 는 경과 시간을 다시 그릴 때가 되었다는 것이다.
+type jobsTickMsg time.Time
+
+// tickJobs 는 도는 작업이 있으면 다음 tick 을 건다. 없으면 걸지 않는다.
+//
+// **`:jobs` 가 스스로 다시 그리지 않아서 생기는 것을 여기서 푼다.** 이 판은 진행 msg 가 올
+// 때만 View 를 지나므로, 조용한 작업(`:!& make dev-run` 처럼 출력이 없는 서버) 하나만 돌면
+// 경과 시간이 `0:03` 에 얼어붙는다. 도는 것과 멈춘 것이 화면에서 구별되지 않는다.
+//
+// **판이 낸다. 작업이 내지 않는다.** 작업이 heartbeat 를 보내면 `:jobs` 를 열지도 않은
+// 사람에게 1 초마다 Update 와 View 왕복이 생긴다. 판이 내면 닫는 순간 비용이 0 이다 —
+// 다음 tick 을 거는 자리가 이 판의 Update 뿐이라 나가면 고리가 저절로 끊긴다
+// (docs/tasks.md 의 「경과 시간이 멈춘 것처럼 보인다」, ADR-0138).
+func tickJobs(e *editor) tea.Cmd {
+	if len(e.jobs) == 0 {
+		return nil
+	}
+
+	return tea.Tick(jobsTickInterval, func(t time.Time) tea.Msg {
+		return jobsTickMsg(t)
+	})
 }
 
 type viewJobs struct {
@@ -74,6 +103,9 @@ func (m viewJobs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	case jobsTickMsg:
+		// 그리는 것은 View 가 하고 여기는 다음 tick 만 잇는다. 도는 것이 없으면 끊긴다.
+		return m, tickJobs(m.editor)
 	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// 진행이 오면 목록이 그대로 자란다. 고른 자리는 유지하고 범위만 맞춘다 —
 		// 작업 하나가 끝날 때마다 커서가 튀면 취소하려던 것을 놓친다.
@@ -159,6 +191,10 @@ func (m viewJobs) run(name string) (tea.Model, tea.Cmd) {
 		m.cancelSelected()
 
 		return m, nil
+	case "X":
+		m.killSelected()
+
+		return m, nil
 	default:
 		return m, nil
 	}
@@ -207,6 +243,61 @@ func (m *viewJobs) cancelSelected() {
 	}
 }
 
+// killSelected 는 고른 작업의 프로세스를 SIGKILL 로 끝낸다. `x` 가 듣지 않을 때의 길이다.
+//
+// **`x` 와 다른 길이어야 한다.** 그쪽은 ctx 를 끊어 SIGTERM 을 보내게 하는데 ctx 는 한 번만
+// 끊을 수 있어서, 무시하는 프로세스에 다시 손쓸 자리가 없다. 셸 작업은 죽일 그룹을 따로 들고
+// 있으므로(shell-background.go) 여기서 곧바로 보낸다 (ADR-0138).
+//
+// **프로세스가 없는 작업에서는 `x` 와 같다.** grep·트리 읽기는 우리 goroutine 이라 신호로
+// 끊을 것이 없다. 키가 갈래마다 다르게 먹는 것보다 「더 세게 끊는다」 하나로 두는 것이 낫다.
+//
+// 이름 줄에서 누르면 그 이름으로 도는 것을 전부 끊는다. `x` 와 같은 규칙이다.
+func (m *viewJobs) killSelected() {
+	rows := m.jobRows()
+	if m.selected >= len(rows) {
+		return
+	}
+
+	selected := rows[m.selected]
+	if selected.kind != jobRowParent {
+		m.killJob(selected.job)
+
+		return
+	}
+
+	killed := 0
+	for _, member := range selected.group.members {
+		if member.cancel == nil {
+			continue
+		}
+
+		m.killJob(member)
+		killed++
+	}
+
+	if killed == 0 {
+		m.notify("이미 끝난 작업입니다")
+	}
+}
+
+// killJob 은 작업 하나를 세게 끊는다. 프로세스가 있으면 SIGKILL, 없으면 취소와 같다.
+func (m *viewJobs) killJob(target job) {
+	if target.cancel == nil {
+		m.notify("이미 끝난 작업입니다")
+
+		return
+	}
+
+	// 프로세스를 죽여도 작업은 ctx 로 끝난다. 죽이기만 하면 Wait 가 돌아와 조각을 보내고,
+	// 그것이 취소가 아니라 「신호로 끝남」으로 남는다.
+	if target.name == shellJobName && len(target.args) > 0 {
+		m.killBackgroundShell(target.args[0])
+	}
+
+	m.cancelJob(target.name, target.args)
+}
+
 // toggleSelected 는 이름 줄을 접거나 편다. 이름 줄이 아니면 아무 일도 하지 않는다.
 //
 // 접어도 고른 자리는 그대로다 — 자식은 이름 줄 뒤에 오므로 앞의 행 수가 바뀌지 않는다.
@@ -224,7 +315,7 @@ func (m *viewJobs) toggleSelected() {
 // jobGroup 은 이름이 같은 작업들이다. 목록은 이것을 이름 줄 하나와 자식 여럿으로 편다.
 //
 // 도는 것이 앞, 끝난 것이 뒤다 — 목록 전체가 지키던 그 순서가 이름 안으로 들어왔다.
-// 끝난 것은 이름당 하나뿐이라(job.go 의 finishJob) 뒤에 붙는 것은 늘 하나 아니면 없다.
+// 끝난 것은 신원당 하나라(job.go 의 finishJob) 인자가 다르면 뒤에 여럿이 붙는다(ADR-0139).
 type jobGroup struct {
 	name    string
 	members []job
@@ -235,8 +326,9 @@ type jobGroup struct {
 // **하나라도 전체를 모르면 total 은 0 이다.** 아는 것만 더한 백분율은 거짓말이 된다 —
 // renderJobBar 가 전체를 모를 때 막대를 아예 안 그리는 것과 같은 기준이다(job.go).
 //
-// 하나라도 돌고 있으면 끝난 것이 아니라서 finished 를 비운다. 다 끝났으면 마지막에 끝난 것의
-// 상태와 요약을 그대로 든다 — 끝난 것은 이름당 하나라 고를 것이 없다.
+// 하나라도 돌고 있으면 끝난 것이 아니라서 finished 를 비운다. 다 끝났으면 **마지막에 끝난
+// 것**의 상태와 요약을 든다. 끝난 것이 신원당 하나라 이름 아래에 여럿이 올 수 있고, 그때
+// 이름 줄이 가리켜야 하는 것은 가장 새것이다(ADR-0139).
 func (g jobGroup) rollup() job {
 	rolled := job{name: g.name}
 
@@ -419,7 +511,7 @@ func (m viewJobs) View() tea.View {
 	}
 
 	screen := append([]string{m.renderTitle()}, body...)
-	screen = append(screen, styleDetail.Render(" j/k 이동  enter 펼치기  x 취소  q 닫기"))
+	screen = append(screen, styleDetail.Render(" j/k 이동  enter 펼치기  x 취소  X 강제 종료  q 닫기"))
 	screen = append(screen, m.renderBareStatusBar()...)
 
 	view := newView(screen, m.renderWindowTitle())

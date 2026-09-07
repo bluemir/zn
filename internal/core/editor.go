@@ -120,6 +120,16 @@ type editor struct {
 	jobs     []job
 	finished []job
 
+	// backgroundShells 는 `:!&` 로 도는 셸의 process group 들이다. 키는 셸 줄, 곧 그
+	// 작업의 인자다.
+	//
+	// **작업 목록이 아니라 여기 있는 까닭**은 실행기가 진행률만 알고 결과 모양은 작업이
+	// 정한다는 규칙이다(job.go). 프로세스를 아는 것도 그 일을 하는 쪽이다.
+	//
+	// 읽는 자리가 둘이다. `:jobs` 의 `X`(그룹 SIGKILL) 와 나가는 길이다
+	// (shell-background.go, ADR-0138).
+	backgroundShells map[string]int
+
 	// notice 는 지금 아래 줄에 떠 있는 알림이다. 다음 키를 누르면 사라진다.
 	//
 	// mode 가 아니라 여기 있는 것은 백그라운드 작업의 실패가 어느 mode 에서든 도착하기 때문이다.
