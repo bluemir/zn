@@ -67,6 +67,16 @@
 	- D2Coding 이 원문자·괄호 문자를 정확히 두 칸 폭으로 디자인했고, 오각형은 폰트에 없어 fallback 이 셀의 1.86 배로 그린다. Ghostty 는 유니코드 표대로 한 칸을 잡는다
 	- **편집기가 손댈 자리가 아닐 수 있다.** Ghostty 쪽은 폰트 메트릭 문제로 판정했고 Kitty 만 강제로 한 칸에 밀어넣는다. 폭까지 맞히려면 폰트를 바꾸거나 `font-codepoint-map` 을 쓰는 사용자 환경 쪽 길뿐이다
 	- 격자를 버리고 한 줄에 하나씩 세우는 목록으로 바꾸면 밀릴 자리가 없어진다. 대신 한 화면에 보이는 글자가 열여섯에서 넷으로 줄어든다 (ADR-0056)
+- [x] `mode 2027`(grapheme clustering) 을 켤지 정한다 (ADR-0136)
+	- [ ] 터미널을 직접 쓸 때 ZWJ 이모지가 실제로 맞게 그려지는지 눈으로 확인한다. tmux 는 이 모드를 받지 않아 driver 로는 확인할 수 없다 (ADR-0136)
+- [ ] `ultraviolet` 이 여러 rune 클러스터가 든 행의 마지막 칸을 빠뜨리는 것을 위에 올린다. 재현 절차와 나가는 바이트가 docs/issues/0005 에 있다
+	- 폭을 터미널과 맞춰 놓고도 난다. 폭 문제가 아니라 셀 대응이다
+	- 격자는 spacing mark 를 빼고 ZWJ 이모지를 첫 rune 만 그려서 피했다. 본문에 그런 글자가 들어오면 그대로 난다
+	- [ ] 고쳐지면 `symbolGlyph` 의 첫 rune 처리를 되돌린다. 격자에서 `👨‍💻` 와 `👨` 가 같은 모양으로 보이는 것이 그 대가다
+- [ ] `☝` `✍` `✌` `🖐` `🕵` 다섯을 어떻게 할지 정한다. 우리는 한 칸, 터미널은 두 칸으로 세서 그 칸 뒤가 밀린다
+	- `Emoji_Presentation=No` 인 이모지다. `U+FE0F`(VS16) 를 붙이면 폭은 맞지만 여러 rune 이 되어 위 렌더러 문제에 걸린다. 떼면 폭이 갈린다 (docs/issues/0005)
+	- `⬠`·`①` 과 같은 자리로 남겨 뒀다 (docs/issues/0004)
+- [ ] `x/ansi`·`displaywidth` 에 spacing mark 폭을 세는 손잡이를 열어 달라고 올릴지 정한다. 열리면 `Mc` 를 목록에 되돌릴 수 있다 (docs/issues/0005)
 - [ ] bubbletea 에 폭 눈금을 열어 달라고 올릴지 정한다
 	- `ultraviolet` 은 `WidthMethod` 인터페이스로 열어 놨는데(`uv.go:36`) bubbletea 의 renderer 가 `setWidthMethod(ansi.Method)` 라 소문자에 enum 이라 밖에서 못 준다
 	- 열리면 ADR-0072 의 재실행이 필요 없어진다. `docs/issues/` 에도 남긴다 (ADR-0072)
@@ -497,3 +507,5 @@
 - [ ] `:+1:` 을 입력하면 자동 완성으로 특수 문자 보여주기
 	- github markdown emoji 처럼?
 	- https://github.com/ikatyang/emoji-cheat-sheet
+- [ ] jobs 페이지에서 동작중이면 애니메이션 표시
+	- https://news.hada.io/topic?id=29640 와 같이...

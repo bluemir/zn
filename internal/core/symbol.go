@@ -89,8 +89,20 @@ func indexSymbols(ctx context.Context) <-chan jobProgress {
 //
 // 이름이 없으면 아직 배정되지 않은 자리다. surrogate·private use 처럼 이름이 있어도 글자가
 // 아닌 것은 unicode.C 가 걸러 준다.
+//
+// **spacing mark(Mc) 는 넣지 않는다.** 인도계 문자의 모음 기호들(`ि` `ा` `ी`) 452 개다.
+// 폭을 맞출 길이 우리에게 없어서 격자에 세우면 화면이 깨진다 — 우리와 tmux 는 한 칸으로
+// 세는데 Ghostty 는 두 칸으로 세고, 그것은 `mode 2027` 을 켜도 그대로다. 게다가 그 글자가
+// 든 행은 렌더러가 마지막 칸을 빠뜨린다(docs/issues/0005).
+//
+// 보이지 않는 글자를 큐레이션 표에서 뺀 것과 같은 규칙이다 — **낼 수 없는 글자는 목록에
+// 세우지 않는다.** 폭 0 인 결합 문자(Mn·Me) 는 폭이 터미널과 맞으므로 `◌` 에 얹어 남긴다
+// (view-symbol.go 의 symbolGlyph).
 func namedSymbol(r rune) bool {
 	if unicode.Is(unicode.C, r) || unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsSpace(r) {
+		return false
+	}
+	if unicode.Is(unicode.Mc, r) {
 		return false
 	}
 

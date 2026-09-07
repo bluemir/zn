@@ -486,10 +486,25 @@ const dottedCircle = "◌"
 // 어디를 골랐는지 화면에서 보이지 않았다. 유니코드 표가 결합 문자를 낱개로 보일 때 쓰는
 // 방식이 이것이다.
 //
+// **여러 rune 으로 된 글자는 첫 rune 만 그린다.** ZWJ 로 이은 이모지(`👨‍💻` 개발자) 다.
+// 그 글자가 든 격자 행은 렌더러가 마지막 칸을 그리지 않아 오른쪽 테두리가 밀려났다 —
+// 폭은 우리와 터미널이 같게 세는데도 그렇다(docs/issues/0005). **임시로 피하는 것이고
+// 렌더러가 고쳐지면 되돌린다.**
+//
+// 폭이 줄지 않을 때만 그렇게 한다. `☝️`(글자 + VS16) 는 첫 rune 이 한 칸이라 떼면 칸이
+// 밀린다 — 그 갈래는 터미널이 우리보다 넓게 그리는 글자로 남는다(docs/issues/0004).
+//
 // **넣는 것은 원래 글자다.** 이 모양은 격자와 이름줄에만 쓴다(insertSelected).
 func symbolGlyph(char string) string {
 	if textarea.WidthOf(char) == 0 {
 		return dottedCircle + char
+	}
+
+	if runes := []rune(char); len(runes) > 1 {
+		first := string(runes[0])
+		if textarea.WidthOf(first) == textarea.WidthOf(char) {
+			return first
+		}
 	}
 
 	return char

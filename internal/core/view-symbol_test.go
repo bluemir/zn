@@ -464,6 +464,36 @@ func TestSymbolZeroWidthSitsOnDottedCircle(t *testing.T) {
 	assert.Contains(t, rows[len(rows)-2], dottedCircle+"֙", "이름줄에도 얹은 모양이다")
 }
 
+// ZWJ 로 이은 이모지는 격자에 첫 rune 만 그린다.
+//
+// 그 글자가 든 행은 렌더러가 마지막 칸을 그리지 않아 오른쪽 테두리가 밀려났다. 폭은 우리와
+// 터미널이 같게 세는데도 그렇다(docs/issues/0005). 렌더러가 고쳐지면 되돌릴 자리다.
+func TestSymbolGlyphDrawsFirstRuneOfZWJ(t *testing.T) {
+	for _, c := range []struct{ char, glyph string }{
+		{char: "👨‍💻", glyph: "👨"},
+		{char: "🧑‍🍳", glyph: "🧑"},
+		{char: "🧑‍⚕", glyph: "🧑"},
+	} {
+		require.Greater(t, len([]rune(c.char)), 1, "%q 가 여러 rune 이어야 시험이 뜻이 있다", c.char)
+
+		assert.Equal(t, c.glyph, symbolGlyph(c.char))
+		assert.Equal(t, textarea.WidthOf(c.char), textarea.WidthOf(symbolGlyph(c.char)),
+			"%q: 폭이 줄면 칸이 밀린다", c.char)
+	}
+}
+
+// 첫 rune 을 떼면 폭이 줄는 글자는 그대로 그린다.
+//
+// `☝️` 는 글자와 VS16 둘인데 첫 rune 만으로는 한 칸이다. 떼면 칸이 밀리므로 그러지 않는다.
+// 그 갈래는 터미널이 우리보다 넓게 그리는 글자로 남는다(docs/issues/0004).
+func TestSymbolGlyphKeepsCharWhenFirstRuneIsNarrower(t *testing.T) {
+	char := "☝️"
+	require.Greater(t, len([]rune(char)), 1)
+	require.Less(t, textarea.WidthOf(string([]rune(char)[0])), textarea.WidthOf(char))
+
+	assert.Equal(t, char, symbolGlyph(char), "떼지 않는다")
+}
+
 // 넣는 것은 원래 글자다. ◌ 는 판에 그리려고 얹은 것이라 파일에 들어가면 안 된다.
 func TestSymbolInsertsWithoutDottedCircle(t *testing.T) {
 	e := newTestEditor("abc\n", 80, 20).editor

@@ -3,9 +3,11 @@ package core
 import (
 	"context"
 	"testing"
+	"unicode"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/text/unicode/runenames"
 
 	"github.com/bluemir/zn/internal/assets"
 
@@ -48,6 +50,31 @@ func TestIndexSymbolsSkipsLettersAndDigits(t *testing.T) {
 
 	for _, char := range []string{"A", "z", "가", "漢", "5", "ぁ"} {
 		assert.False(t, seen[char], "%q 는 목록에 없어야 한다", char)
+	}
+}
+
+// spacing mark 는 목록에 들지 않는다.
+//
+// 폭을 맞출 길이 우리에게 없다. 우리와 tmux 는 한 칸, Ghostty 는 두 칸으로 세고 `mode 2027`
+// 로도 그대로다. 그 글자가 든 격자 행은 렌더러가 마지막 칸까지 빠뜨렸다(docs/issues/0005).
+func TestIndexSymbolsSkipsSpacingMarks(t *testing.T) {
+	// 인도계 문자의 모음 기호들이다. 격자를 깨뜨린 것이 이 갈래다.
+	for _, r := range []rune{0x093F, 0x0940, 0x094F, 0x1B44} {
+		require.True(t, unicode.Is(unicode.Mc, r), "U+%04X 가 Mc 여야 시험이 뜻이 있다", r)
+		assert.False(t, namedSymbol(r), "U+%04X %s", r, runenames.Name(r))
+	}
+
+	// 폭 0 인 결합 문자는 남는다. 터미널과 폭이 맞아서 `◌` 에 얹으면 보인다.
+	for _, r := range []rune{0x0599, 0x0300} {
+		require.True(t, unicode.Is(unicode.Mn, r), "U+%04X 가 Mn 여야 시험이 뜻이 있다", r)
+		assert.True(t, namedSymbol(r), "U+%04X %s", r, runenames.Name(r))
+	}
+
+	// 큐레이션 표는 이 규칙에 걸리지 않는다. 걸리면 손으로 적은 글자가 조용히 사라진다.
+	for _, entry := range assets.CuratedSymbols {
+		for _, r := range entry.Char {
+			assert.False(t, unicode.Is(unicode.Mc, r), "%q %s", entry.Char, entry.Name)
+		}
 	}
 }
 

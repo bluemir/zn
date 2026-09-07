@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -119,3 +120,15 @@ func withEditorconfig(t *testing.T, config, name, content string) string {
 }
 
 const wide = 1000
+
+// 시작할 때 터미널에게 폭을 grapheme cluster 로 세라고 알린다(mode 2027).
+//
+// 우리가 이미 그렇게 세고 있다는 것을 알리는 것이다. 알리지 않으면 터미널만 코드포인트
+// 단위로 세서 여러 rune 글자에서 어긋난다(ADR-0136).
+func TestEnableGraphemeClusteringSendsMode2027(t *testing.T) {
+	msg := enableGraphemeClustering()()
+
+	raw, ok := msg.(tea.RawMsg)
+	require.True(t, ok, "터미널에 그대로 나가는 것이어야 한다: %T", msg)
+	assert.Equal(t, "\x1b[?2027h", raw.Msg)
+}

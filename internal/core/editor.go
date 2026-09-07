@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/cockroachdb/errors"
 
 	"github.com/bluemir/zn/internal/assets"
@@ -780,7 +781,23 @@ func (e *editor) toggleTree() (tea.Cmd, error) {
 // 첫 git 표시도 이 작업이 채운다. 그전까지 statusBar 오른쪽은 비어 있다 — 큰 저장소에서
 // `git status` 를 기다리느라 편집기가 늦게 뜨는 것보다 낫다.
 func (e *editor) startInitialJobs() tea.Cmd {
-	return tea.Batch(e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startServersForOpenBuffers(), e.startWatch())
+	return tea.Batch(enableGraphemeClustering(), e.startGitRefresh(), e.startOutsideCheck(), e.startTree(), e.startServersForOpenBuffers(), e.startWatch())
+}
+
+// enableGraphemeClustering 은 터미널에게 폭을 grapheme cluster 로 세라고 알린다(mode 2027).
+//
+// **우리가 이미 그렇게 세고 있다는 것을 알리는 것이다.** `x/ansi` 가 클러스터 단위로 재고
+// (`ansi.GraphemeWidth`) lipgloss 와 ultraviolet 도 같은 자를 쓰는데, 터미널에는 그 사실을
+// 말하지 않아서 그쪽만 코드포인트 단위로 세고 있었다. `👨‍💻` 를 우리는 두 칸으로 세고
+// Ghostty 는 여섯 칸으로 그려서 뒤 글자가 덮였다(ADR-0136).
+//
+// **받지 않는 터미널은 이 escape 를 무시한다.** 그래서 지원 여부를 묻지 않는다 — 물어서
+// 갈라도 할 일이 같고, 묻는 답을 기다리는 자리가 하나 늘 뿐이다.
+//
+// 끄는 자리는 두지 않는다. 프로그램이 끝나면 bubbletea 가 대체 화면을 나가면서 터미널 상태를
+// 되돌린다. `RUNEWIDTH_EASTASIAN` 과 달리 이것은 프로세스 밖에 남지 않는다.
+func enableGraphemeClustering() tea.Cmd {
+	return tea.Raw(ansi.EnableGraphemeClustering)
 }
 
 // editorView 는 mode 가 공유하는 화면이다.
