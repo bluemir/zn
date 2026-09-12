@@ -796,6 +796,35 @@ func TestSidebarShowsModeAndPath(t *testing.T) {
 		"뿌리 기준 상대 경로라 절대 경로처럼 잘리지 않는다: %q", barOf(t, m)[1])
 }
 
+// `m` 을 먹은 동안 아래 줄 왼쪽이 다음에 누를 키를 알린다. showcmd 는 무엇을 먹었는지만
+// 말하고 무엇을 누를 수 있는지는 말하지 못한다.
+func TestSidebarFileMenuHint(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w", "m")
+
+	bottom := barOf(t, m)[1]
+	for _, want := range []string{"a,c 새 파일", "d 지우기", "m 새 이름"} {
+		assert.Contains(t, bottom, want)
+	}
+	assert.True(t, strings.HasSuffix(strings.TrimRight(bottom, " "), "m"), "먹은 키도 오른쪽 끝에 남는다: %q", bottom)
+
+	// 동작이 완성되면 고른 항목 이름으로 돌아온다. 안내는 기다리는 동안만이다.
+	m = send(m, "esc")
+	assert.NotContains(t, barOf(t, m)[1], "새 파일")
+}
+
+// 접두 키를 기다리는 것이 아니면 안내가 없다. `ctrl+w`·`g` 는 normal 과 같은 손버릇이라
+// 이 자리를 쓰지 않는다.
+func TestSidebarHintOnlyForFileMenu(t *testing.T) {
+	var m tea.Model = newTreeEditor(t, 80, 6)
+	m = send(m, "ctrl+w", "ctrl+w")
+
+	for _, keys := range [][]string{{}, {"g"}, {"ctrl+w"}, {"2", "0"}} {
+		next := send(m, keys...)
+		assert.Empty(t, next.(viewSidebar).fileMenuHint(), "keys=%v", keys)
+	}
+}
+
 // 화면이 좁아져서 sidebar 가 숨으면 포커스가 안 보이는 곳에 남으면 안 된다.
 func TestSidebarFocusEscapesOnAutoHide(t *testing.T) {
 	var m tea.Model = newTreeEditor(t, 80, 6)

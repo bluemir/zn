@@ -371,11 +371,43 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	return model, tea.Batch(cmd, m.startGitRefresh(), reveal)
 }
 
+// fileMenuHint 는 `m` 을 먹고 다음 키를 기다리는 동안 아래 줄 왼쪽에 서는 안내다.
+// 기다리는 중이 아니면 빈 문자열이다.
+//
+// **`m` 만 안내한다.** `ctrl+w`·`g` 는 짝이 normal mode 와 같은 손버릇이라 트리에서 새로
+// 배울 것이 없고, 이 자리에 셋을 다 늘어놓으면 정작 트리에만 있는 파일 메뉴가 묻힌다.
+//
+// `a` 도 같이 적는다. NERDTree 손버릇으로 온 손이 헛치지 않게 둔 별칭인데(run 의 `m a`,
+// ADR-0054) 안내가 `c` 만 세우면 그 손은 자기가 아는 키가 죽은 줄로 읽는다.
+//
+// 말은 들어가는 화면의 것을 그대로 쓴다. `mc` 와 `mm` 은 곧 `새 파일: `·`새 이름: ` 이 뜨는
+// 자리고(view-sidebar-create.go, view-sidebar-rename.go), 여기서 다른 말로 부르면 같은 일을
+// 두 이름으로 배우게 된다. 화면이 없는 지우기만 알림의 「지웠습니다」 를 따른다.
+//
+// 좁으면 오른쪽부터 잘린다. 아래 줄을 자르는 것은 renderStatusBar 하나가 하고 여기는
+// 문구만 준다 — 앞의 `a,c 새 파일` 만 남아도 첫 항목은 읽힌다.
+func (m viewSidebar) fileMenuHint() string {
+	pending, ok := m.keyState().(sidebarPending)
+	if !ok || pending.prefix != "m" {
+		return ""
+	}
+
+	return "a,c 새 파일  d 지우기  m 새 이름"
+}
+
 func (m viewSidebar) View() tea.View {
 	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
 	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
+	//
+	// `m` 을 먹은 동안만 그 자리를 파일 메뉴 안내가 쓴다. 고른 항목 이름은 접두 키를
+	// 치기 전에 이미 읽은 것이고, 지금 급한 것은 다음에 무엇을 누를 수 있는지다.
+	bottom := m.sidebar.selectedLabel()
+	if hint := m.fileMenuHint(); hint != "" {
+		bottom = hint
+	}
+
 	view := m.editorView(tea.CursorBlock, "TREE",
-		m.renderWithTip(m.noticeOr(m.sidebar.selectedLabel()), m.keyState().showcmd()))
+		m.renderWithTip(m.noticeOr(bottom), m.keyState().showcmd()))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 동작줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.
