@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -132,27 +131,20 @@ func TestGraphWalkChunksMatchWhole(t *testing.T) {
 	}
 }
 
-// 갈래가 갈리고 합쳐지는 자리의 레인이다.
-func TestGraphWalkLanes(t *testing.T) {
-	root := newGraphFixture(t)
-
-	rows := walkAll(t, root, 100)
+// 그래프 행이 나오는지. 그림이 맞는지는 진짜 git 과 대는 시험이 본다(git-graph-draw_test.go).
+func TestGraphWalkDrawsRows(t *testing.T) {
+	rows := walkAll(t, newGraphFixture(t), 100)
 	require.Len(t, rows, 4, "뿌리·b·c·merge 넷이다")
 
-	merge, c, b, first := rows[0], rows[1], rows[2], rows[3]
+	merge := rows[0]
 
 	assert.Len(t, merge.commit.parents, 2, "merge 는 부모가 둘이다")
-	assert.Equal(t, 0, merge.lane, "merge 는 첫 열이다")
-	assert.Len(t, merge.before, 1, "merge 앞에는 열이 하나뿐이다")
-	assert.Len(t, merge.after, 2, "merge 가 열을 하나 연다")
+	assert.GreaterOrEqual(t, len(merge.graph), 2, "커밋 하나가 적어도 두 행이다")
+	assert.Contains(t, merge.graph[merge.commitLine], graphNode, "커밋이 선 행에 점이 있다")
 
-	assert.Equal(t, 1, c.lane, "merge 의 둘째 부모가 둘째 열에 선다")
-	assert.Equal(t, 0, b.lane, "첫 부모는 merge 의 열을 물려받는다")
-
-	assert.Equal(t, 0, first.lane)
-	assert.Equal(t, []plumbing.Hash{first.commit.hash, first.commit.hash}, first.before,
-		"두 갈래가 뿌리를 기다린다")
-	assert.Empty(t, first.after, "뿌리에서 열이 모두 닫힌다")
+	for _, row := range rows {
+		assert.Less(t, row.commitLine, len(row.graph), "커밋 행이 담긴 것 안이다")
+	}
 }
 
 // ref 이름표가 git 의 `--decorate` 와 같은 자리에 붙는지.

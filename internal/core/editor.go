@@ -204,7 +204,7 @@ type editor struct {
 	//
 	// **판을 열 때마다 비우고 처음부터 읽는다.** 팔레트 파일 목록과 같은 태도다(ADR-0011) —
 	// 바깥에서 `commit`·`fetch` 를 하고 돌아왔을 때 묵은 기록을 보이지 않는다.
-	graph graphState
+	graph graphList
 
 	// drawerHeight 는 하단 drawer 가 편집 영역에서 가져간 행 수다. 0 이면 닫힌 것이다.
 	// 여는 mode 가 세우고 나갈 때 되돌린다(docs/spec.md, ADR-0056).

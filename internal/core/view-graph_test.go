@@ -23,7 +23,7 @@ func newGraphView(t *testing.T, rows []graphRow) viewGraph {
 		boxChars: boxUnicode,
 		width:    100,
 		height:   20,
-		graph:    graphState{rows: rows, done: true},
+		graph:    graphList{rows: rows, done: true},
 	}
 
 	return viewGraph{editor: e}
@@ -49,15 +49,38 @@ func pressKeys(model tea.Model, keys ...string) tea.Model {
 	return model
 }
 
-// 커밋 하나가 두 행이라 담기는 수가 절반이다.
-func TestGraphRowsAreTwoLinesEach(t *testing.T) {
-	m := newGraphView(t, graphFixtureRows(t))
+// 커밋 하나가 적어도 두 행이다. 열을 옮기는 행이 붙으면 그만큼 는다(ADR-0141).
+//
+// **git 이 한 행으로 내는 커밋도 있다.** 우리 형식은 두 줄이라 제목이 설 자리를 그리는 쪽이
+// 채운다. 그래서 높이의 바닥이 둘이다.
+func TestGraphCommitHeight(t *testing.T) {
+	rows := graphFixtureRows(t)
+	require.Len(t, rows, 4)
 
-	assert.Equal(t, m.listHeight()/2, m.graphRows())
+	for i, row := range rows {
+		assert.GreaterOrEqual(t, graphHeightOf(row), graphRowsPerCommit, "%d 번째", i)
+		assert.GreaterOrEqual(t, graphHeightOf(row), len(row.graph), "%d 번째", i)
+	}
+
+	m := newGraphView(t, rows)
 
 	content := ansi.Strip(m.View().Content)
 	assert.Contains(t, content, "커밋  4 개")
 	assert.NotContains(t, content, "더 읽는 중", "다 읽었으면 적지 않는다")
+}
+
+// 담기는 수는 커밋마다의 높이를 실제로 세어 나온다. 반쪽 커밋은 그리지 않는다.
+func TestGraphRowsCountsRealHeights(t *testing.T) {
+	rows := graphFixtureRows(t)
+	m := newGraphView(t, rows)
+
+	// 앞 둘이 차지하는 만큼만 준다. 셋째는 들어가지 못한다.
+	m.height = m.graphSpanOf(0, 2) + jobsTitleHeight + jobsHintHeight + statusBarHeight
+	assert.Equal(t, 2, m.graphRows())
+
+	// 셋째가 들어갈 만큼 넓히면 셋이 담긴다.
+	m.height += graphHeightOf(rows[2])
+	assert.Equal(t, 3, m.graphRows())
 }
 
 // j/k 로 고른 자리가 움직이고 양끝에서 멈춘다. 다른 목록 판과 같은 손이다(ADR-0076).

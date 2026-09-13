@@ -21,6 +21,15 @@ type boxSet struct {
 	// 두 칸으로 그리는 터미널에서는 그래프의 열이 통째로 밀리는데, 그 열 맞춤이 이 화면의
 	// 전부다. 선과 점이 같은 판단을 타야 한다.
 	dot string
+
+	// diagonalDown 은 왼쪽 위에서 오른쪽 아래로 가는 선이다. 열이 **열리는** 자리다.
+	// diagonalUp 은 오른쪽 위에서 왼쪽 아래로 가는 선이다. 열이 **접히는** 자리다.
+	//
+	// U+2571·U+2572 도 박스 그리기 블록 안이라 나머지와 같이 Ambiguous 다. 물러설 자리의
+	// `/`·`\` 는 둘 다 Narrow 라 어느 터미널에서도 한 칸이고, 그것이 git 이 쓰는 글자다
+	// (ADR-0141).
+	diagonalDown string
+	diagonalUp   string
 }
 
 // boxUnicode 는 폭이 1 칸으로 확인된 터미널에서 쓴다.
@@ -34,6 +43,9 @@ var boxUnicode = boxSet{
 	leftTee:     "├",
 	rightTee:    "┤",
 	dot:         "●",
+
+	diagonalDown: "╲",
+	diagonalUp:   "╱",
 }
 
 // boxASCII 는 물러설 자리다. `| - +` 는 전부 East Asian Width 가 Narrow 라
@@ -50,4 +62,7 @@ var boxASCII = boxSet{
 	leftTee:     "+",
 	rightTee:    "+",
 	dot:         "*",
+
+	diagonalDown: "\\",
+	diagonalUp:   "/",
 }

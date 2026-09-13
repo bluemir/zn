@@ -29,13 +29,13 @@ const graphRowsPerCommit = 2
 // graphJobName 은 커밋을 읽는 작업의 이름이자 신원이다. 같은 이름은 한 번에 하나만 돈다(job.go).
 const graphJobName = "커밋 읽기"
 
-// graphState 는 커밋 기록 화면이 담은 것이다.
+// graphList 는 커밋 기록 화면이 담은 것이다.
 //
 // **훑는 자리를 job 에게 넘겼다 돌려받는다.** 시작하는 쪽이 `walk` 를 떼어 goroutine 에 실어
 // 보내고(그 사이 여기는 nil 이다) 끝나면 apply 가 되돌려 놓는다. 그래서 훑기를 두 곳에서
 // 동시에 만지는 자리가 없고 잠금이 필요 없다 — job.go 가 apply 를 Update 안에서 부르는
 // 약속을 그대로 쓴 것이다(ADR-0115).
-type graphState struct {
+type graphList struct {
 	rows    []graphRow
 	walk    *graphWalk // 읽는 중이면 nil 이다. job 이 들고 갔다
 	reading bool
@@ -62,7 +62,7 @@ func graphMode(e *editor) (tea.Model, tea.Cmd) {
 	}
 
 	// 열 때마다 처음부터다. 앞서 본 것이 남아 있으면 그 사이의 커밋이 빠진 기록이 된다.
-	e.graph = graphState{walk: walk}
+	e.graph = graphList{walk: walk}
 
 	m := viewGraph{editor: e}
 
@@ -217,7 +217,7 @@ func (m viewGraph) run(key string) (tea.Model, tea.Cmd) {
 	case "q", "esc":
 		// **담아 둔 것을 여기서 놓는다.** 어차피 다시 열 때 처음부터 읽으므로 들고 있을 값이
 		// 없고, 깊이 훑어 내려간 뒤 닫으면 수만 커밋이 그대로 남는다.
-		m.graph = graphState{}
+		m.graph = graphList{}
 
 		return normalMode(m.editor)
 	case "j", "down":
@@ -275,17 +275,50 @@ func (m *viewGraph) move(delta int) {
 	m.scrollTo()
 }
 
-// graphRows 는 목록에 보일 수 있는 커밋 수다. 커밋 하나가 두 행이라 절반이다.
+// graphHeightOf 는 커밋 하나가 쓰는 화면 행 수다.
 //
-// **반쪽 커밋은 그리지 않는다.** 화면 행이 홀수면 마지막 한 행이 남는데, 거기에 커밋의 첫
-// 줄만 그리면 그 커밋이 목록에 있는지 없는지가 갈리지 않는다.
+// **고정이 아니다.** merge 가 연 열을 다시 왼쪽으로 당겨 붙이는 데 몇 행이 드는데, 그 수가
+// 열 배치에 따라 달라진다. 갈래가 없는 구간은 두 행이다(git-graph-draw.go, ADR-0141).
+func graphHeightOf(row graphRow) int {
+	return max(len(row.graph), graphRowsPerCommit)
+}
+
+// graphSpanOf 는 [from, to) 커밋들이 차지하는 화면 행 수다.
+func (m viewGraph) graphSpanOf(from, to int) int {
+	total := 0
+	for i := max(from, 0); i < min(to, len(m.graph.rows)); i++ {
+		total += graphHeightOf(m.graph.rows[i])
+	}
+
+	return total
+}
+
+// graphRows 는 지금 첫 커밋에서 **통째로** 담기는 커밋 수다. pgup·pgdown 이 이만큼 움직인다.
+//
+// **반쪽 커밋은 그리지 않는다.** 남은 행에 커밋의 첫 줄만 그리면 그 커밋이 목록에 있는지
+// 없는지가 갈리지 않는다. 커밋마다 높이가 달라지면서 이 수도 보고 있는 자리에 따라 달라진다.
 func (m viewGraph) graphRows() int {
-	return max(m.listHeight()/graphRowsPerCommit, 1)
+	left, count := m.listHeight(), 0
+
+	for i := m.top; i < len(m.graph.rows); i++ {
+		height := graphHeightOf(m.graph.rows[i])
+		if height > left {
+			break
+		}
+
+		left -= height
+		count++
+	}
+
+	return max(count, 1)
 }
 
 // scrollTo 는 고른 커밋이 보이도록 첫 커밋을 최소한으로 움직인다.
+//
+// **첫 커밋은 커밋 단위다.** 화면 행으로 굴리면 커밋이 위에서 반쪽만 잘린 채 서는데,
+// 그 커밋이 목록에 있는지가 갈리지 않는다(graphRows).
 func (m *viewGraph) scrollTo() {
-	rows, height := len(m.graph.rows), m.graphRows()
+	rows, height := len(m.graph.rows), m.listHeight()
 	if rows == 0 {
 		m.selected, m.top = 0, 0
 
@@ -293,42 +326,57 @@ func (m *viewGraph) scrollTo() {
 	}
 
 	m.selected = min(max(m.selected, 0), rows-1)
-	m.top = min(max(m.top, 0), max(rows-height, 0))
+	m.top = min(max(m.top, 0), rows-1)
 
 	if m.selected < m.top {
 		m.top = m.selected
 	}
-	if m.selected >= m.top+height {
-		m.top = m.selected - height + 1
+
+	// 고른 커밋이 통째로 들어올 때까지 첫 커밋을 내린다. 높이가 커밋마다 달라서 뺄셈 한 번으로
+	// 나오지 않는다.
+	for m.top < m.selected && m.graphSpanOf(m.top, m.selected+1) > height {
+		m.top++
 	}
 }
 
 func (m viewGraph) View() tea.View {
-	height := m.graphRows()
-	shown := m.graph.rows[m.top:min(m.top+height, len(m.graph.rows))]
+	height := m.listHeight()
 
-	body := make([]string, 0, height*graphRowsPerCommit)
-	for i, row := range shown {
-		body = append(body, m.renderCommit(row, m.top+i == m.selected)...)
+	body := make([]string, 0, height)
+	cursorY := -1
+
+	for i := m.top; i < len(m.graph.rows); i++ {
+		lines := m.renderCommit(m.graph.rows[i], i == m.selected)
+		if len(body)+len(lines) > height {
+			break
+		}
+
+		// 커서는 **점 행**이다. 접는 행이 그 위에 붙을 수 있어서 커밋의 첫 행이 아니다.
+		// 점 행은 끝에서 두 번째다 — 마지막은 늘 잇는 행이다.
+		if i == m.selected {
+			cursorY = len(body) + len(lines) - 2
+		}
+
+		body = append(body, lines...)
 	}
 
 	if len(m.graph.rows) == 0 && height > 0 {
 		body = append(body, " "+m.emptyLabel())
 	}
 
-	for len(body) < m.listHeight() {
+	for len(body) < height {
 		body = append(body, "")
 	}
 
 	screen := append([]string{m.renderTitle()}, body...)
-	screen = append(screen, styleDetail.Render(" j/k 이동  enter 상세  q 닫기"))
+	screen = append(screen, styleDetail.Render(truncateToWidth(" j/k 이동  enter 상세  q 닫기", m.width)))
 	screen = append(screen, m.bareStatusBar("GRAPH", m.notice)...)
 
 	view := newView(screen, m.renderWindowTitle())
 
-	// 커서는 고른 커밋의 첫 행 왼쪽 끝이다. 제목줄이 한 행을 쓰므로 그 아래에서 센다.
-	if len(m.graph.rows) > 0 {
-		view.Cursor = tea.NewCursor(0, (m.selected-m.top)*graphRowsPerCommit+jobsTitleHeight)
+	// 제목줄이 한 행을 쓰므로 그 아래에서 센다. 고른 커밋이 화면에 없으면 커서도 없다.
+	if cursorY >= 0 {
+		view.Cursor = tea.NewCursor(0, cursorY+jobsTitleHeight)
 		view.Cursor.Shape = tea.CursorBlock
 	} else {
 		view.Cursor = nil
@@ -359,15 +407,20 @@ func (m viewGraph) renderTitle() string {
 	return reverse.Width(m.width).Render(truncateToWidth(label, m.width))
 }
 
-// renderCommit 은 커밋 하나의 두 행이다. `git graph` 의 두 줄 형식 그대로다.
+// renderCommit 은 커밋 하나의 행들이다. `git graph` 의 두 줄 형식에 접는 행이 얹힌다.
 //
+//	  │╱          접는 행. 이 커밋으로 접히는 열이 있을 때만 선다
 //	▸ ● ca5e330 - Tue, 1 Sep 2026 11:26:05 +0900 (3 시간 전) (HEAD → master)
 //	  │           feature: 명령줄의 `%` 를 지금 보고 있는 파일로 편다 - BlueMir
 //
-// 아랫줄의 들여쓰기는 짧은 해시와 ` - ` 를 합친 만큼이라 제목이 날짜 아래에 선다.
+// 셋째 줄의 들여쓰기는 짧은 해시와 ` - ` 를 합친 만큼이라 제목이 날짜 아래에 선다.
 //
-// 고른 커밋은 **두 행 다** 반전하고 첫 행에 `▸` 가 붙는다. 한 항목이 두 행이라 한 행만
-// 칠하면 어디까지가 한 커밋인지가 갈리지 않는다.
+// **`▸` 는 점 행에 붙는다.** 접는 행이 위에 서도 표시는 커밋 이름 옆에 남는다 — 그것이
+// 무엇을 가리키는지가 그 줄에 있어야 한다.
+//
+// 고른 커밋은 **모든 행을** 반전한다. 한 항목이 여러 행이라 한 행만 칠하면 어디까지가 한
+// 커밋인지가 갈리지 않는다. 접는 행도 이 커밋의 것이다 — 거기 모이는 갈래들이 이 커밋에서
+// 만난다(ADR-0141).
 //
 // **고른 줄에는 색을 얹지 않는다.** 색을 켜고 끄는 escape 가 안에 있으면 그 자리에서 반전이
 // 끊겨 줄이 얼룩덜룩해진다. 고른 줄이 무엇인지는 반전 하나로 이미 다 말한다.
@@ -386,7 +439,7 @@ func (m viewGraph) renderCommit(row graphRow, selected bool) []string {
 		return style.Render(text)
 	}
 
-	commit, lanes := row.commit, graphLanes(row)
+	commit, width := row.commit, graphWidthOf(row)
 
 	head := paint(commit.short, styleCommitHash) +
 		" - " + paint(commit.when.Format(graphDateFormat), styleCommitDate) +
@@ -398,10 +451,27 @@ func (m viewGraph) renderCommit(row graphRow, selected bool) []string {
 		subject += " - " + paint(commit.author, styleDetail)
 	}
 
-	// 그래프 칸은 열마다 사이 칸을 이미 들고 있어서(graphCellsPerLane) 따로 띄우지 않는다.
-	lines := []string{
-		marker + renderGraphMark(m.boxChars, row, lanes) + head,
-		blank + renderGraphLink(m.boxChars, row, lanes) + subject,
+	// 그래프 행에 글을 붙인다. 커밋이 선 행에 이름이, 그다음 행에 제목이 간다.
+	// 나머지 행은 열을 옮기는 그림뿐이라 글이 붙지 않는다.
+	lines := make([]string, 0, graphHeightOf(row))
+
+	for i, line := range row.graph {
+		prefix, text := blank, ""
+
+		switch i {
+		case row.commitLine:
+			prefix, text = marker, head
+		case row.commitLine + 1:
+			text = subject
+		}
+
+		lines = append(lines, prefix+renderGraphLine(m.boxChars, line, width)+text)
+	}
+
+	// **제목이 설 자리를 만든다.** git 은 커밋 하나를 한 행으로 낼 수도 있는데 우리 형식은
+	// 두 줄이다. 모자라면 열만 그린 행을 붙인다. git 도 메시지가 길면 그 자리에 같은 행을 낸다.
+	for len(lines) <= row.commitLine+1 {
+		lines = append(lines, blank+renderGraphLine(m.boxChars, row.pad, width)+subject)
 	}
 
 	for i, line := range lines {

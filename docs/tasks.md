@@ -21,6 +21,12 @@
 - [ ] `]f`·`[f` 로 같은 커밋의 다음 파일로 넘어갈지 정한다. 지금은 `q` 로 목록에 돌아가 고른다 (ADR-0140 §4)
 - [ ] `GRAPH`·`JOBS`·`MESSAGES` 도 눌러서 고를 수 있게 할지 정한다. `DIFF`·`COMMIT` 만 받는다 (ADR-0140 §1)
 	- 고르는 커서가 있는 판인데 누르기를 안 받는 것이 셋 남았다. 받게 하면 네 판이 같은 규칙이 된다
+- [x] 커밋 기록의 그래프를 git 의 알고리즘으로 옮기고 backmerge 를 보이게 한다 (ADR-0141)
+- [ ] 커밋 기록의 차례를 `--topo-order` 로 바꿀지 정한다 (ADR-0141 §3)
+	- git 의 `--graph` 는 이 차례를 함의한다. 갈래의 커밋을 붙여 놓아 섞이지 않게 한다. 지금 우리 차례는 커밋한 때이고 git 의 `--date-order` 와 같다
+	- **조금씩 읽기와 부딪힌다.** 범위 안 모든 커밋의 자식 수를 먼저 세야 해서, 여는 순간 저장소를 통째로 읽게 된다 (ADR-0115 §3)
+	- git 도 commit-graph 파일의 세대 번호가 있을 때만 게으르게 한다. go-git 이 그것을 내주는지부터 잰다
+- [ ] 커밋 기록의 갈래마다 색을 나눌지 정한다. git 은 `--color` 에서 열마다 색을 돌려 쓴다 (ADR-0141)
 - [ ] `internal/tui` scaffolding(697 줄) 을 걷어낼지 정한다
 	- `cmd/main.go` 가 `internal/core` 와 `internal/buildinfo` 만 부르고 `tui.Run` 을 부르는 자리가 없어 죽은 채로 있다. 안에 있는 것은 메인 메뉴와 form 예제다
 	- `components/` 의 `input`·`number`·`select` 는 나중에 쓸 자리가 있을 수 있어 같이 본다. `scripts/tools/make-select` 가 import 하는 `internal/tui` 는 이름만 같은 다른 모듈이다

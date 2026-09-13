@@ -32,16 +32,23 @@ type graphCommit struct {
 
 // graphRow 는 커밋 하나가 그래프에서 차지하는 자리다.
 //
-// before·after 는 **열마다 그 열이 기다리는 커밋**이고 빈 열은 ZeroHash 다. 첫 줄은 before 를
-// 그리며 자기 열에 점을 찍고, 둘째 줄은 before 에서 after 로 넘어가는 선을 그린다(render-graph.go).
+// graph 는 이 커밋이 쓰는 그래프 행들이고 commitLine 이 그중 커밋이 선 행이다. 행 수가
+// 커밋마다 다르다 — merge 가 연 열을 다시 왼쪽으로 당겨 붙이는 데 몇 행이 들기 때문이다
+// (git-graph-draw.go, ADR-0141).
 //
-// 그리는 법을 여기 담지 않는 것은 글자가 터미널에 따라 갈리기 때문이다(ADR-0028). 훑기는
-// 어느 글자로 그릴지 몰라도 된다.
+// **칸이 무엇인지만 담고 글자는 담지 않는다.** 어느 글자로 그릴지는 터미널에 따라 갈리는
+// 판단이라 그리는 쪽이 고른다(ADR-0028).
 type graphRow struct {
 	commit graphCommit
-	lane   int // 점이 찍히는 열. before 안의 자리다
-	before []plumbing.Hash
-	after  []plumbing.Hash
+
+	graph      [][]graphSymbol
+	commitLine int
+
+	// pad 는 행이 모자랄 때 덧붙일 행이다. 살아 있는 열을 그대로 내려 긋기만 한다.
+	//
+	// git 은 커밋 하나를 한 행으로 낼 수도 있는데 우리 형식은 두 줄이다. 그 자리를 빈 칸으로
+	// 두면 지나가던 갈래의 선이 한 행 끊긴다.
+	pad []graphSymbol
 }
 
 // graphWalk 는 훑는 도중의 자리다.
@@ -69,8 +76,11 @@ type graphWalk struct {
 	// 두 번 내보내지 않게 한다.
 	seen map[plumbing.Hash]bool
 
-	// lanes 는 열마다 그 열이 기다리는 커밋이다. 빈 열은 ZeroHash 다.
-	lanes []plumbing.Hash
+	// drawer 는 그래프 행을 내는 상태 기계다. git 의 `--graph` 를 옮긴 것이다.
+	//
+	// **훑기가 들고 다닌다.** 앞 커밋에서 이어지는 열 배치 위에서만 다음 행이 나온다
+	// (git-graph-draw.go, ADR-0141).
+	drawer *graphDrawer
 }
 
 // newGraphWalk 는 dir 이 든 저장소의 훑기를 세운다. 저장소가 아니면 오류다.
@@ -89,6 +99,7 @@ func newGraphWalk(dir string) (*graphWalk, error) {
 		shortLen: gitShortHashLen(gitPackedObjectCount(root)),
 		refs:     map[plumbing.Hash][]string{},
 		seen:     map[plumbing.Hash]bool{},
+		drawer:   newGraphDrawer(),
 	}
 
 	if err := walk.collectRefs(); err != nil {
@@ -278,10 +289,9 @@ func (w *graphWalk) next(ctx context.Context, n int) ([]graphRow, bool, error) {
 	return rows, len(w.queue) > 0, nil
 }
 
-// emit 은 커밋 하나를 내보내며 레인을 옮긴다.
+// emit 은 커밋 하나를 내보내며 그래프 행을 받는다.
 //
-// 세 걸음이다. 자기 열을 찾고, 같은 커밋을 기다리던 다른 열을 그리로 모으고, 자기 열을
-// 부모로 갈아 끼운다. 부모가 여럿이면 나머지는 빈 열을 얻는다.
+// 열을 옮기는 일은 전부 drawer 안이다. 여기 남은 것은 「어느 부모가 읽히는가」뿐이다.
 func (w *graphWalk) emit(commit *object.Commit) graphRow {
 	// 부모를 먼저 큐에 넣는다. 읽히지 않는 부모(얕은 복제) 는 레인에서도 뺀다 — 아무도
 	// 서지 않을 열을 열어두면 그 선이 화면 끝까지 내려간다.
@@ -292,65 +302,13 @@ func (w *graphWalk) emit(commit *object.Commit) graphRow {
 		}
 	}
 
-	lane := slices.Index(w.lanes, commit.Hash)
-	if lane < 0 {
-		lane = w.freeLane()
-		w.lanes[lane] = commit.Hash
-	}
-
-	before := slices.Clone(w.lanes)
-
-	// 이 커밋을 기다리던 다른 열은 여기로 모인다. 자식이 여럿인 커밋이 그렇다.
-	for i := range w.lanes {
-		if i != lane && w.lanes[i] == commit.Hash {
-			w.lanes[i] = plumbing.ZeroHash
-		}
-	}
-
-	if len(parents) == 0 {
-		// 뿌리 커밋이다. 이 열은 여기서 끝난다.
-		w.lanes[lane] = plumbing.ZeroHash
-	} else {
-		w.lanes[lane] = parents[0]
-
-		// merge 의 나머지 부모다. 이미 서 있는 열이 있으면 그리로 붙고, 없으면 열을 연다.
-		for _, hash := range parents[1:] {
-			if slices.Contains(w.lanes, hash) {
-				continue
-			}
-
-			w.lanes[w.freeLane()] = hash
-		}
-	}
-
-	w.trimLanes()
+	graph, at, pad := w.drawer.draw(commit.Hash, parents)
 
 	return graphRow{
-		commit: w.describe(commit),
-		lane:   lane,
-		before: before,
-		after:  slices.Clone(w.lanes),
-	}
-}
-
-// freeLane 은 쓸 수 있는 열 번호다. 빈 열이 없으면 하나 늘린다.
-//
-// **왼쪽부터 찾는다.** 그래야 갈래가 끝난 자리를 다음 갈래가 물려받아 그래프가 오른쪽으로만
-// 자라지 않는다. git 도 같다.
-func (w *graphWalk) freeLane() int {
-	if at := slices.Index(w.lanes, plumbing.ZeroHash); at >= 0 {
-		return at
-	}
-
-	w.lanes = append(w.lanes, plumbing.ZeroHash)
-
-	return len(w.lanes) - 1
-}
-
-// trimLanes 는 오른쪽 끝의 빈 열을 떨군다. 남겨 두면 그래프 칸이 쓸데없이 넓어진다.
-func (w *graphWalk) trimLanes() {
-	for len(w.lanes) > 0 && w.lanes[len(w.lanes)-1] == plumbing.ZeroHash {
-		w.lanes = w.lanes[:len(w.lanes)-1]
+		commit:     w.describe(commit),
+		graph:      graph,
+		commitLine: at,
+		pad:        pad,
 	}
 }
 
