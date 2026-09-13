@@ -9,6 +9,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluemir/zn/internal/textarea"
 )
 
 // newCommitView 는 fixture 저장소의 커밋 하나를 연 상세 화면이다.
@@ -117,6 +119,51 @@ func TestCommitViewScrollsWithoutFiles(t *testing.T) {
 
 	m.move(9999)
 	assert.Equal(t, max(len(m.lines())-m.listHeight(), 0), m.top, "맨 아래에서 멈춘다")
+}
+
+// 파일 목록 위에 합계 한 줄이 선다(ADR-0142).
+//
+// git 은 목록 아래에 적는데 우리는 위다. 목록이 길면 아래는 화면 밖이다.
+func TestCommitViewShowsStat(t *testing.T) {
+	m := newCommitView(t, 0)
+	require.NotEmpty(t, m.detail.files)
+
+	lines := m.lines()
+
+	// 합계는 파일 목록 바로 앞줄이다.
+	stat := ansi.Strip(lines[m.fileTop()-1])
+
+	assert.Contains(t, stat, "파일 "+formatCount(len(m.detail.files))+" 개")
+	assert.Contains(t, stat, "+")
+	assert.Contains(t, stat, "-")
+}
+
+// 줄 수는 오른쪽 끝에 선다. 이름이 길면 수를 밀어내지 않고 이름을 자른다.
+func TestCommitViewAlignsCountsRight(t *testing.T) {
+	m := newCommitView(t, 0)
+	m.detail.files = []commitFile{
+		{action: "M", path: "a.txt", added: 1, removed: 2},
+		{action: "A", path: strings.Repeat("아주-긴-이름/", 20) + "b.txt", added: 1234, removed: 0},
+	}
+
+	for at := range m.detail.files {
+		row := ansi.Strip(m.renderFile(at, true))
+
+		assert.Equal(t, m.width, textarea.WidthOf(row), "%d 번째 줄이 폭을 꽉 채운다", at)
+		assert.True(t, strings.HasSuffix(row, m.detail.files[at].removedText()),
+			"%d 번째 줄이 들어낸 수로 끝난다", at)
+	}
+}
+
+// 줄로 셀 수 없는 파일은 수 대신 그렇다고 적는다.
+func TestCommitViewShowsBinary(t *testing.T) {
+	m := newCommitView(t, 0)
+	m.detail.files = []commitFile{{action: "M", path: "logo.png", binary: true}}
+
+	row := ansi.Strip(m.renderFile(0, true))
+
+	assert.True(t, strings.HasSuffix(row, "이진"))
+	assert.Equal(t, m.width, textarea.WidthOf(row))
 }
 
 // 파일 줄을 누르면 그것을 고른다. 열지는 않는다(ADR-0012).

@@ -310,8 +310,8 @@ func (m viewCommit) View() tea.View {
 		// 반전이 끊겨 줄이 얼룩덜룩해진다. 고른 줄이 무엇인지는 반전 하나로 이미 다 말한다
 		// (view-graph.go 의 renderCommit 과 같은 자리다).
 		if len(m.detail.files) > 0 && i == selected {
-			label := " " + m.detail.files[m.selected].label()
-			body = append(body, reverse.Render(padTo(truncateToWidth(label, m.width), m.width)))
+			row := m.renderFile(m.selected, true)
+			body = append(body, reverse.Render(padTo(truncateToWidth(row, m.width), m.width)))
 
 			continue
 		}
@@ -406,12 +406,83 @@ func (m viewCommit) lines() []string {
 		return lines
 	}
 
-	lines = append(lines, "")
-	for _, file := range m.detail.files {
-		lines = append(lines, " "+styleCommitFile(file.action).Render(file.label()))
+	lines = append(lines, m.renderStat())
+	for i := range m.detail.files {
+		lines = append(lines, m.renderFile(i, false))
 	}
 
 	return lines
+}
+
+// renderStat 은 파일 목록 **위**에 서는 합계 한 줄이다.
+//
+// git 은 목록 아래에 적는데 우리는 위다. 목록이 길면 아래는 화면 밖이라, 먼저 보이는 자리에
+// 있어야 「이 커밋이 얼마나 큰가」를 묻는 눈에 닿는다(ADR-0142).
+func (m viewCommit) renderStat() string {
+	added, removed := 0, 0
+	for _, file := range m.detail.files {
+		added, removed = added+file.added, removed+file.removed
+	}
+
+	return " 파일 " + formatCount(len(m.detail.files)) + " 개  " +
+		styleGitAdded.Render("+"+formatCount(added)) + "  " +
+		styleGitRemoved.Render("-"+formatCount(removed))
+}
+
+// renderFile 은 목록 한 줄이다. 이름이 왼쪽이고 줄 수가 오른쪽 끝이다.
+//
+// **이름 앞이 아니라 오른쪽 끝이다.** 앞에 두면 자릿수가 파일마다 달라 이름이 들쭉날쭉해진다.
+// 오른쪽에 세우면 수끼리 한 줄로 서서 세로로 훑을 수 있다. 트리가 `M`·`?` 를 오른쪽 끝에
+// 세운 것과 같은 손이다(ADR-0094 §6, ADR-0142).
+//
+// plain 은 고른 줄이다. 반전 위에 색을 얹으면 그 자리에서 반전이 끊겨 줄이 얼룩덜룩해진다.
+func (m viewCommit) renderFile(at int, plain bool) string {
+	file := m.detail.files[at]
+	added, removed := m.countWidths()
+
+	left := " " + file.label()
+	counts := file.counts(added, removed)
+
+	// 이름이 길면 수를 밀어내지 않고 이름을 자른다. 수는 늘 오른쪽 끝에 선다.
+	room := max(m.width-textarea.WidthOf(counts)-1, 0)
+	left = padTo(truncateToWidth(left, room), room)
+
+	if plain {
+		return left + " " + counts
+	}
+
+	return styleCommitFile(file.action).Render(left) + " " + m.paintCounts(file, counts)
+}
+
+// paintCounts 는 넣은 수를 초록, 들어낸 수를 빨강으로 칠한다. git 마커와 같은 색이다.
+//
+// 이진 파일은 수가 아니라 말이라 흐린 회색이다.
+func (m viewCommit) paintCounts(file commitFile, counts string) string {
+	if file.binary {
+		return styleDetail.Render(counts)
+	}
+
+	at := strings.LastIndex(counts, " ")
+
+	return styleGitAdded.Render(counts[:at]) + styleGitRemoved.Render(counts[at:])
+}
+
+// countWidths 는 넣은 수와 들어낸 수가 잡을 폭이다. 목록에서 가장 긴 것에 맞춘다.
+//
+// 부호와 자리 구분 쉼표까지 든 글자 수다. 이진 파일은 수가 아니라 말이라 세지 않는다.
+func (m viewCommit) countWidths() (int, int) {
+	added, removed := 0, 0
+
+	for _, file := range m.detail.files {
+		if file.binary {
+			continue
+		}
+
+		added = max(added, len(file.addedText()))
+		removed = max(removed, len(file.removedText()))
+	}
+
+	return added, removed
 }
 
 // styleCommitFile 은 건드린 파일 한 줄의 색이다. git 마커와 같은 색을 쓴다(ADR-0094).

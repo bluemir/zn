@@ -3,7 +3,9 @@ package core
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -132,4 +134,94 @@ func TestCommitFileLabel(t *testing.T) {
 	assert.Equal(t, "M  main.go", commitFile{action: "M", path: "main.go"}.label())
 	assert.Equal(t, "R  old.go → new.go",
 		commitFile{action: "R", path: "new.go", from: "old.go"}.label())
+}
+
+// 줄 수가 `git show --numstat` 과 같은지 진짜 git 에 대 본다(ADR-0142).
+//
+// **이 셈의 기준선이다.** 손으로 적은 기대값은 틀린 셈을 굳힌다. git 과 같은가가 곧 맞는지다.
+func TestCommitFilesMatchGitNumstat(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git 이 없다")
+	}
+
+	root := newGraphFixture(t)
+
+	for _, hash := range gitLogHashes(t, root, "--all") {
+		detail, err := readCommitDetail(context.Background(), root, plumbing.NewHash(hash))
+		require.NoError(t, err)
+
+		want := gitNumstat(t, root, hash)
+
+		got := map[string][2]int{}
+		for _, file := range detail.files {
+			got[file.path] = [2]int{file.added, file.removed}
+		}
+
+		assert.Equal(t, want, got, "커밋 %s", hash[:7])
+	}
+}
+
+// gitNumstat 은 `git show --numstat` 이 낸 경로별 줄 수다.
+func gitNumstat(t *testing.T, root, hash string) map[string][2]int {
+	t.Helper()
+
+	out := runGit(t, root, "show", "--numstat", "--format=", "-m", "--first-parent", hash)
+
+	stat := map[string][2]int{}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 3 || fields[0] == "-" {
+			continue
+		}
+
+		added, err := strconv.Atoi(fields[0])
+		require.NoError(t, err)
+		removed, err := strconv.Atoi(fields[1])
+		require.NoError(t, err)
+
+		stat[fields[2]] = [2]int{added, removed}
+	}
+
+	return stat
+}
+
+// 고친 줄은 양쪽에 한 번씩 든다. 사람이 한 일은 하나인데 diff 는 둘로 적는다.
+func TestCommitFileCountsChangedLineOnBothSides(t *testing.T) {
+	var file commitFile
+
+	before := splitDiffLines("a\nb\nc")
+	after := splitDiffLines("a\nB\nc")
+
+	for _, row := range buildDiffRows(before, after) {
+		switch row.kind {
+		case diffRowAdded:
+			file.added++
+		case diffRowRemoved:
+			file.removed++
+		case diffRowChanged:
+			file.added, file.removed = file.added+1, file.removed+1
+		}
+	}
+
+	assert.Equal(t, 1, file.added)
+	assert.Equal(t, 1, file.removed)
+}
+
+// 부호를 직접 쓴다. `%+d` 는 0 에도 `+` 를 붙여서 지운 것이 없는 파일이 `+0` 으로 적힌다.
+func TestCommitFileCountsSigns(t *testing.T) {
+	file := commitFile{added: 274, removed: 0}
+
+	assert.Equal(t, "+274", file.addedText())
+	assert.Equal(t, "-0", file.removedText())
+	assert.Equal(t, "+274    -0", file.counts(4, 5), "칸 넷과 다섯에 맞추고 사이에 한 칸")
+}
+
+// 줄로 셀 수 없는 파일은 수 대신 그렇다고 적는다. 비워 두면 안 바뀐 것처럼 보인다.
+func TestCommitFileCountsBinary(t *testing.T) {
+	assert.Equal(t, "이진", commitFile{binary: true}.counts(4, 4))
+}
+
+// 앞 8,000 byte 에 NUL 이 있으면 이진이다. git 이 쓰는 잣대와 같다.
+func TestCommitBinarySniff(t *testing.T) {
+	assert.Equal(t, 8000, commitBinarySniff)
 }
