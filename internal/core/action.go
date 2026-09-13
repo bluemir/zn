@@ -774,8 +774,11 @@ func (c actionRename) run(e *editor) (tea.Model, tea.Cmd) {
 
 // actionNextChange·actionPrevChange 는 `]c`·`[c` 다. git 으로 바뀐 자리 사이를 뛴다(ADR-0095).
 //
-// vim 에 있는 키인데 diff mode 안에서만 뜻이 있다(`:help ]c`). 우리는 diff mode 가 없어서
-// 그 자리가 비어 있고, 같은 뜻으로 쓴다.
+// vim 에 있는 키인데 diff mode 안에서만 뜻이 있다(`:help ]c`). 우리는 편집 화면에서도 같은
+// 뜻으로 쓴다. 견주는 것만 다르다 — vim 은 나란히 연 두 buffer 이고 여기는 HEAD 다.
+//
+// diff 판 안에서는 이 키가 vim 본래의 자리로 선다. 그쪽은 판이 제 키맵으로 받는다
+// (view-diff.go 의 jumpHunk, ADR-0140 §1).
 type actionNextChange struct{ count int }
 
 func (c actionNextChange) run(e *editor) (tea.Model, tea.Cmd) {

@@ -47,6 +47,12 @@ type viewCommit struct {
 	detail commitDetail
 	ready  bool
 
+	// selected 는 건드린 파일 목록에서 고른 자리다. 파일이 없으면 뜻이 없다.
+	//
+	// **목록에 커서가 생겼다.** 전에는 이 화면이 통째로 굴러가기만 했는데, 그러면 파일
+	// 이름까지 보이고 그 파일이 어떻게 바뀌었는지는 볼 길이 없었다(ADR-0140 §3).
+	selected int
+
 	top int // 첫 행
 }
 
@@ -94,6 +100,13 @@ func (m viewCommit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyPressMsg:
 		return m.press(msg.String())
+	case tea.MouseClickMsg:
+		// 왼쪽만 본다. 이 화면은 tabline 을 덮고 있어서 오른쪽 버튼이 닫을 tab 이 없다.
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+			m.click(mouse.Y)
+		}
+
+		return m, nil
 	case tea.MouseWheelMsg:
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -137,7 +150,10 @@ func (m viewCommit) press(key string) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
-// run 은 동작 하나다. 읽기만 하는 화면이라 스크롤과 나가기뿐이다.
+// run 은 동작 하나다. 기록을 고치는 키는 없다. 읽고 고르는 화면이다.
+//
+// **건드린 파일이 있으면 `j`·`k` 가 그 목록을 고른다.** 없으면 전문을 굴리기만 한다.
+// 커서를 세울 데가 없는 화면에서 고르는 손을 흉내 내면 키가 안 먹은 것으로 읽힌다.
 func (m viewCommit) run(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
@@ -161,16 +177,40 @@ func (m viewCommit) run(key string) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case "g", "home":
-		m.top = 0
+		m.moveTo(0)
 
 		return m, nil
 	case "G", "end":
-		m.move(len(m.lines()))
+		m.moveTo(len(m.detail.files))
 
 		return m, nil
+	case "enter":
+		return m.openDiff()
 	default:
 		return m, nil
 	}
+}
+
+// openDiff 는 `enter` 다. 고른 파일이 이 커밋에서 어떻게 바뀌었는지를 연다(ADR-0140 §3).
+//
+// **이 화면을 그대로 넘겨준다.** diff 판에서 `q` 를 치면 고른 자리와 스크롤이 남은 채로
+// 돌아온다. 목록이 상세를 열 때와 같은 손이다(view-graph.go).
+//
+// 옮긴 파일은 왼쪽이 이전 이름이다. 그러지 않으면 옮긴 것이 통째로 지우고 새로 만든 것으로
+// 보인다.
+func (m viewCommit) openDiff() (tea.Model, tea.Cmd) {
+	if !m.ready || len(m.detail.files) == 0 {
+		return m, nil
+	}
+
+	_, root, _, ok := openGitRepo(".")
+	if !ok {
+		return m, nil
+	}
+
+	request := diffCommitRequest(m.detail, m.commit, m.detail.files[m.selected], root)
+
+	return diffMode(m, m.editor, request)
 }
 
 // close 는 목록으로 돌아간다. 목록은 이 화면을 열 때 그대로 넘겨받은 것이다.
@@ -178,25 +218,104 @@ func (m viewCommit) close() (tea.Model, tea.Cmd) {
 	return m.parent, nil
 }
 
-// move 는 화면을 굴린다. 양끝에서 멈춘다.
-func (m *viewCommit) move(delta int) {
-	m.top += delta
+// click 은 누른 화면 행의 파일을 고른다. 파일 줄이 아니면 아무 일도 하지 않는다.
+//
+// **전문 쪽을 눌러도 고른 것이 움직이지 않는다.** 거기에는 고를 것이 없어서, 가장 가까운
+// 파일로 끌어다 붙이면 누른 자리와 골라진 자리가 어긋난다.
+//
+// 열지는 않는다. 누르는 것은 고르는 일이고 여는 것은 `enter` 다(ADR-0012).
+func (m *viewCommit) click(y int) {
+	if len(m.detail.files) == 0 {
+		return
+	}
+
+	row := y - jobsTitleHeight
+	if row < 0 || row >= m.listHeight() {
+		return
+	}
+
+	at := m.top + row - m.fileTop()
+	if at < 0 || at >= len(m.detail.files) {
+		return
+	}
+
+	m.selected = at
 	m.scrollTo()
 }
 
-// scrollTo 는 첫 행을 담긴 것 안으로 맞춘다.
+// move 는 delta 만큼 옮긴다. 고를 파일이 있으면 고른 자리를, 없으면 화면을 움직인다.
+func (m *viewCommit) move(delta int) {
+	if len(m.detail.files) == 0 {
+		m.top += delta
+		m.scrollTo()
+
+		return
+	}
+
+	m.moveTo(m.selected + delta)
+}
+
+// moveTo 는 고른 파일을 그 자리로 옮긴다. 양끝에서 멈춘다.
+func (m *viewCommit) moveTo(at int) {
+	if len(m.detail.files) == 0 {
+		m.top = 0
+		m.scrollTo()
+
+		return
+	}
+
+	m.selected = min(max(at, 0), len(m.detail.files)-1)
+	m.scrollTo()
+}
+
+// fileTop 은 파일 목록의 첫 행이 화면 행 목록에서 몇 번째인지다.
+//
+// **목록이 늘 맨 아래다**(lines). 그래서 세는 것이 아니라 뒤에서 떼면 된다.
+func (m viewCommit) fileTop() int {
+	return len(m.lines()) - len(m.detail.files)
+}
+
+// scrollTo 는 첫 행을 담긴 것 안으로 맞춘다. 고른 파일이 있으면 그것이 보이게 한다.
 //
 // 마지막 행이 화면 맨 아래에 오는 자리가 끝이다. 편집 영역과 같은 한계다.
 func (m *viewCommit) scrollTo() {
-	m.top = max(0, min(m.top, max(len(m.lines())-m.listHeight(), 0)))
+	rows, height := len(m.lines()), m.listHeight()
+
+	m.top = max(0, min(m.top, max(rows-height, 0)))
+
+	if len(m.detail.files) == 0 || height < 1 {
+		return
+	}
+
+	m.selected = min(max(m.selected, 0), len(m.detail.files)-1)
+
+	at := m.fileTop() + m.selected
+	if at < m.top {
+		m.top = at
+	}
+	if at >= m.top+height {
+		m.top = at - height + 1
+	}
 }
 
 func (m viewCommit) View() tea.View {
 	lines := m.lines()
 	height := m.listHeight()
 
+	selected := m.fileTop() + m.selected
+
 	body := make([]string, 0, height)
 	for i := m.top; i < len(lines) && len(body) < height; i++ {
+		// **고른 줄에는 색을 얹지 않는다.** 색을 켜고 끄는 escape 가 안에 있으면 그 자리에서
+		// 반전이 끊겨 줄이 얼룩덜룩해진다. 고른 줄이 무엇인지는 반전 하나로 이미 다 말한다
+		// (view-graph.go 의 renderCommit 과 같은 자리다).
+		if len(m.detail.files) > 0 && i == selected {
+			label := " " + m.detail.files[m.selected].label()
+			body = append(body, reverse.Render(padTo(truncateToWidth(label, m.width), m.width)))
+
+			continue
+		}
+
 		body = append(body, truncateToWidth(lines[i], m.width))
 	}
 
@@ -205,16 +324,30 @@ func (m viewCommit) View() tea.View {
 	}
 
 	screen := append([]string{m.renderTitle()}, body...)
-	screen = append(screen, styleDetail.Render(" j/k 스크롤  q 목록으로"))
+	screen = append(screen, styleDetail.Render(truncateToWidth(" "+m.hint(), m.width)))
 	screen = append(screen, m.bareStatusBar("COMMIT", m.notice)...)
 
 	view := newView(screen, m.renderWindowTitle())
 
-	// 고르는 것이 없는 화면이라 커서를 두지 않는다. 첫 행 왼쪽 끝에 두면 그 줄이
-	// 골라진 것처럼 보인다.
-	view.Cursor = nil
+	// 커서는 고른 파일의 왼쪽 끝이다. 건드린 파일이 없으면 고를 것이 없어서 두지 않는다 —
+	// 첫 행 왼쪽 끝에 두면 그 줄이 골라진 것처럼 보인다.
+	if len(m.detail.files) > 0 && selected >= m.top && selected < m.top+height {
+		view.Cursor = tea.NewCursor(0, selected-m.top+jobsTitleHeight)
+		view.Cursor.Shape = tea.CursorBlock
+	} else {
+		view.Cursor = nil
+	}
 
 	return view
+}
+
+// hint 는 아래 줄의 키 안내다. 고를 파일이 없으면 고르는 손을 적지 않는다.
+func (m viewCommit) hint() string {
+	if len(m.detail.files) == 0 {
+		return "j/k 스크롤  q 목록으로"
+	}
+
+	return "j/k 파일  enter diff  q 목록으로"
 }
 
 // renderTitle 은 맨 윗줄이다. 짧은 해시와 제목이다.

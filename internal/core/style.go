@@ -129,6 +129,57 @@ var (
 	styleGitRemoved  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 )
 
+// diff 판의 바탕색이다(ADR-0140 §6).
+//
+// **이 판에서만 배경이 갈래를 든다.** 글자색을 문법 강조에 내주기로 했으므로 넣은 줄과
+// 들어낸 줄이 설 자리가 배경뿐이다. ADR-0094 가 마커 칸에서 배경색을 기각한 근거 셋 중
+// 둘이 여기서는 성립하지 않는다. 들어낸 줄이 실제로 그 자리에 그려지므로 배경이 칠한 그 줄
+// 자신이 맞고, 이 판에는 배경을 이미 쓰고 있는 visual 선택도 검색 매칭도 없다.
+//
+// # 256 색 고정값이 아니라 참색이다
+//
+// 이 파일의 다른 값들과 갈린다. **256 색 큐브가 이 자리에 쓸 만큼 어둡지 않아서다** —
+// 큐브의 색 단계가 `00 5f 87 af d7 ff` 뿐이라 초록은 검정 다음이 바로 `#005f00` 인데,
+// 거기서는 가장 흐린 문법 색(주석 108) 의 대비가 3.2:1 로 떨어진다. 본문 문법 색이 지켜 온
+// 바닥이 6.8:1 이다(ADR-0041).
+//
+// 참색이라고 테마를 타지는 않는다. 256 색 고정값을 쓴 까닭이 「터미널 테마가 이 색을 바꾸지
+// 못하게」인데 그 성질은 그대로다. 참색을 못 내는 터미널에서는 lipgloss 가 가장 가까운
+// 256 색으로 내려 준다.
+//
+// # 값은 대비가 골랐다
+//
+// `#1e1e1e` 위의 문법 색 여덟을 이 바탕 위에서 다시 쟀다. 바탕에서 가장 낮은 것이 넣은 줄
+// 6.1:1, 들어낸 줄 6.5:1 이라 본문의 6.8:1 에 거의 닿는다. 글자 구간(strong) 은 4.7:1 과
+// 5.1:1 로 내려가는데, **그 바탕이 덮는 것은 달라진 글자 몇 개뿐**이고 그 자리가 바로
+// 눈이 가 있는 곳이다.
+//
+// 바탕끼리는 밝기가 아니라 색상으로 갈린다. `#1e1e1e` 와의 밝기 비가 1.04~1.10 이라 옅은데,
+// 줄을 가로지르는 넓은 띠라 색상 차이로 읽힌다. 진하게 하면 그만큼 문법 색이 죽는다.
+var (
+	colorDiffAdded         = lipgloss.Color("#122b18") // 넣은 줄
+	colorDiffAddedStrong   = lipgloss.Color("#1a4025") // 그중 달라진 글자
+	colorDiffRemoved       = lipgloss.Color("#331a1e") // 들어낸 줄
+	colorDiffRemovedStrong = lipgloss.Color("#57232c") // 그중 달라진 글자
+
+	// colorDiffSame 은 문맥 줄이다. 바탕을 칠하지 않는 것과 같아 보이되, 줄 끝까지 칠해야
+	// side-by-side 에서 두 열의 경계가 선다.
+	colorDiffSame = lipgloss.Color("#1e1e1e")
+
+	// colorDiffFiller 는 한쪽에 줄이 없는 자리다. 넣은 것도 들어낸 것도 아니라 색이 없고,
+	// 「여기에는 아무것도 없다」만 말한다.
+	colorDiffFiller = lipgloss.Color("#2a2a2a")
+
+	// colorDiffNumber 는 줄번호 칸의 글자색이다. 상대 줄번호·sidebar 와 같은 244 다.
+	colorDiffNumber = lipgloss.Color("244")
+)
+
+// styleDiffHeader 는 조각 머리줄(`@@ -47,2 +47,4 @@`) 의 색이다.
+//
+// git 이 청록으로 찍는다. 커밋 날짜와 같은 ANSI 14 다 — 그 테마가 부르는 청록이면 되고
+// 특정 값이 필요하지 않다(styleCommitDate, ADR-0115 §6).
+var styleDiffHeader = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+
 // styleTip 은 짧은 안내 문장(tip) 의 색이다. statusBar 아래 줄 오른쪽과 빈 화면 가운데에 선다.
 //
 // **눈에 덜 띄어야 한다.** tip 은 지금 하는 일이 아니라 다음에 해 볼 것이라서, 커서 위치나

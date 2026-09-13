@@ -36,6 +36,13 @@ type commitDetail struct {
 	message   string
 	parents   []string // 짧은 해시. merge 면 둘 이상이다
 	files     []commitFile
+
+	// parentHash 는 **첫 부모의 온전한 해시**다. 뿌리 커밋이면 빈 문자열이다.
+	//
+	// 위의 parents 와 따로 둔다. 저쪽은 화면에 적는 글이라 짧게 줄인 것이고, 이것은 diff 판이
+	// 견줄 쪽을 찾는 데 쓰는 이름이다. 줄인 해시를 되짚어 푸는 것보다 온전한 것을 들고 있는
+	// 편이 싸고, 「무엇을 보이나」와 「무엇을 여나」가 한 값에 얹히지 않는다(ADR-0140 §3).
+	parentHash string
 }
 
 // readCommitDetail 은 커밋 하나의 전문과 건드린 파일 목록을 읽는다.
@@ -69,6 +76,11 @@ func readCommitDetail(ctx context.Context, dir string, hash plumbing.Hash) (comm
 	for _, parent := range commit.ParentHashes {
 		text := parent.String()
 		detail.parents = append(detail.parents, text[:min(short, len(text))])
+	}
+
+	// diff 판이 견줄 앞이다. merge 는 첫 부모와 견주므로 파일 목록과 같은 기준이 된다.
+	if len(commit.ParentHashes) > 0 {
+		detail.parentHash = commit.ParentHashes[0].String()
 	}
 
 	files, err := commitFiles(ctx, repo, commit)

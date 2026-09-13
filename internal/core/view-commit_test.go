@@ -85,12 +85,31 @@ func TestCommitViewDropsLateAnswer(t *testing.T) {
 	assert.False(t, after.ready, "남의 답으로는 채우지 않는다")
 }
 
-// 스크롤은 담긴 것 안에서만 움직인다.
-func TestCommitViewScrolls(t *testing.T) {
+// 건드린 파일이 있으면 `j`·`k` 가 그 목록을 고른다(ADR-0140 §3).
+func TestCommitViewSelectsFiles(t *testing.T) {
 	m := newCommitView(t, 0)
 
 	// 담긴 것이 넘치도록 화면을 낮춘다. 다 들어가면 굴릴 것이 없어 시험이 아무것도 재지 않는다.
 	m.height = 8
+	require.Greater(t, len(m.lines()), m.listHeight())
+	require.NotEmpty(t, m.detail.files)
+
+	m.move(-5)
+	assert.Equal(t, 0, m.selected, "맨 위에서 멈춘다")
+
+	m.move(9999)
+	assert.Equal(t, len(m.detail.files)-1, m.selected, "맨 아래에서 멈춘다")
+	assert.LessOrEqual(t, m.top, m.fileTop()+m.selected, "고른 파일이 화면 안에 있다")
+	assert.Less(t, m.fileTop()+m.selected, m.top+m.listHeight())
+}
+
+// 건드린 파일이 없으면 고를 것이 없어서 화면만 굴린다.
+//
+// 커서를 세울 데가 없는 화면에서 고르는 손을 흉내 내면 키가 안 먹은 것으로 읽힌다.
+func TestCommitViewScrollsWithoutFiles(t *testing.T) {
+	m := newCommitView(t, 0)
+	m.height, m.detail.files = 8, nil
+
 	require.Greater(t, len(m.lines()), m.listHeight())
 
 	m.move(-5)
@@ -100,14 +119,45 @@ func TestCommitViewScrolls(t *testing.T) {
 	assert.Equal(t, max(len(m.lines())-m.listHeight(), 0), m.top, "맨 아래에서 멈춘다")
 }
 
+// 파일 줄을 누르면 그것을 고른다. 열지는 않는다(ADR-0012).
+func TestCommitViewClickSelectsFile(t *testing.T) {
+	m := newCommitView(t, 0)
+	m.detail.files = append(m.detail.files, commitFile{action: "M", path: "d.txt"})
+	m.scrollTo()
+
+	next, _ := m.Update(click(0, m.fileTop()+1-m.top+jobsTitleHeight))
+
+	after, ok := next.(viewCommit)
+	require.True(t, ok, "화면에 그대로 있는다")
+	assert.Equal(t, 1, after.selected)
+}
+
+// 전문 쪽을 누르면 고른 것이 움직이지 않는다. 거기에는 고를 자리가 없다.
+func TestCommitViewClickOnMessageDoesNothing(t *testing.T) {
+	m := newCommitView(t, 0)
+	m.detail.files = append(m.detail.files, commitFile{action: "M", path: "d.txt"})
+	m.selected = 1
+	m.scrollTo()
+
+	next, _ := m.Update(click(0, jobsTitleHeight))
+
+	after, ok := next.(viewCommit)
+	require.True(t, ok)
+	assert.Equal(t, 1, after.selected)
+}
+
 // 한글 상태로 친 키도 먹는다(ADR-0008).
 func TestCommitViewTakesHangulKeys(t *testing.T) {
 	m := newCommitView(t, 0)
 	m.height = 8
 
+	// fixture 의 커밋은 파일을 하나씩만 건드린다. 하나면 고른 자리가 움직일 데가 없어서
+	// 키가 먹었는지 안 먹었는지가 갈리지 않는다.
+	m.detail.files = append(m.detail.files, commitFile{action: "M", path: "d.txt"})
+
 	after, ok := pressKeys(m, "ㅓ").(viewCommit)
 	require.True(t, ok)
-	assert.Equal(t, 1, after.top)
+	assert.Equal(t, 1, after.selected)
 }
 
 // 건드린 파일은 갈래마다 색이 갈린다. git 마커와 같은 색이다(ADR-0094).

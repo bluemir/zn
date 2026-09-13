@@ -136,8 +136,11 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	// 주므로 아래의 「하나만」 가드에는 걸릴 수 없다. `:!&`·`:grep`·`:s` 도 같다.
 	//
 	// `:rename` 의 인자만 파일 이름이 아니다 — 새 이름 하나다(ADR-0067).
+	//
+	// `:diff` 의 인자는 경로이기도 하고 커밋 이름이기도 하다. 어느 쪽인지 가르는 것은 파일이
+	// 있는지 보고 정하는 일이라 여기가 아니라 읽는 자리다(ADR-0140 §3).
 	switch cmd.name {
-	case "w", "e", "tabnew", "!", "!&", "rename", "grep", "s", "substitute", "replace":
+	case "w", "e", "tabnew", "!", "!&", "rename", "grep", "s", "substitute", "replace", "diff":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input.text)
@@ -145,25 +148,33 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	}
 	// 파일 이름 하나만 받는다. 여럿을 tab 여러 개로 여는 것은 CLI 인자의 몫이다.
 	//
+	// **`:diff` 만 둘을 받는다.** 그 둘은 열 파일이 아니라 견줄 두 쪽이라, 「여럿을 여는
+	// 것은 CLI 의 몫」이라는 이 가드의 까닭이 닿지 않는다(ADR-0140 §3).
+	//
 	// `:grep`·`:s`·`:replace`·`:!`·`:!&` 의 인자는 파일 이름이 아니라 뜯지 않은 한 줄이라
 	// tokenRest 가 늘 한 토큰으로 주므로 여기 걸릴 수 없다
 	// (ADR-0045, ADR-0077, ADR-0084, ADR-0097, ADR-0138).
-	if len(cmd.args) > 1 {
+	if len(cmd.args) > 1 && cmd.name != "diff" {
 		return normalModeMessage(m.editor, "파일은 하나만 쓸 수 있습니다")
 	}
 
-	// 경로를 받는 명령은 이 셋이다. 맨 앞의 `~` 를 홈으로 풀어서 넘긴다.
+	// 경로를 받는 명령들이다. 맨 앞의 `~` 를 홈으로 풀어서 넘긴다.
 	//
 	// 명령마다 푸는 것이 아니라 여기 한 자리다. 그래야 `~` 가 어느 명령에서 되고 어느
 	// 명령에서 안 되는지를 세는 자리가 생기지 않는다(expandHome, ADR-0088).
+	//
+	// **인자를 전부 푼다.** `:diff <A> <B>` 가 둘을 받는 첫 명령이라 하나만 풀면 오른쪽
+	// 인자에서만 `~` 가 안 되는 자리가 생긴다. 나머지는 인자가 하나뿐이라 그대로다.
+	// `:diff HEAD~1` 처럼 `~` 가 가운데 있는 것은 건드리지 않는다(expandHome 은 맨 앞만 본다).
 	switch cmd.name {
-	case "w", "e", "tabnew":
-		if len(cmd.args) == 1 {
-			path, err := expandHome(cmd.args[0])
+	case "w", "e", "tabnew", "diff":
+		for i := range cmd.args {
+			path, err := expandHome(cmd.args[i])
 			if err != nil {
 				return normalModeError(m.editor, err)
 			}
-			cmd.args[0] = path
+
+			cmd.args[i] = path
 		}
 	}
 
@@ -343,6 +354,12 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// **볼 파일이 없어도 연다.** 담는 것이 저장소에서 오지 지금 buffer 에서 오지 않아서
 		// 위의 refuseNoBuffer 목록에 넣지 않았다 — `:grep` 과 같은 까닭이다(ADR-0078 §6).
 		return graphMode(m.editor)
+	case "diff":
+		// 인자 없으면 HEAD 와 지금, 하나면 그것과 지금, 둘이면 그 둘이다. `!` 는 뜻이 없다.
+		//
+		// **범위 접두를 보지 않는다.** `:'<,'>diff` 는 뜻이 서지 않는다 — 견주는 것이 파일
+		// 둘이라 고른 줄이 가리킬 것이 없다(ADR-0140 §3, ADR-0046).
+		return runDiff(m.editor, cmd.args)
 	case "registers", "reg":
 		// vim 이 `:reg` 를 줄임말로 받는다. `!` 는 이 명령에서 뜻이 없다(ADR-0058).
 		return registersMode(m.editor)
