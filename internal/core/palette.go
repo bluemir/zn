@@ -374,6 +374,18 @@ func whenOtherTabs(e *editor) bool { return len(e.buffers) > 1 }
 // whenRightTabs 는 활성 tab 오른쪽에 tab 이 있는지다. 오른쪽만 닫는 명령의 조건이다.
 func whenRightTabs(e *editor) bool { return e.hasTab() && e.active < len(e.buffers)-1 }
 
+// whenSavedTabs 는 보고 있지 않으면서 저장한 변경만 있는 tab 이 있는지다.
+// 닫을 것이 하나도 없으면 목록에 아예 띄우지 않는다.
+func whenSavedTabs(e *editor) bool {
+	for i, buf := range e.buffers {
+		if i != e.active && !buf.Dirty {
+			return true
+		}
+	}
+
+	return false
+}
+
 // paletteCommands 는 `>` 로 고를 수 있는 명령 전부다. 새 명령은 여기 한 줄이 는다.
 var paletteCommands = []paletteCommand{
 	{name: "줄 끝 공백 지우기", hint: "trim trailing space", run: runTrimTrailingSpace, when: whenNoSelection},
@@ -390,6 +402,7 @@ var paletteCommands = []paletteCommand{
 	{name: "새 파일", hint: "new file", alias: ":tabnew", run: runNewTab},
 	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs, when: whenOtherTabs},
 	{name: "오른쪽 tab 모두 닫기", hint: "close tabs to the right", run: runCloseRightTabs, when: whenRightTabs},
+	{name: "저장한 tab 모두 닫기", hint: "close saved tabs", run: runCloseSavedTabs, when: whenSavedTabs},
 	{name: "모든 tab 닫기", hint: "close all tabs", run: runCloseAllTabs, when: whenBuffer},
 	{name: "파일 트리 열기/닫기", hint: "toggle file tree", alias: ":tree", run: runToggleTree},
 	{name: "검색 강조 끄기", hint: "disable search highlight", alias: ":noh", run: runDisableHighlight},
@@ -742,6 +755,19 @@ func closeRightTabs(e *editor) (tea.Model, tea.Cmd) {
 	closed := e.closeRightTabs()
 
 	return normalModeMessage(e, fmt.Sprintf("오른쪽 tab %d 개를 닫았습니다", closed))
+}
+
+// runCloseSavedTabs 는 저장하지 않은 변경이 없는 tab 을 닫는다. 보고 있는 tab 은 남는다.
+//
+// **묻지 않는다.** 닫는 것이 전부 깨끗한 tab 이라 잃을 것이 없다. 확인창을 세우는 다른
+// 닫기 명령과 갈리는 자리다(ADR-0016).
+func runCloseSavedTabs(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
+	closed := e.closeSavedTabs()
+	if closed == 0 {
+		return normalModeMessage(e, "닫을 저장한 tab 이 없습니다")
+	}
+
+	return normalModeMessage(e, fmt.Sprintf("저장한 tab %d 개를 닫았습니다", closed))
 }
 
 // runCloseAllTabs 는 tab 을 모두 닫는다. **편집기를 끝내지 않는다** — 빈 화면이 남고,

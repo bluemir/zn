@@ -698,6 +698,30 @@ func (e *editor) closeAllTabs() int {
 	return closed
 }
 
+// closeSavedTabs 는 저장하지 않은 변경이 없는 tab 을 닫는다. 닫은 수를 준다.
+//
+// **보고 있는 tab 은 깨끗해도 남긴다.** 편집하던 자리가 사라지면 그것은 닫는 일이 아니라
+// 다른 파일로 옮겨 타는 일이다. 「다른 tab 모두 닫기」가 활성 tab 을 남기는 것과 같은 자리다.
+//
+// 이름 없는 빈 tab 도 닫는다. 디스크에 없어도 Dirty 가 아니면 잃을 것이 없다.
+//
+// **뒤에서부터 닫는다.** 앞을 닫으면 뒤의 번호가 그만큼 당겨진다(closeTabsUnder 와 같다).
+// 활성 자리는 closeTabAt 이 그때마다 맞춘다.
+func (e *editor) closeSavedTabs() int {
+	closed := 0
+
+	for i := len(e.buffers) - 1; i >= 0; i-- {
+		if i == e.active || e.buffers[i].Dirty {
+			continue
+		}
+
+		e.closeTabAt(i)
+		closed++
+	}
+
+	return closed
+}
+
 // anyDirty 는 저장하지 않은 변경이 있는 buffer 가 하나라도 있는지다.
 // 전체 종료는 보고 있지 않은 tab 의 변경도 잃게 하므로 활성 buffer 만 봐서는 안 된다.
 func (e editor) anyDirty() bool {

@@ -172,10 +172,10 @@ func TestPaletteSwitchesToCommandsWithAngle(t *testing.T) {
 	var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
 
 	m = send(m, ">")
-	// 여덟이 목록에 없다(paletteCommand.when). tab 이 하나뿐이라 tab 을 닫는 둘(「다른 tab 모두
-	// 닫기」·「오른쪽 tab 모두 닫기」) 이 빠지고, 고른 범위가 없어서 「선택 영역 …」 넷과
-	// 대소문자 둘이 빠진다.
-	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-8)
+	// 아홉이 목록에 없다(paletteCommand.when). tab 이 하나뿐이라 tab 을 닫는 셋(「다른 tab 모두
+	// 닫기」·「오른쪽 tab 모두 닫기」·「저장한 tab 모두 닫기」) 이 빠지고, 고른 범위가 없어서
+	// 「선택 영역 …」 넷과 대소문자 둘이 빠진다.
+	assert.Len(t, m.(viewPalette).hits, len(paletteCommands)-9)
 
 	m = send(m, "t", "r", "e", "e")
 	require.NotEmpty(t, m.(viewPalette).hits)

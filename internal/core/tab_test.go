@@ -593,6 +593,51 @@ func TestCloseRightTabsConfirmsWhenRightIsDirty(t *testing.T) {
 	assert.Equal(t, "a.txt", bufferOf(t, m).Path)
 }
 
+// 「저장한 tab 모두 닫기」는 변경이 남은 tab 과 보고 있던 tab 을 남긴다. 묻지 않는다.
+func TestCloseSavedTabsKeepsDirtyAndActive(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt", "d.txt")
+
+	m = send(m, "g", "t")        // b.txt 로
+	m = send(m, "i", "X", "esc") // b.txt 를 더럽힌다
+	m = send(m, "g", "T")        // a.txt 로 돌아온다
+
+	m = pickPaletteCommand(t, m, "> close saved tabs", "저장한 tab 모두 닫기")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	v := m.(viewEditorNormal)
+	require.Len(t, v.buffers, 2)
+	assert.Equal(t, 0, v.active, "보고 있던 tab 이 그대로 남는다")
+	assert.Equal(t, "a.txt", v.buffers[0].Path)
+	assert.Equal(t, "b.txt", v.buffers[1].Path, "변경이 남은 tab 은 닫지 않는다")
+	assert.Equal(t, "저장한 tab 2 개를 닫았습니다", v.notice)
+}
+
+// 이름 없는 빈 tab 도 닫는다. 디스크에 없어도 Dirty 가 아니면 잃을 것이 없다.
+func TestCloseSavedTabsClosesUnnamedCleanTab(t *testing.T) {
+	var m tea.Model = newTabsEditor("a.txt")
+
+	m = pickPaletteCommand(t, m, "> new file", "새 파일")
+	m = send(m, "g", "T") // a.txt 로 돌아온다
+	require.Len(t, m.(viewEditorNormal).buffers, 2)
+
+	m = pickPaletteCommand(t, m, "> close saved tabs", "저장한 tab 모두 닫기")
+
+	require.IsType(t, viewEditorNormal{}, m)
+	v := m.(viewEditorNormal)
+	require.Len(t, v.buffers, 1)
+	assert.Equal(t, "a.txt", v.buffers[0].Path)
+}
+
+// 보고 있는 것 말고 닫을 tab 이 없으면 **목록에 아예 뜨지 않는다**(whenSavedTabs).
+func TestCloseSavedTabsHiddenWhenNothingToClose(t *testing.T) {
+	v := newTabsEditor("a.txt")
+
+	palette := viewPalette{editor: v.editor, input: newInputLine("> close saved tabs")}
+	palette.filter()
+
+	assert.Empty(t, palette.hits)
+}
+
 // 「모든 tab 닫기」는 빈 화면을 남긴다. **편집기를 끝내지 않는다**(ADR-0064).
 func TestCloseAllTabsLeavesEmptyScreen(t *testing.T) {
 	var m tea.Model = newTabsEditor("a.txt", "b.txt", "c.txt")
