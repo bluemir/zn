@@ -43,14 +43,14 @@ func TestASCIIPaletteBox(t *testing.T) {
 	}
 }
 
-// sidebar 구분선도 같이 내려간다. 한 행이 sidebarWidth 칸이라는 것은 그대로다.
+// sidebar 구분선도 같이 내려간다. 한 행이 sidebarDefaultWidth 칸이라는 것은 그대로다.
 func TestASCIISidebarCells(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
 	for i, cell := range s.renderCells(10, "", nil, boxASCII) {
 		plain := ansi.Strip(cell)
 
-		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarDefaultWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 		assert.True(t, strings.HasSuffix(plain, "| "), "행 %d: %q", i, plain)
 	}
 }

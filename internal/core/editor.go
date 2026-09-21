@@ -38,6 +38,15 @@ type editor struct {
 	// 다음 누르기가 제자리를 찾는다(view-editor-normal.go).
 	draggingTab bool
 
+	// draggingSidebar 는 트리 구분선에서 시작한 드래그 중인지다. 폭을 끄는 자리다(ADR-0145).
+	//
+	// draggingTab 과 같은 까닭으로 필요하다. 구분선은 한 칸이라 끄는 동안 포인터가 곧바로
+	// 그 칸을 벗어나는데, 지금 자리만 보는 코드는 그 순간 끄는 것을 놓친다.
+	//
+	// 누를 때 정하고 놓을 때 지운다. 둘은 서로 배타적이다 — 누른 칸이 구분선이면 tabline 이
+	// 아니다.
+	draggingSidebar bool
+
 	sidebar sidebar
 
 	// search 는 마지막 검색이다. `n` 은 tab 을 옮겨서도 같은 것을 찾으므로 Buffer 가 아니라 여기 있다.

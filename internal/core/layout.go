@@ -49,19 +49,23 @@ func (e editor) sidebarHeight() int {
 // sidebarVisible 은 sidebar 가 실제로 그려지는지다.
 //
 // sidebar.open 은 사용자의 의도일 뿐이라 그것만 보면 안 된다. 화면이 좁으면 켜져 있어도
-// 그리지 않는다. 32 칸을 떼고 나면 편집할 자리가 없고, textWidth 가 음수가 되면
+// 그리지 않는다. 트리 폭을 떼고 나면 편집할 자리가 없고, textWidth 가 음수가 되면
 // 줄바꿈 계산과 빈 칸 채우기가 무너진다.
 //
 // 폭과 관련된 모든 곳이 open 이 아니라 이것 하나만 봐야 한다. 한 군데라도 어긋나면
 // 화면 절반만 밀린 상태가 된다.
+//
+// **끌어 둔 폭을 좁은 화면에 맞춰 줄이지 않는다.** 화면이 그만큼 안 되면 감췄다가 화면이
+// 넓어지면 끌어 둔 폭 그대로 돌아온다. 폭을 줄여 두면 화면을 한 번 좁혔다 넓히는 것만으로
+// 사용자가 정한 값이 조용히 사라진다(ADR-0145).
 func (e editor) sidebarVisible() bool {
-	return e.sidebar.open && e.width >= sidebarWidth+textarea.MinTextWidth
+	return e.sidebar.open && e.width >= e.sidebar.width+textarea.MinTextWidth
 }
 
 // sidebarLeft 는 편집 영역이 시작하는 화면 칸이다. 커서 좌표를 옮길 때 쓴다.
 func (e editor) sidebarLeft() int {
 	if e.sidebarVisible() {
-		return sidebarWidth
+		return e.sidebar.width
 	}
 	return 0
 }

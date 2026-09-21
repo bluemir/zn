@@ -52,11 +52,26 @@ func (m viewEditorVisual) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.MouseMotionMsg:
-		// 버튼을 누른 채 움직이는 중이다. 고른 범위가 커서를 따라 자란다.
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
-			m.dragTo(mouse.X, mouse.Y)
-			m.activeBuffer().ExtendSelection()
+		mouse := msg.Mouse()
+		if mouse.Button != tea.MouseLeft {
+			return m, nil
 		}
+
+		// 구분선에서 시작했으면 트리 폭을 끈다. 고른 범위는 건드리지 않는다 — 폭을 끄는
+		// 것과 범위를 고르는 것은 상관이 없다(ADR-0145).
+		if m.draggingSidebar {
+			m.resizeSidebarTo(mouse.X)
+
+			return m, nil
+		}
+
+		// 버튼을 누른 채 움직이는 중이다. 고른 범위가 커서를 따라 자란다.
+		m.dragTo(mouse.X, mouse.Y)
+		m.activeBuffer().ExtendSelection()
+
+		return m, nil
+	case tea.MouseReleaseMsg:
+		m.draggingSidebar = false
 
 		return m, nil
 	case tea.MouseWheelMsg:

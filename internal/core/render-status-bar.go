@@ -31,8 +31,8 @@ func (e editor) renderStatusBar(mode, bottom string) []string {
 	// 자르는 것이 채우는 것보다 먼저다 — 두 칸짜리 글자가 경계에 걸치면 통째로 버려진다.
 	left, text := "", mode+"  "+path
 	if e.sidebarVisible() {
-		label := truncateToWidth(mode, sidebarWidth)
-		left = label + strings.Repeat(" ", max(0, sidebarWidth-textarea.WidthOf(label)))
+		label := truncateToWidth(mode, e.sidebarLeft())
+		left = label + strings.Repeat(" ", max(0, e.sidebarLeft()-textarea.WidthOf(label)))
 		text = path
 	}
 

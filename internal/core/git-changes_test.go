@@ -109,13 +109,14 @@ func TestGitTreeMarkers(t *testing.T) {
 	cells := sidebar.renderCells(10, "", changesOf(t, root), boxUnicode)
 
 	marks := map[string]string{}
+	labelWidth := sidebar.labelWidth()
 	for _, cell := range cells {
 		plain := ansi.Strip(cell)
 		if name := strings.TrimSpace(plain[:labelWidth]); name != "" {
 			marks[name] = plain[labelWidth : labelWidth+1]
 		}
 
-		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 폭은 그대로다: %q", plain)
+		assert.Equal(t, sidebarDefaultWidth, textarea.WidthOf(plain), "행 폭은 그대로다: %q", plain)
 	}
 
 	assert.Equal(t, markerGitTreeModified, marks["main.go"], "고친 파일")

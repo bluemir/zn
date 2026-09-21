@@ -16,6 +16,10 @@ const (
 	// regionNone 은 눌러도 할 일이 없는 자리다. statusBar 와 화면 밖이다.
 	regionNone region = iota
 	regionSidebar
+
+	// regionSidebarEdge 는 트리 오른쪽 구분선 한 칸이다. 끌면 트리 폭이 바뀐다(ADR-0145).
+	regionSidebarEdge
+
 	regionTabline
 
 	// regionText 는 편집 영역이다. 줄번호 칸도 여기에 든다.
@@ -35,7 +39,13 @@ func (e editor) regionAt(x, y int) region {
 	// tabline 은 그 오른쪽에서만 그려진다(ADR-0005).
 	//
 	// open 이 아니라 sidebarVisible 을 본다 — 좁은 화면에서는 켜져 있어도 그리지 않는다.
-	if e.sidebarVisible() && x < sidebarWidth && y < e.sidebarHeight() {
+	if e.sidebarVisible() && x < e.sidebar.width && y < e.sidebarHeight() {
+		// 구분선은 오른쪽에서 두 번째 칸이다(treeRow.render). 끌어서 폭을 바꾸는 자리라
+		// 트리 본문과 가른다 — 눈에 보이는 줄 그 자리라 규칙이 가장 섬긴다(ADR-0145).
+		if x == e.sidebarDividerCol() {
+			return regionSidebarEdge
+		}
+
 		return regionSidebar
 	}
 
@@ -184,9 +194,21 @@ func (e *editor) wheel(mouse tea.Mouse) {
 	}
 }
 
+// pressSidebarEdge 는 누른 자리가 트리 구분선인지 적어 둔다. 끄는 동안 포인터가 그 한 칸을
+// 벗어나므로 시작한 자리를 들고 있어야 한다(ADR-0145).
+//
+// **누를 때마다 다시 쓴다.** 켜기만 하면 다른 자리를 누른 뒤에도 값이 남아서, 그다음 드래그가
+// 엉뚱하게 폭을 끈다. 놓을 때 지우는 것과 같은 까닭이다(ADR-0090).
+func (e *editor) pressSidebarEdge(region region) {
+	e.draggingSidebar = region == regionSidebarEdge
+}
+
 // click 은 normal mode 에서 왼쪽 버튼을 먹는다.
 func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
-	switch m.regionAt(mouse.X, mouse.Y) {
+	region := m.regionAt(mouse.X, mouse.Y)
+	m.pressSidebarEdge(region)
+
+	switch region {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
@@ -205,7 +227,10 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 // click 은 insert mode 에서 왼쪽 버튼을 먹는다.
 // 커서만 옮기고 insert 에 머문다 — 눌러서 자리를 잡고 이어 치는 것이 mouse 를 쓰는 이유다.
 func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
-	switch m.regionAt(mouse.X, mouse.Y) {
+	region := m.regionAt(mouse.X, mouse.Y)
+	m.pressSidebarEdge(region)
+
+	switch region {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
@@ -223,7 +248,10 @@ func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 // click 은 sidebar 에 포커스가 있을 때 왼쪽 버튼을 먹는다.
 func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
-	switch m.regionAt(mouse.X, mouse.Y) {
+	region := m.regionAt(mouse.X, mouse.Y)
+	m.pressSidebarEdge(region)
+
+	switch region {
 	case regionSidebar:
 		return m.clickSidebar(mouse.Y)
 	case regionTabline:
@@ -319,8 +347,12 @@ func (e *editor) dragTab(x, y int) {
 // click 은 visual mode 에서 왼쪽 버튼을 먹는다. 누른 자리가 새 시작이라 visual 이 끝난다.
 func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	region := m.regionAt(mouse.X, mouse.Y)
-	if region == regionNone {
+	m.pressSidebarEdge(region)
+
+	if region == regionNone || region == regionSidebarEdge {
 		// statusBar 와 화면 밖이다. 아무 일도 하지 않는다 — 다른 mode 와 같다.
+		//
+		// 구분선도 여기다. 폭을 끄는 것은 고른 범위와 상관이 없으므로 visual 에 머문다.
 		return m, nil
 	}
 

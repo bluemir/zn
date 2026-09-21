@@ -176,13 +176,13 @@ func TestSidebarStickyClickSelectsAncestor(t *testing.T) {
 	assert.Equal(t, filepath.Join(root, "a", "b"), s.selectedNode().path)
 }
 
-// 머리줄이 붙어도 한 행은 언제나 정확히 sidebarWidth 칸이다.
+// 머리줄이 붙어도 한 행은 언제나 정확히 sidebarDefaultWidth 칸이다.
 func TestSidebarStickyCellsAreExactlyWide(t *testing.T) {
 	s, _ := newStickyTree(t)
 	s.top = 4
 
 	for i, cell := range s.renderCells(stickyTreeHeight, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarDefaultWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 	}
 }

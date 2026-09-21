@@ -133,6 +133,14 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// 구분선에서 시작했으면 트리 폭을 끈다. 구분선이 한 칸이라 시작한 자리를 들고
+		// 있어야 한다(ADR-0145).
+		if m.draggingSidebar {
+			m.resizeSidebarTo(mouse.X)
+
+			return m, nil
+		}
+
 		// tabline 에서 시작했으면 tab 을 옮긴다. **지금 자리가 편집 영역이어도 범위를 고르지
 		// 않는다** — tabline 이 한 행이라 가로로 끄는 손이 아래로 한 칸 새기 쉽다(ADR-0090).
 		if m.draggingTab {
@@ -158,6 +166,7 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 끄는 것이 끝났다. 지우지 않아도 다음 누르기가 값을 바로잡지만, 끈 자리가 남아 있으면
 		// 다른 mode 에서 누른 뒤 normal 로 돌아온 첫 편집 영역 드래그가 한 번 먹히지 않는다.
 		m.draggingTab = false
+		m.draggingSidebar = false
 
 		return m, nil
 	case tea.MouseWheelMsg:

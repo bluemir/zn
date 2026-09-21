@@ -167,6 +167,18 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	case tea.MouseMotionMsg:
+		// 트리 구분선을 끄는 것만 받는다(ADR-0145). insert 에서 끄는 손짓은 글을 고치던 손이
+		// 아니라 범위를 고르지도 tab 을 옮기지도 않는다 — normal 이 할 일이다(ADR-0090).
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft && m.draggingSidebar {
+			m.resizeSidebarTo(mouse.X)
+		}
+
+		return m, nil
+	case tea.MouseReleaseMsg:
+		m.draggingSidebar = false
+
+		return m, nil
 	case tea.MouseWheelMsg:
 		m.wheel(msg.Mouse())
 

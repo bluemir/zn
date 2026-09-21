@@ -386,19 +386,19 @@ func sidebarCellsOf(t *testing.T, view tea.View) []string {
 	out := []string{}
 	for _, row := range rows[:len(rows)-statusBarHeight] {
 		plain := []byte(ansi.Strip(row))
-		out = append(out, string(plain[:textarea.OffsetAtScreenCol(plain, sidebarWidth, textarea.DefaultTabWidth)]))
+		out = append(out, string(plain[:textarea.OffsetAtScreenCol(plain, sidebarDefaultWidth, textarea.DefaultTabWidth)]))
 	}
 
 	return out
 }
 
-// sidebar 는 한 행이 정확히 sidebarWidth 칸이어야 한다. 어긋나면 편집 내용이 통째로 밀린다.
+// sidebar 는 한 행이 정확히 sidebarDefaultWidth 칸이어야 한다. 어긋나면 편집 내용이 통째로 밀린다.
 func TestSidebarCellsAreExactlyWide(t *testing.T) {
 	s := openSidebarSync(t, newTreeFixture(t))
 
 	for i, cell := range s.renderCells(10, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarDefaultWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 	}
 }
 
@@ -410,7 +410,7 @@ func TestSidebarCellsFillHeight(t *testing.T) {
 
 	require.Len(t, cells, 6)
 	for _, cell := range cells[1:] {
-		assert.Equal(t, strings.Repeat(" ", labelWidth+1)+"│ ", ansi.Strip(cell))
+		assert.Equal(t, strings.Repeat(" ", s.labelWidth()+1)+"│ ", ansi.Strip(cell))
 	}
 }
 
@@ -424,7 +424,7 @@ func TestSidebarCellsWithWideChars(t *testing.T) {
 
 	for i, cell := range s.renderCells(4, "", nil, boxUnicode) {
 		plain := ansi.Strip(cell)
-		assert.Equal(t, sidebarWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
+		assert.Equal(t, sidebarDefaultWidth, textarea.WidthOf(plain), "행 %d: %q", i, plain)
 	}
 }
 
@@ -497,9 +497,9 @@ func TestSidebarScrollClampsAfterCollapse(t *testing.T) {
 func TestSidebarShiftsTextAndCursor(t *testing.T) {
 	m := newTreeEditor(t, 80, 5)
 
-	assert.Equal(t, 80-sidebarWidth, m.textWidth())
-	assert.Equal(t, sidebarWidth, m.sidebarLeft())
-	assert.Equal(t, tea.Position{X: sidebarWidth + m.gutterWidth(), Y: tablineHeight}, m.View().Cursor.Position,
+	assert.Equal(t, 80-sidebarDefaultWidth, m.textWidth())
+	assert.Equal(t, sidebarDefaultWidth, m.sidebarLeft())
+	assert.Equal(t, tea.Position{X: sidebarDefaultWidth + m.gutterWidth(), Y: tablineHeight}, m.View().Cursor.Position,
 		"sidebar 와 줄번호 칸을 지난 자리다")
 }
 
@@ -511,7 +511,7 @@ func TestSidebarRendersFullHeightBesideShortFile(t *testing.T) {
 
 	require.Len(t, cells, m.sidebarHeight())
 	for i, cell := range cells {
-		assert.Equal(t, sidebarWidth, textarea.WidthOf(cell), "행 %d", i)
+		assert.Equal(t, sidebarDefaultWidth, textarea.WidthOf(cell), "행 %d", i)
 	}
 	assert.Contains(t, cells[0], "▾ ", "뿌리가 tabline 옆줄에 온다")
 	assert.Contains(t, cells[len(cells)-1], "│", "파일은 2 줄뿐이지만 구분선은 statusBar 앞까지 간다")
@@ -527,7 +527,7 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	// split 은 한 행을 sidebar 왼쪽 칸과 그 오른쪽으로 가른다.
 	split := func(row string) (string, string) {
 		plain := []byte(ansi.Strip(row))
-		cut := textarea.OffsetAtScreenCol(plain, sidebarWidth, textarea.DefaultTabWidth)
+		cut := textarea.OffsetAtScreenCol(plain, sidebarDefaultWidth, textarea.DefaultTabWidth)
 
 		return string(plain[:cut]), string(plain[cut:])
 	}
@@ -542,7 +542,7 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 	assert.True(t, strings.HasPrefix(path, "main.go"), "경로는 편집 영역 왼쪽 끝에서 시작한다: %q", path)
 
 	left, command := split(rows[len(rows)-1])
-	assert.Equal(t, strings.Repeat(" ", sidebarWidth), left, "명령줄도 마찬가지다")
+	assert.Equal(t, strings.Repeat(" ", sidebarDefaultWidth), left, "명령줄도 마찬가지다")
 	assert.True(t, strings.HasPrefix(command, "1:1"), "커서 위치가 같은 자리에서 시작한다: %q", command)
 
 	// 반전으로 칠하는 두 줄은 화면 끝까지 이어져야 한다.
@@ -557,10 +557,10 @@ func TestTablineStopsAtSidebarButStatusBarRunsUnder(t *testing.T) {
 
 // 화면이 좁으면 sidebar 를 켜뒀어도 그리지 않는다. 안 그러면 편집할 자리가 없다.
 func TestSidebarAutoHidesOnNarrowScreen(t *testing.T) {
-	m := newTreeEditor(t, sidebarWidth+textarea.MinTextWidth, 5)
+	m := newTreeEditor(t, sidebarDefaultWidth+textarea.MinTextWidth, 5)
 	require.True(t, m.sidebarVisible())
 
-	m.width = sidebarWidth + textarea.MinTextWidth - 1
+	m.width = sidebarDefaultWidth + textarea.MinTextWidth - 1
 
 	assert.True(t, m.sidebar.open, "사용자 의도는 그대로다")
 	assert.False(t, m.sidebarVisible(), "그리지는 않는다")
@@ -571,7 +571,7 @@ func TestSidebarAutoHidesOnNarrowScreen(t *testing.T) {
 // 아주 좁거나 낮은 화면에서도 죽지 않아야 한다. 음수 폭이 여기서 잡힌다.
 func TestSidebarTinyScreenDoesNotPanic(t *testing.T) {
 	// 임계값 언저리를 상수로 잡는다. 숫자를 박아두면 너비를 바꿀 때 조용히 낡는다.
-	widths := []int{0, 1, 10, sidebarWidth - 1, sidebarWidth, sidebarWidth + 1, sidebarWidth + textarea.MinTextWidth}
+	widths := []int{0, 1, 10, sidebarDefaultWidth - 1, sidebarDefaultWidth, sidebarDefaultWidth + 1, sidebarDefaultWidth + textarea.MinTextWidth}
 	for _, width := range widths {
 		for _, height := range []int{0, 1, 3, 5} {
 			m := newTreeEditor(t, width, 0)
@@ -764,7 +764,7 @@ func TestSidebarShiftsCommandLineCursor(t *testing.T) {
 	m = send(m, ":", "w")
 
 	require.IsType(t, viewEditorCommand{}, m)
-	assert.Equal(t, sidebarWidth+len(":w"), m.View().Cursor.Position.X)
+	assert.Equal(t, sidebarDefaultWidth+len(":w"), m.View().Cursor.Position.X)
 	assert.Equal(t, ":w", barOf(t, m)[1])
 }
 

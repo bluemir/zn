@@ -103,6 +103,17 @@ func (m viewSidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	case tea.MouseMotionMsg:
+		// 트리 구분선을 끄는 것만 받는다(ADR-0145). 트리에는 끌어서 고를 범위가 없다.
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft && m.draggingSidebar {
+			m.resizeSidebarTo(mouse.X)
+		}
+
+		return m, nil
+	case tea.MouseReleaseMsg:
+		m.draggingSidebar = false
+
+		return m, nil
 	case tea.MouseWheelMsg:
 		m.wheel(msg.Mouse())
 

@@ -78,13 +78,13 @@ func TestStatusBarPutsModeUnderSidebar(t *testing.T) {
 	top := ansi.Strip(rawBarOf(t, m)[0])
 
 	assert.True(t, strings.HasPrefix(top, "NORMAL"), "mode 는 화면 왼쪽 끝에서 시작한다")
-	assert.Equal(t, sidebarWidth, strings.Index(top, "main.go"), "경로는 편집 영역 왼쪽 끝에 맞는다")
+	assert.Equal(t, sidebarDefaultWidth, strings.Index(top, "main.go"), "경로는 편집 영역 왼쪽 끝에 맞는다")
 	assert.Equal(t, "main.go", strings.TrimSpace(barOf(t, m)[0]), "편집 영역 아래에는 경로만 있다")
 }
 
 // sidebar 를 놓을 칸이 없으면 mode 는 경로 앞에 나란히 붙는다.
 func TestStatusBarKeepsModeInlineWithoutSidebar(t *testing.T) {
-	m := newTreeEditor(t, sidebarWidth+textarea.MinTextWidth-1, 6)
+	m := newTreeEditor(t, sidebarDefaultWidth+textarea.MinTextWidth-1, 6)
 	require.False(t, m.sidebarVisible())
 
 	assert.Equal(t, "NORMAL  main.go", strings.TrimRight(ansi.Strip(rawBarOf(t, m)[0]), " "))

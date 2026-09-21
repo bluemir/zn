@@ -10,8 +10,9 @@ import (
 	"github.com/bluemir/zn/internal/textarea"
 )
 
-// sidebarWidth 는 좌측 sidebar 가 차지하는 칸 수다(docs/spec.md).
-const sidebarWidth = 32
+// sidebarDefaultWidth 는 좌측 sidebar 가 띄울 때 차지하는 칸 수다(docs/spec.md).
+// 경계를 끌면 달라지므로 시작값이다(sidebar-resize.go, ADR-0145).
+const sidebarDefaultWidth = 32
 
 // sidebar 는 좌측 파일 트리다.
 //
@@ -24,6 +25,14 @@ const sidebarWidth = 32
 type sidebar struct {
 	// open 은 사용자가 열어둔 상태인지다. 실제로 그리는지는 editor.sidebarVisible 이 정한다.
 	open bool
+
+	// width 는 트리가 차지하는 칸 수다. 경계를 끌면 바뀐다(sidebar-resize.go, ADR-0145).
+	//
+	// **0 이면 트리가 무너진다.** 이름 칸이 음수가 되고 구분선이 설 자리가 없다.
+	// openSidebar 가 늘 채우므로 sidebar 를 손으로 짓는 자리를 만들지 않는다.
+	//
+	// 세션을 넘지 않는다. 파일로 남기려면 상태 파일이 필요한데 그것은 두지 않기로 했다.
+	width int
 
 	// root 는 트리의 뿌리다. os.Getwd() 로 채우지만 필드로 두어야 테스트가 t.TempDir() 를 넣는다.
 	root string
@@ -75,8 +84,9 @@ type treeNode struct {
 // 뿌리를 펼치는 것도 백그라운드 작업이고, 그 Cmd 는 부르는 쪽이 발행한다(ADR-0032).
 func openSidebar(root string) sidebar {
 	return sidebar{
-		open: true,
-		root: root,
+		open:  true,
+		width: sidebarDefaultWidth,
+		root:  root,
 		tree: &treeNode{
 			name:  filepath.Base(root),
 			path:  root,
@@ -360,9 +370,11 @@ func (s sidebar) selectedRow(height int) (int, bool) {
 	return row, true
 }
 
-// labelWidth 는 sidebar 32 칸 중 이름에 쓰는 칸이다.
+// labelWidth 는 sidebar 폭 중 이름에 쓰는 칸이다.
 // 나머지 셋은 git 마커 칸과 구분선과 그 뒤 빈 칸이다.
-const labelWidth = sidebarWidth - 3
+func (s sidebar) labelWidth() int {
+	return max(0, s.width-3)
+}
 
 // markerGitTree 는 트리 오른쪽 끝에 서는 마커다(ADR-0094).
 //
@@ -376,7 +388,7 @@ const (
 )
 
 // renderCells 는 sidebar 가 차지하는 화면 행들을 돌려준다.
-// 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 sidebarWidth 칸이다.
+// 트리가 짧아도 height 개를 채우고, 한 행은 언제나 정확히 s.width 칸이다.
 //
 // activePath 는 지금 보고 있는 파일의 절대 경로다. 그 행만 굵게, 밑줄 그어 그린다(ADR-0022).
 // 트리 커서는 터미널 커서라 포커스가 트리에 있을 때만 보이므로, 편집 중에 트리가
@@ -384,6 +396,7 @@ const (
 func (s sidebar) renderCells(height int, activePath string, changes gitChanges, box boxSet) []string {
 	rows := s.rows()
 	sticky := s.stickyRows(height)
+	labelWidth := s.labelWidth()
 
 	cells := make([]string, 0, max(0, height))
 	for i := range height {
@@ -409,7 +422,7 @@ func (s sidebar) renderCells(height int, activePath string, changes gitChanges, 
 			change = changes.at(node.path)
 		}
 
-		cells = append(cells, rows[index].render(!node.placeholder && node.path == activePath, change, box))
+		cells = append(cells, rows[index].render(!node.placeholder && node.path == activePath, change, box, labelWidth))
 	}
 
 	return cells
@@ -429,11 +442,11 @@ func renderGitTreeMarker(change gitChange) string {
 	return " "
 }
 
-// render 는 행 하나를 정확히 sidebarWidth 칸으로 그린다.
+// render 는 행 하나를 정확히 `labelWidth + 3` 칸으로 그린다. 트리 폭이 그것이다.
 //
 // 자르는 것이 색을 입히는 것보다 먼저다. escape 가 섞이면 폭을 셀 수 없다.
 // 두 칸짜리 글자가 경계에 걸치면 truncateToWidth 가 통째로 버리므로 남는 칸을 뒤에서 채운다.
-func (r treeRow) render(active bool, change gitChange, box boxSet) string {
+func (r treeRow) render(active bool, change gitChange, box boxSet, labelWidth int) string {
 	label := truncateToWidth(r.label(), labelWidth)
 	pad := max(0, labelWidth-textarea.WidthOf(label))
 
