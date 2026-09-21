@@ -474,7 +474,7 @@ func TestSidebarScrollKeepsSelectionVisible(t *testing.T) {
 
 	s.selected = 1
 	s.scrollTo(3)
-	assert.Equal(t, 1, s.top, "위로 벗어나면 고른 것이 맨 위")
+	assert.Equal(t, 0, s.top, "위로 벗어나면 고른 것 위에 머리줄 자리를 둔다(ADR-0144)")
 }
 
 // 트리가 줄어들면 selected 와 top 을 범위 안으로 당긴다.

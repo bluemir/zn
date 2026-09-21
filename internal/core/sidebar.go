@@ -291,14 +291,34 @@ func (s *sidebar) scrollTo(height int) {
 	if s.selected >= s.top+height {
 		s.top = s.selected - height + 1
 	}
+
+	// 머리줄이 덮은 자리에 고른 항목이 숨지 않게 top 을 **위로만** 민다(ADR-0144).
+	//
+	// 머리줄 수는 top 에서 나오고 top 은 다시 그 수만큼 올라가야 하므로 한 번 셈으로 안 맞는다.
+	// 위로만 가는 갈래만 두어 끝낸다 — 한 바퀴마다 top 이 한 행 올라가고, top 이 0 이면 맨 위가
+	// 뿌리라 머리줄이 없다. 바퀴 수도 못 박는다(ADR-0049).
+	for range height {
+		if s.top == 0 || s.selected >= s.top+len(s.stickyRows(height)) {
+			break
+		}
+
+		s.top--
+	}
 }
 
 // selectRow 는 sidebar 의 화면 행 y 에 있는 항목을 고른다.
 // 트리가 끝난 아래 빈 행이면 아무것도 하지 않고 false 다.
 //
 // renderCells 는 트리가 짧아도 height 개를 채우므로 그 채움 행을 걸러야 한다.
+//
+// 머리줄을 누르면 그 상위 디렉터리를 고른다(ADR-0144). **무시하는 선택지가 없다** — 그 자리는
+// 트리를 덮고 있어서 그대로 top+y 를 쓰면 가려진 항목이 골라진다. 눌러서 보이는 것과 어긋난다.
 func (s *sidebar) selectRow(y, height int) bool {
 	index := s.top + y
+	if sticky := s.stickyRows(height); y < len(sticky) {
+		index = sticky[y]
+	}
+
 	if index < 0 || index >= len(s.rows()) {
 		return false
 	}
@@ -331,6 +351,12 @@ func (s sidebar) selectedRow(height int) (int, bool) {
 		return 0, false
 	}
 
+	// 머리줄이 덮은 자리면 고른 항목은 화면에 없다. scrollTo 가 이 자리를 피해 top 을 밀지만
+	// 휠은 scrollTo 를 거치지 않으므로(scrollBy) 굴리는 동안 커서가 잠시 사라진다.
+	if row < len(s.stickyRows(height)) {
+		return 0, false
+	}
+
 	return row, true
 }
 
@@ -357,10 +383,18 @@ const (
 // 지금 자리를 나타내는 것은 이 표시뿐이다. 이름 없는 buffer 는 빈 문자열이라 어느 행과도 안 맞는다.
 func (s sidebar) renderCells(height int, activePath string, changes gitChanges, box boxSet) []string {
 	rows := s.rows()
+	sticky := s.stickyRows(height)
 
 	cells := make([]string, 0, max(0, height))
 	for i := range height {
 		index := s.top + i
+
+		// 화면 위로 올라가 버린 상위 디렉터리가 맨 위 몇 행을 덮는다(ADR-0144).
+		// 평범한 트리 행과 똑같이 그린다 — 깊이가 이어져 보여서 새 색도 가름선도 필요 없다.
+		if i < len(sticky) {
+			index = sticky[i]
+		}
+
 		if index < 0 || index >= len(rows) {
 			// 트리가 끝나도 구분선은 화면 아래까지 이어져야 한다.
 			cells = append(cells, strings.Repeat(" ", labelWidth+1)+box.vertical+" ")

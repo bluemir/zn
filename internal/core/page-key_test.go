@@ -231,7 +231,7 @@ func TestSidebarHalfPageMovesSelectionAndScreen(t *testing.T) {
 
 	tree := model.(viewSidebar).sidebar
 	assert.Equal(t, 2, tree.selected)
-	assert.Equal(t, 2, tree.top, "화면도 두 행 내려간다")
+	assert.Equal(t, 1, tree.top, "머리줄이 맨 윗 행을 덮으므로 화면은 한 행 덜 내려간다(ADR-0144)")
 
 	model = send(model, "ctrl+u")
 
