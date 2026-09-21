@@ -61,6 +61,18 @@ func (m viewEditorEmpty) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	case tea.MouseMotionMsg:
+		// 트리 구분선을 끄는 것만 받는다(ADR-0145). 볼 파일이 없어도 트리는 있고,
+		// 폭을 바꾸는 것은 편집할 것이 있는지와 상관이 없다.
+		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft && m.draggingSidebar {
+			m.resizeSidebarTo(mouse.X)
+		}
+
+		return m, nil
+	case tea.MouseReleaseMsg:
+		m.draggingSidebar = false
+
+		return m, nil
 	case tea.MouseWheelMsg:
 		// 굴릴 수 있는 것은 트리뿐이다. 본문은 regionAt 이 아무 자리도 아닌 것으로 돌려준다.
 		m.wheel(msg.Mouse())
@@ -125,9 +137,12 @@ func allowedWithoutTab(act action) bool {
 	return false
 }
 
-// click 은 빈 화면에서 왼쪽 버튼을 먹는다. 누를 것이 트리뿐이다.
+// click 은 빈 화면에서 왼쪽 버튼을 먹는다. 누를 것이 트리와 그 구분선뿐이다.
 func (m viewEditorEmpty) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
-	if m.regionAt(mouse.X, mouse.Y) == regionSidebar {
+	region := m.regionAt(mouse.X, mouse.Y)
+	m.pressSidebarEdge(region)
+
+	if region == regionSidebar {
 		return m.clickSidebar(mouse.Y)
 	}
 

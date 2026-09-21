@@ -32,6 +32,8 @@ func sidebarOf(t *testing.T, m tea.Model) sidebar {
 		return v.sidebar
 	case viewSidebar:
 		return v.sidebar
+	case viewEditorEmpty:
+		return v.sidebar
 	}
 
 	require.Fail(t, "트리를 든 화면이 아니다", "%T", m)
@@ -172,6 +174,25 @@ func TestSidebarDragFromInsert(t *testing.T) {
 
 	require.IsType(t, viewEditorInsert{}, model, "insert 에 머문다")
 	assert.Equal(t, 26, sidebarOf(t, model).width)
+}
+
+// 파일이 하나도 안 열린 첫 화면에서도 끌린다. 볼 파일이 없어도 트리는 있다(ADR-0064).
+func TestSidebarDragOnEmptyScreen(t *testing.T) {
+	m := newEmptyEditor(80, 8)
+	m.sidebar = openSidebarSync(t, newTreeFixture(t))
+
+	var model tea.Model = m
+	model, _ = model.Update(click(m.sidebarDividerCol(), 3))
+	require.True(t, model.(viewEditorEmpty).draggingSidebar, "구분선을 잡았다")
+
+	model, _ = model.Update(drag(24, 3))
+
+	require.IsType(t, viewEditorEmpty{}, model, "빈 화면에 머문다")
+	assert.Equal(t, 26, sidebarOf(t, model).width)
+	assert.Equal(t, 26, model.(viewEditorEmpty).sidebarLeft())
+
+	model, _ = model.Update(release(24, 3))
+	assert.False(t, model.(viewEditorEmpty).draggingSidebar, "놓으면 끝난다")
 }
 
 // visual 에서도 끌린다. 고른 범위는 건드리지 않는다.
