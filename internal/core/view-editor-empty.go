@@ -54,10 +54,13 @@ func (m viewEditorEmpty) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m.press(msg.String())
 	case tea.MouseClickMsg:
-		// 왼쪽 버튼만 본다. 오른쪽 버튼은 tab 을 닫는 것이라 닫을 tab 이 없는 여기서는
-		// 할 일이 없다(ADR-0060).
-		if mouse := msg.Mouse(); mouse.Button == tea.MouseLeft {
+		// 닫을 tab 은 없지만 트리는 있다. 트리 우클릭이 메뉴를 띄우므로 오른쪽 버튼도
+		// 받는다 — regionAt 이 트리를 hasTab 보다 먼저 보기 때문이다(ADR-0064, ADR-0146).
+		switch mouse := msg.Mouse(); mouse.Button {
+		case tea.MouseLeft:
 			return m.click(mouse)
+		case tea.MouseRight:
+			return rightClick(m, m.editor, mouse)
 		}
 
 		return m, nil

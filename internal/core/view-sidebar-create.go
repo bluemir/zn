@@ -103,6 +103,12 @@ func (m viewSidebarCreate) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // create 는 친 이름으로 파일을 만든다.
+func (m viewSidebarCreate) create() (tea.Model, tea.Cmd) {
+	// 앞뒤 빈 칸은 눌러 둔 자국이다. 가운데 빈 칸은 파일 이름에 쓸 수 있으므로 건드리지 않는다.
+	return createEntry(m.editor, m.dir, strings.TrimSpace(m.input.text))
+}
+
+// createEntry 는 dir 안에 name 을 만든다.
 //
 //	main.go        dir 안에 파일을 만들고 tab 으로 연다
 //	docs/spec.md   없는 `docs/` 를 같이 만든다
@@ -110,49 +116,50 @@ func (m viewSidebarCreate) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //
 // 이미 있는 이름은 만들지 않는다. 덮어쓰면 그 파일의 내용이 조용히 사라지고, 트리는 이미
 // 그 이름을 보여주고 있어서 무엇이 없어졌는지도 화면에 남지 않는다.
-func (m viewSidebarCreate) create() (tea.Model, tea.Cmd) {
-	// 앞뒤 빈 칸은 눌러 둔 자국이다. 가운데 빈 칸은 파일 이름에 쓸 수 있으므로 건드리지 않는다.
-	name := strings.TrimSpace(m.input.text)
+//
+// 이름을 받는 화면 둘이 나눠 쓴다 — `mc` 의 아래 줄과 우클릭 메뉴의 상자다(ADR-0146).
+// 지우기가 `md` 와 확인창에 나뉘어 있는 것과 같은 자리다(removeTreeEntry).
+func createEntry(e *editor, dir, name string) (tea.Model, tea.Cmd) {
 	if name == "" {
-		return sidebarModeMessage(m.editor, "이름이 없습니다")
+		return sidebarModeMessage(e, "이름이 없습니다")
 	}
 
 	// `docs/` 처럼 `/` 로 끝나면 디렉터리를 만드는 것이다.
 	// filepath.Join 이 그 자국을 지우므로 먼저 본다.
 	isDir := strings.HasSuffix(name, "/")
 
-	path := filepath.Join(m.dir, name)
-	if !m.sidebar.underRoot(path) {
-		return sidebarModeMessage(m.editor, "뿌리 밖에는 만들 수 없습니다: "+name)
+	path := filepath.Join(dir, name)
+	if !e.sidebar.underRoot(path) {
+		return sidebarModeMessage(e, "뿌리 밖에는 만들 수 없습니다: "+name)
 	}
 
 	// Lstat 이다. symlink 가 이미 그 이름을 쓰고 있으면 그것도 있는 것이다 —
 	// Stat 은 끊어진 링크를 없는 것으로 보고, 그 자리에 파일을 만들면 링크가 가리키던 곳에 쓴다.
 	if _, err := os.Lstat(path); err == nil {
-		return sidebarModeMessage(m.editor, "이미 있습니다: "+m.sidebar.relLabel(path))
+		return sidebarModeMessage(e, "이미 있습니다: "+e.sidebar.relLabel(path))
 	}
 
 	if isDir {
 		if err := os.MkdirAll(path, 0755); err != nil {
-			return sidebarModeError(m.editor, errors.Mark(err, errCreateFile))
+			return sidebarModeError(e, errors.Mark(err, errCreateFile))
 		}
 
 		// 디렉터리는 열 것이 없으므로 트리에 머문다. 만든 자리가 다음에 무언가를 만들 자리다.
-		model, cmd := sidebarModeMessage(m.editor, "만들었습니다: "+m.sidebar.relLabel(path)+"/")
+		model, cmd := sidebarModeMessage(e, "만들었습니다: "+e.sidebar.relLabel(path)+"/")
 
-		return model, tea.Batch(cmd, m.refreshDir(m.dir), m.startGitRefresh())
+		return model, tea.Batch(cmd, e.refreshDir(dir), e.startGitRefresh())
 	}
 
 	// 중간 디렉터리는 같이 만든다. `docs/spec.md` 를 치면 `docs/` 가 없어도 된다.
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return sidebarModeError(m.editor, errors.Mark(err, errCreateFile))
+		return sidebarModeError(e, errors.Mark(err, errCreateFile))
 	}
 
 	// O_EXCL 이라 그 사이에 같은 이름이 생겼으면 여기서 걸린다. 위의 Lstat 은 알아보고
 	// 알려주기 위한 것이고, 덮어쓰지 않는다는 것을 지키는 것은 이 flag 다.
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
-		return sidebarModeError(m.editor, errors.Mark(err, errCreateFile))
+		return sidebarModeError(e, errors.Mark(err, errCreateFile))
 	}
 	file.Close()
 
@@ -161,19 +168,19 @@ func (m viewSidebarCreate) create() (tea.Model, tea.Cmd) {
 	//
 	// 다시 읽는 자리는 이름을 받은 dir 이다. `a/b/c.go` 를 쳐도 dir 안에 새로 생긴 것은 `a/`
 	// 하나이고 그 아래는 reveal 이 한 층씩 펼치며 읽는다(ADR-0032).
-	refresh := m.refreshDir(m.dir)
+	refresh := e.refreshDir(dir)
 
-	open, err := m.openTab(path)
+	open, err := e.openTab(path)
 	if err != nil {
-		return sidebarModeError(m.editor, err)
+		return sidebarModeError(e, err)
 	}
-	m.scrollToCursor()
+	e.scrollToCursor()
 
 	// 만들자마자 쓰는 것이므로 포커스도 편집 영역으로 간다. `enter` 로 파일을 여는 것과 같다.
 	// 만든 파일은 git 이 모르는 파일이라 저장소 상태가 달라진다(ADR-0030).
-	model, cmd := normalModeMessage(m.editor, "만들었습니다: "+m.sidebar.relLabel(path))
+	model, cmd := normalModeMessage(e, "만들었습니다: "+e.sidebar.relLabel(path))
 
-	return model, tea.Batch(cmd, refresh, open, m.startGitRefresh())
+	return model, tea.Batch(cmd, refresh, open, e.startGitRefresh())
 }
 
 func (m viewSidebarCreate) View() tea.View {

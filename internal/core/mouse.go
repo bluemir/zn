@@ -142,27 +142,34 @@ func (e *editor) clickTabline(x int) tea.Cmd {
 	return e.revealInSidebar(e.activeBuffer().Path)
 }
 
-// rightClick 은 오른쪽 버튼을 먹는다. tabline 의 tab 을 닫고 다른 영역에서는 아무 일도 없다(ADR-0060).
+// rightClick 은 오른쪽 버튼을 먹는다. tabline 의 tab 을 닫고 트리에서는 메뉴를 띄운다
+// (ADR-0060, ADR-0146). 다른 영역에서는 아무 일도 없다.
 //
-// mode 마다 갈라 두지 않았다. 닫는 일은 지금 어느 mode 인지와 상관이 없고, mode 를 옮겨야
-// 하는 경우(보고 있던 tab 을 닫았다) 는 닫는 쪽이 안다. 왼쪽 버튼이 mode 마다 다른 것은
-// 커서·포커스·insert 유지 때문인데 여기에는 그런 것이 없다.
+// mode 마다 갈라 두지 않았다. 닫는 일도 메뉴를 띄우는 일도 지금 어느 mode 인지와 상관이
+// 없고, mode 를 옮겨야 하는 경우(보고 있던 tab 을 닫았다) 는 닫는 쪽이 안다. 왼쪽 버튼이
+// mode 마다 다른 것은 커서·포커스·insert 유지 때문인데 여기에는 그런 것이 없다.
 //
-// parent 는 닫을 것이 없거나 확인창에서 취소했을 때 돌아갈 화면이다.
+// **구분선은 들어가지 않는다.** 끌어서 폭을 바꾸는 한 칸이라(ADR-0145) 거기서 메뉴가 뜨면
+// 잡으려다 누른 것이 화면을 덮는다.
+//
+// parent 는 할 일이 없거나 메뉴·확인창에서 물러났을 때 돌아갈 화면이다.
 func rightClick(parent tea.Model, e *editor, mouse tea.Mouse) (tea.Model, tea.Cmd) {
-	if e.regionAt(mouse.X, mouse.Y) != regionTabline {
-		return parent, nil
+	switch e.regionAt(mouse.X, mouse.Y) {
+	case regionSidebar:
+		return sidebarMenuMode(parent, e, mouse.X, mouse.Y)
+	case regionTabline:
+		// 구분선과 오른쪽 빈 칸, 잘린 tab 자리의 점은 tab 이 아니다. 양끝의 가려짐 표시도
+		// 여기서는 tab 이 아니라 아무 일도 하지 않는다 — 미는 것과 닫는 것을 한 버튼에 섞으면
+		// 한 칸 잘못 눌렀을 때 잃는 것이 화면 이동으로 끝나지 않는다.
+		index := e.renderTabline(e.textWidth()).tabAt(mouse.X - e.sidebarLeft())
+		if index < 0 {
+			return parent, nil
+		}
+
+		return closeTabAt(parent, e, index)
 	}
 
-	// 구분선과 오른쪽 빈 칸, 잘린 tab 자리의 점은 tab 이 아니다. 양끝의 가려짐 표시도
-	// 여기서는 tab 이 아니라 아무 일도 하지 않는다 — 미는 것과 닫는 것을 한 버튼에 섞으면
-	// 한 칸 잘못 눌렀을 때 잃는 것이 화면 이동으로 끝나지 않는다.
-	index := e.renderTabline(e.textWidth()).tabAt(mouse.X - e.sidebarLeft())
-	if index < 0 {
-		return parent, nil
-	}
-
-	return closeTabAt(parent, e, index)
+	return parent, nil
 }
 
 // wheelRows 는 휠 한 번에 굴리는 화면 행 수다.

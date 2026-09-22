@@ -58,6 +58,17 @@ var (
 // 글자색까지 고정하는 것도 검색과 같은 이유다 — 배경만 정하면 밝은 테마에서 읽히지 않는다.
 var styleSelection = lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(lipgloss.Color("231"))
 
+// styleMenuHover 는 포인터가 얹힌 트리 메뉴 항목의 바탕이다(ADR-0146).
+//
+// **반전이 아니라 옅은 바탕이다.** 반전은 statusBar·tabline 과 팔레트의 고른 줄이 쓰고 있어서
+// (ADR-0004, ADR-0011) 그 모양이면 「골랐다」로 읽힌다. 여기서 말하는 것은 「지금 이 위에
+// 있다」이고, 누르기 전까지는 아무것도 고르지 않았다.
+//
+// 값은 visual 선택과 같은 238 이다. 이 저장소가 「옅은 바탕」으로 이미 정해 둔 값이라 새
+// 회색을 하나 더 만들지 않는다(styleSelection). 뜻이 섞이지 않는 것은 메뉴 상자 안에 편집
+// 내용이 없어서다 — 고른 범위와 메뉴 항목이 한 화면에 같이 서는 자리가 없다.
+var styleMenuHover = lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(lipgloss.Color("231"))
+
 var (
 	// styleLineNumberAbsolute 는 절대 줄번호 색이다. vim 의 `LineNr` 과 같은 노란색(ANSI 3)이라
 	// 256 색 고정값과 달리 터미널 테마가 정한 노랑을 따른다(ADR-0007).

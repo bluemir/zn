@@ -109,29 +109,36 @@ func (m viewSidebarRename) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// rename 은 친 경로로 옮긴다. 이름만 고쳤으면 제자리 이름 바꾸기이고, 앞을 고쳤으면 자리 옮기기다.
+// rename 은 친 경로로 옮긴다.
+func (m viewSidebarRename) rename() (tea.Model, tea.Cmd) {
+	// 앞뒤 빈 칸은 눌러 둔 자국이다. 가운데 빈 칸은 파일 이름에 쓸 수 있으므로 건드리지 않는다.
+	return renameEntry(m.editor, m.from, m.isDir, strings.TrimSpace(m.input.text))
+}
+
+// renameEntry 는 from 을 뿌리 기준 경로 name 으로 옮긴다. 이름만 고쳤으면 제자리 이름
+// 바꾸기이고, 앞을 고쳤으면 자리 옮기기다.
 //
 // 없는 중간 디렉터리는 같이 만든다. 만들기(`mc`) 와 같은 규칙이라 `docs/spec.md` 를 치면
 // `docs/` 가 없어도 된다.
-func (m viewSidebarRename) rename() (tea.Model, tea.Cmd) {
-	// 앞뒤 빈 칸은 눌러 둔 자국이다. 가운데 빈 칸은 파일 이름에 쓸 수 있으므로 건드리지 않는다.
-	name := strings.TrimSpace(m.input.text)
+//
+// 경로를 받는 화면 둘이 나눠 쓴다 — `mm` 의 아래 줄과 우클릭 메뉴의 상자다(ADR-0146).
+func renameEntry(e *editor, from string, isDir bool, name string) (tea.Model, tea.Cmd) {
 	if name == "" {
-		return sidebarModeMessage(m.editor, "이름이 없습니다")
+		return sidebarModeMessage(e, "이름이 없습니다")
 	}
 
-	to := filepath.Join(m.sidebar.root, name)
-	if !m.sidebar.underRoot(to) {
-		return sidebarModeMessage(m.editor, "뿌리 밖으로는 옮길 수 없습니다: "+name)
+	to := filepath.Join(e.sidebar.root, name)
+	if !e.sidebar.underRoot(to) {
+		return sidebarModeMessage(e, "뿌리 밖으로는 옮길 수 없습니다: "+name)
 	}
-	if to == m.from {
-		return sidebarModeMessage(m.editor, "이름이 그대로입니다")
+	if to == from {
+		return sidebarModeMessage(e, "이름이 그대로입니다")
 	}
 
 	// 디렉터리를 자기 안으로 옮길 수 없다. os.Rename 이 내는 `invalid argument` 로는
 	// 무엇이 잘못됐는지 읽히지 않는다.
-	if m.isDir && strings.HasPrefix(to, m.from+string(filepath.Separator)) {
-		return sidebarModeMessage(m.editor, "디렉터리를 자기 안으로 옮길 수 없습니다")
+	if isDir && strings.HasPrefix(to, from+string(filepath.Separator)) {
+		return sidebarModeMessage(e, "디렉터리를 자기 안으로 옮길 수 없습니다")
 	}
 
 	// 이미 있는 이름 위로 옮기지 않는다. os.Rename 은 묻지 않고 덮어써서, 그대로 두면
@@ -140,50 +147,50 @@ func (m viewSidebarRename) rename() (tea.Model, tea.Cmd) {
 	// 대소문자만 바꾸는 것은 예외다. 대소문자를 가리지 않는 파일 시스템(APFS·NTFS) 에서는
 	// 새 이름이 자기 자신으로 잡히므로, 같은 파일이면 지나간다.
 	if target, err := os.Lstat(to); err == nil {
-		source, err := os.Lstat(m.from)
+		source, err := os.Lstat(from)
 		if err != nil || !os.SameFile(target, source) {
-			return sidebarModeMessage(m.editor, "이미 있습니다: "+m.sidebar.relLabel(to))
+			return sidebarModeMessage(e, "이미 있습니다: "+e.sidebar.relLabel(to))
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(to), 0755); err != nil {
-		return sidebarModeError(m.editor, errors.Mark(err, errRenameFile))
+		return sidebarModeError(e, errors.Mark(err, errRenameFile))
 	}
-	if err := os.Rename(m.from, to); err != nil {
-		return sidebarModeError(m.editor, errors.Mark(err, errRenameFile))
+	if err := os.Rename(from, to); err != nil {
+		return sidebarModeError(e, errors.Mark(err, errRenameFile))
 	}
 
 	// 그 파일을 열어둔 tab 은 새 이름을 따라간다(ADR-0054).
-	m.renameBuffers(m.from, to, m.isDir)
+	e.renameBuffers(from, to, isDir)
 
 	// 옛 자리와 새 자리를 다시 읽는다. 같은 디렉터리 안에서 이름만 바꿨으면 한 번이다.
 	// 새 자리가 아직 트리에 없으면 refreshDir 이 아무 일도 하지 않고, 아래 reveal 이
 	// 뿌리부터 한 층씩 펼치며 내려간다(ADR-0032).
-	refresh := m.refreshDir(filepath.Dir(m.from))
+	refresh := e.refreshDir(filepath.Dir(from))
 
 	var moved tea.Cmd
-	if filepath.Dir(to) != filepath.Dir(m.from) {
-		moved = m.refreshDir(filepath.Dir(to))
+	if filepath.Dir(to) != filepath.Dir(from) {
+		moved = e.refreshDir(filepath.Dir(to))
 	}
 
 	// 고른 자리는 옮겨간 그 파일이다. 이름을 바꾼 뒤 어디로 갔는지 눈으로 따라갈 수 있어야 한다.
-	reveal := m.revealInSidebar(to)
+	reveal := e.revealInSidebar(to)
 
-	message := "이름을 바꿨습니다: " + m.label(m.from) + " → " + m.label(to)
+	message := "이름을 바꿨습니다: " + entryLabel(e, isDir, from) + " → " + entryLabel(e, isDir, to)
 
 	// git 이 아는 파일이 없어지고 새 이름이 생긴 것이라 저장소 상태가 달라진다(ADR-0030).
-	model, cmd := sidebarModeMessage(m.editor, message)
+	model, cmd := sidebarModeMessage(e, message)
 
-	return model, tea.Batch(cmd, refresh, moved, reveal, m.startGitRefresh())
+	return model, tea.Batch(cmd, refresh, moved, reveal, e.startGitRefresh())
 }
 
-// label 은 알림에 쓰는 이름이다. 디렉터리는 `/` 를 붙여 파일과 갈린다.
-func (m viewSidebarRename) label(path string) string {
-	if m.isDir {
-		return m.sidebar.relLabel(path) + "/"
+// entryLabel 은 알림에 쓰는 이름이다. 디렉터리는 `/` 를 붙여 파일과 갈린다.
+func entryLabel(e *editor, isDir bool, path string) string {
+	if isDir {
+		return e.sidebar.relLabel(path) + "/"
 	}
 
-	return m.sidebar.relLabel(path)
+	return e.sidebar.relLabel(path)
 }
 
 func (m viewSidebarRename) View() tea.View {
