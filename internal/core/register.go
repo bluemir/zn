@@ -58,6 +58,13 @@ func (regs *registerSet) storeYank(block textarea.TextBlock, name string) {
 		return
 	}
 
+	// `"+` 는 터미널이 드는 자리라 우리 칸에 담지 않는다. 무명에는 담겨서 곧바로 친 `p` 가
+	// 같은 것을 붙인다 — 밖으로 보낸 것이 안에서 사라지면 `"+yy` 뒤의 `p` 가 엉뚱한 것을
+	// 붙인다(ADR-0148).
+	if name == clipboardRegister {
+		return
+	}
+
 	regs.storeNamed(block, name)
 }
 
@@ -75,7 +82,11 @@ func (regs *registerSet) storeDelete(block textarea.TextBlock, name string) {
 	regs.unnamed = reg
 
 	if name != "" {
-		regs.storeNamed(block, name)
+		// `"+` 는 터미널이 든다(ADR-0148). 숫자 링도 밀지 않는 것은 이름을 댄 것이 다
+		// 그렇기 때문이다.
+		if name != clipboardRegister {
+			regs.storeNamed(block, name)
+		}
 
 		return
 	}
@@ -163,10 +174,17 @@ func (regs registerSet) byName(name string) register {
 //
 // **문자 register 만 담을 수 있다.** 숫자는 지울 때마다 저절로 채워지는 자리라 손으로
 // 담아 두어도 다음 지우기가 링을 밀면 그 값이 옆자리로 내려간다 — 넣은 자리에 없는 것을
-// 「넣었다」고 기억하게 된다. 그 밖의 이름(`"%` `"+`) 은 아직 아무것도 아니다(ADR-0058).
+// 「넣었다」고 기억하게 된다. 그 밖의 이름(`"%`) 은 아직 아무것도 아니다(ADR-0058).
+//
+// **`"+` 는 예외다.** 담기는 자리가 우리 칸이 아니라 터미널이라 숫자가 걸린 까닭이 서지
+// 않는다. 밀려날 링이 없다(ADR-0148).
 func registerWritable(name string) bool {
 	if len(name) != 1 {
 		return false
+	}
+
+	if name == clipboardRegister {
+		return true
 	}
 
 	return (name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z')

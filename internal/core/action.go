@@ -114,16 +114,19 @@ func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
+	var cmd tea.Cmd
+
 	// 잡을 것이 없거나 지울 것이 없으면 아무것도 하지 않는다. 그래야 `d` 뒤에 손이 미끄러진
 	// 키가 dirty 를 세우거나 되돌릴 앞날(redo) 을 날리지 않는다.
 	if area, ok := c.motion.span(*buf, c.count); ok {
 		if deleted, cut := buf.DeleteRange(area); cut {
 			e.registers.storeDelete(deleted, c.reg)
+			cmd = clipboardStore(c.reg, deleted)
 		}
 	}
 	e.scrollToCursor()
 
-	return nil, nil
+	return nil, cmd
 }
 
 // actionYank 는 motion 이 잡은 범위를 register 에 담는다. 파일은 건드리지 않는다(ADR-0017).
@@ -136,6 +139,8 @@ type actionYank struct {
 func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
+	var cmd tea.Cmd
+
 	// 범위를 잡는 자는 `d` 와 같은 것이다. 규칙이 두 벌이 되면 `dw` 와 `yw` 가 갈린다(ADR-0017).
 	if area, ok := c.motion.span(*buf, c.count); ok {
 		// **복사하고, 커서를 옮긴다.** 둘은 별개의 걸음이라 여기서 그 차례로 한다 —
@@ -144,13 +149,15 @@ func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
 		// 복사할 것이 없었으면 옮기지도 않는다. 아무 일도 안 일어난 것이 맞다.
 		if yanked, copied := buf.YankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
-			e.notify(register{yanked}.copiedMessage())
+			e.notify(register{yanked}.copiedMessage() + clipboardNote(c.reg))
 			buf.MoveToRangeStart(area)
+
+			cmd = clipboardStore(c.reg, yanked)
 		}
 	}
 	e.scrollToCursor()
 
-	return nil, nil
+	return nil, cmd
 }
 
 // actionChange 는 지우고 insert mode 로 들어간다.
@@ -178,16 +185,19 @@ func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
+	var sent tea.Cmd
+
 	// 바꿀 것이 없었으면(빈 줄의 `cw`) register 는 그대로 둔다. vim 과 같다.
 	// 숫자 링도 밀지 않는다 — 담기지 않은 것이 링을 흔들면 `"1` 이 뜻을 잃는다(ADR-0058).
 	if removed, changed := buf.ChangeRange(area); changed && len(removed.Lines) > 0 {
 		e.registers.storeDelete(removed, c.reg)
+		sent = clipboardStore(c.reg, removed)
 	}
 
 	next, cmd := insertMode(e)
 	e.scrollToCursor()
 
-	return next, cmd
+	return next, tea.Batch(sent, cmd)
 }
 
 // actionIndent 는 `>` 와 `<` 다. motion 이 잡은 범위를 한 단계 밀거나 당긴다.
@@ -369,14 +379,19 @@ func (c actionVisualDelete) run(e *editor) (tea.Model, tea.Cmd) {
 
 	buf := e.activeBuffer()
 
+	var sent tea.Cmd
+
 	if area, ok := buf.SelectionRange(); ok {
 		if deleted, cut := buf.DeleteRange(area); cut {
 			e.registers.storeDelete(deleted, c.reg)
+			sent = clipboardStore(c.reg, deleted)
 		}
 	}
 	e.scrollToCursor()
 
-	return normalMode(e)
+	next, cmd := normalMode(e)
+
+	return next, tea.Batch(sent, cmd)
 }
 
 // actionVisualYank 는 visual 의 `y` 다. 파일을 건드리지 않는다(ADR-0017).
@@ -385,16 +400,22 @@ type actionVisualYank struct{ reg string }
 func (c actionVisualYank) run(e *editor) (tea.Model, tea.Cmd) {
 	buf := e.activeBuffer()
 
+	var sent tea.Cmd
+
 	if area, ok := buf.SelectionRange(); ok {
 		if yanked, copied := buf.YankRange(area); copied {
 			e.registers.storeYank(yanked, c.reg)
-			e.notify(register{yanked}.copiedMessage())
+			e.notify(register{yanked}.copiedMessage() + clipboardNote(c.reg))
 			buf.MoveToRangeStart(area)
+
+			sent = clipboardStore(c.reg, yanked)
 		}
 	}
 	e.scrollToCursor()
 
-	return normalMode(e)
+	next, cmd := normalMode(e)
+
+	return next, tea.Batch(sent, cmd)
 }
 
 // actionVisualChange 는 visual 의 `c` 다. 지우고 insert mode 로 들어간다.
@@ -415,17 +436,20 @@ func (c actionVisualChange) run(e *editor) (tea.Model, tea.Cmd) {
 		return normalMode(e)
 	}
 
+	var sent tea.Cmd
+
 	// 지운 것과 이어 친 글자가 한 번의 `u` 로 함께 돌아간다. changeRange 가 구간을 열어 둔다.
 	if removed, changed := buf.ChangeRange(area); changed {
 		if len(removed.Lines) > 0 {
 			e.registers.storeDelete(removed, c.reg)
+			sent = clipboardStore(c.reg, removed)
 		}
 	}
 
 	next, cmd := insertMode(e)
 	e.scrollToCursor()
 
-	return next, cmd
+	return next, tea.Batch(sent, cmd)
 }
 
 // actionVisualIndent 는 visual 의 `>` 와 `<` 다.
@@ -507,6 +531,11 @@ func (c actionPasteAfter) run(e *editor) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 
+	// `"+` 는 터미널이 든다. 물어보고 답이 오면 그때 붙인다(ADR-0148).
+	if c.reg == clipboardRegister {
+		return nil, e.askClipboard(false, c.count)
+	}
+
 	e.activeBuffer().PasteAfter(e.registers.byName(c.reg).TextBlock, max(c.count, 1))
 	e.scrollToCursor()
 
@@ -523,6 +552,11 @@ func (c actionPasteBefore) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
 	if e.refuseReadOnly() {
 		return nil, nil
+	}
+
+	// `"+` 는 터미널이 든다. 물어보고 답이 오면 그때 붙인다(ADR-0148).
+	if c.reg == clipboardRegister {
+		return nil, e.askClipboard(true, c.count)
 	}
 
 	e.activeBuffer().PasteBefore(e.registers.byName(c.reg).TextBlock, max(c.count, 1))

@@ -71,6 +71,15 @@ type editor struct {
 	// 안다(ADR-0058).
 	registers registerSet
 
+	// clipboard 는 `"+p` 가 터미널의 답을 기다리는 상태다. clipboardSeq 는 물어본 차례이고,
+	// 기다림을 끝낼 때마다 올라가서 늦게 온 시간초과가 이미 붙인 것을 두고 「답이 없다」고
+	// 말하지 않는다.
+	//
+	// 여기 있는 것은 답이 키와 무관하게 오기 때문이다. `"+p` 를 치고 바로 `i` 를 누른 손은
+	// insert mode 에 있어서, mode 안에 두면 받을 자리가 사라진다(ADR-0148).
+	clipboard    clipboardPending
+	clipboardSeq int
+
 	// git 은 statusBar 오른쪽에 찍는 저장소 상태다. 화면을 그릴 때 읽지 않고 여기에 들고 있다가
 	// 갱신 작업과 저장·파일 열기 직후에 다시 읽는다(ADR-0009, ADR-0030).
 	git gitStatus

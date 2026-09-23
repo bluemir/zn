@@ -97,6 +97,25 @@ func (m viewEditorNormal) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//
 		// 검사는 작업이 한다. 큰 파일에서 창을 오갈 때마다 편집기가 멈추지 않는다(ADR-0044).
 		return m, m.startOutsideCheck()
+	case tea.ClipboardMsg:
+		// `"+p` 로 물어본 답이다. 기다리던 것이 아니면 pasteClipboard 가 버린다.
+		//
+		// **normal 에서만 받는다.** 답이 오는 사이에 mode 를 바꿨으면(`"+p` 뒤의 `i`) 그
+		// 붙여넣기는 없던 일이 된다. 손이 다른 일을 시작한 뒤에 글이 끼어드는 것보다 낫고,
+		// 기다림은 다음 시간초과가 치운다(ADR-0148).
+		//
+		// primary selection(`p`) 은 우리가 묻는 것이 아니다. `"*` 를 열지 않았다(ADR-0148).
+		if msg.Clipboard() != clipboardSelectionSystem {
+			return m, nil
+		}
+
+		m.pasteClipboard(msg.Content)
+
+		return m, nil
+	case clipboardTimeoutMsg:
+		m.clipboardTimedOut(msg.seq)
+
+		return m, nil
 	case shellDoneMsg:
 		// `:!` 로 넘겼던 터미널이 돌아왔다. 이 msg 를 다른 mode 에서 받을 일은 없다 —
 		// runShell 이 언제나 normal 을 돌려주고, 터미널이 돌아오기 전에는 키가 처리되지

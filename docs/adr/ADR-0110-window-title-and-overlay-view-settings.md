@@ -111,4 +111,4 @@ bubbletea 는 `ReportFocus` 가 참에서 거짓으로 가면 `ResetModeFocusEve
 - **OSC 22/23 으로 제목을 되돌리는 것.** §5 에서 값이 안 맞는다고 보았고, 셸이 다시 쓰지 않는 판에서 거슬리면 그때 다시 본다
 - **tmux 의 `set-titles` 를 우리가 켜는 것.** 남의 설정이다
 - **제목에 tab 개수·mode·git branch 를 적을지.** 지금은 「무엇을 고치고 있나」 하나다
-- **OSC 52(클립보드) 와 진행 표시(`tea.View.ProgressBar`).** 같은 「터미널에 알리는 칸」이지만 각자 정할 일이다
+- **OSC 52(클립보드) 와 진행 표시(`tea.View.ProgressBar`).** 같은 「터미널에 알리는 칸」이지만 각자 정할 일이다 (클립보드는 ADR-0148 이 정했다)
