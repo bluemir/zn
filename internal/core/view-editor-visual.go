@@ -143,8 +143,13 @@ func (m viewEditorVisual) modeName() string {
 	return "VISUAL"
 }
 
+// tipBottom 은 아래 줄 왼쪽에 서는 글이다. normal 과 같다(view-editor-normal.go).
+func (m viewEditorVisual) tipBottom() string {
+	return m.noticeOr(m.renderPosition())
+}
+
 func (m viewEditorVisual) View() tea.View {
 	// 커서가 글자 위에 있으므로 normal 과 같이 블록이다.
 	return m.editorView(tea.CursorBlock, m.modeName(),
-		m.renderWithTip(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
+		m.renderWithTip(m.tipBottom(), m.keyState().showcmd()))
 }

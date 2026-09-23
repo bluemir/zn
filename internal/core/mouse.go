@@ -212,6 +212,12 @@ func (e *editor) pressSidebarEdge(region region) {
 
 // click 은 normal mode 에서 왼쪽 버튼을 먹는다.
 func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	// **영역을 가르기 전에 본다.** tip 은 statusBar 아래 줄에 있고 거기는 regionNone 이라,
+	// 영역으로 갈린 뒤에는 누를 것이 없는 자리가 된다(ADR-0147).
+	if next, cmd := m.clickTip(mouse, m.tipBottom(), m.keyState().showcmd()); next != nil {
+		return next, cmd
+	}
+
 	region := m.regionAt(mouse.X, mouse.Y)
 	m.pressSidebarEdge(region)
 
@@ -234,6 +240,12 @@ func (m viewEditorNormal) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 // click 은 insert mode 에서 왼쪽 버튼을 먹는다.
 // 커서만 옮기고 insert 에 머문다 — 눌러서 자리를 잡고 이어 치는 것이 mouse 를 쓰는 이유다.
 func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	// **영역을 가르기 전에 본다.** tip 은 statusBar 아래 줄에 있고 거기는 regionNone 이라,
+	// 영역으로 갈린 뒤에는 누를 것이 없는 자리가 된다(ADR-0147).
+	if next, cmd := m.clickTip(mouse, m.tipBottom(), ""); next != nil {
+		return next, cmd
+	}
+
 	region := m.regionAt(mouse.X, mouse.Y)
 	m.pressSidebarEdge(region)
 
@@ -255,6 +267,12 @@ func (m viewEditorInsert) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 // click 은 sidebar 에 포커스가 있을 때 왼쪽 버튼을 먹는다.
 func (m viewSidebar) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	// **영역을 가르기 전에 본다.** tip 은 statusBar 아래 줄에 있고 거기는 regionNone 이라,
+	// 영역으로 갈린 뒤에는 누를 것이 없는 자리가 된다(ADR-0147).
+	if next, cmd := m.clickTip(mouse, m.tipBottom(), m.keyState().showcmd()); next != nil {
+		return next, cmd
+	}
+
 	region := m.regionAt(mouse.X, mouse.Y)
 	m.pressSidebarEdge(region)
 
@@ -353,6 +371,12 @@ func (e *editor) dragTab(x, y int) {
 
 // click 은 visual mode 에서 왼쪽 버튼을 먹는다. 누른 자리가 새 시작이라 visual 이 끝난다.
 func (m viewEditorVisual) click(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	// **영역을 가르기 전에 본다.** tip 은 statusBar 아래 줄에 있고 거기는 regionNone 이라,
+	// 영역으로 갈린 뒤에는 누를 것이 없는 자리가 된다(ADR-0147).
+	if next, cmd := m.clickTip(mouse, m.tipBottom(), m.keyState().showcmd()); next != nil {
+		return next, cmd
+	}
+
 	region := m.regionAt(mouse.X, mouse.Y)
 	m.pressSidebarEdge(region)
 

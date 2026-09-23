@@ -228,8 +228,16 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// tipBottom 은 아래 줄 왼쪽에 서는 글이다. tip 이 그 오른쪽을 채운다.
+//
+// **그리는 자리와 누른 자리를 재는 자리가 이 하나를 지난다.** 어느 문장이 서는지가 이 글의
+// 폭으로 갈리므로, 두 벌 두면 눌렀을 때 화면에 없는 문장이 열린다(tip.go 의 clickTip).
+func (m viewEditorNormal) tipBottom() string {
+	return m.noticeOr(m.renderPosition())
+}
+
 func (m viewEditorNormal) View() tea.View {
 	// 커서가 글자 위에 있으므로 블록이다.
 	return m.editorView(tea.CursorBlock, "NORMAL",
-		m.renderWithTip(m.noticeOr(m.renderPosition()), m.keyState().showcmd()))
+		m.renderWithTip(m.tipBottom(), m.keyState().showcmd()))
 }

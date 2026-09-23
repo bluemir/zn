@@ -378,6 +378,10 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "messages", "mes":
 		// vim 이 `:mes` 를 줄임말로 받는다. 여기도 같게 둔다(ADR-0053).
 		return messagesMode(m.editor)
+	case "tips", "tip":
+		// vim 에 짝이 없는 이름이다. 아래 줄에 스치는 문장을 모아 본다 — 맨 위에서 연다.
+		// 스쳐 지나간 그 문장에서 열고 싶으면 그 자리를 누른다(ADR-0061, ADR-0147).
+		return tipsMode(m.editor, 0)
 	case "jumplogs":
 		// 방문 기록이다. `:jumps`(되돌아간 자리) 와 다른 것이라 이름도 갈랐다(ADR-0074).
 		return jumplogsMode(m.editor)

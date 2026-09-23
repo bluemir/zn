@@ -406,19 +406,25 @@ func (m viewSidebar) fileMenuHint() string {
 	return "a,c 새 파일  d 지우기  m 새 이름"
 }
 
-func (m viewSidebar) View() tea.View {
-	// 고른 항목을 아래 줄에 보여준다. 편집 중인 파일의 커서 위치는 지금 볼 것이 아니다.
-	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
-	//
-	// `m` 을 먹은 동안만 그 자리를 파일 메뉴 안내가 쓴다. 고른 항목 이름은 접두 키를
-	// 치기 전에 이미 읽은 것이고, 지금 급한 것은 다음에 무엇을 누를 수 있는지다.
-	bottom := m.sidebar.selectedLabel()
+// tipBottom 은 아래 줄 왼쪽에 서는 글이다. 고른 항목을 보여준다 — 편집 중인 파일의 커서
+// 위치는 지금 볼 것이 아니다.
+//
+// `m` 을 먹은 동안만 그 자리를 파일 메뉴 안내가 쓴다. 고른 항목 이름은 접두 키를 치기 전에
+// 이미 읽은 것이고, 지금 급한 것은 다음에 무엇을 누를 수 있는지다.
+//
+// 그리는 자리와 누른 자리를 재는 자리가 이 하나를 지난다(view-editor-normal.go 의 tipBottom).
+func (m viewSidebar) tipBottom() string {
 	if hint := m.fileMenuHint(); hint != "" {
-		bottom = hint
+		return m.noticeOr(hint)
 	}
 
+	return m.noticeOr(m.sidebar.selectedLabel())
+}
+
+func (m viewSidebar) View() tea.View {
+	// 접두 키를 기다리는 중이면 오른쪽 끝에 그것도 같이 보여준다.
 	view := m.editorView(tea.CursorBlock, "TREE",
-		m.renderWithTip(m.noticeOr(bottom), m.keyState().showcmd()))
+		m.renderWithTip(m.tipBottom(), m.keyState().showcmd()))
 
 	// 커서는 편집 내용이 아니라 고른 트리 항목 위에 있어야 한다.
 	// 동작줄 mode 가 하는 것과 같은 방식이다. 이 커서가 곧 포커스 표시다.

@@ -2,7 +2,10 @@ package core
 
 import (
 	"math/rand/v2"
+	"slices"
 	"strings"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/bluemir/zn/internal/assets"
 
@@ -32,18 +35,66 @@ func (e editor) renderWithTip(bottom, showcmd string) string {
 		return e.renderWithShowcmd(bottom, showcmd)
 	}
 
-	if e.notice != "" {
+	tip := e.pickTip(bottom, showcmd)
+	if tip == "" {
 		return bottom
 	}
 
 	room := e.textWidth() - textarea.WidthOf(bottom)
 
-	tip := fitTip(assets.Tips, e.tipIndex, room-tipGap)
-	if tip == "" {
-		return bottom
+	return bottom + strings.Repeat(" ", room-textarea.WidthOf(tip)) + styleTip.Render(tip)
+}
+
+// pickTip 은 지금 아래 줄에 설 문장이다. 설 자리가 없으면 빈 문자열이다.
+//
+// **그리는 쪽과 누른 자리를 재는 쪽이 이 하나를 지난다.** 고르는 규칙을 두 벌 두면 눌렀을 때
+// 화면에 없는 문장이 열린다 — tabline 이 그리면서 칸 범위를 같이 내주는 것과 같은 자리다
+// (ADR-0012, ADR-0147).
+func (e editor) pickTip(bottom, showcmd string) string {
+	// 접두 키를 치는 동안에는 그 칸이 showcmd 것이고, 알림이 떠 있는 동안에는 알림 것이다.
+	if showcmd != "" || e.notice != "" {
+		return ""
 	}
 
-	return bottom + strings.Repeat(" ", room-textarea.WidthOf(tip)) + styleTip.Render(tip)
+	return fitTip(assets.Tips, e.tipIndex, e.textWidth()-textarea.WidthOf(bottom)-tipGap)
+}
+
+// tipSpan 은 그 문장이 차지하는 화면 칸이다. 서 있지 않으면 빈 칸이라 어느 x 도 들지 않는다.
+//
+// 오른쪽 끝에 붙으므로 끝이 편집 영역의 오른쪽 끝이다. sidebar 를 더하는 것은 아래 줄이
+// 화면 끝에서 끝까지 이어져도 이 글은 편집 영역 자리에서 시작하기 때문이다.
+func (e editor) tipSpan(bottom, showcmd string) [2]int {
+	tip := e.pickTip(bottom, showcmd)
+	if tip == "" {
+		return [2]int{}
+	}
+
+	end := e.sidebarLeft() + e.textWidth()
+
+	return [2]int{end - textarea.WidthOf(tip), end}
+}
+
+// clickTip 은 아래 줄의 tip 을 누른 것이면 그 문장에서 목록을 연다. 아니면 nil 이다.
+//
+// **`regionAt` 에 영역을 더하지 않았다.** 그 함수는 화면을 크게 가르는 자리이고 tip 은 아래
+// 줄 오른쪽에 있다 없다 하는 글이라, 영역으로 세우면 「지금 tip 이 서 있는가」를 거기서 또
+// 물어야 한다. 트리 메뉴가 자기 상자를 직접 재는 것과 같은 손이다(ADR-0146, ADR-0147).
+//
+// bottom·showcmd 는 그 화면이 아래 줄에 그린 것 그대로다. 그리는 자리와 같은 값을 넘겨야
+// 같은 문장이 나온다.
+func (e *editor) clickTip(mouse tea.Mouse, bottom, showcmd string) (tea.Model, tea.Cmd) {
+	if mouse.Y != e.height-1 || !inSpan(e.tipSpan(bottom, showcmd), mouse.X) {
+		return nil, nil
+	}
+
+	// 누른 그 문장에서 목록이 열린다. 스쳐 지나가는 것을 붙잡으려고 누른 것이라,
+	// 맨 위에서 열리면 방금 본 문장을 목록에서 다시 찾아야 한다.
+	at := slices.Index(assets.Tips, e.pickTip(bottom, showcmd))
+	if at < 0 {
+		return nil, nil
+	}
+
+	return tipsMode(e, at)
 }
 
 // fitTip 은 from 자리부터 한 바퀴 훑어 room 칸에 들어가는 첫 문장이다. 없으면 빈 문자열이다.

@@ -269,12 +269,17 @@ func (m viewEditorInsert) completionAfter(msg tea.KeyPressMsg) tea.Cmd {
 	return m.startCompletion()
 }
 
+// tipBottom 은 아래 줄 왼쪽에 서는 글이다. normal 과 같다(view-editor-normal.go).
+func (m viewEditorInsert) tipBottom() string {
+	return m.noticeOr(m.renderPosition())
+}
+
 func (m viewEditorInsert) View() tea.View {
 	// 커서가 글자 사이에 있으므로 막대다.
 	//
 	// showcmd 자리에 빈 문자열을 넘긴다. insert 에는 키 파서가 없어서 기다리는 접두 키라는 것이
 	// 없다 — 그래서 이 mode 에서는 그 칸이 늘 tip 자리다(tip.go).
-	view := m.editorView(tea.CursorBar, "INSERT", m.renderWithTip(m.noticeOr(m.renderPosition()), ""))
+	view := m.editorView(tea.CursorBar, "INSERT", m.renderWithTip(m.tipBottom(), ""))
 
 	return m.overlayCompletion(view)
 }
