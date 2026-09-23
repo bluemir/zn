@@ -411,6 +411,7 @@ var paletteCommands = []paletteCommand{
 	{name: "작업 목록", hint: "jobs", alias: ":jobs", run: runJobs},
 	{name: "알림 목록", hint: "messages", alias: ":messages", run: runMessages},
 	{name: "tip 목록", hint: "tips", alias: ":tips", run: runTips},
+	{name: "도움말", hint: "help manual", alias: ":help", run: runHelp},
 	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters, when: whenBuffer},
 	{name: "명령줄 이력", hint: "command line history", alias: ":history", run: runHistory},
 	{name: "되돌아간 자리", hint: "jump list", alias: ":jumps", run: runJumps, when: whenBuffer},

@@ -382,6 +382,10 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// vim 에 짝이 없는 이름이다. 아래 줄에 스치는 문장을 모아 본다 — 맨 위에서 연다.
 		// 스쳐 지나간 그 문장에서 열고 싶으면 그 자리를 누른다(ADR-0061, ADR-0147).
 		return tipsMode(m.editor, 0)
+	case "help", "h":
+		// vim 과 같은 이름이고 줄임말도 그쪽을 따랐다. **낱말을 받지 않는다** — vim 의
+		// `:help yank` 에 해당하는 것이 없다. 한 장짜리 글이라 열고 `/` 로 찾는다(ADR-0149).
+		return helpMode(m.editor)
 	case "jumplogs":
 		// 방문 기록이다. `:jumps`(되돌아간 자리) 와 다른 것이라 이름도 갈랐다(ADR-0074).
 		return jumplogsMode(m.editor)
