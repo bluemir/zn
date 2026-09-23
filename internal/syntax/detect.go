@@ -79,6 +79,11 @@ var languageRules = []Language{
 		indent: jsonIndent{}, outline: blockOutline{opens: jsonIndent{}}},
 	{exts: []string{".yaml", ".yml"}, aliases: []string{"yaml", "yml"}, state: yamlNormal{},
 		indent: yamlIndent{}, outline: blockOutline{opens: yamlIndent{}}},
+	{names: []string{"go.mod", "go.work"}, aliases: []string{"gomod", "gowork"},
+		state: gomodNormal{}, indent: tabBraceIndent,
+		outline: blockOutline{opens: tabBraceIndent}},
+	{names: []string{"go.sum", "go.work.sum"}, aliases: []string{"gosum"},
+		state: gosumNormal{}, indent: gosumIndent{}, outline: flatOutline{}},
 }
 
 // State 는 첫 줄을 시작하는 문맥이다. nil 이면 강조하지 않는 언어다.

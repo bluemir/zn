@@ -75,6 +75,13 @@ var languageSamples = []struct {
 	name  string
 	state State
 	lines []string
+
+	// singleContext 는 문맥이 하나뿐인 언어인지다. go.sum 만 참이다.
+	//
+	// 여러 줄에 걸치는 것이 없다는 뜻이라 표본이 둘째 문맥을 열 수 없다. **표본이 싱거운
+	// 것과 갈라 둔다** — 여기를 비워 두면 열지 않는 표본이 그냥 지나가고, 참으로 적어 두면
+	// 열리는 순간 시험이 걸린다.
+	singleContext bool
 }{
 	{
 		name:  "go",
@@ -246,6 +253,36 @@ var languageSamples = []struct {
 			"RUN apt-get update \\",
 			" && rm -rf /var/lib/apt/lists/*",
 			`CMD ["go", "run", "."]`,
+		},
+	},
+	{
+		name:  "gomod",
+		state: gomodNormal{},
+		lines: []string{
+			"module github.com/bluemir/zn",
+			"",
+			"go 1.24",
+			"toolchain go1.24.0",
+			"require (",
+			"\tgithub.com/charmbracelet/bubbletea v1.3.4 // 한글 주석이다",
+			"\t4d63.com/gochecknoglobals v0.2.1",
+			")",
+			"replace example.com/한글 => ../한글",
+			"retract [v1.0.0, v1.1.0]",
+		},
+	},
+	{
+		// 한글 줄은 진짜 go.sum 에 없다. 모듈 경로는 ASCII 로만 적기 때문이다. 그래도 넣는
+		// 것은 lexer 가 **이름이 go.sum 인 아무 파일**이나 받기 때문이다 — 사람이 그 이름으로
+		// 만든 메모를 열어도 자리가 글자 가운데를 갈라서는 안 된다.
+		name:          "gosum",
+		state:         gosumNormal{},
+		singleContext: true,
+		lines: []string{
+			"github.com/charmbracelet/bubbletea v1.3.4 h1:kCg7B+jSCFPLYRA52SDZjr51kG/fMUQoRoP0vNjbe9g=",
+			"",
+			"github.com/charmbracelet/bubbletea v1.3.4/go.mod h1:Vrl5uPQ8mCptEWUVjULjZjhjT0/PXPMlcC8bMs1PwOk=",
+			"한글/경로 v1.0.0 h1:한글",
 		},
 	},
 }
@@ -455,7 +492,11 @@ func TestKindPlainNotEmitted(t *testing.T) {
 func TestEmptyLineHasNoTokens(t *testing.T) {
 	for _, sample := range languageSamples {
 		t.Run(sample.name, func(t *testing.T) {
-			for _, state := range []State{sample.state, openedState(t, sample.state, sample.lines)} {
+			for _, state := range []State{sample.state, openedState(sample.state, sample.lines)} {
+				if state == nil {
+					continue // 문맥이 하나뿐인 언어다
+				}
+
 				tokens, _ := state.Lex(nil)
 
 				assert.Empty(t, tokens, "%T 에서 빈 줄에 토큰이 붙었습니다", state)
@@ -480,10 +521,8 @@ func TestEmptyLineKeepsStartState(t *testing.T) {
 }
 
 // openedState 는 표본을 훑는 동안 나온 문맥 중 시작 문맥이 아닌 것 하나다.
-// 여러 줄에 걸친 것 안의 문맥을 얻는 데 쓴다.
-func openedState(t *testing.T, start State, lines []string) State {
-	t.Helper()
-
+// 여러 줄에 걸친 것 안의 문맥을 얻는 데 쓴다. 열리는 것이 없으면 nil 이다.
+func openedState(start State, lines []string) State {
 	state := start
 	for _, line := range lines {
 		_, state = state.Lex([]byte(line))
@@ -491,8 +530,6 @@ func openedState(t *testing.T, start State, lines []string) State {
 			return state
 		}
 	}
-
-	t.Fatalf("표본에 여러 줄에 걸치는 것이 없습니다")
 
 	return nil
 }
@@ -506,8 +543,15 @@ func TestSamplesCoverHardCases(t *testing.T) {
 
 			assert.Contains(t, joined, "한", "표본에 한글이 없습니다")
 			assert.Contains(t, sample.lines, "", "표본에 빈 줄이 없습니다")
-			assert.NotEqual(t, sample.state, openedState(t, sample.state, sample.lines),
-				"표본이 여러 줄에 걸치는 문맥을 열지 않습니다")
+
+			opened := openedState(sample.state, sample.lines)
+			if sample.singleContext {
+				assert.Nil(t, opened, "문맥이 하나라고 적어 두고 둘째 문맥을 열었습니다")
+
+				return
+			}
+
+			assert.NotNil(t, opened, "표본이 여러 줄에 걸치는 문맥을 열지 않습니다")
 		})
 	}
 }

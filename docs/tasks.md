@@ -532,6 +532,10 @@
 		- [ ] nesting 과 at-rule prelude. `@media (min-width: 700px)` 의 `min-width` 가 지금은 선택자로 읽힌다 (ADR-0039)
 	- html
 		- [ ] `href`·`src` 값을 `KindLink` 로 줄지 정한다. 지금은 다른 속성 값과 같이 문자열이다. 속성 이름을 보고 갈라야 해서 tag 안 훑는 자리에 판단이 하나 는다 (ADR-0039, ADR-0040)
+	- go.mod·go.sum
+		- [ ] 따옴표로 감싼 경로(`module "example.com/x"`) 를 문자열로 낼지 정한다. 문법에는 있는데 `go mod tidy` 가 벗겨 내서 실제 파일에는 남지 않는다 (ADR-0039)
+		- [ ] `v` 로 시작하는 모듈 경로(`v2.example.com/x`) 가 버전으로 읽힌다. 낱말 모양만 보아서 그렇고, 가르려면 줄의 짜임을 알아야 한다 (ADR-0039)
+		- [ ] 트리 색(`treeRow.style()`) 에도 넣을지 정한다. 지금은 `.go` 만 Go 색이라 go.mod 이 색 없는 파일로 보인다. 확장자 표를 합칠지와 같이 본다 (ADR-0039)
 	- [ ] rust
 - [ ] 새 버전 알림
 - [x] tab에 열려있는 file 을 sidebar 에서 파일삭제하면 탭을 닫아 주기
