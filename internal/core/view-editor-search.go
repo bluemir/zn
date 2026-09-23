@@ -32,6 +32,9 @@ type viewEditorSearch struct {
 	input     inputLine // `/` 나 `?` 뒤에 친 것
 
 	origin searchOrigin
+
+	// browse 는 위·아래로 이력을 훑는 중인 자리다. 명령줄과 같다(history.go, ADR-0143).
+	browse historyBrowse
 }
 
 // searchOrigin 은 검색을 시작한 자리다.
@@ -62,15 +65,32 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return normalMode(m.editor)
 		case "enter":
 			return m.run()
+		case "up", "down":
+			// 검색 이력을 훑는다. 명령줄과 같은 규칙이다(ADR-0143 §2).
+			//
+			// **꺼낸 패턴으로 미리보기를 다시 돈다.** 치는 것과 꺼내는 것이 같은 자리라야
+			// 어느 쪽으로 넣었든 화면이 같은 것을 보인다.
+			text, ok := m.browse.move(m.searchHistory, m.input.text, historyDelta(msg.String()))
+			if !ok {
+				return m, nil
+			}
+
+			m.input = newInputLine(text)
+			m.preview()
+
+			return m, nil
 		case "left", "right", "home", "end":
 			// 패턴이 바뀌지 않으므로 미리보기를 다시 돌리지 않는다. 커서만 옮긴 것으로
 			// 화면이 뛰면 어디를 보고 있었는지를 잃는다.
+			//
+			// 훑던 자리도 같은 까닭으로 지킨다. 거를 접두가 그대로다(ADR-0143 §2).
 			m.input.move(msg.String())
 
 			return m, nil
 		case "delete":
 			m.input.deleteForward()
 			m.preview()
+			m.browse.stop()
 
 			return m, nil
 		case "backspace":
@@ -82,6 +102,7 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.input.deleteBackward()
 			m.preview()
+			m.browse.stop()
 
 			return m, nil
 		default:
@@ -90,6 +111,7 @@ func (m viewEditorSearch) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.input.insert(msg.Text)
 			m.preview()
+			m.browse.stop()
 
 			return m, nil
 		}
@@ -160,6 +182,11 @@ func (m *viewEditorSearch) restore() {
 
 // run 은 친 패턴으로 실제 검색을 한다.
 func (m viewEditorSearch) run() (tea.Model, tea.Cmd) {
+	// **정규식이 되는지 보기 전에 담는다.** 틀린 정규식이야말로 고쳐서 다시 치려고 꺼내는
+	// 것이다(ADR-0143 §5). 빈 채로 Enter 는 마지막 검색을 되풀이하는 것이라 담을 것이 없고,
+	// 그것은 add 가 거른다.
+	m.searchHistory.add(m.input.text)
+
 	// 미리보기로 옮겨둔 커서에서 다시 찾으면 첫 매칭을 건너뛴다. 시작 자리에서 찾는다.
 	m.restore()
 

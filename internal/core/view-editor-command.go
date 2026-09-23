@@ -37,6 +37,9 @@ type viewEditorCommand struct {
 	// 지금 조각과 어긋난 목록을 들고 있게 된다. 자동완성 창이 곁들여 뜬 것이지 고르는
 	// 화면이 아닌 것과 같은 뜻이다(render-completion.go).
 	candidates []string
+
+	// browse 는 위·아래로 이력을 훑는 중인 자리다. 글을 고치면 놓는다(history.go, ADR-0143).
+	browse historyBrowse
 }
 
 func (m viewEditorCommand) Init() tea.Cmd { return nil }
@@ -63,23 +66,42 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// 이것이 없으면 진단 마커가 다음 키를 누를 때까지 바뀌기 전 내용의 것으로
 			// 남는다. 눈에 보이는 자리가 생겨서 드러난 구멍이다(ADR-0086).
 			return next, tea.Batch(cmd, m.scheduleEditTick())
+		case "up", "down":
+			// 친 것을 접두로 걸러 이력을 훑는다. 빈 줄이면 전부가 대상이다(ADR-0143 §2).
+			//
+			// **거르는 접두는 줄 전체다.** `tab` 이 커서 앞만 넘기는 것과 다르다 —
+			// 완성은 「이 조각을 이어 쓴다」이고 이력은 「이 줄로 시작한 것을 찾는다」다.
+			text, ok := m.browse.move(m.commandHistory, m.input.text, historyDelta(msg.String()))
+			if !ok {
+				return m, nil
+			}
+
+			// 커서는 꺼낸 줄 끝이다. 곧바로 이어 칠 수 있는 자리가 거기다.
+			m.input = newInputLine(text)
+			m.candidates = nil
+
+			return m, nil
 		case "tab":
 			// 경로를 받는 명령의 마지막 조각을 채운다. 채울 것이 없으면 아무 일도 없다.
 			// **커서 앞만 넘긴다** — 뒤에 친 것은 완성할 조각이 아니다(input-line.go).
 			filled, candidates := completeCommandLine(m.input.head())
 			m.input.replaceHead(filled)
 			m.candidates = candidates
+			m.browse.stop()
 
 			return m, nil
 		case "left", "right", "home", "end":
 			// 글이 바뀌지 않으므로 후보는 그대로 둔다. 후보가 사라지는 것은 「글자를 하나 더
 			// 쳐서 채우다 만 조각이 달라졌을 때」이지 커서를 옮겼을 때가 아니다(ADR-0099).
+			//
+			// 훑던 자리도 같은 까닭으로 지킨다. 거를 접두가 그대로다(ADR-0143 §2).
 			m.input.move(msg.String())
 
 			return m, nil
 		case "delete":
 			m.input.deleteForward()
 			m.candidates = nil
+			m.browse.stop()
 
 			return m, nil
 		case "backspace":
@@ -89,6 +111,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.input.deleteBackward()
 			m.candidates = nil
+			m.browse.stop()
 
 			return m, nil
 		default:
@@ -97,6 +120,7 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.input.insert(msg.Text)
 			m.candidates = nil
+			m.browse.stop()
 
 			return m, nil
 		}
@@ -124,6 +148,10 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // run 은 친 명령을 실행한다.
 func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
+	// **뜯기 전에 담는다.** 오타로 뜯다 막힌 줄이야말로 고쳐서 다시 치려고 꺼내는 것이다
+	// (ADR-0143 §5). 빈 줄은 add 가 거른다.
+	m.commandHistory.add(m.input.text)
+
 	cmd, err := parseCommand(m.input.text, m.currentFile())
 	if err != nil {
 		return normalModeError(m.editor, err)
@@ -140,7 +168,7 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	// `:diff` 의 인자는 경로이기도 하고 커밋 이름이기도 하다. 어느 쪽인지 가르는 것은 파일이
 	// 있는지 보고 정하는 일이라 여기가 아니라 읽는 자리다(ADR-0140 §3).
 	switch cmd.name {
-	case "w", "e", "tabnew", "!", "!&", "rename", "grep", "s", "substitute", "replace", "diff":
+	case "w", "e", "tabnew", "!", "!&", "rename", "grep", "s", "substitute", "replace", "diff", "history", "his":
 	default:
 		if len(cmd.args) > 0 {
 			return normalModeMessage(m.editor, "알 수 없는 명령: "+m.input.text)
@@ -338,6 +366,15 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 	case "jobs":
 		// `!` 는 이 명령에서 뜻이 없다. 목록을 열기만 한다.
 		return jobsMode(m.editor)
+	case "history", "his":
+		// vim 이 `:his` 를 줄임말로 받는다. 인자가 갈래를 정한다 — 없으면 명령, `/`·`?` 면
+		// 검색, `all` 이면 둘 다다. `!` 는 뜻이 없다(ADR-0143 §4).
+		kind, err := parseHistoryKind(cmd.args)
+		if err != nil {
+			return normalModeError(m.editor, err)
+		}
+
+		return historyMode(m.editor, kind)
 	case "messages", "mes":
 		// vim 이 `:mes` 를 줄임말로 받는다. 여기도 같게 둔다(ADR-0053).
 		return messagesMode(m.editor)
@@ -515,6 +552,14 @@ func (m viewEditorCommand) substitute(cmd command) (tea.Model, tea.Cmd) {
 	// 동안 화면에 칠해지는 것도 이것이다 — 그쪽에 그릴 것을 따로 만들지 않았다. vim 과 같다
 	// (ADR-0010, ADR-0084).
 	m.search = searchState{input: sub.input, pattern: sub.pattern, direction: textarea.SearchForward, highlight: true}
+
+	// **패턴은 검색 이력에도 담는다.** 친 줄 전체(`:%s/foo/bar/`) 는 이미 명령 이력에 있고,
+	// 그 안의 `foo` 만 여기로 온다. 한 줄이 두 갈래에 담기는 유일한 자리다.
+	//
+	// 굳히는 줄 바로 옆인 것이 요점이다. 마지막 검색으로 굳혀서 `n` 이 먹게 해 두었으면
+	// 꺼내 쓰는 것도 그쪽이라야 짝이 맞는다. 물어보며 바꾸는 길도 여기를 지난다
+	// (ADR-0084 §5, ADR-0143 §1).
+	m.searchHistory.add(sub.input)
 
 	if sub.confirm {
 		return substituteMode(m.editor, sub, area)

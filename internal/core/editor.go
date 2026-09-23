@@ -52,6 +52,17 @@ type editor struct {
 	// search 는 마지막 검색이다. `n` 은 tab 을 옮겨서도 같은 것을 찾으므로 Buffer 가 아니라 여기 있다.
 	search searchState
 
+	// commandHistory·searchHistory 는 `:` 로 친 것과 `/`·`?` 로 찾은 것이다.
+	// 위·아래로 꺼내 쓰고 `:history` 로 목록을 본다(history.go, ADR-0143).
+	//
+	// **갈래마다 따로 둔다.** 한 줄(statusBar 아래 줄) 을 나눠 쓰는 것은 화면을 아끼는
+	// 사정이고, `/` 를 치고 위를 눌렀을 때 나와야 하는 것은 「방금 그 검색」이다.
+	//
+	// mode 가 아니라 여기 있는 것은 명령줄을 나갔다 다시 열어도 남아야 하기 때문이다.
+	// 세션을 넘지는 않는다 — 파일로 남기려면 상태 파일이 필요한데 그것은 두지 않기로 했다.
+	commandHistory history
+	searchHistory  history
+
 	// registers 는 지우거나 복사한 내용이 담기는 자리다. 붙여넣기가 tab 을 넘어 되어야 하므로
 	// 여기 있다. vim 의 register 도 buffer 밖이다. `d`·`c`·`y` 가 채우고 `p`·`P` 가 읽는다(ADR-0017).
 	//
