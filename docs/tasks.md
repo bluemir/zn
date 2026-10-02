@@ -25,8 +25,16 @@
 - [x] 커밋 기록의 그래프를 git 의 알고리즘으로 옮기고 backmerge 를 보이게 한다 (ADR-0141)
 - [ ] 커밋 기록의 차례를 `--topo-order` 로 바꿀지 정한다 (ADR-0141 §3)
 	- git 의 `--graph` 는 이 차례를 함의한다. 갈래의 커밋을 붙여 놓아 섞이지 않게 한다. 지금 우리 차례는 커밋한 때이고 git 의 `--date-order` 와 같다
-	- **조금씩 읽기와 부딪힌다.** 범위 안 모든 커밋의 자식 수를 먼저 세야 해서, 여는 순간 저장소를 통째로 읽게 된다 (ADR-0115 §3)
-	- git 도 commit-graph 파일의 세대 번호가 있을 때만 게으르게 한다. go-git 이 그것을 내주는지부터 잰다
+	- 자식 수는 이제 세대 번호로 게으르게 센다 (ADR-0150). 남은 것은 차례를 바꿀지다
+- [x] 커밋 기록이 시계를 믿지 않고 자식이 모두 나간 커밋만 내보낸다 (ADR-0150)
+- [ ] commit-graph 가 없는 큰 저장소에서 `GRAPH` 첫 화면까지 진척을 보여줄지 정한다 (ADR-0150)
+	- kubernetes 10 초, linux 83 초 동안 빈 화면이다
+- [x] 커밋한 때가 같은 커밋을 git 처럼 차례에 들어온 순서로 가른다 (ADR-0150 §5)
+- [ ] `GRAPH` 의 씨앗을 git 의 `--all` 처럼 `refs/` 아래 전부와 다른 worktree 의 HEAD 까지 넓힐지 정한다 (ADR-0150)
+	- 지금은 branch·tag·remote 와 HEAD 만이라 `refs/stash`·`refs/notes/*` 와 다른 worktree 에서 떨어진 HEAD 가 보이지 않는다
+- [ ] prometheus 에서 커밋 차례는 같은데 81 번째 행부터 그림이 git 과 다른 것을 고친다 (ADR-0150)
+	- git 은 `* / / /` 로 열을 당기고 우리는 `* | | |` 로 둔다. `git-graph-draw.go` 의 일이다
+	- 작은 재현이 있다. `git-graph_test.go` 의 `newSameSecondFixture` 를 `assertSameGraph` 로 견주면 같은 모양으로 갈린다
 - [ ] 커밋 기록의 갈래마다 색을 나눌지 정한다. git 은 `--color` 에서 열마다 색을 돌려 쓴다 (ADR-0141)
 - [ ] `internal/tui` scaffolding(697 줄) 을 걷어낼지 정한다
 	- `cmd/main.go` 가 `internal/core` 와 `internal/buildinfo` 만 부르고 `tui.Run` 을 부르는 자리가 없어 죽은 채로 있다. 안에 있는 것은 메인 메뉴와 form 예제다

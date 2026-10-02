@@ -14,8 +14,8 @@ import (
 
 // runGitAt 은 커밋 시각까지 정해 두고 git 을 부른다.
 //
-// `--date` 는 **쓴 때**만 바꾼다. 차례를 정하는 것은 커밋한 때라(graphAfter) 그쪽은 환경
-// 변수로만 정할 수 있고, 그것을 안 정하면 네 커밋이 모두 같은 초에 몰려 차례가 해시로 갈린다.
+// `--date` 는 **쓴 때**만 바꾼다. 차례를 정하는 것은 커밋한 때라(addReady) 그쪽은 환경
+// 변수로만 정할 수 있고, 그것을 안 정하면 네 커밋이 모두 같은 초에 몰려 차례가 들어온 순서로 갈린다.
 func runGitAt(t *testing.T, dir, when string, args ...string) {
 	t.Helper()
 
@@ -188,4 +188,142 @@ func TestGraphWalkRefusesNonRepo(t *testing.T) {
 	_, err := newGraphWalk(t.TempDir())
 
 	assert.Error(t, err)
+}
+
+// newSkewFixture 는 시계가 어긋난 저장소를 만든다. merge 가 제 부모보다 **이르게** 커밋됐다.
+//
+//	M  00:03  (master, HEAD)  merge
+//	|\
+//	| B  00:05  (topic)  시계가 빠른 자리에서 만든 커밋
+//	|/
+//	A  00:00
+//
+// 커밋한 때로만 줄을 세우면 B 가 M 위로 올라가서 합쳐진 갈래가 따로 열린다. topic 이
+// 씨앗으로 먼저 큐에 들어가 있는 것이 그 길을 연다.
+func newSkewFixture(t *testing.T) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git 이 없다")
+	}
+
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "test@example.com")
+	runGit(t, root, "config", "user.name", "test")
+
+	commit := func(rel, when string) {
+		write(t, root, rel, rel+"\n")
+		runGit(t, root, "add", "-A")
+		runGitAt(t, root, when, "commit", "-m", rel)
+	}
+
+	commit("a.txt", "2026-01-01T00:00:00+09:00")
+
+	runGit(t, root, "checkout", "-b", "topic")
+	commit("b.txt", "2026-01-01T00:05:00+09:00")
+
+	runGit(t, root, "checkout", "master")
+	runGitAt(t, root, "2026-01-01T00:03:00+09:00",
+		"merge", "--no-ff", "-m", "merge topic", "topic")
+
+	return root
+}
+
+// 시계를 믿지 않는다. 자식이 부모보다 이르게 커밋돼도 부모는 자식 아래다 — git 이 그렇다.
+func TestGraphWalkIgnoresClockSkew(t *testing.T) {
+	assertSameGraph(t, newSkewFixture(t), "--date-order")
+}
+
+// commit-graph 파일이 있으면 그 세대 번호로 같은 차례를 낸다.
+func TestGraphWalkUsesCommitGraph(t *testing.T) {
+	root := newSkewFixture(t)
+	runGit(t, root, "commit-graph", "write", "--reachable")
+
+	assertSameGraph(t, root, "--date-order")
+}
+
+// commit-graph 파일이 낡아도 맞다. 파일을 쓴 뒤에 생긴 커밋은 그 안에 없다.
+func TestGraphWalkStaleCommitGraph(t *testing.T) {
+	root := newSkewFixture(t)
+	runGit(t, root, "commit-graph", "write", "--reachable")
+
+	runGit(t, root, "checkout", "-b", "late", "topic")
+	write(t, root, "c.txt", "c\n")
+	runGit(t, root, "add", "-A")
+	runGitAt(t, root, "2026-01-01T00:01:00+09:00", "commit", "-m", "c.txt")
+	runGit(t, root, "checkout", "master")
+	runGitAt(t, root, "2026-01-01T00:02:00+09:00",
+		"merge", "--no-ff", "-m", "merge late", "late")
+
+	assertSameGraph(t, root, "--date-order")
+}
+
+// newSameSecondFixture 는 모든 커밋이 같은 초에 만들어진 저장소다. 차례가 커밋한 때로는 하나도
+// 갈리지 않고, 들어온 순서로만 갈린다.
+//
+// 갈래 넷을 만들어 둘은 merge 하고 둘은 남긴다. 합친 갈래의 끝에도 ref 가 남아 있어서 씨앗이
+// 다른 씨앗의 조상이 된다. remote ref 와 `origin/HEAD` 도 씨앗의 차례에 끼운다.
+func newSameSecondFixture(t *testing.T) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git 이 없다")
+	}
+
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "test@example.com")
+	runGit(t, root, "config", "user.name", "test")
+
+	const when = "2026-01-01T00:00:00+09:00"
+
+	commit := func(rel string) {
+		write(t, root, rel, rel+"\n")
+		runGit(t, root, "add", "-A")
+		runGitAt(t, root, when, "commit", "-m", rel)
+	}
+
+	commit("base.txt")
+
+	for _, name := range []string{"zeta", "alpha", "mid", "omega"} {
+		runGit(t, root, "checkout", "-b", name, "master")
+		commit(name + "-1.txt")
+		commit(name + "-2.txt")
+	}
+
+	runGit(t, root, "checkout", "master")
+	commit("main.txt")
+	runGitAt(t, root, when, "merge", "--no-ff", "-m", "merge zeta", "zeta")
+	runGitAt(t, root, when, "merge", "--no-ff", "-m", "merge alpha", "alpha")
+
+	runGit(t, root, "branch", "same-as-mid", "mid")
+	runGit(t, root, "update-ref", "refs/remotes/origin/omega", "omega")
+	runGit(t, root, "update-ref", "refs/remotes/origin/master", "master~1")
+	runGit(t, root, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master")
+	runGit(t, root, "tag", "v1", "alpha~1")
+
+	return root
+}
+
+// 같은 초이면 git 처럼 먼저 차례에 든 것이 앞이다.
+//
+// 그림은 견주지 않는다. 이 저장소에서 git 은 열을 `* | | /` 로 당기고 우리는 `* | | |` 로 둔다.
+// 차례가 아니라 그리는 쪽의 일이다(`docs/tasks.md`).
+func TestGraphWalkSameSecondMatchesGit(t *testing.T) {
+	root := newSameSecondFixture(t)
+
+	assert.Equal(t, gitLogHashes(t, root, "--all", "--date-order"), hashesOf(walkAll(t, root, 100)))
+}
+
+// commit-graph 로 게으르게 세는 길도 같은 차례다. git 도 두 길이 같은 차례를 낸다.
+func TestGraphWalkSameSecondWithCommitGraph(t *testing.T) {
+	root := newSameSecondFixture(t)
+	runGit(t, root, "commit-graph", "write", "--reachable")
+
+	assert.Equal(t, gitLogHashes(t, root, "--all", "--date-order"), hashesOf(walkAll(t, root, 100)))
 }

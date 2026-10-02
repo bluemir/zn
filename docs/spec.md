@@ -2419,7 +2419,11 @@ GRAPH  internal/core/git.go                                     master(f6cacbd*)
 
 **모든 ref 에서 훑는다**(`git log --all`). local branch·tag·remote branch 의 끝이 모두 씨앗이다. 주석 tag 는 벗겨서 그 안의 커밋을 쓴다.
 
-차례는 **커밋한 때 내림차순**이다. 화면에 보이는 날짜는 쓴 때(`%aD`) 이므로, rebase 로 옮겨 붙인 커밋에서는 날짜가 내림차순이 아닐 수 있다. git 도 같다.
+**부모는 늘 자식 아래다.** 자식이 모두 나온 커밋만 나온다(ADR-0150). 시계를 믿지 않으므로, 자식이 부모보다 이르게 커밋된 저장소에서도 merge 한 갈래가 따로 열리지 않는다. 같은 초에 만든 merge 와 그 부모도 그렇다.
+
+그것들 사이의 차례는 **커밋한 때 내림차순**이고, 같은 초이면 git 과 같이 먼저 차례에 든 것이 앞이다. 씨앗은 ref 의 전체 이름순으로 들고, 부모는 마지막 자식이 나오는 순간 든다. 화면에 보이는 날짜는 쓴 때(`%aD`) 이므로, rebase 로 옮겨 붙인 커밋에서는 날짜가 내림차순이 아닐 수 있다. git 도 같다.
+
+자식이 다 나왔는지는 세대 번호로 가린다. `.git/objects/info/commit-graph` 가 있으면 거기서 읽어 필요한 만큼만 내려간다. **없으면 처음 열 때 기록 전체를 읽는다.** 차례는 같고 첫 화면이 늦을 뿐이다. kubernetes 규모에서 10 초쯤이고, 파일은 `git gc`(또는 `git commit-graph write --reachable`) 가 쓴다.
 
 ref 이름은 `HEAD → master`·`tag: v1.1.0`·`origin/master` 처럼 붙고 차례는 HEAD, local branch, tag, remote branch 다. HEAD 가 branch 를 가리키면 그 이름에 얹히고, 떨어져 있으면(detached) 그 해시에 `HEAD` 만 붙는다. `origin/HEAD` 처럼 상징 참조인 ref 는 서지 않는다.
 
@@ -2447,7 +2451,7 @@ ref 이름은 `HEAD → master`·`tag: v1.1.0`·`origin/master` 처럼 붙고 �
 
 **커밋 하나의 줄 수가 가변이다.** 당기는 줄이 붙으면 그만큼 는다. 바닥은 둘이다. 이름 줄과 제목 줄이라, git 이 한 줄로 내는 커밋에는 열만 그린 줄을 덧붙인다.
 
-**차례는 `git log --graph` 와 다르다.** 그쪽은 `--topo-order` 를 함의해 갈래의 커밋을 붙여 놓는데, 우리는 커밋한 때 내림차순이라 `--date-order` 와 같다. 그 차례로 견주면 그래프가 한 글자도 다르지 않다(`docs/tasks.md`).
+**차례는 `git log --graph` 와 다르다.** 그쪽은 `--topo-order` 를 함의해 갈래의 커밋을 붙여 놓는데, 우리는 `--date-order` 와 같다. 그 차례로 견주면 커밋 차례가 같다(`docs/tasks.md`).
 
 **그래프 칸의 폭은 커밋마다 잰다.** 갈래가 없는 구간은 두 칸이고 merge 자리에서만 네 칸이 된다. 화면 전체로 한 번 재면 저 아래 갈래 하나 때문에 위쪽이 통째로 밀리고 훑을 때마다 본문이 좌우로 흔들린다. git 의 `--graph` 도 줄마다 따로 잰다.
 
