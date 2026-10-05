@@ -15,7 +15,7 @@ import (
 // 명령줄의 `:` 와 같은 자리라 무엇을 치고 있는지가 그 줄만 보고 갈린다.
 const createPrompt = "새 파일: "
 
-// createFileMode 는 새 파일 이름을 받는 화면이다. 트리에서 `mc` 로 들어온다.
+// createFileMode 는 새 파일 이름을 받는 화면이다. 트리에서 `ma` 로 들어온다.
 //
 // **키가 동작이 아니라 글자다.** 그래서 sidebarState 에 상태를 하나 더하는 대신 mode 를
 // 따로 뒀다(ADR-0054). 트리의 키는 두벌식 자리의 영문 키로 되돌려 받는데(ADR-0008) 이름은
@@ -117,7 +117,7 @@ func (m viewSidebarCreate) create() (tea.Model, tea.Cmd) {
 // 이미 있는 이름은 만들지 않는다. 덮어쓰면 그 파일의 내용이 조용히 사라지고, 트리는 이미
 // 그 이름을 보여주고 있어서 무엇이 없어졌는지도 화면에 남지 않는다.
 //
-// 이름을 받는 화면 둘이 나눠 쓴다 — `mc` 의 아래 줄과 우클릭 메뉴의 상자다(ADR-0146).
+// 이름을 받는 화면 둘이 나눠 쓴다 — `ma` 의 아래 줄과 우클릭 메뉴의 상자다(ADR-0146).
 // 지우기가 `md` 와 확인창에 나뉘어 있는 것과 같은 자리다(removeTreeEntry).
 func createEntry(e *editor, dir, name string) (tea.Model, tea.Cmd) {
 	if name == "" {

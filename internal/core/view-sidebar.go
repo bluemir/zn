@@ -234,10 +234,12 @@ func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 		// 고른 자리도 화면도 건드리지 않는다. 다시 읽는 것은 목록을 맞추는 일이고 어디를
 		// 보고 있는지를 옮기는 일이 아니다.
 		return m, m.reloadTree()
-	case "m c", "m a":
-		// `ma` 도 같은 자리다. NERDTree 의 파일 메뉴가 `a`(add) 로 만드는데(ADR-0054 가
-		// 그 메뉴를 이 자리에 두었다) 그 손버릇으로 온 손이 `mc` 를 찾지 않아도 되게 한다.
+	case "m a":
+		// NERDTree 의 파일 메뉴와 같은 자리다(ADR-0054 가 그 메뉴를 이 자리에 두었다).
+		// `a`(add) 로 만들고 `c`(copy) 로 복제한다(ADR-0152).
 		return m.createFile()
+	case "m c":
+		return m.copyFile()
 	case "m d":
 		return m.deleteFile()
 	case "m m":
@@ -251,7 +253,7 @@ func (m viewSidebar) run(act sidebarAction) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// createFile 은 `mc` 다. 이름을 받는 화면으로 넘긴다.
+// createFile 은 `ma` 다. 이름을 받는 화면으로 넘긴다.
 //
 // 만들 자리는 고른 항목 기준이다 — 디렉터리를 골랐으면 그 안, 파일을 골랐으면 그 파일이 있는
 // 디렉터리다. 눈으로 고른 자리에 생기므로 어디에 만들지를 따로 치지 않는다(ADR-0054).
@@ -334,6 +336,24 @@ func (m viewSidebar) renameFile() (tea.Model, tea.Cmd) {
 	return renameFileMode(m.editor, node)
 }
 
+// copyFile 은 `mc` 다. 지금 경로가 채워진 화면으로 넘긴다. 디렉터리는 안의 것까지 통째로 복제한다(ADR-0152).
+func (m viewSidebar) copyFile() (tea.Model, tea.Cmd) {
+	node := m.sidebar.selectedNode()
+	if node == nil {
+		return m, nil
+	}
+	if node.placeholder {
+		return sidebarModeMessage(m.editor, "읽는 중입니다")
+	}
+
+	// 뿌리는 트리 자체다. 뿌리 안의 어느 자리든 뿌리의 안이라 둘 곳이 없다.
+	if node == m.sidebar.tree {
+		return sidebarModeMessage(m.editor, "뿌리는 복제할 수 없습니다")
+	}
+
+	return copyFileMode(m.editor, node)
+}
+
 // enter 는 고른 항목을 연다. 디렉터리면 펼치거나 접고, 파일이면 tab 으로 연다.
 func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 	node := m.sidebar.selectedNode()
@@ -388,22 +408,19 @@ func (m viewSidebar) enter() (tea.Model, tea.Cmd) {
 // **`m` 만 안내한다.** `ctrl+w`·`g` 는 짝이 normal mode 와 같은 손버릇이라 트리에서 새로
 // 배울 것이 없고, 이 자리에 셋을 다 늘어놓으면 정작 트리에만 있는 파일 메뉴가 묻힌다.
 //
-// `a` 도 같이 적는다. NERDTree 손버릇으로 온 손이 헛치지 않게 둔 별칭인데(run 의 `m a`,
-// ADR-0054) 안내가 `c` 만 세우면 그 손은 자기가 아는 키가 죽은 줄로 읽는다.
-//
-// 말은 들어가는 화면의 것을 그대로 쓴다. `mc` 와 `mm` 은 곧 `새 파일: `·`새 이름: ` 이 뜨는
-// 자리고(view-sidebar-create.go, view-sidebar-rename.go), 여기서 다른 말로 부르면 같은 일을
-// 두 이름으로 배우게 된다. 화면이 없는 지우기만 알림의 「지웠습니다」 를 따른다.
+// 말은 들어가는 화면의 것을 그대로 쓴다. `ma`·`mc`·`mm` 은 곧 `새 파일: `·`복제: `·`새 이름: `
+// 이 뜨는 자리고(view-sidebar-create.go, view-sidebar-copy.go, view-sidebar-rename.go), 여기서
+// 다른 말로 부르면 같은 일을 두 이름으로 배우게 된다. 화면이 없는 지우기만 알림의 「지웠습니다」 를 따른다.
 //
 // 좁으면 오른쪽부터 잘린다. 아래 줄을 자르는 것은 renderStatusBar 하나가 하고 여기는
-// 문구만 준다 — 앞의 `a,c 새 파일` 만 남아도 첫 항목은 읽힌다.
+// 문구만 준다 — 앞의 `a 새 파일` 만 남아도 첫 항목은 읽힌다.
 func (m viewSidebar) fileMenuHint() string {
 	pending, ok := m.keyState().(sidebarPending)
 	if !ok || pending.prefix != "m" {
 		return ""
 	}
 
-	return "a,c 새 파일  d 지우기  m 새 이름"
+	return "a 새 파일  c 복제  d 지우기  m 새 이름"
 }
 
 // tipBottom 은 아래 줄 왼쪽에 서는 글이다. 고른 항목을 보여준다 — 편집 중인 파일의 커서

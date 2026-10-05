@@ -65,7 +65,7 @@ func (s sidebarStart) press(key string) ([]sidebarAction, sidebarState) {
 
 	// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
 	//
-	// `m` 은 파일을 만들고 지우는 접두 키다(`mc`·`md`). vim 의 mark 가 아니다 —
+	// `m` 은 파일을 만들고 복제하고 지우는 접두 키다(`ma`·`mc`·`md`). vim 의 mark 가 아니다 —
 	// 트리에는 표시할 자리가 없고, NERDTree 의 파일 메뉴가 이 자리에 있다(ADR-0054).
 	//
 	// `g` 는 처음으로 가는 `gg` 하나뿐이지만 접두 키다. normal 과 같은 손버릇이라야 해서

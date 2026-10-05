@@ -56,6 +56,7 @@ var (
 	errCreateFile   = errors.New("만들 수 없습니다")
 	errRemoveFile   = errors.New("지울 수 없습니다")
 	errRenameFile   = errors.New("이름을 바꿀 수 없습니다")
+	errCopyFile     = errors.New("복제할 수 없습니다")
 	errNoWorkingDir = errors.New("지금 디렉터리를 찾을 수 없습니다")
 )
 
@@ -113,6 +114,8 @@ func failedAction(err error) string {
 		return errRemoveFile.Error()
 	case errors.Is(err, errRenameFile):
 		return errRenameFile.Error()
+	case errors.Is(err, errCopyFile):
+		return errCopyFile.Error()
 	case errors.Is(err, errNoWorkingDir):
 		return errNoWorkingDir.Error()
 	}

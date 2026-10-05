@@ -23,22 +23,8 @@ func typeName(t *testing.T, m tea.Model, name string) tea.Model {
 	return m
 }
 
-// `mc` 는 이름을 받는 화면으로 간다. 만들 자리는 고른 항목 기준이다.
+// `ma` 는 이름을 받는 화면으로 간다. 만들 자리는 고른 항목 기준이다.
 func TestSidebarCreateAsksNameInSelectedDir(t *testing.T) {
-	m := newTreeEditor(t, 80, 10)
-	root := m.sidebar.root
-
-	model := selectTree(t, tea.Model(m), "docs")
-	model = send(model, "m", "c")
-
-	create, ok := model.(viewSidebarCreate)
-	require.True(t, ok, "이름을 받는 화면으로 간다")
-	assert.Equal(t, filepath.Join(root, "docs"), create.dir, "디렉터리를 골랐으면 그 안이다")
-	assert.Contains(t, barOf(t, model)[1], "새 파일: docs/", "만들 자리가 아래 줄에 보인다")
-}
-
-// `ma` 도 `mc` 와 같은 화면으로 간다. NERDTree 손버릇으로 온 손을 돌려보내지 않는다.
-func TestSidebarCreateAcceptsMaAsWell(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
 
@@ -47,7 +33,8 @@ func TestSidebarCreateAcceptsMaAsWell(t *testing.T) {
 
 	create, ok := model.(viewSidebarCreate)
 	require.True(t, ok, "이름을 받는 화면으로 간다")
-	assert.Equal(t, filepath.Join(root, "docs"), create.dir)
+	assert.Equal(t, filepath.Join(root, "docs"), create.dir, "디렉터리를 골랐으면 그 안이다")
+	assert.Contains(t, barOf(t, model)[1], "새 파일: docs/", "만들 자리가 아래 줄에 보인다")
 }
 
 // 파일을 골랐으면 그 파일이 있는 디렉터리다.
@@ -56,7 +43,7 @@ func TestSidebarCreateUsesParentDirOfSelectedFile(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 
 	create, ok := model.(viewSidebarCreate)
 	require.True(t, ok)
@@ -69,7 +56,7 @@ func TestSidebarCreateMakesFileAndOpensTab(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "docs")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = typeName(t, model, "guide.md")
 	model = sendSync(t, model, "enter")
 
@@ -92,7 +79,7 @@ func TestSidebarCreateMakesMissingParentDirs(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = typeName(t, model, "a/b/c.go")
 	model = sendSync(t, model, "enter")
 
@@ -108,7 +95,7 @@ func TestSidebarCreateMakesDirAndStaysInTree(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = typeName(t, model, "runtime/")
 	model = sendSync(t, model, "enter")
 
@@ -130,7 +117,7 @@ func TestSidebarCreateRefusesExistingName(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = typeName(t, model, "README.md")
 	model = sendSync(t, model, "enter")
 
@@ -148,7 +135,7 @@ func TestSidebarCreateRefusesOutsideRoot(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = typeName(t, model, "../escaped.go")
 	model = sendSync(t, model, "enter")
 
@@ -164,7 +151,7 @@ func TestSidebarCreateRefusesEmptyName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = sendSync(t, model, "enter")
 
 	require.IsType(t, viewSidebar{}, model)
@@ -177,7 +164,7 @@ func TestSidebarCreateCancels(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = typeName(t, send(model, "m", "c"), "gone.go")
+	model = typeName(t, send(model, "m", "a"), "gone.go")
 	model = send(model, "esc")
 
 	require.IsType(t, viewSidebar{}, model, "트리로 돌아온다")
@@ -187,7 +174,7 @@ func TestSidebarCreateCancels(t *testing.T) {
 
 	// backspace 로 이름을 다 지우면 명령줄처럼 그 화면에서 나간다.
 	model = selectTree(t, tea.Model(m), "README.md")
-	model = typeName(t, send(model, "m", "c"), "ab")
+	model = typeName(t, send(model, "m", "a"), "ab")
 	model = send(model, "backspace", "backspace", "backspace")
 
 	assert.IsType(t, viewSidebar{}, model)
@@ -199,7 +186,7 @@ func TestSidebarCreateKeepsHangulName(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = send(model, "m", "c")
+	model = send(model, "m", "a")
 	model = typeName(t, model, "한글.txt")
 	model = sendSync(t, model, "enter")
 
@@ -209,7 +196,7 @@ func TestSidebarCreateKeepsHangulName(t *testing.T) {
 	assert.NoError(t, err, "친 그대로 만들어진다")
 }
 
-// `mc` 는 트리의 `m` 접두 키다. 다음 키를 기다리는 동안 showcmd 에 그것이 보인다.
+// `ma` 는 트리의 `m` 접두 키다. 다음 키를 기다리는 동안 showcmd 에 그것이 보인다.
 func TestSidebarShowsPendingFilePrefix(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 

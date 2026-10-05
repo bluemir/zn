@@ -19,18 +19,18 @@ const (
 
 // viewSidebarInput 은 메뉴에서 이름을 받는 상자다(ADR-0146).
 //
-// **메뉴가 섰던 자리에서 받는다.** `mc`·`mm` 은 statusBar 아래 줄에서 받는데, 마우스로
+// **메뉴가 섰던 자리에서 받는다.** `ma`·`mc`·`mm` 은 statusBar 아래 줄에서 받는데, 마우스로
 // 시작한 일이 화면 반대편 끝에서 이어지면 눈이 그리로 내려갔다 와야 한다 — 이름 바꾸기 창이
 // 커서 옆에서 받는 것과 같은 까닭이다(ADR-0066, ADR-0067).
 //
-// 새 파일과 새 이름이 같은 타입을 쓴다. 다른 것은 「무엇을 적어 두고 시작하는가」와 「`enter`
+// 새 파일·새 이름·복제가 같은 타입을 쓴다. 다른 것은 「무엇을 적어 두고 시작하는가」와 「`enter`
 // 에 무엇을 하는가」 둘뿐이라, 그것을 flag 로 되묻는 대신 들어올 때 정해서 들고 온다 —
 // 종료 확인창이 `confirm` 을 들고 오는 것과 같은 손이다(view-quit-confirm.go).
 type viewSidebarInput struct {
 	*editor
 
 	parent tea.Model // 그만두면 돌아갈 화면. 메뉴가 아니라 메뉴를 열기 전 화면이다
-	prompt string    // 치는 줄 앞에 서는 말. `새 파일` 또는 `새 이름`
+	prompt string    // 치는 줄 앞에 서는 말. `새 파일`·`새 이름`·`복제`
 	input  inputLine
 	commit func(name string) (tea.Model, tea.Cmd)
 

@@ -54,7 +54,7 @@ func TestSidebarInputCreatesFile(t *testing.T) {
 	assert.Len(t, model.(viewEditorNormal).buffers, 2, "tab 으로 열린다")
 }
 
-// `/` 로 끝나면 디렉터리다. 열 것이 없으므로 트리에 머문다. `mc` 와 같은 규칙이다.
+// `/` 로 끝나면 디렉터리다. 열 것이 없으므로 트리에 머문다. `ma` 와 같은 규칙이다.
 func TestSidebarInputCreatesDir(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
@@ -150,7 +150,7 @@ func TestSidebarInputRenamesAndMoves(t *testing.T) {
 	assert.Error(t, err, "옛 자리에는 없다")
 }
 
-// 이름이 비면 알리고 만들지 않는다. `mc` 와 같은 말을 한다.
+// 이름이 비면 알리고 만들지 않는다. `ma` 와 같은 말을 한다.
 func TestSidebarInputRefusesEmptyName(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 

@@ -53,7 +53,7 @@ func TestSidebarRightClickOpensMenuForRow(t *testing.T) {
 	menu, ok := model.(viewSidebarMenu)
 	require.True(t, ok, "메뉴가 뜬다")
 	assert.Equal(t, filepath.Join(m.sidebar.root, "README.md"), menu.path)
-	assert.Equal(t, []string{"새 파일", "새 이름", "지우기"}, labelsOf(menu))
+	assert.Equal(t, []string{"새 파일", "새 이름", "복제", "지우기"}, labelsOf(menu))
 	assert.Contains(t, menu.View().Content, "README.md")
 }
 
@@ -202,7 +202,7 @@ func TestSidebarMenuDeleteAlwaysAsks(t *testing.T) {
 	model, _ := m.Update(rightClickAt(2, row))
 	menu := model.(viewSidebarMenu)
 
-	next, _ := menu.Update(click(itemPos(menu, 2)))
+	next, _ := menu.Update(click(itemPos(menu, 3)))
 
 	confirm, ok := next.(viewSidebarDelete)
 	require.True(t, ok, "확인창이 뜬다")

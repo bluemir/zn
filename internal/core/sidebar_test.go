@@ -803,7 +803,7 @@ func TestSidebarFileMenuHint(t *testing.T) {
 	m = send(m, "ctrl+w", "ctrl+w", "m")
 
 	bottom := barOf(t, m)[1]
-	for _, want := range []string{"a,c 새 파일", "d 지우기", "m 새 이름"} {
+	for _, want := range []string{"a 새 파일", "c 복제", "d 지우기", "m 새 이름"} {
 		assert.Contains(t, bottom, want)
 	}
 	assert.True(t, strings.HasSuffix(strings.TrimRight(bottom, " "), "m"), "먹은 키도 오른쪽 끝에 남는다: %q", bottom)

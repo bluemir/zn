@@ -66,7 +66,7 @@ func sidebarMenuMode(parent tea.Model, e *editor, x, y int) (tea.Model, tea.Cmd)
 	}
 
 	// `… 읽는 중` 은 파일이 아니라 안내다. 경로가 빈 문자열이라 짚을 자리가 없다 —
-	// `mc`·`md`·`mm` 셋이 이미 같은 자리에서 같은 말을 한다.
+	// `ma`·`mc`·`md`·`mm` 이 이미 같은 자리에서 같은 말을 한다.
 	//
 	// 알림만 내고 포커스는 그대로 둔다. 편집 영역에서 누른 것이 트리로 건너가면 안 된다.
 	if node.placeholder {
@@ -157,7 +157,7 @@ func (m viewSidebarMenu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 실행되는 것이 어긋난다 — 팔레트의 `commands` 가 같은 이유로 한 자리다.
 //
 // 뿌리는 「새 파일」 하나다. 지우면 트리가 가리킬 자리도 cwd 도 없어지고, 이름을 바꿔도
-// 마찬가지다 — 키로 가는 길(`md`·`mm`) 이 이미 같은 말로 막고 있다.
+// 마찬가지다. 복제는 뿌리 안에 둘 곳이 없다 — 키로 가는 길(`mc`·`md`·`mm`) 이 이미 같은 말로 막고 있다.
 func (m viewSidebarMenu) items() []menuItem {
 	create := menuItem{label: "새 파일", run: m.openCreate}
 	if m.isRoot {
@@ -167,6 +167,7 @@ func (m viewSidebarMenu) items() []menuItem {
 	return []menuItem{
 		create,
 		{label: "새 이름", run: m.openRename},
+		{label: "복제", run: m.openCopy},
 		{label: "지우기", run: m.openDelete},
 	}
 }
@@ -189,6 +190,13 @@ func (m viewSidebarMenu) openCreate() (tea.Model, tea.Cmd) {
 func (m viewSidebarMenu) openRename() (tea.Model, tea.Cmd) {
 	return sidebarInputMode(m, "새 이름", m.sidebar.relLabel(m.path), func(name string) (tea.Model, tea.Cmd) {
 		return renameEntry(m.editor, m.path, m.isDir, name)
+	})
+}
+
+// openCopy 는 지금 경로가 채워진 상자로 간다. 새 이름과 같이 뿌리 기준 경로를 친다(ADR-0152).
+func (m viewSidebarMenu) openCopy() (tea.Model, tea.Cmd) {
+	return sidebarInputMode(m, "복제", m.sidebar.relLabel(m.path), func(name string) (tea.Model, tea.Cmd) {
+		return copyEntry(m.editor, m.path, m.isDir, name)
 	})
 }
 

@@ -156,7 +156,7 @@ func TestEveryLineInputTakesCursorKeys(t *testing.T) {
 			open: func(t *testing.T) tea.Model {
 				m := selectTree(t, tea.Model(newTreeEditor(t, 80, 10)), "docs")
 
-				return send(m, "m", "c")
+				return send(m, "m", "a")
 			},
 			text: func(m tea.Model) string { return m.(viewSidebarCreate).input.text },
 		},
@@ -173,6 +173,20 @@ func TestEveryLineInputTakesCursorKeys(t *testing.T) {
 				return rename
 			},
 			text: func(m tea.Model) string { return m.(viewSidebarRename).input.text },
+		},
+		{
+			name: "트리 복제",
+			open: func(t *testing.T) tea.Model {
+				m := selectTree(t, tea.Model(newTreeEditor(t, 80, 10)), "README.md")
+				m = send(m, "m", "c")
+
+				// 지금 경로가 채워진 채로 열린다(ADR-0152). 빈 칸으로 만든다.
+				copying := m.(viewSidebarCopy)
+				copying.input = inputLine{}
+
+				return copying
+			},
+			text: func(m tea.Model) string { return m.(viewSidebarCopy).input.text },
 		},
 		{
 			name: "grep 검색창",

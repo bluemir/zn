@@ -724,7 +724,7 @@ func runSortLines(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 
 // runNewTab 은 이름 없는 빈 tab 을 만든다. `:tabnew` 를 인자 없이 친 것과 같다.
 //
-// **디스크에 파일을 만들지 않는다.** 그것은 트리의 `mc` 가 하는 일이고, 여기서 경로를
+// **디스크에 파일을 만들지 않는다.** 그것은 트리의 `ma` 가 하는 일이고, 여기서 경로를
 // 받으려면 입력 화면이 새로 필요하다(ADR-0109).
 func runNewTab(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
 	e.newTab()
