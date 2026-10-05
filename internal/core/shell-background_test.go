@@ -460,7 +460,7 @@ func TestPaletteShellBackgroundPrefix(t *testing.T) {
 		assert.Equal(t, paletteKindShell, kind)
 	})
 
-	t.Run("고를 목록이 없다", func(t *testing.T) {
+	t.Run("이력이 없으면 파일도 개수도 보이지 않는다", func(t *testing.T) {
 		var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
 
 		m = send(m, "!", "&", "l", "s")

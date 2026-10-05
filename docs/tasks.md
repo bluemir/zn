@@ -40,6 +40,7 @@
 	- `cmd/main.go` 가 `internal/core` 와 `internal/buildinfo` 만 부르고 `tui.Run` 을 부르는 자리가 없어 죽은 채로 있다. 안에 있는 것은 메인 메뉴와 form 예제다
 	- `components/` 의 `input`·`number`·`select` 는 나중에 쓸 자리가 있을 수 있어 같이 본다. `scripts/tools/make-select` 가 import 하는 `internal/tui` 는 이름만 같은 다른 모듈이다
 - [x] 명령줄 이력. `:` 로 친 것과 `/`·`?` 로 찾은 것을 **위·아래 화살표**로 꺼내 쓴다 (ADR-0143)
+	- [x] 팔레트의 `!`·`!&` 아래에 셸 이력을 띄운다 (ADR-0151)
 	- [ ] `:!!`·`:s` 되풀이를 넣을지 정한다. 막은 까닭이 「무엇을 되풀이하는지가 화면에 없다」 하나였는데 `:history` 가 그 화면이다 (ADR-0045, ADR-0084, ADR-0143)
 	- [ ] `ctrl+p`·`ctrl+n` 으로도 훑을지 정한다. 위·아래가 비어 있어서 그쪽을 먼저 썼다 (ADR-0143)
 	- [ ] `:grep` 검색창에도 이력을 둘지 정한다. 같은 `inputLine` 을 쓰지만 창이 따로고 갈래도 따로다 (ADR-0078, ADR-0143)

@@ -196,7 +196,7 @@ func TestCommandShellExpandFailureStaysInEditor(t *testing.T) {
 }
 
 func TestPaletteShellPrefix(t *testing.T) {
-	t.Run("안내를 놓고 counter 를 비운다", func(t *testing.T) {
+	t.Run("이력이 없으면 안내를 놓고 counter 를 비운다", func(t *testing.T) {
 		var m tea.Model = newPaletteView(t, 80, 20, "a.go", "b.go")
 
 		m = send(m, "!")
@@ -241,5 +241,113 @@ func TestPaletteShellPrefix(t *testing.T) {
 
 		assert.IsType(t, viewPalette{}, m)
 		assert.Nil(t, cmd)
+	})
+}
+
+// 팔레트의 `!`·`!&` 아래에 셸 이력이 선다. 맨 위 줄은 친 그대로다(ADR-0151).
+func TestPaletteShellHistory(t *testing.T) {
+	// newShellHistoryPalette 는 이력을 담아 둔 팔레트다. 앞의 것이 오래된 것이다.
+	newShellHistoryPalette := func(t *testing.T, entries ...string) tea.Model {
+		m := newPaletteView(t, 80, 20, "a.go")
+		for _, entry := range entries {
+			m.commandHistory.add(entry)
+		}
+
+		return m
+	}
+
+	t.Run("`:!` 로 돌린 것이 목록에 선다", func(t *testing.T) {
+		var m tea.Model = newTestEditor("a\n", 80, 20)
+
+		m = typeInto(m, ":!echo hi")
+		m, _ = m.Update(key("enter"))
+		m = send(m, "ctrl+p", "!")
+
+		rows := strings.Join(boxRowsOf(t, m.(viewPalette)), "\n")
+		assert.Contains(t, rows, "echo hi")
+		assert.Equal(t, "1/1", m.(viewPalette).renderCounter())
+	})
+
+	t.Run("팔레트에서 돌린 것을 명령 이력에 담는다", func(t *testing.T) {
+		m := newShellHistoryPalette(t)
+
+		m = typeInto(m, "!echo a")
+		m, _ = m.Update(key("enter"))
+
+		assert.Equal(t, []string{"!echo a"}, m.(viewEditorNormal).commandHistory.entries)
+	})
+
+	t.Run("최근 것이 위다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!make", "!ls", "w")
+
+		m = send(m, "!")
+
+		labels := m.(viewPalette).labels()
+		assert.Equal(t, []string{"ls", "make"}, labels, "`:w` 는 셸이 아니라 빠진다")
+	})
+
+	t.Run("갈래마다 따로다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!make", "!&make dev-run")
+
+		shell := send(m, "!")
+		assert.Equal(t, []string{"make"}, shell.(viewPalette).labels())
+
+		background := send(m, "!", "&")
+		assert.Equal(t, []string{"make dev-run"}, background.(viewPalette).labels())
+	})
+
+	t.Run("이력이 있어도 빈 줄의 Enter 는 아무 일도 하지 않는다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!make")
+
+		m = send(m, "!")
+		m, cmd := m.Update(key("enter"))
+
+		assert.IsType(t, viewPalette{}, m)
+		assert.Nil(t, cmd)
+	})
+
+	t.Run("곧바로 Enter 는 걸린 이력이 아니라 친 것을 돌린다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!make test")
+
+		m = typeInto(m, "!make tes")
+		assert.Contains(t, m.(viewPalette).labels(), "make test", "이력은 걸려 있다")
+
+		m, _ = m.Update(key("enter"))
+
+		entries := m.(viewEditorNormal).commandHistory.entries
+		assert.Equal(t, "!make tes", entries[len(entries)-1])
+	})
+
+	t.Run("아래로 고른 이력 줄이 돈다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!make", "!ls")
+
+		m = send(m, "!", "down", "down")
+		m, cmd := m.Update(key("enter"))
+
+		require.IsType(t, viewEditorNormal{}, m)
+		assert.NotNil(t, cmd)
+		assert.Equal(t, []string{"!ls", "!make"}, m.(viewEditorNormal).commandHistory.entries, "돌린 것이 맨 뒤로 간다")
+	})
+
+	t.Run("`!&` 에서 고른 이력은 백그라운드로 돈다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!&sleep 0")
+
+		m = send(m, "!", "&", "down")
+		m, cmd := m.Update(key("enter"))
+
+		require.IsType(t, viewEditorNormal{}, m)
+		assert.NotNil(t, cmd)
+		assert.Equal(t, []string{"!&sleep 0"}, m.(viewEditorNormal).commandHistory.entries)
+	})
+
+	t.Run("친 것으로 이력을 거른다", func(t *testing.T) {
+		m := newShellHistoryPalette(t, "!make", "!ls -al")
+
+		m = typeInto(m, "!ls")
+
+		rows := strings.Join(boxRowsOf(t, m.(viewPalette)), "\n")
+		assert.Contains(t, rows, "ls -al")
+		assert.NotContains(t, rows, "make")
+		assert.Equal(t, "1/2", m.(viewPalette).renderCounter())
 	})
 }

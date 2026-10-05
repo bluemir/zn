@@ -175,18 +175,42 @@ type paletteKind int
 const (
 	paletteKindFile            paletteKind = iota // 접두 없음. 파일 찾기다
 	paletteKindCommand                            // `>`. 명령 목록이다
-	paletteKindShell                              // `!`. 고를 목록이 없고 친 것을 셸에 넘긴다
+	paletteKindShell                              // `!`. 친 것을 셸에 넘긴다. 아래에 셸 이력이 선다(ADR-0151)
 	paletteKindShellBackground                    // `!&`. 셸에 넘기되 작업으로 돌린다(ADR-0138)
 	paletteKindGrep                               // `/`. 고를 목록이 없고 친 것으로 프로젝트를 뒤진다
 )
 
 // hasList 는 고를 후보가 있는 갈래인지다.
 //
-// 셸과 검색은 친 것을 그대로 넘기므로 후보가 없다. **목록·개수·Enter 셋이 같은 답을 봐야
+// 검색은 친 것을 그대로 넘기므로 후보가 없다. **목록·개수·Enter 셋이 같은 답을 봐야
 // 한다** — 하나만 갈라 두면 고를 것이 없는 자리에 「일치하는 것이 없습니다」가 뜬다.
+//
+// 셸 둘은 목록이 있다. 맨 위 줄이 친 그대로이고 그 아래가 이력이다(ADR-0151).
 func (kind paletteKind) hasList() bool {
-	return kind == paletteKindFile || kind == paletteKindCommand
+	return kind != paletteKindGrep
 }
+
+// shellPrefix 는 셸 갈래가 이력에 담기는 접두다. 셸 갈래가 아니면 빈 문자열이다.
+//
+// `:` 로 친 것과 같은 글이다. `:!make` 도 팔레트의 `!make` 도 `commandHistory` 에 `!make`
+// 로 담기므로, 두 자리가 한 이력을 나눠 쓴다(ADR-0151).
+func (kind paletteKind) shellPrefix() string {
+	switch kind {
+	case paletteKindShell:
+		return "!"
+	case paletteKindShellBackground:
+		return "!&"
+	default:
+		return ""
+	}
+}
+
+// typedRow 는 셸 갈래 맨 위 줄의 index 다. 이력이 아니라 친 그대로를 가리킨다.
+//
+// **걸러지지 않고 늘 맨 위에 선다.** 열자마자 Enter 를 누르면 지금까지처럼 친 것이 돈다.
+// fuzzy 라서 `make tes` 를 치면 `make test` 가 걸리는데, 그것이 맨 위면 새 명령을 치다가
+// 비슷한 이력이 돈다(ADR-0151).
+const typedRow = -1
 
 // kind 는 갈래와 접두를 뗀 나머지를 준다.
 func (m viewPalette) kind() (paletteKind, string) {
@@ -213,7 +237,7 @@ func (m viewPalette) kind() (paletteKind, string) {
 
 // labels 는 지금 표에서 매칭 대상이 되는 글자들이다.
 //
-// 셸과 검색은 고를 것이 없어서 비어 있다. 그 덕에 filter 는 그 갈래들을 몰라도 되고 hits 가
+// 검색은 고를 것이 없어서 비어 있다. 그 덕에 filter 는 그 갈래를 몰라도 되고 hits 가
 // 저절로 빈다.
 func (m viewPalette) labels() []string {
 	kind, _ := m.kind()
@@ -223,6 +247,9 @@ func (m viewPalette) labels() []string {
 	}
 	if kind == paletteKindFile {
 		return m.files
+	}
+	if kind.shellPrefix() != "" {
+		return m.shellHistory(kind)
 	}
 
 	commands := m.commands()
@@ -256,11 +283,48 @@ func (m viewPalette) commands() []paletteCommand {
 	return available
 }
 
+// shellHistory 는 이 셸 갈래로 돌린 것들이다. 접두를 떼고 **최근 것부터** 준다.
+//
+// 최근 것부터 주면 빈 패턴에서도, 점수가 같을 때도 최근 것이 위다 — filterPalette 가 동점을
+// 원래 자리 순으로 끊는다.
+//
+// **갈래마다 따로다.** `!` 에는 `!&` 로 돌린 것이 서지 않는다. kind 가 `!&` 를 먼저 보는 것과
+// 같은 까닭이다. 뗀 뒤 빈 것도 뺀다 — 고를 것이 아니다.
+func (m viewPalette) shellHistory(kind paletteKind) []string {
+	prefix := kind.shellPrefix()
+	entries := m.commandHistory.entries
+
+	labels := make([]string, 0, len(entries))
+	for i := len(entries) - 1; i >= 0; i-- {
+		rest, ok := strings.CutPrefix(entries[i], prefix)
+		if !ok || rest == "" {
+			continue
+		}
+		if kind == paletteKindShell && strings.HasPrefix(rest, "&") {
+			continue
+		}
+
+		labels = append(labels, rest)
+	}
+
+	return labels
+}
+
+// matchHits 는 입력으로 거른 hits 다. 셸 갈래면 맨 위에 친 그대로의 줄을 끼운다(typedRow).
+func (m viewPalette) matchHits() []paletteHit {
+	kind, pattern := m.kind()
+
+	hits := filterPalette(pattern, m.labels())
+	if kind.shellPrefix() != "" {
+		hits = append([]paletteHit{{index: typedRow}}, hits...)
+	}
+
+	return hits
+}
+
 // filter 는 입력으로 목록을 다시 거른다. 입력이 바뀌었으므로 고른 자리는 처음으로 돌아간다.
 func (m *viewPalette) filter() {
-	_, pattern := m.kind()
-
-	m.hits = filterPalette(pattern, m.labels())
+	m.hits = m.matchHits()
 	m.selected, m.top = 0, 0
 }
 
@@ -269,9 +333,7 @@ func (m *viewPalette) filter() {
 // 인덱싱이 파일을 부을 때마다 맨 위로 튀면 목록을 훑을 수 없다. 새로 온 파일이 위로 끼어들면
 // 커서가 가리키는 항목은 바뀔 수 있지만, 그것이 매번 처음으로 돌아가는 것보다 낫다.
 func (m *viewPalette) refilter() {
-	_, pattern := m.kind()
-
-	m.hits = filterPalette(pattern, m.labels())
+	m.hits = m.matchHits()
 	m.scrollTo()
 }
 
@@ -304,12 +366,23 @@ func (m *viewPalette) scrollTo() {
 func (m viewPalette) run() (tea.Model, tea.Cmd) {
 	kind, line := m.kind()
 
-	// 셸과 검색은 고른 것이 아니라 친 것을 실행한다. 그래서 hits 를 보기 전에 갈린다.
-	// 아무것도 치지 않았으면 가만히 있는다 — 고를 것이 없을 때와 같다.
-	if !kind.hasList() && line == "" {
+	if kind.hasList() && len(m.hits) == 0 {
 		return m, nil
 	}
-	if kind.hasList() && len(m.hits) == 0 {
+
+	// 셸 갈래는 이력 줄을 골랐으면 그것을, 맨 위 줄이면 친 그대로를 돌린다(ADR-0151).
+	// 이력 줄은 고르는 즉시 돈다. `:history` 처럼 실어 주지 않는다 — 맨 위가 친 그대로라
+	// 이력이 돌려면 일부러 아래로 내려가야 한다.
+	prefix := kind.shellPrefix()
+	if prefix != "" {
+		if index := m.hits[m.selected].index; index != typedRow {
+			line = m.labels()[index]
+		}
+	}
+
+	// 셸과 검색은 친 것을 실행한다. 아무것도 치지 않았으면 가만히 있는다 — 고를 것이 없을
+	// 때와 같다. 셸 갈래는 이력이 있어도 그렇다. 빈 맨 위 줄이 곧 「아직 치는 중」이다.
+	if (prefix != "" || kind == paletteKindGrep) && line == "" {
 		return m, nil
 	}
 
@@ -338,6 +411,12 @@ func (m viewPalette) run() (tea.Model, tea.Cmd) {
 		}
 
 		m.activeBuffer().ClearSelection()
+	}
+
+	// 셸 둘은 돌리기 전에 담는다. `:` 에 친 것과 같은 꼴이라 명령줄에서 위를 눌러도 나온다.
+	// 이력 줄을 골랐으면 그 줄이 맨 뒤로 옮겨 간다(history.add).
+	if prefix != "" {
+		m.commandHistory.add(prefix + line)
 	}
 
 	if kind == paletteKindShell {
@@ -438,13 +517,27 @@ func (m viewPalette) View() tea.View {
 
 // renderCounter 는 statusBar 아래 줄이다. 몇 개 중 몇 개가 걸렸는지 보여준다.
 //
-// 셸과 검색은 셀 것이 없어서 비운다. `0/0` 은 아무것도 못 찾은 것처럼 보이는 거짓말이다.
+// 검색은 셀 것이 없어서 비운다. `0/0` 은 아무것도 못 찾은 것처럼 보이는 거짓말이다.
+//
+// 셸 갈래는 걸린 이력만 센다. 맨 위의 친 그대로 줄은 걸린 것이 아니다. 이력이 하나도 없으면
+// 검색과 같이 비운다 — 고를 것이 친 그대로 하나뿐이다.
 func (m viewPalette) renderCounter() string {
-	if kind, _ := m.kind(); !kind.hasList() {
+	kind, _ := m.kind()
+	if !kind.hasList() {
 		return ""
 	}
 
-	return fmt.Sprintf("%d/%d", len(m.hits), len(m.labels()))
+	total := len(m.labels())
+	hits := len(m.hits)
+	if kind.shellPrefix() != "" {
+		if total == 0 {
+			return ""
+		}
+
+		hits--
+	}
+
+	return fmt.Sprintf("%d/%d", hits, total)
 }
 
 // renderBox 는 박스 전체를 화면 행 문자열로 만든다. 각 행이 정확히 paletteWidth() 칸이다.
@@ -505,45 +598,45 @@ func (m viewPalette) renderListRows(inner int) []string {
 
 	kind, rest := m.kind()
 
-	// 셸과 검색은 목록이 아니라 안내를 놓는다. 고를 것이 없는데 「일치하는 것이 없습니다」가
+	// 검색은 목록이 아니라 안내를 놓는다. 고를 것이 없는데 「일치하는 것이 없습니다」가
 	// 뜨면 무엇을 잘못 쳤는지 찾게 된다.
 	if !kind.hasList() {
-		guide := ""
-
-		switch kind {
-		case paletteKindShell:
-			guide = "Enter 로 셸에서 실행합니다"
-			if rest == "" {
-				guide = "! 뒤에 셸 명령을 칩니다. `&` 를 더 치면 백그라운드다"
-			}
-		case paletteKindShellBackground:
-			guide = "Enter 로 백그라운드에서 실행합니다"
-			if rest == "" {
-				guide = "!& 뒤에 백그라운드로 돌릴 셸 명령을 칩니다"
-			}
-		case paletteKindGrep:
-			guide = "Enter 로 프로젝트를 검색합니다"
-			if rest == "" {
-				guide = "/ 뒤에 찾을 것을 칩니다"
-			}
-		}
-
-		return []string{side + " " + styleDetail.Render(padTo(truncateToWidth(guide, inner), inner)) + " " + side}
+		return []string{side + " " + styleDetail.Render(padTo(truncateToWidth(paletteGuide(kind, rest), inner), inner)) + " " + side}
 	}
 
 	if len(m.hits) == 0 {
 		return []string{side + " " + styleDetail.Render(padTo("일치하는 것이 없습니다", inner)) + " " + side}
 	}
 
+	labels := m.labels()
+
 	rows := []string{}
 	for i := m.top; i < len(m.hits) && len(rows) < m.paletteListRows(); i++ {
 		hit := m.hits[i]
 
+		// 셸 갈래의 맨 위 줄은 친 그대로다. 친 글은 입력줄에 이미 있으므로 안내를 놓는다.
+		// **친 것이 없으면 고른 표시를 하지 않는다.** Enter 가 아무 일도 하지 않는 줄이다.
+		if hit.index == typedRow {
+			text := padTo(truncateToWidth(paletteGuide(kind, rest), inner), inner)
+			if i == m.selected && rest != "" {
+				text = reverse.Render(text)
+			} else {
+				text = styleDetail.Render(text)
+			}
+
+			rows = append(rows, side+" "+text+" "+side)
+
+			continue
+		}
+
 		row := paletteRow{positions: hit.positions, selected: i == m.selected}
-		if kind == paletteKindCommand {
+		switch {
+		case kind == paletteKindCommand:
 			command := m.commands()[hit.index]
 			row.left, row.right = command.name, command.detail()
-		} else {
+		case kind.shellPrefix() != "":
+			row.left = labels[hit.index]
+		default:
 			row.left = m.files[hit.index]
 		}
 
@@ -551,6 +644,32 @@ func (m viewPalette) renderListRows(inner int) []string {
 	}
 
 	return rows
+}
+
+// paletteGuide 는 친 것을 그대로 넘기는 갈래의 안내 한 줄이다. 치기 전과 친 뒤가 갈린다.
+func paletteGuide(kind paletteKind, rest string) string {
+	switch kind {
+	case paletteKindShell:
+		if rest == "" {
+			return "! 뒤에 셸 명령을 칩니다. `&` 를 더 치면 백그라운드다"
+		}
+
+		return "Enter 로 셸에서 실행합니다"
+	case paletteKindShellBackground:
+		if rest == "" {
+			return "!& 뒤에 백그라운드로 돌릴 셸 명령을 칩니다"
+		}
+
+		return "Enter 로 백그라운드에서 실행합니다"
+	case paletteKindGrep:
+		if rest == "" {
+			return "/ 뒤에 찾을 것을 칩니다"
+		}
+
+		return "Enter 로 프로젝트를 검색합니다"
+	default:
+		return ""
+	}
 }
 
 // paletteRow 는 목록 한 줄이다. 왼쪽이 이름, 오른쪽이 흐린 설명이다.
