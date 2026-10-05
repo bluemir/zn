@@ -97,6 +97,28 @@ func TestSidebarRenameMovesToAnotherDir(t *testing.T) {
 		"옮겨간 자리까지 펼쳐서 고른다")
 }
 
+// 트리가 모르는 중간 디렉터리 아래로 옮겨도 그 자리까지 펼쳐서 고른다. 다시 읽는 자리가
+// 새 자리의 부모뿐이면 그 부모가 트리에 없어 새로 생긴 `notes/` 가 서지 않는다.
+func TestSidebarRenameMovesUnderNewNestedDir(t *testing.T) {
+	m := newTreeEditor(t, 80, 10)
+	root := m.sidebar.root
+
+	model := selectTree(t, tea.Model(m), "docs")
+	model = sendSync(t, model, "enter") // 펼친다
+	model = send(model, "down")         // 그 안의 spec.md
+	model = send(model, "m", "m")
+	model = eraseAll(t, model, len("docs/spec.md"))
+	model = typePath(t, model, "notes/x/spec.md")
+	model = sendSync(t, model, "enter")
+
+	require.IsType(t, viewSidebar{}, model)
+
+	v := model.(viewSidebar)
+	assert.Contains(t, names(v.sidebar.rows()), "1:notes", "새로 생긴 디렉터리가 트리에 선다")
+	assert.Equal(t, filepath.Join(root, "notes", "x", "spec.md"), v.sidebar.selectedNode().path,
+		"옮겨간 자리까지 펼쳐서 고른다")
+}
+
 // 디렉터리도 이름을 바꾼다. 안의 것은 그대로 딸려 간다.
 func TestSidebarRenameRenamesDir(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)

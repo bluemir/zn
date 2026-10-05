@@ -164,13 +164,20 @@ func renameEntry(e *editor, from string, isDir bool, name string) (tea.Model, te
 	e.renameBuffers(from, to, isDir)
 
 	// 옛 자리와 새 자리를 다시 읽는다. 같은 디렉터리 안에서 이름만 바꿨으면 한 번이다.
-	// 새 자리가 아직 트리에 없으면 refreshDir 이 아무 일도 하지 않고, 아래 reveal 이
-	// 뿌리부터 한 층씩 펼치며 내려간다(ADR-0032).
+	//
+	// 새 자리는 **트리가 아는 가장 깊은 위층**이다. `notes/x/spec.md` 처럼 중간 디렉터리까지
+	// 만들었으면 `notes/x/` 는 트리에 없고, 새로 생긴 `notes/` 를 들고 있어야 할 자리는 그 위다.
+	// 그 아래는 reveal 이 한 층씩 펼치며 읽는다(ADR-0032). 복제와 같다(copyEntry).
 	refresh := e.refreshDir(filepath.Dir(from))
 
+	dir := filepath.Dir(to)
+	for e.sidebar.nodeAt(dir) == nil && dir != e.sidebar.root {
+		dir = filepath.Dir(dir)
+	}
+
 	var moved tea.Cmd
-	if filepath.Dir(to) != filepath.Dir(from) {
-		moved = e.refreshDir(filepath.Dir(to))
+	if dir != filepath.Dir(from) {
+		moved = e.refreshDir(dir)
 	}
 
 	// 고른 자리는 옮겨간 그 파일이다. 이름을 바꾼 뒤 어디로 갔는지 눈으로 따라갈 수 있어야 한다.
