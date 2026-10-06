@@ -71,6 +71,9 @@ type editor struct {
 	// 안다(ADR-0058).
 	registers registerSet
 
+	// repeat 는 `.` 이 되풀이할 마지막 고치기다. register 처럼 tab 을 넘어 남는다(ADR-0153).
+	repeat lastChange
+
 	// clipboard 는 `"+p` 가 터미널의 답을 기다리는 상태다. clipboardSeq 는 물어본 차례이고,
 	// 기다림을 끝낼 때마다 올라가서 늦게 온 시간초과가 이미 붙인 것을 두고 「답이 없다」고
 	// 말하지 않는다.

@@ -231,6 +231,10 @@ func (e *editor) applyCompletion() {
 		start, end = item.start, item.end
 	}
 
+	// `.` 이 되풀이할 때는 다시 묻지 않고 이 결과를 그대로 넣는다. 범위는 커서 기준으로 담는다 —
+	// 되풀이하는 자리의 칸 번호는 여기와 다르다(ADR-0153).
+	e.recordInsert(insertStep{key: stepCompletion, text: item.text, before: buf.Cursor.Col - start, after: end - buf.Cursor.Col})
+
 	buf.InsertCompletion(start, end, []byte(item.text))
 	e.closeCompletion()
 	e.scrollToCursor()

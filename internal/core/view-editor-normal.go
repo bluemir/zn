@@ -230,6 +230,12 @@ func (m viewEditorNormal) press(key string) (tea.Model, tea.Cmd) {
 		// 동작은 editor 만 받는다. editor 는 포인터라 여기서 고친 것이 다음 동작에도 보인다(ADR-0026).
 		next, cmd := act.run(m.editor)
 
+		// 고치는 동작이면 `.` 이 되풀이할 것으로 적는다. insert 로 들어갔으면 그 뒤에 친 것도
+		// 담기 시작한다(ADR-0153). `.` 자신은 여기 들지 않는다.
+		if repeatable(act) {
+			m.startRepeat(act, next)
+		}
+
 		// 둘 다 없으면 mode 도 그대로고 낼 것도 없다. 다음 동작으로 간다.
 		if next == nil && cmd == nil {
 			continue

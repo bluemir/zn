@@ -268,6 +268,9 @@ func standaloneAction(key string, count int) action {
 		return actionPage{direction: textarea.PageDown, span: textarea.PageFull, count: count}
 	case "ctrl+b", "pgup":
 		return actionPage{direction: textarea.PageUp, span: textarea.PageFull, count: count}
+	case ".":
+		// 숫자를 댔으면 마지막 고치기의 숫자를 갈아 낀다(ADR-0153).
+		return actionRepeat{count: count}
 	case "u":
 		return actionUndo{}
 	case "ctrl+r":
