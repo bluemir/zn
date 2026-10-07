@@ -351,6 +351,20 @@ func whenSelection(e *editor) bool {
 	return ok
 }
 
+// whenReadableSelection 은 고른 범위만 있으면 성립한다. **읽기 전용이어도 선다.**
+//
+// 파일을 고치지 않는 명령의 조건이다. visual 의 `y` 가 읽기 전용에서도 되는 것과 같다
+// (readonly.go).
+func whenReadableSelection(e *editor) bool {
+	if !whenBuffer(e) {
+		return false
+	}
+
+	_, ok := e.activeBuffer().SelectionRange()
+
+	return ok
+}
+
 // whenNoSelection 은 고칠 파일이 있고 **고른 범위는 없어야** 성립한다.
 //
 // whenSelection 과 짝이라 둘 중 하나만 목록에 선다. 이름이 「선택 영역」으로 갈려 있어서,
@@ -398,6 +412,7 @@ var paletteCommands = []paletteCommand{
 	{name: "선택 영역 표 맞추기", hint: "format tables in selection", run: runFormatTables, when: whenSelection},
 	{name: "대문자로 맞추기", hint: "to upper case", run: runUpperCase, when: whenSelection},
 	{name: "소문자로 맞추기", hint: "to lower case", run: runLowerCase, when: whenSelection},
+	{name: "선택 영역 클립보드로 복사", hint: "copy selection to clipboard", run: runCopyToClipboard, when: whenReadableSelection},
 	{name: "파일 다시 읽기", hint: "reload file", alias: ":e", run: runReloadFile, when: whenBuffer},
 	{name: "새 파일", hint: "new file", alias: ":tabnew", run: runNewTab},
 	{name: "다른 tab 모두 닫기", hint: "close other tabs", run: runCloseOtherTabs, when: whenOtherTabs},
@@ -569,6 +584,41 @@ func paletteChangeCase(e *editor, kind textarea.CaseKind, o runOptions) (tea.Mod
 	e.scrollToCursor()
 
 	return normalMode(e)
+}
+
+// runCopyToClipboard 는 고른 범위를 시스템 클립보드로 보낸다. visual 의 `"+y` 와 같은
+// 자리로 간다(ADR-0148).
+//
+// actionVisualYank 를 부르지 않는 것은 팔레트가 돌리기 직전에 buffer 의 범위를 놓기
+// 때문이다. 여기서 보는 것은 실려 온 사본이다(ADR-0111).
+//
+// 담는 자리·알림·커서도 `"+y` 와 같다. 무명에 담기고 「(클립보드)」가 붙으며 커서는 범위의
+// 시작으로 간다.
+func runCopyToClipboard(e *editor, opts ...runOption) (tea.Model, tea.Cmd) {
+	if e.refuseNoBuffer() {
+		return normalMode(e)
+	}
+
+	o := newRunOptions(opts)
+	if !o.hasArea {
+		return normalModeMessage(e, "고른 범위가 없습니다")
+	}
+
+	buf := e.activeBuffer()
+
+	yanked, copied := buf.YankRange(o.area)
+	if !copied {
+		return normalMode(e)
+	}
+
+	e.registers.storeYank(yanked, clipboardRegister)
+	e.notify(register{yanked}.copiedMessage() + clipboardNote(clipboardRegister))
+	buf.MoveToRangeStart(o.area)
+	e.scrollToCursor()
+
+	next, cmd := normalMode(e)
+
+	return next, tea.Batch(clipboardStore(clipboardRegister, yanked), cmd)
 }
 
 // runReloadFile 은 파일을 다시 읽는다. 밖에서 바뀐 내용을 편집기 안으로 가져오는 길이다.

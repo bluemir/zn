@@ -141,6 +141,44 @@ func TestClipboardVisualYankSends(t *testing.T) {
 	assert.Equal(t, "foo", sent)
 }
 
+// 팔레트의 「선택 영역 클립보드로 복사」는 visual 의 `"+y` 와 같다.
+func TestClipboardPaletteCopySends(t *testing.T) {
+	m := send(newTestEditor("foo bar\nbaz", 80, 20), "v", "l", "l", "ctrl+p")
+	require.IsType(t, viewPalette{}, m)
+
+	after, cmd := yankWith(typeInto(m, ">clipboard"), "enter")
+
+	sent, ok := sentClipboard(t, cmd)
+	require.True(t, ok, "클립보드로 보내는 cmd 가 나와야 한다")
+	assert.Equal(t, "foo", sent)
+	require.IsType(t, viewEditorNormal{}, after)
+	assert.Equal(t, "3 글자 복사되었습니다 (클립보드)", after.(viewEditorNormal).notice)
+	assert.Equal(t, 0, bufferOf(t, after).Cursor.Col, "커서는 범위의 시작이다")
+}
+
+// 고른 범위가 없으면 목록에 없고, 읽기 전용이어도 고른 범위가 있으면 뜬다.
+func TestClipboardPaletteCopyNeedsSelectionOnly(t *testing.T) {
+	names := func(m viewPalette) []string {
+		list := []string{}
+		for _, command := range m.commands() {
+			list = append(list, command.name)
+		}
+
+		return list
+	}
+
+	without := newPaletteView(t, 80, 20, "a.go")
+	without.input = newInputLine(">")
+	without.filter()
+	assert.NotContains(t, names(without), "선택 영역 클립보드로 복사")
+
+	editor := newTestEditor("foo\n", 80, 20)
+	editor.activeBuffer().ReadOnly = true
+	with := send(editor, "v", "ctrl+p")
+	require.IsType(t, viewPalette{}, with)
+	assert.Contains(t, names(with.(viewPalette)), "선택 영역 클립보드로 복사")
+}
+
 // 이름을 대지 않은 `y` 는 나가지 않는다. 밖으로 보내는 것은 손이 대야 한다.
 func TestClipboardPlainYankStaysInside(t *testing.T) {
 	m := newTestEditor("foo bar\nbaz", 80, 20)
