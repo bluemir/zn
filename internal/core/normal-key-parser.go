@@ -286,9 +286,23 @@ func standaloneAction(key string, count int) action {
 }
 
 // prefixMotion 은 접두 키 조합이 가리키는 motion 이다. operator 뒤에도 올 수 있다(`dgg`).
+//
+// mark 로 가는 것(`'a` 와 백틱 a) 도 여기다. 뒤의 한 키가 mark 이름이라 모양이 `gg` 와 같고,
+// operator 뒤에 와서 범위가 된다(`d'a`, ADR-0154).
 func prefixMotion(prefix, key string) (moveMotion, bool) {
-	if prefix == "g" && key == "g" {
-		return motionToFirstLine{}, true
+	switch prefix {
+	case "g":
+		if key == "g" {
+			return motionToFirstLine{}, true
+		}
+	case "'":
+		if textarea.IsMarkName(key) {
+			return motionMark{name: key, linewise: true}, true
+		}
+	case "`":
+		if textarea.IsMarkName(key) {
+			return motionMark{name: key}, true
+		}
 	}
 
 	return nil, false
@@ -300,6 +314,11 @@ func prefixMotion(prefix, key string) (moveMotion, bool) {
 // 숫자 접두를 받는다(`3]c`). 쓰지 않는 조합은 그냥 버린다 — `3gt` 가 그렇다.
 func prefixAction(prefix, key string, count int) action {
 	switch prefix {
+	case "m":
+		// 찍는 것은 이동이 아니라서 operator 뒤에 올 수 없다. `dma` 는 아무것도 아니다.
+		if textarea.IsMarkName(key) {
+			return actionSetMark{name: key}
+		}
 	case "g":
 		switch key {
 		case "t":
@@ -457,8 +476,11 @@ func (s normalStart) press(key string) ([]action, normalState) {
 	}
 
 	switch key {
-	case "g", "ctrl+w", "]", "[":
+	case "g", "ctrl+w", "]", "[", "m", "'", "`":
 		// 뒤에 키가 하나 더 붙는다. 그때까지 화면은 showcmd 만 바뀐다.
+		//
+		// `m` `'` `` ` `` 는 뒤에 mark 이름이 붙는다(ADR-0154). 이름도 키라서 한글을 되돌린다 —
+		// `ㅁ` 이 `a` 다. normalRegister 와 같은 까닭이다.
 		return nil, normalPending{building: s.building, prefix: key}
 	case leaderKey, leaderWon:
 		// leader 는 뒤에 둘이 더 붙는다(`\gd`) — 몇 개가 남았는지는 normalPending 이 안다.

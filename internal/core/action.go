@@ -52,6 +52,10 @@ func (c actionMove) run(e *editor) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if e.refuseMissingMark(c.motion) {
+		return nil, nil
+	}
+
 	from, jumping := jumpPlace{}, false
 	if jumpMotion(c.motion) && !buf.Selection.Active {
 		from, jumping = e.here()
@@ -108,7 +112,7 @@ type actionDelete struct {
 
 func (c actionDelete) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
-	if e.refuseReadOnly() {
+	if e.refuseReadOnly() || e.refuseMissingMark(c.motion) {
 		return nil, nil
 	}
 
@@ -137,6 +141,10 @@ type actionYank struct {
 }
 
 func (c actionYank) run(e *editor) (tea.Model, tea.Cmd) {
+	if e.refuseMissingMark(c.motion) {
+		return nil, nil
+	}
+
 	buf := e.activeBuffer()
 
 	var cmd tea.Cmd
@@ -172,7 +180,7 @@ type actionChange struct {
 
 func (c actionChange) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
-	if e.refuseReadOnly() {
+	if e.refuseReadOnly() || e.refuseMissingMark(c.motion) {
 		return nil, nil
 	}
 
@@ -212,7 +220,7 @@ type actionIndent struct {
 
 func (c actionIndent) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
-	if e.refuseReadOnly() {
+	if e.refuseReadOnly() || e.refuseMissingMark(c.motion) {
 		return nil, nil
 	}
 
@@ -234,7 +242,7 @@ type actionReindent struct {
 
 func (c actionReindent) run(e *editor) (tea.Model, tea.Cmd) {
 	// 읽기 전용 파일은 고치지 않는다(readonly.go).
-	if e.refuseReadOnly() {
+	if e.refuseReadOnly() || e.refuseMissingMark(c.motion) {
 		return nil, nil
 	}
 

@@ -67,7 +67,7 @@ func (e *editor) here() (jumpPlace, bool) {
 // `ctrl+d`·`ctrl+f` 도 들지 않는다(그쪽은 애초에 motion 이 아니다, ADR-0062).
 func jumpMotion(mo moveMotion) bool {
 	switch mo.(type) {
-	case motionToLastLine, motionToFirstLine, motionMatchPair:
+	case motionToLastLine, motionToFirstLine, motionMatchPair, motionMark:
 		return true
 	}
 
@@ -92,7 +92,8 @@ func (e *editor) recordJump() {
 	e.recordJumpFrom(place)
 }
 
-// recordJumpMove 는 **파일 안에서 멀리 뛴 것**을 담는다. `G`·`gg`·`:번호` 가 쓴다(ADR-0082).
+// recordJumpMove 는 **파일 안에서 멀리 뛴 것**을 담는다. `G`·`gg`·`:번호`·`'a` 와 mark 판이
+// 쓴다(ADR-0082, ADR-0154).
 // 다른 부르는 자리와 달리 **뛴 뒤에** 부르고, 떠난 자리를 받는다.
 //
 // 뒤에 부르는 것은 **아무 데도 가지 않았으면 담지 않기** 위해서다 — 파일 끝에서 `G` 를 또

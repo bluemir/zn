@@ -292,6 +292,12 @@ func (s tokenRange) consume(ch rune) (token, tokenizerState) {
 		return token{}, tokenRange{buf: append(s.buf, ch), currentPath: s.currentPath}
 	}
 
+	// `'` 바로 뒤의 한 글자는 무엇이든 범위다. mark 이름이 글자라서(`'a`) 여기서 끊으면
+	// `:'ad` 가 이름 `ad` 로 읽힌다. 찍을 수 있는 이름인지는 parseLineAddress 가 본다(ADR-0154).
+	if s.buf[len(s.buf)-1] == '\'' {
+		return token{}, tokenRange{buf: append(s.buf, ch), currentPath: s.currentPath}
+	}
+
 	// 범위가 끝났고 이 글자부터가 이름 자리다. `!` 가 뜻을 갖는 것은 줄 맨 앞이 아니라
 	// **이름 자리** 라서, 범위 뒤에 붙은 것도 셸이다(`:1,5!sort`).
 	//

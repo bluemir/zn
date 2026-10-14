@@ -117,6 +117,9 @@ type Buffer struct {
 	// 값 필드다. 그래서 newBuffer 로 새로 열 때와 Reload 가 buffer 를 통째로 갈아끼울 때
 	// (`*buf = next`) 저절로 비워진다 — 비우는 코드를 따로 두지 않는다 (syntax.go).
 	syntax syntaxCache
+
+	// marks 는 찍어 둔 자리다. 줄을 따라가야 해서 줄과 같은 자리에 둔다(mark.go, ADR-0154).
+	marks map[string]scheme.Cursor
 }
 
 // edit 은 되돌릴 수 있는 변경 하나다. lines 의 [at, at+count) 를 before 로 바꾸면 되돌아간다.
@@ -148,6 +151,12 @@ type edit struct {
 	// **담는 것은 `Buffer` 이고 뜻을 아는 것은 창이다.** 여기서는 int 둘일 뿐이고, 담고 읽는
 	// 것은 viewport 의 beginEdit·revert 다 (ADR-0121).
 	Cursor scheme.Cursor
+
+	// marks 는 구간을 열 때의 mark 다. 되돌리면 이 중 사라진 것을 되살린다.
+	//
+	// **커서와 같은 까닭으로 따로 담는다.** 줄을 지우면 그 줄의 mark 도 지워지는데(mark.go) 되돌린
+	// 글에는 mark 가 남지 않는다. `dd` 한 번에 mark 를 잃지 않게 하는 자리다(ADR-0154).
+	marks map[string]scheme.Cursor
 }
 
 // newEmptyBuffer 는 파일 없이 시작하는 빈 창을 만든다.

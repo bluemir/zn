@@ -405,6 +405,9 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// **범위 접두를 보지 않는다.** `:'<,'>diff` 는 뜻이 서지 않는다 — 견주는 것이 파일
 		// 둘이라 고른 줄이 가리킬 것이 없다(ADR-0140 §3, ADR-0046).
 		return runDiff(m.editor, cmd.args)
+	case "marks":
+		// vim 과 같은 이름이다. `!` 는 이 명령에서 뜻이 없다(ADR-0154).
+		return marksMode(m.editor)
 	case "registers", "reg":
 		// vim 이 `:reg` 를 줄임말로 받는다. `!` 는 이 명령에서 뜻이 없다(ADR-0058).
 		return registersMode(m.editor)

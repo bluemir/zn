@@ -98,6 +98,9 @@ func bufferOf(t *testing.T, m tea.Model) textarea.Viewport {
 	case viewSymbol:
 		// 특수문자 판은 편집 영역 아래에 붙는다. 넣는 자리가 그 위에 그대로 보인다.
 		return v.buffers[v.active]
+	case viewMarks:
+		// mark 판도 편집 영역 아래에 붙는다. 둘러보는 동안 커서가 그 mark 로 간다(ADR-0154).
+		return v.buffers[v.active]
 	case viewSidebar:
 		// 트리에 포커스가 있어도 편집 영역은 옆에 그려져 있다. 그 buffer 를 볼 자리다.
 		return v.buffers[v.active]

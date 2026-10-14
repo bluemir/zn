@@ -27,6 +27,7 @@ func (viewport *Viewport) BeginEdit(at, count int) {
 			before: append([][]byte(nil), viewport.lines[at:at+count]...),
 			count:  count,
 			Cursor: viewport.Cursor,
+			marks:  viewport.marks,
 		})
 		viewport.editing = true
 
@@ -448,9 +449,11 @@ func (viewport *Viewport) revert(e edit) edit {
 		before: append([][]byte(nil), viewport.lines[e.at:e.at+e.count]...),
 		count:  len(e.before),
 		Cursor: viewport.Cursor,
+		marks:  viewport.marks,
 	}
 
 	viewport.ReplaceLines(e.at, e.count, e.before)
+	viewport.restoreMarks(e.marks)
 
 	viewport.Cursor.Line = min(e.Cursor.Line, len(viewport.lines)-1)
 	viewport.Cursor.Col = min(e.Cursor.Col, len(viewport.lines[viewport.Cursor.Line]))

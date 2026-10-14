@@ -170,13 +170,14 @@ func TestSelectionRangeRefusedInNormal(t *testing.T) {
 	assert.Contains(t, barOf(t, m)[1], "고른 범위가 없습니다")
 }
 
-// `'` 뒤에 `<` `>` 가 아닌 것이 오면 mark 다. 아직 없다고 말해 준다.
-func TestSelectionRangeRejectsMark(t *testing.T) {
+// `'` 뒤에 `<` `>` 가 아닌 것이 오면 mark 다. 찍지 않았으면 그렇다고 말해 준다(ADR-0154).
+func TestSelectionRangeRejectsMissingMark(t *testing.T) {
 	m := send(newTestEditor("a\nb\nc\n", 40, 10), ":")
 	m = sendText(m, "'ad")
 	m = send(m, "enter")
 
-	assert.Contains(t, barOf(t, m)[1], "mark 는 아직 쓸 수 없습니다")
+	assert.Equal(t, []string{"a", "b", "c"}, linesOf(bufferOf(t, m)), "파일은 그대로다")
+	assert.Contains(t, barOf(t, m)[1], "찍지 않은 mark 입니다: a")
 }
 
 // `:>` 는 명령이 아니다. `<` `>` 가 범위를 열지 못하므로 이름으로 읽힌다(isRangeChar).

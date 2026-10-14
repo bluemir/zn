@@ -70,5 +70,8 @@ func (viewport Viewport) Adopt(next Viewport) Viewport {
 	// (syntaxCache.revision, ADR-0103).
 	next.syntax.revision = viewport.syntax.revision + 1
 
+	// mark 는 줄 번호를 이어받는다. 커서와 같다(ADR-0154).
+	next.marks = clampMarks(viewport.marks, len(next.lines))
+
 	return next
 }

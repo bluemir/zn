@@ -80,6 +80,9 @@ func (buf *Buffer) ReplaceLines(at, count int, with [][]byte) [][]byte {
 	// 제자리 수정은 undo 를 깨므로(위 주석) 이곳을 지나지 않을 수 없다.
 	buf.syntax.replace(at, count, len(with))
 
+	// mark 도 같은 까닭으로 여기서 줄을 따라간다(mark.go, ADR-0154).
+	buf.shiftMarks(at, old, with)
+
 	return old
 }
 

@@ -430,6 +430,7 @@ var paletteCommands = []paletteCommand{
 	{name: "register 목록", hint: "registers", alias: ":registers", run: runRegisters, when: whenBuffer},
 	{name: "명령줄 이력", hint: "command line history", alias: ":history", run: runHistory},
 	{name: "되돌아간 자리", hint: "jump list", alias: ":jumps", run: runJumps, when: whenBuffer},
+	{name: "mark 목록", hint: "marks", alias: ":marks", run: runMarks, when: whenBuffer},
 	{name: "방문한 자리", hint: "jump logs", alias: ":jumplogs", run: runJumplogs, when: whenBuffer},
 	{name: "정의로 가기", hint: "go to definition", run: runGotoDefinition, when: whenBuffer},
 	{name: "사용처로 가기", hint: "go to references", run: runGotoReferences, when: whenBuffer},

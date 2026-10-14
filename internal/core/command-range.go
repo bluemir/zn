@@ -25,6 +25,8 @@ type lineAddress struct {
 	line int // base 가 addressNumber 일 때의 줄 번호. 사람이 치는 대로 1 부터다
 	// offset 은 `+3` `-2` 처럼 base 에서 옮긴 줄 수다.
 	offset int
+	// mark 는 base 가 addressMark 일 때의 이름이다(`'a` 의 `a`).
+	mark string
 }
 
 // addressBase 는 주소가 어디서 시작하는지다.
@@ -44,6 +46,9 @@ const (
 	// 것이 없어서 거절한다 — mark 를 남기지 않았다(ADR-0089).
 	addressSelectStart
 	addressSelectEnd
+
+	// addressMark 는 찍어 둔 자리(`'a`) 의 줄이다(ADR-0154). 찍었는지는 셀 때 본다.
+	addressMark
 )
 
 // parseLineRange 는 범위 토큰 안쪽을 뜯는다. `1,5` `%` `.` `.,+3` `-2,.` `,5` 가 온다.
@@ -98,10 +103,15 @@ func parseLineAddress(text string) (lineAddress, error) {
 	case strings.HasPrefix(rest, "'>"):
 		addr.base, rest = addressSelectEnd, rest[2:]
 	case rest[0] == '\'':
-		// `'` 로 시작했는데 `<` `>` 가 아니다. mark 를 넣지 않았으므로 여기서 끝이다
-		// (ADR-0089). 아래로 흘리면 「범위를 알 수 없습니다」가 되는데, 무엇이 없는지를
-		// 말해 주는 편이 낫다.
-		return lineAddress{}, errors.Newf("mark 는 아직 쓸 수 없습니다: %s", text)
+		// `<` `>` 가 아니면 mark 이름이다. 찍을 수 없는 이름(`'A` `'1`) 은 여기서 끝이다 —
+		// 아래로 흘리면 「범위를 알 수 없습니다」가 되는데, 무엇이 잘못인지를 말해 주는 편이
+		// 낫다(ADR-0154).
+		name := rest[1:min(len(rest), 2)]
+		if !textarea.IsMarkName(name) {
+			return lineAddress{}, errors.Newf("mark 이름이 아닙니다: %s", text)
+		}
+
+		addr.base, addr.mark, rest = addressMark, name, rest[2:]
 	case rest[0] >= '0' && rest[0] <= '9':
 		digits := 0
 		for digits < len(rest) && rest[digits] >= '0' && rest[digits] <= '9' {
@@ -224,6 +234,13 @@ func (a lineAddress) resolve(buf textarea.Viewport) (int, error) {
 		if a.base == addressSelectEnd {
 			base = area.End.Line
 		}
+	case addressMark:
+		at, ok := buf.Mark(a.mark)
+		if !ok {
+			return 0, errors.Newf("찍지 않은 mark 입니다: %s", a.mark)
+		}
+
+		base = at.Line
 	}
 
 	line := base + a.offset

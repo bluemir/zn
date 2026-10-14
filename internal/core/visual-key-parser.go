@@ -174,7 +174,9 @@ func (s visualStart) press(key string) ([]action, visualState) {
 		return nil, visualCount{reg: s.reg, count: n}
 	}
 
-	if key == "g" {
+	// `'` `` ` `` 는 뒤에 mark 이름이 붙는다. 고른 범위를 그 자리까지 늘린다(ADR-0154).
+	// 찍는 `m` 은 받지 않는다 — 고르는 중에 찍을 자리는 normal 로 나가서 찍는다.
+	if key == "g" || key == "'" || key == "`" {
 		return nil, visualPending{reg: s.reg, prefix: key}
 	}
 
@@ -228,7 +230,7 @@ func (s visualCount) press(key string) ([]action, visualState) {
 	}
 
 	// 접두 키는 숫자를 들고 다음 키를 기다린다. `10gg` 는 10 번째 줄이다.
-	if key == "g" {
+	if key == "g" || key == "'" || key == "`" {
 		return nil, visualPending{reg: s.reg, prefix: key, count: s.count}
 	}
 

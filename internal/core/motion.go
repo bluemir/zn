@@ -265,6 +265,47 @@ func (m motionToFirstLine) span(buf textarea.Viewport, count int) (scheme.Motion
 	return lineSpan(buf, moveOn(m, buf, count))
 }
 
+// ── 줄 단위와 글자 단위가 키로 갈리는 이동 ──
+
+// motionMark 는 찍어 둔 자리로 간다(ADR-0154). `'a` 는 그 줄의 첫 비공백이고 범위가 줄
+// 단위다. 백틱 a 는 찍은 칸 그대로이고 범위가 글자 단위다. vim 과 같다.
+//
+// **숫자를 보지 않는다.** `3'a` 는 `'a` 다.
+//
+// 찍지 않은 이름이면 가지 않고 잡지도 않는다. 알리는 것은 동작 쪽이다(refuseMissingMark).
+type motionMark struct {
+	name     string
+	linewise bool // `'` 로 들어왔는가
+}
+
+func (m motionMark) move(buf *textarea.Viewport, count int) {
+	at, ok := buf.Mark(m.name)
+	if !ok {
+		return
+	}
+
+	if m.linewise {
+		buf.MoveToLine(at.Line)
+
+		return
+	}
+
+	// 칸은 찍은 그대로라 그 사이에 줄이 짧아졌으면 줄 끝 너머다. MoveTo 가 끌어온다(mark.go).
+	buf.MoveTo(at)
+}
+
+func (m motionMark) span(buf textarea.Viewport, count int) (scheme.MotionRange, bool) {
+	if _, ok := buf.Mark(m.name); !ok {
+		return scheme.MotionRange{}, false
+	}
+
+	if m.linewise {
+		return lineSpan(buf, moveOn(m, buf, count))
+	}
+
+	return charSpan(buf, moveOn(m, buf, count))
+}
+
 // ── operator 가 받지 않는 이동 ──
 
 // motionRowUp, motionRowDown 은 `↑` 와 `↓` 다. 화면 행 단위라 줄 단위와 갈려서
