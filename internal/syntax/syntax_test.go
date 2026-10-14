@@ -272,6 +272,23 @@ var languageSamples = []struct {
 		},
 	},
 	{
+		name:  "nginx",
+		state: nginxNormal{},
+		lines: []string{
+			"# 한글 주석이다",
+			"",
+			"server {",
+			"    listen 80;",
+			"    server_name 한글.example.com",
+			"        www.example.com;",
+			`    location ~* \.php$ {`,
+			`        return 200 '첫 줄`,
+			`$uri 둘째 줄';`,
+			"    }",
+			"}",
+		},
+	},
+	{
 		// 한글 줄은 진짜 go.sum 에 없다. 모듈 경로는 ASCII 로만 적기 때문이다. 그래도 넣는
 		// 것은 lexer 가 **이름이 go.sum 인 아무 파일**이나 받기 때문이다 — 사람이 그 이름으로
 		// 만든 메모를 열어도 자리가 글자 가운데를 갈라서는 안 된다.

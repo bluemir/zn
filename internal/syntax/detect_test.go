@@ -83,6 +83,7 @@ func TestLanguageByName(t *testing.T) {
 		{name: "gomod", want: gomodNormal{}},
 		{name: "gowork", want: gomodNormal{}},
 		{name: "gosum", want: gosumNormal{}},
+		{name: "nginx", want: nginxNormal{}},
 		{name: "go.mod", want: nil},
 		{name: "brainfuck", want: nil},
 		{name: "", want: nil},

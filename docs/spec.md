@@ -132,9 +132,11 @@ a b c                       ← 줄 가운데 공백은 그대로
 
 ### 문법 강조
 
-파일 이름으로 언어를 알아보고 본문에 색을 입힌다(ADR-0039). 열한 언어다 — golang, markdown,
-html, css, js, python, shell, makefile, dockerfile, json, yaml. 모르는 확장자(`.txt` 등) 는
+파일 이름으로 언어를 알아보고 본문에 색을 입힌다(ADR-0039). 열두 언어다 — golang, markdown,
+html, css, js, python, shell, makefile, dockerfile, json, yaml, nginx. 모르는 확장자(`.txt` 등) 는
 색이 없다.
+
+nginx 설정은 `nginx.conf` 와 `.nginx` 말고는 놓인 디렉터리로 알아본다. `.conf` 는 nginx 말고도 여러 형식이 같이 쓰는 확장자라서다. `nginx` 디렉터리 아래의 `.conf` 와 `sites-available`·`sites-enabled` 안의 파일이 nginx 다. 상대 경로는 지금 디렉터리를 붙여 본다. directive 이름은 nginx.org 의 색인에 든 것만 칠한다. 표에 없는 이름(서드파티 모듈, 오타, `types` 블록의 MIME 이름) 은 색이 없다. 변수(`$host` `${x}`) 는 따옴표 안에서도 따로 칠한다. 수는 단위(`10m` `30s`) 까지 값 전체가 수일 때만, `on`·`off` 도 값 전체일 때만 칠한다. location 의 비교 표시(`=` `~` `~*` `^~`) 와 그 뒤 패턴은 문자열 색이다.
 
 json 은 계열 넷을 한 lexer 로 훑는다 — `.json`·`.jsonc`·`.json5`·`.hjson` (ADR-0055). 넷이 같은
 모양에 허용하는 것만 달라서 주석·따옴표 없는 키·`'''` 여러 줄 문자열을 어느 확장자에서나 알아본다.
@@ -182,7 +184,7 @@ yaml 의 키와 anchor 가 그렇다. 자리가 이미 갈라 주기 때문이�
 
 **코드펜스 안은 그 언어로 훑는다**(ADR-0040). 여는 표시 뒤 첫 낱말이 언어를 정한다 —
 `go`(`golang`), `md`(`markdown`), `html`, `js`(`javascript`), `css`, `py`(`python`),
-`sh`(`bash` `shell` `zsh`), `make`(`makefile`), `docker`(`dockerfile`) 다. **모르는 이름이나
+`sh`(`bash` `shell` `zsh`), `make`(`makefile`), `docker`(`dockerfile`), `nginx` 다. **모르는 이름이나
 이름이 없으면 색이 없다.** 펜스는 겹칠 수 있다.
 
 html 의 `<script>` 안은 js, `<style>` 안은 css 다. `type` 속성은 보지 않는다.
@@ -1198,6 +1200,7 @@ python | 줄 끝의 `:`, 닫히지 않은 괄호 | `else` `elif` `except` `final
 shell | 줄 끝의 `then` `do` `in` `else`, `{` `(` | `fi` `done` `esac` `else` `elif` `;;`, `}` `)`
 html | 같은 줄에서 닫히지 않은 tag | `</tag>`
 dockerfile | `\` 로 이어지기 시작하는 줄 | 이어짐이 끝난 다음 줄
+nginx | 닫히지 않은 `{` | `}`
 makefile | 대상 줄 다음은 언제나 tab 하나 | 없음
 markdown | 없음 — 목록 표시를 이어 쓴다 | 없음
 그 밖 | 앞 줄의 공백을 그대로 잇는다 | 없음

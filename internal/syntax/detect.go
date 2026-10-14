@@ -84,6 +84,8 @@ var languageRules = []Language{
 		outline: blockOutline{opens: tabBraceIndent}},
 	{names: []string{"go.sum", "go.work.sum"}, aliases: []string{"gosum"},
 		state: gosumNormal{}, indent: gosumIndent{}, outline: flatOutline{}},
+	{exts: []string{".nginx"}, names: []string{"nginx.conf"}, aliases: []string{"nginx"},
+		state: nginxNormal{}, indent: nginxIndent{}, outline: blockOutline{opens: nginxIndent{}}},
 }
 
 // State 는 첫 줄을 시작하는 문맥이다. nil 이면 강조하지 않는 언어다.
@@ -149,6 +151,12 @@ func LanguageFor(path string) *Language {
 	// 때문에 표 전체가 그 칸을 들고 다닌다.
 	if strings.HasPrefix(name, "dockerfile.") {
 		return languageByAlias("dockerfile")
+	}
+
+	// nginx 는 `.conf` 를 남과 같이 써서 이름이 아니라 놓인 디렉터리로 가른다. 이 함수가 이름
+	// 말고 경로를 보는 자리는 이것 하나다(nginx.go 의 nginxPath).
+	if nginxPath(path) {
+		return languageByAlias("nginx")
 	}
 
 	return nil
