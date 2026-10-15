@@ -996,16 +996,20 @@ func newView(rows []string, title string) tea.View {
 	return view
 }
 
-// renderWindowTitle 은 터미널 창 제목에 적을 한 줄이다(ADR-0110).
+// renderWindowTitle 은 터미널 창 제목에 적을 한 줄이다(ADR-0110, ADR-0157).
 //
-//	zn                                  볼 파일이 없을 때
-//	zn editor.go (internal/core)        저장소 아래의 파일
-//	zn editor.go + (internal/core)      저장하지 않은 변경이 있을 때
-//	zn go.mod                           뿌리에 있는 파일이라 적을 폴더가 없다
-//	zn [No Name]                        아직 이름이 없는 buffer
+//	zn zn                               볼 파일이 없을 때
+//	zn zn/internal/core/editor.go       연 폴더 아래의 파일
+//	zn zn/internal/core/editor.go +     저장하지 않은 변경이 있을 때
+//	zn ~/go/pkg/mod/x@v1/a.go           연 폴더 밖의 파일
+//	zn zn/[No Name]                     아직 이름이 없는 buffer
 //
 // **`zn` 이 앞이다.** 창 목록이나 tmux 상태줄은 뒤를 자르는 쪽이라, 무엇이 띄운 제목인지가
 // 먼저 서야 잘려도 남는다.
+//
+// **경로는 연 폴더의 이름부터 적는다.** 같은 저장소를 여러 벌 받아 두거나 여러 저장소를 창마다
+// 띄워 두면 파일 이름만으로는 창이 갈리지 않는다. 연 폴더는 전체가 아니라 끝 이름 하나다.
+// 홈부터 다 적으면 앞쪽이 창마다 같아서 갈라 주는 부분이 뒤로 밀린다.
 //
 // `+` 는 tabline 이 쓰는 것과 같은 글자다(tabLabel). 창을 여럿 띄워 둔 사람이 어느 창에
 // 저장하지 않은 것이 있는지 보는 것이 이 제목의 가장 큰 값이다.
@@ -1015,27 +1019,45 @@ func newView(rows []string, title string) tea.View {
 func (e editor) renderWindowTitle() string {
 	const name = "zn"
 
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = ""
+	}
+	folder := filepath.Base(cwd)
+
 	if !e.hasTab() {
-		return name
+		return strings.TrimSpace(name + " " + folder)
 	}
 
 	buf := e.buffers[e.active]
 
-	title := name + " " + e.tabName(e.active)
+	title := name + " " + titlePath(cwd, buf.Path, e.tabName(e.active))
 	if buf.Dirty {
 		title += " +"
 	}
 
-	if buf.Path == "" {
-		return title
-	}
-
-	// 폴더만 덧붙인다. 파일 이름은 이미 앞에 있다.
-	if dir := filepath.Dir(shortenPath(buf.Path)); dir != "." && dir != "" {
-		title += " (" + dir + ")"
-	}
-
 	return title
+}
+
+// titlePath 는 제목에 적는 경로다. 연 폴더 아래면 그 폴더 이름부터, 밖이면 shortenPath 가
+// 줄인 그대로다. 이름이 없는 buffer 는 연 폴더 아래에 noName 을 둔다. 저장하면 그 자리에 생긴다.
+//
+// 연 폴더를 모르면(cwd 가 빈 것) 폴더 이름 없이 noName 이고, 경로가 있으면 Rel 이 실패해 밖의
+// 파일과 같이 간다.
+func titlePath(cwd, path, noName string) string {
+	if path == "" {
+		return filepath.Join(filepath.Base(cwd), noName)
+	}
+
+	if absolute, err := filepath.Abs(path); err == nil {
+		path = absolute
+	}
+
+	if rel, err := filepath.Rel(cwd, path); err == nil && !strings.HasPrefix(rel, "..") {
+		return filepath.Join(filepath.Base(cwd), rel)
+	}
+
+	return shortenPath(path)
 }
 
 // renderScreen 는 편집 내용에 tabline·sidebar·statusBar 를 맞물려 화면 전체 행을 만든다.

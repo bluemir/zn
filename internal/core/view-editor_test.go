@@ -135,7 +135,7 @@ func TestViewEditorRendersVisibleLines(t *testing.T) {
 	assert.Equal(t, tea.MouseModeCellMotion, view.MouseMode)
 }
 
-// 터미널 창 제목이다(ADR-0110). `zn` 이 앞이고 폴더는 뒤에 괄호로 붙는다.
+// 터미널 창 제목이다(ADR-0110). `zn` 이 앞이고 경로는 연 폴더의 이름부터다(ADR-0157).
 func TestWindowTitle(t *testing.T) {
 	// **symlink 를 풀어서 쓴다.** macOS 의 `/var` 는 `/private/var` 라 t.TempDir() 이 준 것과
 	// os.Getwd() 가 주는 것이 다르고, 그러면 shortenPath 가 경로를 줄이지 못한다
@@ -158,12 +158,14 @@ func TestWindowTitle(t *testing.T) {
 	require.NoError(t, os.Chdir(dir))
 	t.Cleanup(func() { _ = os.Chdir(before) })
 
-	t.Run("폴더가 있는 파일", func(t *testing.T) {
+	folder := filepath.Base(dir)
+
+	t.Run("연 폴더 아래의 파일", func(t *testing.T) {
 		buf, err := textarea.OpenBuffer(deep)
 		require.NoError(t, err)
 
 		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
-		assert.Equal(t, "zn editor.go (internal/core)", e.renderWindowTitle())
+		assert.Equal(t, "zn "+folder+"/internal/core/editor.go", e.renderWindowTitle())
 	})
 
 	t.Run("저장하지 않은 변경", func(t *testing.T) {
@@ -173,25 +175,41 @@ func TestWindowTitle(t *testing.T) {
 		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
 		e.activeBuffer().Insert([]byte("X"))
 
-		assert.Equal(t, "zn editor.go + (internal/core)", e.renderWindowTitle())
+		assert.Equal(t, "zn "+folder+"/internal/core/editor.go +", e.renderWindowTitle())
 	})
 
-	t.Run("뿌리에 있는 파일은 폴더를 적지 않는다", func(t *testing.T) {
+	t.Run("뿌리에 있는 파일", func(t *testing.T) {
 		buf, err := textarea.OpenBuffer(root)
 		require.NoError(t, err)
 
 		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
-		assert.Equal(t, "zn go.mod", e.renderWindowTitle())
+		assert.Equal(t, "zn "+folder+"/go.mod", e.renderWindowTitle())
 	})
 
-	t.Run("이름 없는 buffer", func(t *testing.T) {
+	t.Run("상대 경로로 연 파일", func(t *testing.T) {
+		buf, err := textarea.OpenBuffer(filepath.Join("internal", "core", "editor.go"))
+		require.NoError(t, err)
+
+		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
+		assert.Equal(t, "zn "+folder+"/internal/core/editor.go", e.renderWindowTitle())
+	})
+
+	t.Run("연 폴더 밖의 파일은 줄인 경로 그대로다", func(t *testing.T) {
+		outside := filepath.Join(t.TempDir(), "a.go")
+		buf := textarea.NewEmptyBuffer(outside)
+
+		e := &editor{buffers: []textarea.Viewport{buf}, width: 80, height: 12}
+		assert.Equal(t, "zn "+shortenPath(outside), e.renderWindowTitle())
+	})
+
+	t.Run("이름 없는 buffer 는 연 폴더 아래다", func(t *testing.T) {
 		e := &editor{buffers: []textarea.Viewport{textarea.NewEmptyBuffer("")}, width: 80, height: 12}
-		assert.Equal(t, "zn [No Name]", e.renderWindowTitle())
+		assert.Equal(t, "zn "+folder+"/[No Name]", e.renderWindowTitle())
 	})
 
-	t.Run("볼 파일이 없으면 이름만", func(t *testing.T) {
+	t.Run("볼 파일이 없으면 연 폴더만", func(t *testing.T) {
 		e := &editor{width: 80, height: 12, active: -1}
-		assert.Equal(t, "zn", e.renderWindowTitle())
+		assert.Equal(t, "zn "+folder, e.renderWindowTitle())
 	})
 }
 
@@ -200,7 +218,7 @@ func TestWindowTitleReachesView(t *testing.T) {
 	m := newTestEditor("a\n", 80, 6)
 	m.editor.buffers[0].Path = "main.go"
 
-	assert.Equal(t, "zn main.go", m.View().WindowTitle)
+	assert.Equal(t, "zn core/main.go", m.View().WindowTitle, "시험은 internal/core 에서 돈다")
 }
 
 // **겹쳐 그리는 화면도 제목을 그대로 든다.** 부모의 view 를 쓰기 때문이다(ADR-0110).
@@ -210,7 +228,7 @@ func TestWindowTitleSurvivesOverlays(t *testing.T) {
 	m.editor.buffers[0].Path = "main.go"
 
 	want := m.View().WindowTitle
-	require.Equal(t, "zn main.go", want)
+	require.Equal(t, "zn core/main.go", want)
 
 	back, _ := normalMode(m.editor)
 	confirm := confirmDiscard(back, m.editor, "물음", func() (tea.Model, tea.Cmd) { return nil, nil })

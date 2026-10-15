@@ -45,15 +45,17 @@ East Asian Width 가 Ambiguous 라 폭이 터미널마다 다르다. 시작할 �
 
 ### 터미널 창 제목
 
-편집기가 창 제목에 지금 고치고 있는 파일을 적는다(ADR-0110).
+편집기가 창 제목에 지금 고치고 있는 파일을 적는다(ADR-0110). 경로는 연 폴더(편집기를 띄운 자리) 의 이름부터다(ADR-0157). 아래는 `~/src/bluemir/zn` 에서 띄운 때다.
 
 ```
-zn                                  볼 파일이 없을 때
-zn editor.go (internal/core)        저장소 아래의 파일
-zn editor.go + (internal/core)      저장하지 않은 변경이 있을 때
-zn go.mod                           뿌리에 있는 파일이라 적을 폴더가 없다
-zn [No Name]                        아직 이름이 없는 buffer
+zn zn                               볼 파일이 없을 때
+zn zn/internal/core/editor.go       연 폴더 아래의 파일
+zn zn/internal/core/editor.go +     저장하지 않은 변경이 있을 때
+zn ~/go/pkg/mod/x@v1/a.go           연 폴더 밖의 파일은 홈을 `~` 로 줄인 경로다
+zn zn/[No Name]                     아직 이름이 없는 buffer
 ```
+
+연 폴더는 끝 이름 하나만 적는다. 같은 저장소를 여러 벌 받아 두면 끝 이름이 같아서 갈리지 않는다. 그때는 폴더 이름을 다르게 두는 것이 길이다.
 
 `zn` 이 앞인 것은 창 목록과 tmux 상태줄이 뒤를 자르기 때문이다. `+` 는 tabline 이 쓰는 것과 같은 글자다 — 창을 여럿 띄워 둔 사람이 어느 창에 저장하지 않은 것이 있는지 보는 자리다. tab 개수와 mode 는 적지 않는다.
 
