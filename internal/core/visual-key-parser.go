@@ -86,6 +86,11 @@ func visualAction(key string, count int) action {
 		return actionVisualDelete{}
 	case "y":
 		return actionVisualYank{}
+	case "super+c":
+		// mac 의 cmd+c 다. `"+y` 와 같다. 터미널이 cmd 를 넘겨주어야 오는 키라 Ghostty 는
+		// `performable:super+c=copy_to_clipboard` 로 터미널 쪽 선택이 없을 때만 넘기게 둔다
+		// (ADR-0156).
+		return actionVisualYank{reg: clipboardRegister}
 	case "c":
 		return actionVisualChange{}
 	case "~":
@@ -145,6 +150,11 @@ func visualWithRegister(built action, reg string) action {
 
 		return a
 	case actionVisualYank:
+		// cmd+c 는 이름이 이미 `+` 로 정해져 있다. 그 위에 댄 이름은 덮지 않고 버린다.
+		// `"acmd+c` 가 `a` 에 담기면 클립보드로 보낸 줄 알고 붙인 손이 빈손이 된다.
+		if a.reg != "" {
+			return nil
+		}
 		a.reg = reg
 
 		return a

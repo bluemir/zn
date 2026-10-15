@@ -141,6 +141,35 @@ func TestClipboardVisualYankSends(t *testing.T) {
 	assert.Equal(t, "foo", sent)
 }
 
+// visual 의 cmd+c 는 `"+y` 와 같다. 이름을 대지 않아도 클립보드로 간다(ADR-0156).
+func TestClipboardVisualSuperCSends(t *testing.T) {
+	after, cmd := yankWith(newTestEditor("foo bar\nbaz", 80, 20), "v", "l", "l", "super+c")
+
+	sent, ok := sentClipboard(t, cmd)
+	require.True(t, ok, "클립보드로 보내는 cmd 가 나와야 한다")
+	assert.Equal(t, "foo", sent)
+	require.IsType(t, viewEditorNormal{}, after)
+	assert.Equal(t, "3 글자 복사되었습니다 (클립보드)", after.(viewEditorNormal).notice)
+}
+
+// cmd+c 앞에 댄 이름은 덮지 않고 버린다. `a` 에 담기면 클립보드로 보낸 줄 아는 손이 빈손이 된다.
+func TestClipboardVisualSuperCIgnoresRegister(t *testing.T) {
+	after, cmd := yankWith(newTestEditor("foo bar\nbaz", 80, 20), "v", "l", `"`, "a", "super+c")
+
+	_, ok := sentClipboard(t, cmd)
+	assert.False(t, ok)
+	assert.IsType(t, viewEditorVisual{}, after)
+}
+
+// normal 의 cmd+c 는 아무것도 아니다. 고른 것이 없어서 보낼 것이 없다.
+func TestClipboardNormalSuperCDoesNothing(t *testing.T) {
+	after, cmd := yankWith(newTestEditor("foo bar\nbaz", 80, 20), "super+c")
+
+	_, ok := sentClipboard(t, cmd)
+	assert.False(t, ok)
+	assert.IsType(t, viewEditorNormal{}, after)
+}
+
 // 팔레트의 「선택 영역 클립보드로 복사」는 visual 의 `"+y` 와 같다.
 func TestClipboardPaletteCopySends(t *testing.T) {
 	m := send(newTestEditor("foo bar\nbaz", 80, 20), "v", "l", "l", "ctrl+p")
