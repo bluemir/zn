@@ -34,9 +34,14 @@ type viewEditorCommand struct {
 	// candidates 는 `tab` 이 채우다 만 뒤에 보여줄 후보다(ADR-0099).
 	//
 	// **다음 키에 사라진다.** 글자를 하나 더 치면 후보가 달라지므로, 남겨 두면 화면이
-	// 지금 조각과 어긋난 목록을 들고 있게 된다. 자동완성 창이 곁들여 뜬 것이지 고르는
-	// 화면이 아닌 것과 같은 뜻이다(render-completion.go).
+	// 지금 조각과 어긋난 목록을 들고 있게 된다. insert 의 자동완성 창처럼 위·아래로 골라
+	// `tab`·`enter` 로 넣는다(command-candidates.go, ADR-0158).
 	candidates []string
+
+	// selected 는 후보 창에서 짚어 둔 줄이고, candidateTop 은 창의 첫 줄이 몇째 후보인지다.
+	// 후보가 없으면 뜻이 없다(ADR-0158).
+	selected     int
+	candidateTop int
 
 	// browse 는 위·아래로 이력을 훑는 중인 자리다. 글을 고치면 놓는다(history.go, ADR-0143).
 	browse historyBrowse
@@ -51,6 +56,14 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
+		// 후보 창이 떠 있는 동안에만 몇 키가 창의 것이 된다. 떠 있지 않으면 이 자리는 없는
+		// 것과 같아서 위·아래는 이력을, `enter` 는 실행을 그대로 한다(ADR-0158).
+		if m.candidatesShown() {
+			if next, taken := m.candidateKey(msg.String()); taken {
+				return next, nil
+			}
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			return quitAll(m, m.editor)
@@ -84,18 +97,18 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			// 경로를 받는 명령의 마지막 조각을 채운다. 채울 것이 없으면 아무 일도 없다.
 			// **커서 앞만 넘긴다** — 뒤에 친 것은 완성할 조각이 아니다(input-line.go).
-			filled, candidates := completeCommandLine(m.input.head())
-			m.input.replaceHead(filled)
-			m.candidates = candidates
+			m.complete()
 			m.browse.stop()
 
 			return m, nil
 		case "left", "right", "home", "end":
-			// 글이 바뀌지 않으므로 후보는 그대로 둔다. 후보가 사라지는 것은 「글자를 하나 더
-			// 쳐서 채우다 만 조각이 달라졌을 때」이지 커서를 옮겼을 때가 아니다(ADR-0099).
+			// **후보 창을 닫는다.** 고른 후보는 커서 앞의 마지막 조각을 갈아끼우는데, 커서가
+			// 옮겨 가면 그 조각이 창을 띄운 때의 것이 아니다. 그대로 두면 엉뚱한 자리에 넣는다
+			// (ADR-0158 이 ADR-0099 §4 를 고쳤다).
 			//
-			// 훑던 자리도 같은 까닭으로 지킨다. 거를 접두가 그대로다(ADR-0143 §2).
+			// 훑던 자리는 지킨다. 글이 바뀌지 않아 거를 접두가 그대로다(ADR-0143 §2).
 			m.input.move(msg.String())
+			m.candidates = nil
 
 			return m, nil
 		case "delete":
@@ -124,12 +137,13 @@ func (m viewEditorCommand) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
+	case tea.MouseClickMsg:
+		// 후보 창의 줄을 누른 것만 받는다. 창 밖의 클릭은 받지 않는다. 치던 명령이 클릭
+		// 한 번에 조용히 사라지면 안 된다(ADR-0158).
+		return m.candidateClick(msg.Mouse()), nil
 	case tea.MouseWheelMsg:
-		// 명령을 치는 동안에도 화면은 둘러볼 수 있다.
-		// 클릭은 받지 않는다 — 치던 명령이 클릭 한 번에 조용히 사라지면 안 된다.
-		m.wheel(msg.Mouse())
-
-		return m, nil
+		// 명령을 치는 동안에도 화면은 둘러볼 수 있다. 후보 창 위면 창을 민다(ADR-0158).
+		return m.candidateWheel(msg.Mouse()), nil
 	case jobProgressMsg, jobDoneMsg, gitTickMsg, fileTickMsg, editTickMsg, watchMsg, serverReadyMsg, definitionMsg, referencesMsg, renameMsg, diagnosticsMsg, semanticTokensMsg:
 		// 백그라운드 작업의 진행도 주기 tick 도 mode 와 무관하다. 공용 처리가 statusBar 에
 		// 반영하고 다음 조각과 다음 tick 을 받을 Cmd 를 준다(job.go). 파일 검사 tick 은

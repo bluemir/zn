@@ -202,6 +202,18 @@ func completeCommandLine(input string) (string, []string) {
 	return head + filled, candidates
 }
 
+// applyCandidate 는 채우다 만 명령줄의 마지막 조각을 고른 후보로 바꾼다(ADR-0158).
+//
+// **디렉터리 자리는 친 그대로 두고 그 뒤만 갈아끼운다.** 후보는 그 디렉터리 안의 이름이라,
+// `:e internal/co` 에서 `core/` 를 고르면 `internal/` 은 남고 `co` 만 `core/` 가 된다.
+// `~/` 도 친 그대로 남는다(ADR-0088).
+func applyCandidate(head, name string) string {
+	fragment := lastField(head)
+	dir, _ := splitPathFragment(fragment)
+
+	return head[:len(head)-len(fragment)] + dir + name
+}
+
 // lastField 는 마지막 빈 칸 뒤의 글이다. 빈 칸으로 끝나면 빈 글이다.
 func lastField(rest string) string {
 	if space := strings.LastIndexByte(rest, ' '); space >= 0 {
