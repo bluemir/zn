@@ -142,8 +142,8 @@ func (e *editor) clickTabline(x int) tea.Cmd {
 	return e.revealInSidebar(e.activeBuffer().Path)
 }
 
-// rightClick 은 오른쪽 버튼을 먹는다. tabline 의 tab 을 닫고 트리에서는 메뉴를 띄운다
-// (ADR-0060, ADR-0146). 다른 영역에서는 아무 일도 없다.
+// rightClick 은 오른쪽 버튼을 먹는다. tabline 의 tab 을 닫고 트리에서는 메뉴를 띄우며,
+// 편집 영역에서는 컨텍스트 메뉴를 연다(ADR-0060, ADR-0146, ADR-0159). 다른 영역에서는 아무 일도 없다.
 //
 // mode 마다 갈라 두지 않았다. 닫는 일도 메뉴를 띄우는 일도 지금 어느 mode 인지와 상관이
 // 없고, mode 를 옮겨야 하는 경우(보고 있던 tab 을 닫았다) 는 닫는 쪽이 안다. 왼쪽 버튼이
@@ -167,6 +167,8 @@ func rightClick(parent tea.Model, e *editor, mouse tea.Mouse) (tea.Model, tea.Cm
 		}
 
 		return closeTabAt(parent, e, index)
+	case regionText:
+		return editorContextMenuMode(parent, e, mouse.X, mouse.Y)
 	}
 
 	return parent, nil

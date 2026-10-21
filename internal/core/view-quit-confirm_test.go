@@ -49,7 +49,7 @@ func TestOverlaysKeepEveryTerminalSetting(t *testing.T) {
 		assert.Equal(t, want, settings(overlay.View()), "%s 이 설정을 잃었다", name)
 	}
 
-	// **트리 메뉴만 `MouseMode` 를 일부러 올린다**(ADR-0146). hover 를 받으려면 AllMotion
+	// **트리 메뉴와 컨텍스트 메뉴만 `MouseMode` 를 일부러 올린다**(ADR-0146, ADR-0159). hover 를 받으려면 AllMotion
 	// 이어야 한다. 그래서 견주는 상대도 「부모의 view 에 그것만 얹은 것」이다 — 나머지 셋은
 	// 여전히 하나도 달라지면 안 되고, 칸이 늘어도 이 시험이 먼저 걸린다.
 	raised := m.View()
@@ -57,6 +57,10 @@ func TestOverlaysKeepEveryTerminalSetting(t *testing.T) {
 
 	assert.Equal(t, settings(raised), settings(menu.View()), "트리 메뉴가 설정을 잃었다")
 	assert.NotEqual(t, want, settings(menu.View()), "메뉴는 MouseMode 를 올린다")
+
+	ctxMenu := viewEditorContextMenu{editor: m.editor, parent: back, hover: -1}
+	assert.Equal(t, settings(raised), settings(ctxMenu.View()), "컨텍스트 메뉴가 설정을 잃었다")
+	assert.NotEqual(t, want, settings(ctxMenu.View()), "컨텍스트 메뉴는 MouseMode 를 올린다")
 }
 
 // must 는 mode 를 여는 함수의 model 만 집는다. 여는 Cmd 는 이 시험이 볼 것이 아니다.

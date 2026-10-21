@@ -17,7 +17,7 @@ func click(x, y int) tea.MouseClickMsg {
 	return tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft}
 }
 
-// rightClickAt 은 오른쪽 버튼으로 누른 좌표다. tabline 에서만 뜻이 있다(ADR-0060).
+// rightClickAt 은 오른쪽 버튼으로 누른 좌표다. tabline·트리·편집 영역에서 쓴다(ADR-0060, ADR-0146, ADR-0159).
 func rightClickAt(x, y int) tea.MouseClickMsg {
 	return tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseRight}
 }
@@ -205,9 +205,9 @@ func TestNonLeftButtonIsIgnored(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\ndef\n", 40, 5)
 	left := contentLeftOf(t, m)
 
-	m, _ = m.Update(tea.MouseClickMsg{X: left + 2, Y: tablineHeight + 1, Button: tea.MouseRight})
+	m, _ = m.Update(tea.MouseClickMsg{X: left + 2, Y: tablineHeight + 1, Button: tea.MouseMiddle})
 
-	assert.Equal(t, 0, cursorLineOf(t, m), "편집 영역의 오른쪽 버튼은 아무 일도 하지 않는다")
+	assert.Equal(t, 0, cursorLineOf(t, m), "편집 영역의 가운데 버튼은 아무 일도 하지 않는다")
 }
 
 // 누르던 접두 키를 클릭이 조용히 삼키면 안 된다.

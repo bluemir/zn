@@ -69,6 +69,12 @@ var styleSelection = lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreg
 // 내용이 없어서다 — 고른 범위와 메뉴 항목이 한 화면에 같이 서는 자리가 없다.
 var styleMenuHover = lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(lipgloss.Color("231"))
 
+// styleMenuDisabled 는 비활성화된 메뉴 항목의 색이다(ADR-0159).
+//
+// sidebar 와 상대 줄번호가 쓰는 244 다. 이 저장소가 「흐린 글씨」로 이미 정해 둔 값이라
+// 새 회색을 하나 더 만들지 않는다(styleLineNumberRelative, ADR-0005).
+var styleMenuDisabled = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
 var (
 	// styleLineNumberAbsolute 는 절대 줄번호 색이다. vim 의 `LineNr` 과 같은 노란색(ANSI 3)이라
 	// 256 색 고정값과 달리 터미널 테마가 정한 노랑을 따른다(ADR-0007).
