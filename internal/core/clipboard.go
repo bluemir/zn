@@ -95,12 +95,13 @@ func clipboardText(block textarea.TextBlock) string {
 // **`\n` 으로 끝나면 줄 단위다.** 실려 온 갈래가 없으니 글 자체에서 읽는다. 줄을 통째로
 // 긁어 온 것은 대개 끝에 개행이 있고 낱말 하나를 고른 것에는 없다(ADR-0148).
 //
-// **`\r\n` 은 `\n` 으로 고친다.** 브라우저나 윈도우 쪽에서 온 글이 그 모양이고, 그대로
+// **`\r\n` 과 `\r` 은 `\n` 으로 고친다.** 브라우저나 윈도우 쪽에서 온 글이 그 모양이고, 그대로
 // 두면 줄 끝마다 보이지 않는 글자가 하나씩 박힌다.
 //
 // 빈 글은 빈 덩이다. 붙여넣기가 조용히 아무 일도 하지 않는 자리로 그대로 간다(ADR-0017).
 func clipboardBlock(text string) textarea.TextBlock {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
 	if text == "" {
 		return textarea.TextBlock{}
 	}

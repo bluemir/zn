@@ -1,6 +1,8 @@
 package core
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bluemir/zn/internal/textarea"
@@ -34,10 +36,13 @@ func (m viewEditorInsert) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 없으므로 가져온다 — 검사가 작업으로 내려가며 normal 과 같은 길이 되었다(ADR-0044).
 		return m, m.startOutsideCheck()
 	case tea.PasteMsg:
-		// 붙여넣기는 여러 줄일 수 있다. insert 가 줄바꿈을 알아서 가른다.
+		// 붙여넣기는 여러 줄일 수 있다. 줄바꿈을 \n 으로 맞춘다.
+		content := strings.ReplaceAll(msg.Content, "\r\n", "\n")
+		content = strings.ReplaceAll(content, "\r", "\n")
+
 		buf := m.activeBuffer()
-		buf.Insert([]byte(msg.Content))
-		m.recordInsert(insertStep{key: stepPaste, text: msg.Content})
+		buf.Insert([]byte(content))
+		m.recordInsert(insertStep{key: stepPaste, text: content})
 		m.scrollToCursor()
 
 		return m, m.scheduleEditTick()

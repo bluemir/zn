@@ -60,6 +60,11 @@ func (viewport *Viewport) Insert(text []byte) {
 		return
 	}
 
+	// \r\n 과 \r 은 모두 \n 으로 맞춘다. 브라우저나 터미널 붙여넣기에서 온 글이
+	// 그 모양이고, lines 의 각 줄은 \r 을 담지 않는 것이 불변식이다(ADR-0001).
+	text = bytes.ReplaceAll(text, []byte("\r\n"), []byte("\n"))
+	text = bytes.ReplaceAll(text, []byte("\r"), []byte("\n"))
+
 	line := viewport.lines[viewport.Cursor.Line]
 	head, tail := line[:viewport.Cursor.Col], line[viewport.Cursor.Col:]
 	pieces := bytes.Split(text, []byte{'\n'})

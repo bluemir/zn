@@ -80,12 +80,15 @@ func TestClipboardBlockReadsLinewiseFromTrailingNewline(t *testing.T) {
 		clipboardBlock("foo"))
 }
 
-// `\r\n` 은 `\n` 으로 고친다. 브라우저에서 온 글이 그 모양이라 그대로 두면 줄 끝마다
+// `\r\n` 과 `\r` 은 `\n` 으로 고친다. 브라우저나 터미널에서 온 글이 그 모양이라 그대로 두면 줄 끝마다
 // 보이지 않는 글자가 박힌다.
 func TestClipboardBlockDropsCarriageReturn(t *testing.T) {
 	assert.Equal(t,
 		textarea.TextBlock{Lines: [][]byte{[]byte("foo"), []byte("bar")}, Linewise: true},
 		clipboardBlock("foo\r\nbar\r\n"))
+	assert.Equal(t,
+		textarea.TextBlock{Lines: [][]byte{[]byte("foo"), []byte("bar")}, Linewise: true},
+		clipboardBlock("foo\rbar\r"))
 }
 
 // 빈 글은 빈 덩이다. 붙여넣기가 조용히 아무 일도 하지 않는 자리로 간다(ADR-0017).

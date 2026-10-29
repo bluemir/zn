@@ -75,6 +75,19 @@ func TestPasteInsertsMultipleLines(t *testing.T) {
 	assert.Equal(t, []string{"ab", "X", "cd"}, linesOf(bufferOf(t, next)))
 }
 
+// \r\n 과 \r 개행이 포함된 붙여넣기도 정상적으로 줄이 나뉘고 \r 이 남지 않는다.
+func TestPasteNormalizesCarriageReturns(t *testing.T) {
+	for _, content := range []string{"b\r\nX\r\nc", "b\rX\rc"} {
+		m := newTestEditor("ad\n", 40, 5)
+		insert, _ := m.Update(key("i"))
+		insert, _ = insert.Update(key("right"))
+
+		next, _ := insert.Update(tea.PasteMsg{Content: content})
+
+		assert.Equal(t, []string{"ab", "X", "cd"}, linesOf(bufferOf(t, next)))
+	}
+}
+
 // u 로 되돌리고 ctrl+r 로 다시 적용한다.
 func TestUndoRedoThroughKeys(t *testing.T) {
 	var m tea.Model = newTestEditor("abc\n", 40, 5)

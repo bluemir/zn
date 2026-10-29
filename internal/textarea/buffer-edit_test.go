@@ -85,6 +85,20 @@ func TestInsertMultipleLines(t *testing.T) {
 	assert.Equal(t, 1, buf.Cursor.Col, "마지막 조각 뒤")
 }
 
+// \r\n 과 \r 개행도 \n 으로 정규화되어 줄이 갈린다.
+func TestInsertNormalizesCarriageReturns(t *testing.T) {
+	for _, text := range []string{"b\r\nmiddle\r\nc", "b\rmiddle\rc"} {
+		buf := NewBuffer("test.txt", []byte("ad\n"))
+		buf.Cursor.Col = 1
+
+		buf.Insert([]byte(text))
+
+		assert.Equal(t, []string{"ab", "middle", "cd"}, linesOf(buf))
+		assert.Equal(t, 2, buf.Cursor.Line)
+		assert.Equal(t, 1, buf.Cursor.Col)
+	}
+}
+
 func TestDeleteBackward(t *testing.T) {
 	tests := []struct {
 		name   string
