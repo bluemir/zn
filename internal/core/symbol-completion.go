@@ -48,6 +48,12 @@ func symbolAliasAt(line []byte, col int) (alias string, start int, ok bool) {
 		return "", 0, false
 	}
 
+	// **`::` 뒤는 별칭이 아니다.** rust·C++ 의 경로 구분이다. 별칭으로 읽으면 서버에 묻지 않아서
+	// `HashMap::ne` 에서 서버 후보가 끝내 뜨지 않는다(ADR-0160).
+	if at >= 2 && line[at-2] == ':' {
+		return "", 0, false
+	}
+
 	return string(line[at:end]), at - 1, true
 }
 

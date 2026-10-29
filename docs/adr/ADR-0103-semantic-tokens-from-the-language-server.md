@@ -109,6 +109,8 @@ type syntaxLine struct {
 
 LSP 규격이 정한 이름을 우리 갈래로 옮긴다. gopls 말고 다른 서버가 붙어도 같은 표로 읽힌다.
 
+> 2026-10-29: rust-analyzer 는 규격 밖의 이름을 절반쯤 쓴다. 그 이름들과 선언 표시 `declaration` 을 표에 더했다(ADR-0160 §3).
+
 | 서버가 말한 것 | 우리 갈래 |
 |---|---|
 | `type`, `typeParameter`, `namespace` | `KindType` |

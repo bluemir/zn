@@ -22,6 +22,8 @@ func TestDetect(t *testing.T) {
 		{name: "markdown", path: "docs/tasks.md", want: mdNormal{}},
 		{name: "확장자를 다 적은 markdown", path: "notes.markdown", want: mdNormal{}},
 		{name: "이름에 go 가 들었을 뿐", path: "cmd/gopher/notes.txt", want: nil},
+		{name: "rust", path: "src/main.rs", want: rustNormal{}},
+		{name: "Cargo.toml", path: "Cargo.toml", want: tomlNormal{}},
 	}
 
 	for _, test := range tests {
@@ -84,6 +86,9 @@ func TestLanguageByName(t *testing.T) {
 		{name: "gowork", want: gomodNormal{}},
 		{name: "gosum", want: gosumNormal{}},
 		{name: "nginx", want: nginxNormal{}},
+		{name: "rust", want: rustNormal{}},
+		{name: "rs", want: rustNormal{}},
+		{name: "toml", want: tomlNormal{}},
 		{name: "go.mod", want: nil},
 		{name: "brainfuck", want: nil},
 		{name: "", want: nil},

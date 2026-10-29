@@ -86,6 +86,10 @@ var languageRules = []Language{
 		state: gosumNormal{}, indent: gosumIndent{}, outline: flatOutline{}},
 	{exts: []string{".nginx"}, names: []string{"nginx.conf"}, aliases: []string{"nginx"},
 		state: nginxNormal{}, indent: nginxIndent{}, outline: blockOutline{opens: nginxIndent{}}},
+	{exts: []string{".rs"}, aliases: []string{"rust", "rs"}, state: rustNormal{},
+		indent: rustIndent{}, outline: blockOutline{opens: rustIndent{}}},
+	{exts: []string{".toml"}, aliases: []string{"toml"}, state: tomlNormal{},
+		indent: tomlIndent{}, outline: flatOutline{}},
 }
 
 // State 는 첫 줄을 시작하는 문맥이다. nil 이면 강조하지 않는 언어다.

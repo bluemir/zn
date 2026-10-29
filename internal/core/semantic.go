@@ -151,29 +151,51 @@ func (e *editor) applySemanticTokens(msg semanticTokensMsg) {
 //
 // 이름은 서버가 악수에서 알린 표의 것이다(lsp/semantic.go). LSP 규격이 정한 이름이라
 // 서버가 달라도 같은 표로 읽힌다 — pyright 는 이 표를 쓰지 않는다(문법 토큰을 내지 않는다, ADR-0107).
+//
+// **규격 밖의 이름도 받는다.** rust-analyzer 는 `struct`·`builtinType`·`enumMember` 처럼 제
+// 이름을 쓴다(재서 본 값이다, ADR-0160). 서버가 말한 줄은 lexer 의 답을 통째로 갈아끼우므로
+// (ADR-0103) 여기 없는 이름은 lexer 가 칠하던 색까지 지운다.
 func semanticKind(token lsp.SemanticToken) syntax.Kind {
 	switch token.Type {
-	case "type", "typeParameter", "namespace":
+	case "type", "typeParameter", "namespace",
+		"struct", "enum", "interface", "union", "typeAlias", "builtinType", "selfTypeKeyword",
+		"derive", "toolModule":
 		// package 이름도 type 색이다. `syntax.State` 처럼 앞에 붙는 이름은 그 뒤의 type 과
 		// 한 덩어리로 읽히고, `errors.New` 의 `errors` 도 같은 이름이라 같이 칠한다.
+		//
+		// `#[derive(Debug)]` 의 `Debug` 는 trait 이름이라 type 이다.
 		return syntax.KindType
 
-	case "function", "method", "macro":
+	case "function", "method", "macro",
+		"decorator", "attribute", "builtinAttribute", "attributeBracket", "procMacro", "deriveHelper":
+		// rust 의 attribute(`#[test]`) 는 python 의 decorator 와 같은 자리라 같은 색이다
+		// (syntax/python.go 의 pyDecoratorAt).
 		return syntax.KindFunction
 
-	case "keyword":
+	case "keyword", "selfKeyword":
 		return syntax.KindKeyword
 
 	case "comment":
 		return syntax.KindComment
 
-	case "string":
+	case "string", "character", "escapeSequence", "formatSpecifier":
+		// rust-analyzer 는 `"{} {c}\n"` 을 따옴표·`{`·`}`·`\n` 으로 잘라 보낸다. 조각마다 이름이
+		// 달라도 한 문자열이라 한 색으로 둔다. 하나라도 빠지면 문자열 가운데에 구멍이 난다.
 		return syntax.KindString
 
 	case "number":
 		return syntax.KindNumber
 
-	case "variable", "parameter", "property":
+	case "boolean", "enumMember", "const":
+		// `true`·`None`·`const LIMIT` 이다. Go 에서 `nil`·`true`·`const` 가 상수 색인 것과 같다.
+		return syntax.KindConstant
+
+	case "lifetime":
+		// `'a` 는 값이 아니라 빌림이 사는 구간의 이름이다. type 색에 섞으면 `&'a str` 의 두
+		// 이름이 한 덩어리로 보인다.
+		return syntax.KindVariable
+
+	case "variable", "parameter", "property", "static":
 		// 값이 바뀌지 않는 이름은 상수다. `nil`·`true`·`iota` 와 `const` 로 선언한 것이
 		// 여기 든다 — lexer 가 이름 표로 잡던 것과 같은 갈래다(syntax/go.go).
 		if slices.Contains(token.Modifiers, "readonly") {
@@ -183,7 +205,10 @@ func semanticKind(token lsp.SemanticToken) syntax.Kind {
 		// **이름을 붙이는 자리만 칠한다.** 그 이름을 쓰는 자리까지 칠하면 Go 소스의 거의 모든
 		// 식별자가 한 색이 되어 색이 구조를 짚어 주지 못한다. 선언은 파일에 한 번뿐이라
 		// 눈이 「여기서 생겼다」를 짚을 자국이 된다.
-		if slices.Contains(token.Modifiers, "definition") {
+		//
+		// rust-analyzer 는 같은 표시를 `declaration` 이라 적는다. gopls 의 수식 표에는 그
+		// 이름이 아예 없어서(재서 본 값이다) 둘을 같이 받아도 Go 의 색은 그대로다.
+		if slices.Contains(token.Modifiers, "definition") || slices.Contains(token.Modifiers, "declaration") {
 			return syntax.KindVariable
 		}
 	}

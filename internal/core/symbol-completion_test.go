@@ -31,6 +31,9 @@ func TestSymbolAliasAt(t *testing.T) {
 		{line: ":"},
 		{line: "key: "},
 		{line: "x := 1"},
+		// rust·C++ 의 경로 `::` 뒤는 별칭이 아니다. 걸리면 서버에 묻지 않아 `HashMap::new` 가 뜨지 않는다
+		{line: "HashMap::ne"},
+		{line: "std::fmt::Di"},
 		{line: "tada"},
 		{line: ""},
 	} {

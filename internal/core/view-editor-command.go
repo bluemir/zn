@@ -289,11 +289,11 @@ func (m viewEditorCommand) run() (tea.Model, tea.Cmd) {
 		// **나가는 길에서는 설치를 묻지 않는다.** 깔려 있지 않으면(errHookNotInstalled) 맞추지
 		// 않고 그냥 쓴다 — 여기서 창을 띄우면 tab 을 닫는 것과 겹친다. 다음 `:w` 가 묻는다
 		// (ADR-0065).
-		hook, _ := m.saveHookFor(buf.Path)
+		format, _ := m.saveFormatFor(buf.Path)
 		if cmd.force {
-			note, err = buf.SaveForce(hook.saveFormat())
+			note, err = buf.SaveForce(format)
 		} else {
-			note, err = buf.Save(hook.saveFormat())
+			note, err = buf.Save(format)
 		}
 		if err != nil {
 			return normalModeError(m.editor, err)
@@ -702,7 +702,7 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 
 	// 쓰기 직전에 통과시킬 포매터다. 깔려 있지 않으면 hook 이 nil 이고 까닭이 따라온다 —
 	// 그것을 가지고 물을지는 저장을 끝낸 뒤에 본다(save-hook.go, ADR-0065).
-	hook, hookErr := m.saveHookFor(buf.Path)
+	format, hookErr := m.saveFormatFor(buf.Path)
 
 	// `!` 는 읽은 뒤 밖에서 바뀐 파일도 덮어쓴다는 뜻이다 (ADR-0015).
 	var (
@@ -710,9 +710,9 @@ func (m viewEditorCommand) save(cmd command) (tea.Model, tea.Cmd) {
 		note string
 	)
 	if cmd.force {
-		note, err = buf.SaveForce(hook.saveFormat())
+		note, err = buf.SaveForce(format)
 	} else {
-		note, err = buf.Save(hook.saveFormat())
+		note, err = buf.Save(format)
 	}
 	if err != nil {
 		return normalModeError(m.editor, err)

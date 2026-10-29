@@ -129,6 +129,39 @@ func (e *editor) saveHookFor(path string) (*saveHook, error) {
 	return hook, nil
 }
 
+// saveFormatFor 는 그 파일을 저장할 때 통과시킬 것을 창이 쓰는 꼴로 준다. 돌릴 것이 없으면 nil 이다.
+//
+// **바깥 포매터가 먼저고, 없으면 언어 서버다.** 서버에게 맡기는 언어는 표에 포매터 줄이 없다
+// (rust, ADR-0160). 까닭(errHookNotInstalled) 은 바깥 포매터의 것만 온다 — 서버가 없거나 아직
+// 뜨지 않았으면 맞추지 않고 쓴다. 서버를 까는 물음은 `\gd` 의 몫이다(gotoDefinition).
+func (e *editor) saveFormatFor(path string) (*textarea.SaveFormat, error) {
+	hook, err := e.saveHookFor(path)
+	if hook != nil || err != nil {
+		return hook.saveFormat(), err
+	}
+
+	return e.serverSaveFormat(path), nil
+}
+
+// serverSaveFormat 은 그 파일을 맡은 서버에게 맞추게 하는 길이다. 맡길 서버가 없으면 nil 이다.
+//
+// 기다리는 한계는 바깥 포매터와 같다. 저장이 그만큼 화면을 멈추는 것도 같다.
+func (e *editor) serverSaveFormat(path string) *textarea.SaveFormat {
+	server, absolute, ok := serverPath(path)
+	if !ok || !server.Formats() {
+		return nil
+	}
+
+	client := e.clientOf(server)
+	if client == nil {
+		return nil
+	}
+
+	return &textarea.SaveFormat{Name: server.Name, Run: func(in []byte) ([]byte, error) {
+		return client.Format(absolute, in, saveHookTimeout)
+	}}
+}
+
 // lookupHook 은 그 폴더에서 쓸 명령이다. 찾지 못하면 nil 이다.
 //
 // **찾는 일은 폴더마다 한 번만 하고 담아 둔다.** `go tool` 은 저장마다 130ms 이고 PATH 의

@@ -1,16 +1,19 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluemir/zn/internal/lsp"
 	"github.com/bluemir/zn/internal/textarea"
 )
 
@@ -200,4 +203,81 @@ func TestFormatterAskWhileInstalling(t *testing.T) {
 
 	assert.False(t, e.askFormatter(ruff))
 	assert.True(t, e.askFormatter(formatterFor("main.go")), "남의 작업은 이 물음을 막지 않는다")
+}
+
+// rust 는 표에 포매터 줄이 없다. 서버가 없으면 맞추지 않고 쓰고, **설치를 묻지 않는다** —
+// 까닭이 붙지 않아야 저장 뒤에 포매터 설치 창이 뜨지 않는다(ADR-0160).
+func TestSaveFormatForRustWithoutServer(t *testing.T) {
+	e := &editor{}
+
+	format, err := e.saveFormatFor("src/main.rs")
+
+	assert.Nil(t, format)
+	assert.NoError(t, err)
+	assert.Nil(t, formatterFor("src/main.rs"), "rust 는 바깥 포매터가 아니라 서버가 맞춘다")
+}
+
+// 맞추기를 맡기지 않는 서버에게는 묻지 않는다. Go 는 gopls 가 떠 있어도 goimports 가 맞춘다.
+func TestServerSaveFormatOnlyForFormattingServers(t *testing.T) {
+	e := &editor{}
+	e.serverState(lsp.ServerFor("main.go")).client = &lsp.Client{}
+
+	assert.Nil(t, e.serverSaveFormat("main.go"))
+}
+
+// 진짜 rust-analyzer 로 저장까지 간다. `async fn` 이 든 2021 crate 라 edition 을 모르면 실패한다.
+func TestSaveFormatsRustThroughServer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("rust-analyzer 에게 실제로 묻는 시험이라 -short 에서는 건너뛴다")
+	}
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Cargo.toml"),
+		[]byte("[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "src"), 0755))
+
+	path := filepath.Join(dir, "src", "main.rs")
+	require.NoError(t, os.WriteFile(path, []byte("async fn 인사(){ let x=1; }\nfn main(){}\n"), 0644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	server := lsp.ServerFor(path)
+	require.NotNil(t, server)
+
+	client, err := lsp.Start(ctx, dir, server)
+	if err != nil {
+		t.Skip("rust-analyzer 가 없다: " + err.Error())
+	}
+
+	t.Cleanup(client.Shutdown)
+
+	buf, err := textarea.OpenBuffer(path)
+	require.NoError(t, err)
+
+	e := &editor{buffers: []textarea.Viewport{buf}, width: 100, height: 30}
+	e.serverState(server).client = client
+	require.NoError(t, client.Open(path, e.activeBuffer().AllLines()))
+
+	// crate 를 읽는 동안은 고칠 것이 없다는 답(`null`) 이 온다. 맞춘 답이 올 때까지 기다린다.
+	format, err := e.saveFormatFor(path)
+	require.NoError(t, err)
+	require.NotNil(t, format)
+
+	in := []byte("async fn 인사(){ let x=1; }\nfn main(){}\n")
+	for started := time.Now(); time.Since(started) < 60*time.Second; time.Sleep(200 * time.Millisecond) {
+		out, err := format.Run(in)
+		require.NoError(t, err)
+		if string(out) != string(in) {
+			break
+		}
+	}
+
+	note, err := e.activeBuffer().Save(format)
+	require.NoError(t, err)
+	assert.Equal(t, "rust-analyzer: 4 줄 맞춤, 2 줄 늘어남", note)
+
+	written, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "async fn 인사() {\n    let x = 1;\n}\nfn main() {}\n", string(written))
 }

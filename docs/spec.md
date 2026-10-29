@@ -134,9 +134,13 @@ a b c                       ← 줄 가운데 공백은 그대로
 
 ### 문법 강조
 
-파일 이름으로 언어를 알아보고 본문에 색을 입힌다(ADR-0039). 열두 언어다 — golang, markdown,
-html, css, js, python, shell, makefile, dockerfile, json, yaml, nginx. 모르는 확장자(`.txt` 등) 는
+파일 이름으로 언어를 알아보고 본문에 색을 입힌다(ADR-0039). 열네 언어다 — golang, markdown,
+html, css, js, python, shell, makefile, dockerfile, json, yaml, nginx, rust, toml. 모르는 확장자(`.txt` 등) 는
 색이 없다.
+
+rust 는 `.rs` 다(ADR-0160). 이름 모양으로 갈래를 어림한다. CamelCase 는 type, 대문자로만 지은 이름(`MAX_LEN`) 은 상수, `println!` 처럼 `!` 가 붙은 것은 `!` 까지 macro 로 함수 색이다. `Some`·`None`·`Ok`·`Err` 와 `true`·`false` 는 값이다. `#[derive(..)]`·`#![allow(..)]` 는 attribute 이름까지가 함수 색이고 괄호 안은 보통 코드로 훑는다. `'a` 는 lifetime 이고 `'a'` 는 문자다. 블록 주석은 겹친다(`/* /* */ */`). `"` 문자열과 raw 문자열(`r#"..."#`) 은 줄을 넘는다. rust-analyzer 가 뜨면 서버가 색을 갈아끼운다(「언어 서버」).
+
+toml 은 `.toml` 이다(ADR-0161). `Cargo.toml`·`pyproject.toml` 이 여기 든다. 표 머리(`[package]`·`[[bin]]`) 는 markdown 제목과 같은 색이다. `=` 앞의 이름은 키 색이고 인라인 표(`{ version = "1" }`) 안의 키도 그렇다. 수·날짜·시각(`1_000` `0xff` `inf` `1979-05-27T07:32:00Z`) 은 수 색, `true`·`false` 는 값 색이다. 세 겹 따옴표(`"""` `'''`) 는 줄을 넘는다. 여러 줄 배열 안의 줄 앞 `[` 는 표 머리가 아니라 안쪽 배열이다. 언어 서버는 붙지 않는다.
 
 nginx 설정은 `nginx.conf` 와 `.nginx` 말고는 놓인 디렉터리로 알아본다. `.conf` 는 nginx 말고도 여러 형식이 같이 쓰는 확장자라서다. `nginx` 디렉터리 아래의 `.conf` 와 `sites-available`·`sites-enabled` 안의 파일이 nginx 다. 상대 경로는 지금 디렉터리를 붙여 본다. directive 이름은 nginx.org 의 색인에 든 것만 칠한다. 표에 없는 이름(서드파티 모듈, 오타, `types` 블록의 MIME 이름) 은 색이 없다. 변수(`$host` `${x}`) 는 따옴표 안에서도 따로 칠한다. 수는 단위(`10m` `30s`) 까지 값 전체가 수일 때만, `on`·`off` 도 값 전체일 때만 칠한다. location 의 비교 표시(`=` `~` `~*` `^~`) 와 그 뒤 패턴은 문자열 색이다.
 
@@ -186,7 +190,7 @@ yaml 의 키와 anchor 가 그렇다. 자리가 이미 갈라 주기 때문이�
 
 **코드펜스 안은 그 언어로 훑는다**(ADR-0040). 여는 표시 뒤 첫 낱말이 언어를 정한다 —
 `go`(`golang`), `md`(`markdown`), `html`, `js`(`javascript`), `css`, `py`(`python`),
-`sh`(`bash` `shell` `zsh`), `make`(`makefile`), `docker`(`dockerfile`), `nginx` 다. **모르는 이름이나
+`sh`(`bash` `shell` `zsh`), `make`(`makefile`), `docker`(`dockerfile`), `nginx`, `rust`(`rs`), `toml` 다. **모르는 이름이나
 이름이 없으면 색이 없다.** 펜스는 겹칠 수 있다.
 
 html 의 `<script>` 안은 js, `<style>` 안은 css 다. `type` 속성은 보지 않는다.
@@ -225,7 +229,7 @@ wrap 되어 이어지는 화면 행은 번호 칸이 빈 칸이다. 번호가 �
 
 ### 진단 마커
 
-언어 서버가 붙는 파일을 열면 서버가 오류와 경고를 보내오고, 그것이 줄번호 왼쪽 마커 칸에 선다(ADR-0086). Go 는 gopls, python 은 pyright 다(ADR-0107). 컴파일 오류도 여기 든다. 따로 `go build` 를 돌리지 않는다.
+언어 서버가 붙는 파일을 열면 서버가 오류와 경고를 보내오고, 그것이 줄번호 왼쪽 마커 칸에 선다(ADR-0086). Go 는 gopls, python 은 pyright, rust 는 rust-analyzer 다(ADR-0107, ADR-0160). 컴파일 오류도 여기 든다. 따로 `go build` 를 돌리지 않는다.
 
 ```
 ✖   8  1         fmt.Println(undefinedThing)
@@ -252,18 +256,25 @@ wrap 되어 이어지는 화면 행은 번호 칸이 빈 칸이다. 번호가 �
 
 ### 언어 서버
 
-**어느 파일에 어느 서버가 붙는지는 표 한 줄이 정한다**(ADR-0107). 지금 두 줄이다.
+**어느 파일에 어느 서버가 붙는지는 표 한 줄이 정한다**(ADR-0107). 지금 세 줄이다.
 
 서버 | 확장자 | 찾는 순서 | 없을 때 깔는 명령
 ---|---|---|---
 gopls | `.go` | PATH → `GOBIN` → `GOPATH/bin` | `go install golang.org/x/tools/gopls@latest`
 pyright | `.py` | `VIRTUAL_ENV` → 저장소의 `.venv`·`venv` → PATH → `uv tool dir --bin` | `uv tool install 'pyright[nodejs]'`
+rust-analyzer | `.rs` | PATH → `CARGO_HOME/bin`(없으면 `~/.cargo/bin`) | `rustup component add rust-analyzer`
 
 그 언어의 파일을 처음 열 때 서버가 뜬다. 서버마다 하나씩이고, 서버가 없으면 `\gd`·`\gr`·`\rn` 이 설치를 한 번 묻는다. **서버 하나가 깔려 있지 않은 것이 다른 언어를 막지 않는다** — 뜨는 중인지·실패했는지·몇 번 죽었는지가 서버마다 따로다.
 
 **서버마다 자기 언어의 파일만 받는다.** 열린 tab 이 여러 언어여도 각 서버는 자기 몫만 안다.
 
-**python 의 색은 lexer 가 낸다.** pyright 는 문법 토큰을 주지 않아서(재서 확인했다) 서버가 색을 갈아끼우는 길(ADR-0103) 이 python 에서는 돌지 않는다. Go 만 그 길을 탄다.
+**python 의 색은 lexer 가 낸다.** pyright 는 문법 토큰을 주지 않아서(재서 확인했다) 서버가 색을 갈아끼우는 길(ADR-0103) 이 python 에서는 돌지 않는다. Go 와 rust 가 그 길을 탄다.
+
+**rust 는 서버가 뜬 뒤 1~4 초 동안 답이 비어 있다.** rust-analyzer 가 crate 와 표준 라이브러리를 읽는 동안이다(재서 본 값이다). 그동안 색은 lexer 의 것이고 자동완성은 뜨지 않는다. 서버는 crate 를 읽으므로 편집기를 `Cargo.toml` 이 있는 자리(또는 그 위) 에서 띄워야 정의와 완성이 온다.
+
+**rust 는 저장할 때 rust-analyzer 가 맞춘다**(ADR-0160). 바깥 포매터(Go 의 goimports, python 의 ruff) 자리를 서버가 맡는다. 서버가 crate 의 edition 을 알아서 rustfmt 를 그 edition 으로 돌린다. 서버가 아직 뜨지 않았거나 crate 를 읽는 중이면, 그리고 문법이 깨져 있으면 **맞추지 않고 조용히 쓴다**. 그때는 저장 문구에 아무것도 붙지 않는다. 맞추는 데 쓰는 rustfmt 는 rustup 의 `rustfmt` 구성 요소다.
+
+**`::` 바로 뒤는 특수문자 별칭 자리가 아니다.** `HashMap::ne` 의 `:ne` 를 별칭(`:+1:`) 으로 읽으면 서버에 묻지 않아서 그렇게 갈랐다(ADR-0135, ADR-0160).
 
 ### git 마커
 
@@ -1205,6 +1216,8 @@ shell | 줄 끝의 `then` `do` `in` `else`, `{` `(` | `fi` `done` `esac` `else` 
 html | 같은 줄에서 닫히지 않은 tag | `</tag>`
 dockerfile | `\` 로 이어지기 시작하는 줄 | 이어짐이 끝난 다음 줄
 nginx | 닫히지 않은 `{` | `}`
+rust | 닫히지 않은 `{` `(` `[` | `}` `)` `]`
+toml | 닫히지 않은 `[` `{` (여러 줄 배열·인라인 표) | `]` `}`
 makefile | 대상 줄 다음은 언제나 tab 하나 | 없음
 markdown | 없음 — 목록 표시를 이어 쓴다 | 없음
 그 밖 | 앞 줄의 공백을 그대로 잇는다 | 없음

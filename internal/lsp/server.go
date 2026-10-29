@@ -44,6 +44,13 @@ type Server struct {
 	// install 은 없을 때 깔 명령이다. 첫 칸이 그것을 낼 도구라, 그 도구가 없으면 묻지
 	// 않고 물러난다(core 의 installServer).
 	install []string
+
+	// formats 는 저장할 때 이 서버에게 맞추기를 맡기는지다(ADR-0160).
+	//
+	// **rust-analyzer 만 참이다.** rustfmt 를 stdin 으로 돌리면 crate 의 edition 을 몰라서
+	// 2015 로 읽는데, 서버는 crate 를 이미 읽어 그것을 안다. Go·python 은 바깥 포매터가 그
+	// 일을 한다(core 의 formatters).
+	formats bool
 }
 
 // servers 는 붙이는 언어 서버 전부다. 새 서버는 여기 한 줄이 는다.
@@ -68,6 +75,14 @@ var servers = []Server{
 		args:       []string{"--stdio"},
 		find:       findPyright,
 		install:    []string{"uv", "tool", "install", "pyright[nodejs]"},
+	},
+	{
+		Name:       "rust-analyzer",
+		exts:       []string{".rs"},
+		languageID: "rust",
+		find:       findRustAnalyzer,
+		install:    []string{"rustup", "component", "add", "rust-analyzer"},
+		formats:    true,
 	},
 }
 
@@ -121,6 +136,11 @@ func serverNamed(name string) *Server {
 // Install 은 이 서버를 깔 명령이다. 첫 칸이 그것을 낼 도구다.
 func (server *Server) Install() []string {
 	return server.install
+}
+
+// Formats 는 저장할 때 이 서버에게 맞추기를 맡기는지다.
+func (server *Server) Formats() bool {
+	return server.formats
 }
 
 // InstallHint 는 설치 명령을 사람이 셸에 칠 수 있는 한 줄로 적은 것이다.
@@ -261,4 +281,44 @@ func uvToolBin() string {
 	}
 
 	return filepath.Join(home, ".local", "bin")
+}
+
+// findRustAnalyzer 는 rust-analyzer 실행 파일을 찾는다.
+//
+// **PATH 만 보지 않는다.** rustup 은 `~/.cargo/bin` 에 넣고, 셸 설정을 건드리지 않게 깔면
+// (`--no-modify-path`) 그 자리가 PATH 에 없다. gopls 의 GOBIN 과 같은 자리다(findGopls).
+//
+// **찾았다고 깔린 것이 아니다.** `~/.cargo/bin/rust-analyzer` 는 rustup 의 대리 실행 파일이라
+// 구성 요소를 넣지 않아도 서 있다. 그때는 띄우는 자리가 실패하고, 실패한 서버는 `\gd` 에서
+// 설치를 묻는다(core 의 gotoDefinition). 그 길이 `rustup component add` 로 이어지므로 여기서
+// 구성 요소를 따로 묻지 않는다.
+func findRustAnalyzer(root string) (string, error) {
+	if path, err := exec.LookPath("rust-analyzer"); err == nil {
+		return path, nil
+	}
+
+	if dir := cargoBinDir(); dir != "" {
+		path := filepath.Join(dir, "rust-analyzer")
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			return path, nil
+		}
+	}
+
+	return "", errors.New("rust-analyzer 를 찾지 못했다. `rustup component add rust-analyzer` 로 넣는다")
+}
+
+// cargoBinDir 은 rustup 과 `cargo install` 이 실행 파일을 넣는 자리다. 모르면 빈 글이다.
+//
+// `CARGO_HOME` 이 앞이다. 비어 있으면 rustup 이 문서에 적어 둔 기본값 `~/.cargo` 다.
+func cargoBinDir() string {
+	if home := os.Getenv("CARGO_HOME"); home != "" {
+		return filepath.Join(home, "bin")
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".cargo", "bin")
 }

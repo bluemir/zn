@@ -30,6 +30,10 @@ type responseError struct {
 	Message string `json:"message"`
 }
 
+// contentModified 는 「묻는 사이 글이 바뀌었으니 다시 물어라」다(LSP 규격의 ContentModified).
+// rust-analyzer 는 crate 를 읽는 동안에도 이것으로 답한다.
+const contentModified = -32801
+
 func (e *responseError) Error() string {
 	return fmt.Sprintf("%s (code %d)", e.Message, e.Code)
 }

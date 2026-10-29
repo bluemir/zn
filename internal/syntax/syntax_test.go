@@ -289,6 +289,43 @@ var languageSamples = []struct {
 		},
 	},
 	{
+		name:  "rust",
+		state: rustNormal{},
+		lines: []string{
+			"/// 한글 문서 주석",
+			"",
+			"#[derive(Debug)]",
+			"struct 인사<'a> {",
+			"    이름: &'a str,",
+			"}",
+			"/* 바깥 /* 안 */",
+			"   아직 주석 */",
+			`let s = "첫 줄`,
+			`둘째 줄";`,
+			`let r = r#"원시 "한글"`,
+			`끝"#;`,
+			"let c = '한';",
+		},
+	},
+	{
+		name:  "toml",
+		state: tomlNormal{},
+		lines: []string{
+			"# 한글 주석",
+			"",
+			"[package]",
+			`이름 = "한글"`,
+			"[dependencies]",
+			`serde = { version = "1", features = ["derive"] }`,
+			"keywords = [",
+			`    "편집기",`,
+			"]",
+			`설명 = """`,
+			`여러 줄 "따옴표"`,
+			`"""`,
+		},
+	},
+	{
 		// 한글 줄은 진짜 go.sum 에 없다. 모듈 경로는 ASCII 로만 적기 때문이다. 그래도 넣는
 		// 것은 lexer 가 **이름이 go.sum 인 아무 파일**이나 받기 때문이다 — 사람이 그 이름으로
 		// 만든 메모를 열어도 자리가 글자 가운데를 갈라서는 안 된다.

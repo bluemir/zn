@@ -551,7 +551,18 @@
 		- [ ] 따옴표로 감싼 경로(`module "example.com/x"`) 를 문자열로 낼지 정한다. 문법에는 있는데 `go mod tidy` 가 벗겨 내서 실제 파일에는 남지 않는다 (ADR-0039)
 		- [ ] `v` 로 시작하는 모듈 경로(`v2.example.com/x`) 가 버전으로 읽힌다. 낱말 모양만 보아서 그렇고, 가르려면 줄의 짜임을 알아야 한다 (ADR-0039)
 		- [ ] 트리 색(`treeRow.style()`) 에도 넣을지 정한다. 지금은 `.go` 만 Go 색이라 go.mod 이 색 없는 파일로 보인다. 확장자 표를 합칠지와 같이 본다 (ADR-0039)
-	- [ ] rust
+	- [x] rust (ADR-0160)
+		- [ ] 저장 문구가 「맞추지 않았다」를 알릴지 정한다. 서버가 읽는 중이거나 문법이 깨졌을 때 rust-analyzer 가 `null` 로 답해서 지금은 조용히 쓴다. goimports·ruff 는 까닭을 알린다 (ADR-0065, ADR-0160)
+		- [ ] `\gd`·`\gr`·`\rn` 이 `content modified`(-32801) 를 받으면 한 번 되물을지 정한다. 서버가 crate 를 읽는 첫 몇 초에 오고, 지금은 그 문구가 그대로 알림에 선다 (ADR-0051, ADR-0160)
+		- [ ] 서버 설치 명령의 첫 칸(`rustup`) 도 `~/.cargo/bin` 에서 찾을지 정한다. 지금은 PATH 만 봐서 `--no-modify-path` 로 깐 기계에서 「명령어를 찾을 수 없습니다」가 된다 (ADR-0107, ADR-0160)
+		- [ ] rustfmt 구성 요소가 없을 때 저장에 무엇이 오는지 재고, 설치를 물을지 정한다. `rustup component add rustfmt` 다 (ADR-0160)
+		- [ ] 파일을 열고 손대지 않으면 서버 색이 오지 않는다. 서버가 뜬 뒤 거는 tick 하나가 crate 를 읽는 중에 빈 답을 받고, 다음 tick 은 키를 쳐야 걸린다. 빈 답이면 한 번 더 걸지 정한다 (ADR-0103, ADR-0160)
+		- [ ] loop 이름표(`'outer:`) 를 lifetime 과 가를지 정한다. 서버는 `label` 로 주고 우리 표는 그것을 그리지 않는다 (ADR-0103, ADR-0160)
+		- [ ] 트리 색에 `.rs` 를 넣을지 정한다. go.mod 항목과 같이 본다 (ADR-0039, ADR-0160)
+	- [x] toml (ADR-0161)
+		- [ ] lock 파일(`Cargo.lock`·`uv.lock`·`poetry.lock`) 도 toml 로 볼지 정한다. 형식은 toml 인데 확장자가 아니라 이름으로 알아봐야 한다 (ADR-0161)
+		- [ ] 표 머리를 뼈대(머리줄) 로 세울지 정한다. 지금은 뼈대가 없다(`flatOutline`). 긴 Cargo.toml 에서 지금 어느 표 안인지 보이게 된다 (ADR-0049, ADR-0161)
+		- [ ] toml 언어 서버(taplo) 를 붙일지 정한다. 자동완성과 저장할 때 맞추기가 따라온다 (ADR-0107, ADR-0161)
 - [ ] 새 버전 알림
 - [x] tab에 열려있는 file 을 sidebar 에서 파일삭제하면 탭을 닫아 주기
 	- [ ] 모달 물음 창 넷을 묶을지 정한다. `viewConfirmDiscard`·`viewSidebarDelete`·`viewServerInstallConfirm`·`viewFormatterInstallConfirm` 이 `boxWidth`·`renderBox`·`View` 를 거의 같은 글로 들고 있다 (ADR-0110, ADR-0130)
