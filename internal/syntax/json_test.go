@@ -135,7 +135,7 @@ func TestJSONBlockCommentSpansLines(t *testing.T) {
 	assert.Equal(t, jsonNormal{}, next)
 }
 
-// hjson 의 `”'` 는 여러 줄 문자열이다.
+// hjson 의 작은따옴표 셋은 여러 줄 문자열이다.
 func TestJSONMultilineStringSpansLines(t *testing.T) {
 	got, next := lexedAll(t, jsonNormal{},
 		`{ text: '''여러 줄에`,

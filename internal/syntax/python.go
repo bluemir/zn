@@ -10,7 +10,7 @@ import (
 type pyNormal struct{}
 
 // pyTripleQuote 는 세 겹 따옴표 문자열 안이다. 여는 따옴표 글자를 든다 —
-// `"""` 는 `”'` 로 닫히지 않는다.
+// 큰따옴표 셋은 작은따옴표 셋으로 닫히지 않는다.
 type pyTripleQuote struct {
 	quote byte
 }

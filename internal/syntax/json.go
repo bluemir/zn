@@ -13,7 +13,7 @@ type jsonNormal struct{}
 // jsonComment 는 `/*` 로 열린 주석 안이다.
 type jsonComment struct{}
 
-// jsonQuoted 는 hjson 의 `”'` 로 열린 여러 줄 문자열 안이다.
+// jsonQuoted 는 hjson 의 작은따옴표 셋으로 열린 여러 줄 문자열 안이다.
 type jsonQuoted struct{}
 
 func (jsonNormal) Indent() Indent  { return jsonIndent{} }
