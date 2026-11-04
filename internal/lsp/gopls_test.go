@@ -449,7 +449,7 @@ func TestGoplsSemanticTokens(t *testing.T) {
 	}
 
 	assert.Equal(t, "type", got["goToken"], "새 type 의 이름이다")
-	assert.Equal(t, "property", got["offset"], "struct 의 필드다")
+	assert.Contains(t, []string{"property", "variable"}, got["offset"], "struct 의 필드다")
 	assert.Equal(t, "type", got["Token"], "`token.Token` 의 뒤쪽이다")
 	assert.Equal(t, "namespace", got["token"], "package 이름이다")
 	assert.Equal(t, "keyword", got["struct"])

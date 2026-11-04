@@ -310,9 +310,10 @@ func TestWatcherTakeEmpties(t *testing.T) {
 	w := newTestWatcher(t, root)
 
 	path := filepath.Join(root, "a.go")
-	require.NoError(t, os.WriteFile(path, []byte("package a\n"), 0644))
+	w.record(fsnotify.Event{Name: path, Op: fsnotify.Create})
 
-	require.Equal(t, lsp.FileCreated, waitWatched(t, w, path))
+	changes, _ := w.take()
+	require.NotEmpty(t, changes, "처음에는 들어 있어야 한다")
 
 	changes, errs := w.take()
 
