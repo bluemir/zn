@@ -118,3 +118,10 @@ func TestLanguageRulesHaveDistinctAliases(t *testing.T) {
 		}
 	}
 }
+
+func TestLanguageIs(t *testing.T) {
+	assert.True(t, LanguageFor("index.html").Is("html"))
+	assert.True(t, LanguageFor("index.htm").Is("html"))
+	assert.False(t, LanguageFor("main.go").Is("html"))
+	assert.False(t, LanguageFor("notes.txt").Is("html"), "모르는 언어는 nil 이고 거짓이다")
+}

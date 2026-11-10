@@ -129,6 +129,13 @@ func (lang *Language) PairsTags() bool {
 	return lang != nil && lang.pairsTags
 }
 
+// Is 는 이 언어가 그 이름으로 불리는지다. 이름은 aliases 칸의 것이다(`html`, `go`).
+//
+// nil 이면 거짓이다 — 모르는 언어는 어느 이름으로도 불리지 않는다.
+func (lang *Language) Is(alias string) bool {
+	return lang != nil && slices.Contains(lang.aliases, alias)
+}
+
 // LanguageFor 는 이름에 맞는 표의 한 줄이다. 모르는 이름이면 nil 이다.
 //
 // **경로가 언어로 읽히는 자리는 여기 하나다.** 칸마다 함수를 두면(전에는 Detect·IndentFor·

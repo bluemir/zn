@@ -360,3 +360,32 @@ func TestRightClickOnTablineStillClosesTab(t *testing.T) {
 
 	assert.Len(t, closed.(viewEditorNormal).buffers, 1, "누른 tab 이 닫힌다")
 }
+
+// html 파일은 맨 위에 「브라우저로 열기」가 선다. 고르는 기준은 강조가 html 로 읽는지다.
+func TestSidebarMenuOffersBrowserForHTML(t *testing.T) {
+	tests := []struct {
+		name  string
+		path  string
+		isDir bool
+		want  bool
+	}{
+		{name: "html", path: "/p/index.html", want: true},
+		{name: "htm 도 html 이다", path: "/p/old.htm", want: true},
+		{name: "확장자가 대문자", path: "/p/INDEX.HTML", want: true},
+		{name: "html 이 아닌 파일", path: "/p/main.go", want: false},
+		{name: "이름이 html 인 디렉터리", path: "/p/site.html", isDir: true, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			menu := viewSidebarMenu{editor: &editor{}, path: tc.path, isDir: tc.isDir}
+
+			labels := labelsOf(menu)
+			if tc.want {
+				assert.Equal(t, []string{"브라우저로 열기", "새 파일", "새 이름", "복제", "지우기"}, labels)
+			} else {
+				assert.NotContains(t, labels, "브라우저로 열기")
+			}
+		})
+	}
+}

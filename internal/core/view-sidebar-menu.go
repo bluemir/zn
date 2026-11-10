@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/bluemir/zn/internal/syntax"
 	"github.com/bluemir/zn/internal/textarea"
 )
 
@@ -164,12 +165,25 @@ func (m viewSidebarMenu) items() []menuItem {
 		return []menuItem{create}
 	}
 
-	return []menuItem{
-		create,
-		{label: "새 이름", run: m.openRename},
-		{label: "복제", run: m.openCopy},
-		{label: "지우기", run: m.openDelete},
+	items := []menuItem{}
+
+	// **html 파일에만 선다.** 고르는 기준은 확장자가 아니라 강조가 html 로 읽는지다(ADR-0162).
+	// 맨 위에 두는 것은 파일을 고치는 넷과 갈래가 달라서다 — 바깥에 보여 주는 일이다.
+	if !m.isDir && syntax.LanguageFor(m.path).Is("html") {
+		items = append(items, menuItem{label: openJobName, run: m.openExternal})
 	}
+
+	return append(items,
+		create,
+		menuItem{label: "새 이름", run: m.openRename},
+		menuItem{label: "복제", run: m.openCopy},
+		menuItem{label: "지우기", run: m.openDelete},
+	)
+}
+
+// openExternal 은 파일을 OS 의 기본 앱에 넘기고 메뉴를 닫는다. 화면은 우클릭 직전 그대로다.
+func (m viewSidebarMenu) openExternal() (tea.Model, tea.Cmd) {
+	return m.parent, m.startOpenExternal(m.path)
 }
 
 // openCreate 는 이름을 받는 상자로 간다. 만들 자리는 대상 기준이다 — 디렉터리를 눌렀으면
