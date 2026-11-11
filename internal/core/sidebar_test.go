@@ -737,8 +737,10 @@ func TestSidebarCountIgnoredByFileAction(t *testing.T) {
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = sendSync(t, model, "3", "m", "d")
+	model = send(model, "3", "m", "d")
+	require.IsType(t, viewSidebarDelete{}, model)
 
+	model = sendSync(t, model, "enter")
 	require.IsType(t, viewSidebar{}, model)
 	_, err := os.Stat(filepath.Join(root, "README.md"))
 	assert.Error(t, err, "숫자가 붙어도 그 한 파일을 지운다")

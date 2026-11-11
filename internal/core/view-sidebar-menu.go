@@ -214,11 +214,7 @@ func (m viewSidebarMenu) openCopy() (tea.Model, tea.Cmd) {
 	})
 }
 
-// openDelete 는 확인창으로 간다.
-//
-// **메뉴에서는 깨끗한 파일도 묻는다.** `md` 는 묻지 않는데(ADR-0057) 여기서 갈리는 것은
-// 클릭이 미끄러지기 때문이다(ADR-0060). 키로 지우는 것은 `m` 과 `d` 를 이어 쳐야 하지만
-// 메뉴는 누른 자리 바로 아래에 항목이 서므로, 메뉴를 닫으려던 손이 그 자리를 누를 수 있다.
+// openDelete 는 확인창으로 간다. `md` 와 같은 창이다(ADR-0163).
 func (m viewSidebarMenu) openDelete() (tea.Model, tea.Cmd) {
 	return deleteConfirmMode(m.parent, m.editor, m.path, m.isDir, m.dirtyTabsUnder(m.path, m.isDir))
 }

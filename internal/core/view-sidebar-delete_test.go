@@ -21,23 +21,33 @@ func deleteBoxOf(t *testing.T, m tea.Model) string {
 	return ansi.Strip(v.renderBox(v.boxWidth()))
 }
 
-// 깨끗한 파일은 `md` 두 키로 곧바로 지운다. 묻지 않는다(ADR-0057).
-func TestSidebarDeleteRemovesFileWithoutAsking(t *testing.T) {
+// 깨끗한 파일도 묻는다. 처음 고른 자리가 Yes 라 `enter` 하나로 지운다(ADR-0163).
+func TestSidebarDeleteAsksForCleanFile(t *testing.T) {
 	m := newTreeEditor(t, 80, 10)
 	root := m.sidebar.root
 
 	model := selectTree(t, tea.Model(m), "README.md")
-	model = sendSync(t, model, "m", "d")
+	model = send(model, "m", "d")
 
-	require.IsType(t, viewSidebar{}, model, "묻지 않고 트리에 머문다")
+	require.IsType(t, viewSidebarDelete{}, model, "깨끗한 파일도 묻는다")
+
+	box := deleteBoxOf(t, model)
+	assert.Contains(t, box, "README.md 를 지울까요?")
+	assert.NotContains(t, box, "안의 것까지", "파일은 안이 없다")
+	assert.NotContains(t, box, "저장하지 않은", "열어둔 tab 이 없으면 그 줄이 없다")
 
 	_, err := os.Stat(filepath.Join(root, "README.md"))
+	assert.NoError(t, err, "묻는 동안에는 아직 그대로다")
+
+	model = sendSync(t, model, "enter")
+
+	require.IsType(t, viewSidebar{}, model, "지운 뒤에도 트리에 머문다")
+
+	_, err = os.Stat(filepath.Join(root, "README.md"))
 	assert.Error(t, err, "지워졌다")
 
 	v := model.(viewSidebar)
 	assert.NotContains(t, names(v.sidebar.rows()), "1:README.md", "트리를 다시 읽어서 그 행이 없다")
-
-	// 묻지 않으므로 이 알림이 무엇이 사라졌는지 말하는 유일한 자리다.
 	assert.Contains(t, barOf(t, model)[1], "지웠습니다: README.md")
 }
 
@@ -159,9 +169,13 @@ func TestSidebarDeleteClosesOpenTab(t *testing.T) {
 	require.Len(t, model.(viewEditorNormal).buffers, 2)
 
 	model = selectTree(t, model, "README.md")
-	model = sendSync(t, model, "m", "d")
+	model = send(model, "m", "d")
 
-	require.IsType(t, viewSidebar{}, model, "고친 것이 없으면 묻지 않는다")
+	require.IsType(t, viewSidebarDelete{}, model)
+	assert.NotContains(t, deleteBoxOf(t, model), "저장하지 않은", "고친 것이 없으면 잃을 tab 이 없다")
+
+	model = sendSync(t, model, "enter")
+	require.IsType(t, viewSidebar{}, model)
 
 	_, err := os.Stat(filepath.Join(root, "README.md"))
 	assert.Error(t, err, "지워졌다")

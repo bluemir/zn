@@ -13,7 +13,7 @@ import (
 	"github.com/bluemir/zn/internal/textarea"
 )
 
-// removeTreeEntry 는 정말 지운다. 곧바로 지우는 파일과 확인을 거친 디렉터리가 같이 쓴다.
+// removeTreeEntry 는 정말 지운다. 확인창의 Yes 가 부른다.
 //
 // 지울 수 있는 자리인지는 이미 걸러져 있다(viewSidebar.deleteFile). 여기서는 지우고,
 // 그 자리를 다시 읽고, 무엇이 사라졌는지 남기는 것만 한다.
@@ -47,8 +47,7 @@ func removeTreeEntry(e *editor, path string, isDir bool) (tea.Model, tea.Cmd) {
 	// 그 자리에 올라온다 — 편집 영역에서 `dd` 뒤에 커서가 다음 줄에 서는 것과 같다.
 	refresh := e.refreshDir(filepath.Dir(path))
 
-	// 파일은 묻지 않고 지우므로 이 알림이 무엇이 사라졌는지 말하는 유일한 자리다(ADR-0057).
-	// 닫은 tab 도 여기서 말한다. tabline 에서 사라진 것을 화면만 보고는 지우기가 한 일인지
+	// 무엇이 사라졌는지 남긴다. 닫은 tab 도 여기서 말한다. tabline 에서 사라진 것을 화면만 보고는 지우기가 한 일인지
 	// 알 수 없다. 지나간 것은 `:messages` 에 남는다(ADR-0053, ADR-0130).
 	message := "지웠습니다: " + label
 	if closed > 0 {
@@ -63,10 +62,9 @@ func removeTreeEntry(e *editor, path string, isDir bool) (tea.Model, tea.Cmd) {
 
 // deleteConfirmMode 는 지우기 전에 한 번 더 묻는 modal 이다. 트리에서 `md` 로 들어온다.
 //
-// **묻는 자리가 이 창 하나다.** 깨끗한 파일은 여기 오지 않고 곧바로 지워지지만(ADR-0057),
-// 물을 일이 있는 것은 셋 다 이 창으로 온다 — 디렉터리, 저장하지 않은 tab 이 딸린 파일,
-// 그 둘이 겹친 것이다. 전에는 디렉터리만 statusBar 아래 줄에서 묻고 저장하지 않은 tab 은
-// 종료 확인창이 물어서, 같은 `md` 가 무엇을 골랐는지에 따라 다른 자리에 나타났다(ADR-0130).
+// **묻는 자리가 이 창 하나다.** 지우는 것은 전부 이 창으로 온다(ADR-0163). 잃는 것이 더
+// 있으면(디렉터리의 안, 저장하지 않은 tab) 그것이 한 줄씩 붙는다. 전에는 디렉터리만
+// statusBar 아래 줄에서 묻고 저장하지 않은 tab 은 종료 확인창이 물어서, 같은 `md` 가 무엇을 골랐는지에 따라 다른 자리에 나타났다(ADR-0130).
 //
 // statusBar 아래 줄에서 modal 로 올라온 까닭은 그 한 줄이 좁아서다. 편집 영역 폭뿐이라
 // 80 칸 터미널에서 47 칸이고, 잃는 것이 둘(안의 것, 저장하지 않은 tab) 이면 이름이 잘린다.

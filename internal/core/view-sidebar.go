@@ -279,13 +279,14 @@ func (m viewSidebar) createFile() (tea.Model, tea.Cmd) {
 	return createFileMode(m.editor, dir)
 }
 
-// deleteFile 은 `md` 다. 지울 수 있는 자리인지 보고 파일은 곧바로 지운다.
+// deleteFile 은 `md` 다. 지울 수 있는 자리인지 보고 확인창으로 넘긴다.
 //
-// 여기서 걸러내는 둘은 물어 봐도 답이 하나뿐인 것들이다. 그 둘을 지나면 파일은 묻지 않고
-// 지우고 디렉터리만 묻는 화면으로 넘긴다(ADR-0057).
+// 여기서 걸러내는 둘은 물어 봐도 답이 하나뿐인 것들이다. 그 둘을 지나면 파일이든 디렉터리든
+// 묻는다(ADR-0163). 전에는 깨끗한 파일을 묻지 않고 지웠는데(ADR-0057) 잘못 누른 `md` 를
+// 되돌릴 길이 없었다.
 //
 // **tab 에 열려 있는 것도 지운다.** 지우면서 그 tab 을 같이 닫는다(ADR-0130). 저장하지 않은
-// 변경이 있는 것만 물어 본다 — 묻지 않고 지우는 근거가 「잃을 것이 없다」였다.
+// 변경이 있으면 창이 그것을 한 줄 더 적는다.
 func (m viewSidebar) deleteFile() (tea.Model, tea.Cmd) {
 	node := m.sidebar.selectedNode()
 	if node == nil {
@@ -302,17 +303,8 @@ func (m viewSidebar) deleteFile() (tea.Model, tea.Cmd) {
 
 	// symlink 는 가리키는 것이 디렉터리여도 링크만 지우므로 파일 쪽이다.
 	isDir := node.isDir && !node.isSymlink
-	dirty := m.dirtyTabsUnder(node.path, isDir)
 
-	// 물을 일이 있으면 창 하나로 보낸다. 디렉터리는 안의 것이 화면에 드러나지 않아서고,
-	// 저장하지 않은 tab 은 그 편집이 갈 곳이 없어서다(ADR-0057, ADR-0130).
-	if isDir || dirty > 0 {
-		return deleteConfirmMode(m, m.editor, node.path, isDir, dirty)
-	}
-
-	// 깨끗한 파일은 묻지 않는다. 트리의 그 행이 이름을 다 보여주고 있어서 물음이 더해 주는
-	// 것이 없다. 무엇이 사라졌는지는 아래 줄의 알림이 말한다(ADR-0057).
-	return removeTreeEntry(m.editor, node.path, false)
+	return deleteConfirmMode(m, m.editor, node.path, isDir, m.dirtyTabsUnder(node.path, isDir))
 }
 
 // renameFile 은 `mm` 이다. 지금 경로가 채워진 화면으로 넘긴다.
